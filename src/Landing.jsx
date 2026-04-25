@@ -98,9 +98,12 @@ export default function FindeLanding() {
 
     const url = "https://script.google.com/macros/s/AKfycbxgW7R-djQ0dE_SFhNgPykemzNSMkimFJS4KKnrEci5sjPCYO2-4PwHSJu-KDDK8NZTzA/exec?" + params.toString();
 
-    navigator.sendBeacon(url);
+    const img = new Image();
+    img.src = url;
 
-    setSubmitted(true);
+    setTimeout(() => {
+      setSubmitted(true);
+    }, 1500);
   };
  
   const canSubmit =
