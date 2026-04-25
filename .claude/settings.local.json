@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(lsof -ti:5173)",
+      "Bash(npx eslint *)",
+      "Bash(curl *)",
+      "Bash(node -e ' *)",
+      "Bash(npm install *)",
+      "Bash(git stash *)",
+      "WebSearch",
+      "WebFetch(domain:unsplash.com)",
+      "WebFetch(domain:images.unsplash.com)",
+      "Bash(node -e \"const l = require\\('lucide-react'\\); console.log\\('Instagram:', !!l.Instagram\\); console.log\\('Youtube:', !!l.Youtube\\); console.log\\('Twitter:', !!l.Twitter\\);\")",
+      "Bash(node -e \"const l = require\\('lucide-react'\\); const names = Object.keys\\(l\\).filter\\(k => /instagram|youtube|twitter|tiktok|facebook|social|brand/i.test\\(k\\)\\); console.log\\(names\\);\")",
+      "Bash(node -e \"const pkg = require\\('lucide-react/package.json'\\); console.log\\(pkg.version\\);\")"
+    ]
+  }
+}
