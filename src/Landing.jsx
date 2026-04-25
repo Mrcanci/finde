@@ -88,18 +88,17 @@ export default function FindeLanding() {
     setReferralCode(code);
 
     try {
-      await fetch("https://script.google.com/macros/s/AKfycbxgW7R-djQ0dE_SFhNgPykemzNSMkimFJS4KKnrEci5sjPCYO2-4PwHSJu-KDDK8NZTzA/exec", {
-        method: "POST",
+      const params = new URLSearchParams({
+        type: mode === "operator" ? "Agencia" : "Viajero",
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        businessName: formData.businessName,
+        referralCode: code,
+      });
+
+      fetch("https://script.google.com/macros/s/AKfycbxgW7R-djQ0dE_SFhNgPykemzNSMkimFJS4KKnrEci5sjPCYO2-4PwHSJu-KDDK8NZTzA/exec?" + params.toString(), {
         mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: mode === "operator" ? "Agencia" : "Viajero",
-          name: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          businessName: formData.businessName,
-          referralCode: code,
-        }),
       });
     } catch (err) {
       console.log("Error enviando datos:", err);
