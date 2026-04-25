@@ -308,8 +308,8 @@ export default function FindeLanding() {
                 </div>
               )}
             </div>
-          </div>
           <div className="hero-mincetur">En proceso de postulación al concurso de innovación turística — MINCETUR</div>
+          </div>
         </section>
 
         {/* ═══════════ PROBLEMA (corto) ═══════════ */}
@@ -524,7 +524,7 @@ const CSS = `
 .hero-dest-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .4s ease; }
 .hero-dest-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,.6) 0%, rgba(0,0,0,.2) 40%, transparent 100%); pointer-events: none; }
 .hero-dest-name { font-size: 16px; font-weight: 800; color: white; line-height: 1; text-shadow: 0 1px 3px rgba(0,0,0,.5); position: relative; z-index: 2; }
-.hero-mincetur { position: absolute; bottom: 28px; left: 0; right: 0; text-align: center; font-size: 15px; font-weight: 600; color: var(--gy); letter-spacing: 0.3px; z-index: 2; }
+.hero-mincetur { grid-column: 1 / -1; text-align: center; font-size: 13px; font-weight: 600; color: var(--gy); letter-spacing: 0.3px; padding-top: 24px; }
  
 /* FORM IN HERO */
 .hero-form { background: white; border-radius: 24px; padding: 40px; border: 1px solid rgba(0,0,0,.06); box-shadow: 0 16px 48px rgba(27,58,45,.1); max-width: 520px; width: 100%; justify-self: end; }
@@ -557,7 +557,7 @@ const CSS = `
 .btn-full { width: 100%; }
 .btn-icon { width: 16px; height: 16px; transition: transform .2s; }
 .btn-primary:hover:not(:disabled) .btn-icon { transform: translateX(3px); }
-.form-foot { font-size: 11px; color: var(--gy); text-align: center; margin-top: 12px; line-height: 1.5; }
+.form-foot { font-size: 11px; color: var(--gy); text-align: center; margin-top: 12px; margin-bottom: 8px; line-height: 1.5; }
  
 /* SUCCESS */
 .success { text-align: center; padding: 12px 0; }
@@ -690,6 +690,7 @@ const CSS = `
   .referral-row { flex-direction: column; }
   .referral-btn { width: 100%; }
   .footer { padding: 40px 16px 24px; }
+  .hero-mincetur { font-size: 11px; padding-top: 16px; }
 }
  
 `;
