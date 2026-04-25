@@ -87,22 +87,17 @@ export default function FindeLanding() {
     const code = generateRefCode();
     setReferralCode(code);
 
-    try {
-      const params = new URLSearchParams({
-        type: mode === "operator" ? "Agencia" : "Viajero",
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        businessName: formData.businessName,
-        referralCode: code,
-      });
+    const params = new URLSearchParams({
+      type: mode === "operator" ? "Agencia" : "Viajero",
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      businessName: formData.businessName,
+      referralCode: code,
+    });
 
-      fetch("https://script.google.com/macros/s/AKfycbxgW7R-djQ0dE_SFhNgPykemzNSMkimFJS4KKnrEci5sjPCYO2-4PwHSJu-KDDK8NZTzA/exec?" + params.toString(), {
-        mode: "no-cors",
-      });
-    } catch (err) {
-      console.log("Error enviando datos:", err);
-    }
+    const img = new Image();
+    img.src = "https://script.google.com/macros/s/AKfycbxgW7R-djQ0dE_SFhNgPykemzNSMkimFJS4KKnrEci5sjPCYO2-4PwHSJu-KDDK8NZTzA/exec?" + params.toString();
 
     setSubmitted(true);
   };
@@ -303,31 +298,12 @@ export default function FindeLanding() {
                     }
                   </p>
  
-                  <div className="referral">
-                    <p className="referral-label">Tu link de invitación</p>
-                    <div className="referral-row">
-                      <div className="referral-box">
-                        <span className="referral-domain">finde.pe/r/</span>
-                        <span className="referral-code">{referralCode}</span>
-                      </div>
-                      <button
-                        className="referral-btn"
-                        onClick={() => {
-                          navigator.clipboard?.writeText(`https://finde.pe/r/${referralCode}`);
-                          setCopiedRef(true);
-                          setTimeout(() => setCopiedRef(false), 2000);
-                        }}
-                      >
-                        {copiedRef ? "✓ Copiado" : "Copiar"}
-                      </button>
-                    </div>
-                    <button
-                      className="share-wa"
-                      onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(`Mira esto: finde.pe — marketplace peruano de tours con Yape. Si te registras con mi link, ambos acceso fundador:\nhttps://finde.pe/r/${referralCode}`)}`, "_blank")}
-                    >
-                      Compartir por WhatsApp
-                    </button>
-                  </div>
+                  <button
+                    className="share-wa"
+                    onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent("Mira esto: finde es el primer marketplace peruano de tours con Yape y Plin. Pre-regístrate acá: https://finde-two.vercel.app")}`, "_blank")}
+                  >
+                    Compartir por WhatsApp
+                  </button>
                 </div>
               )}
             </div>
