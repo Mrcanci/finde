@@ -98,12 +98,15 @@ export default function FindeLanding() {
 
     const url = "https://script.google.com/macros/s/AKfycbxgW7R-djQ0dE_SFhNgPykemzNSMkimFJS4KKnrEci5sjPCYO2-4PwHSJu-KDDK8NZTzA/exec?" + params.toString();
 
-    const img = new Image();
-    img.src = url;
+    const iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    iframe.src = url;
+    document.body.appendChild(iframe);
 
     setTimeout(() => {
+      document.body.removeChild(iframe);
       setSubmitted(true);
-    }, 1500);
+    }, 2000);
   };
  
   const canSubmit =
