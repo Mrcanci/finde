@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
  
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // FINDE — Pre-Launch Landing (v3, lightweight)
@@ -60,14 +60,14 @@ export default function FindeLanding() {
   const [mode, setMode] = useState("traveler");
   const [formData, setFormData] = useState({ name: "", email: "", phone: "", businessName: "", consent: false });
   const [submitted, setSubmitted] = useState(false);
-  const [scrollY, setScrollY] = useState(0);
+  const [scrolled, setScrolled] = useState(false);
   const [activeMockup, setActiveMockup] = useState("search");
-  const [referralCode, setReferralCode] = useState("");
-  const [copiedRef, setCopiedRef] = useState(false);
- 
+  const [submitting, setSubmitting] = useState(false);
+
   useEffect(() => {
-    const h = () => setScrollY(window.scrollY || 0);
+    const h = () => setScrolled(window.scrollY > 50);
     window.addEventListener("scroll", h, { passive: true });
+    h();
     return () => window.removeEventListener("scroll", h);
   }, []);
  
@@ -80,12 +80,14 @@ export default function FindeLanding() {
   const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
  
   const handleSubmit = () => {
+    if (submitting) return;
     if (!formData.consent) return;
     if (!isValidEmail(formData.email)) return;
     if (mode === "operator" && !formData.businessName.trim()) return;
 
+    setSubmitting(true);
+
     const code = generateRefCode();
-    setReferralCode(code);
 
     const params = new URLSearchParams({
       type: mode === "operator" ? "Agencia" : "Viajero",
@@ -104,8 +106,10 @@ export default function FindeLanding() {
     document.body.appendChild(iframe);
 
     setTimeout(() => {
-      document.body.removeChild(iframe);
+      if (iframe.parentNode) document.body.removeChild(iframe);
+      document.getElementById("registro")?.scrollIntoView({ behavior: "smooth", block: "center" });
       setSubmitted(true);
+      setSubmitting(false);
     }, 2000);
   };
  
@@ -120,9 +124,9 @@ export default function FindeLanding() {
       <div className="landing">
  
         {/* ── NAV ── */}
-        <nav className={`nav ${scrollY > 50 ? "nav-scrolled" : ""}`}>
+        <nav className={`nav ${scrolled ? "nav-scrolled" : ""}`}>
           <div className="nav-inner">
-            <a href="#" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="nav-logo">finde<span>.</span></a>
+            <a href="#" onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="nav-logo" aria-label="Ir al inicio">finde<span>.</span></a>
             <div className="nav-links">
               <a href="#faq" onClick={(e) => { e.preventDefault(); document.getElementById("faq")?.scrollIntoView({ behavior: "smooth" }); }}>FAQ</a>
             </div>
@@ -176,6 +180,7 @@ export default function FindeLanding() {
                       alt={`${d.name}, Perú`}
                       className="hero-dest-img"
                       loading="lazy"
+                      decoding="async"
                       onError={(e) => { e.currentTarget.style.display = "none"; }}
                     />
                     <div className="hero-dest-overlay" />
@@ -204,14 +209,18 @@ export default function FindeLanding() {
  
                   <div className="mode-tabs">
                     <button
+                      type="button"
                       className={`mode-tab ${mode === "traveler" ? "mode-tab-active" : ""}`}
                       onClick={() => setMode("traveler")}
+                      aria-pressed={mode === "traveler"}
                     >
                       Viajero
                     </button>
                     <button
+                      type="button"
                       className={`mode-tab ${mode === "operator" ? "mode-tab-active" : ""}`}
                       onClick={() => setMode("operator")}
+                      aria-pressed={mode === "operator"}
                     >
                       Agencia
                     </button>
@@ -222,6 +231,8 @@ export default function FindeLanding() {
                       <input
                         type="text"
                         placeholder="Tu nombre"
+                        aria-label="Tu nombre"
+                        autoComplete="name"
                         value={formData.name}
                         onChange={e => setFormData({ ...formData, name: e.target.value })}
                       />
@@ -233,6 +244,8 @@ export default function FindeLanding() {
                         inputMode="email"
                         autoComplete="email"
                         placeholder="Tu email *"
+                        aria-label="Tu email"
+                        aria-required="true"
                         value={formData.email}
                         onChange={e => setFormData({ ...formData, email: e.target.value })}
                       />
@@ -240,12 +253,13 @@ export default function FindeLanding() {
  
                     <div className="field">
                       <div className="phone-row">
-                        <div className="phone-prefix">+51</div>
+                        <div className="phone-prefix" aria-hidden="true">+51</div>
                         <input
                           type="tel"
                           inputMode="tel"
                           autoComplete="tel-national"
                           placeholder="Celular (opcional) — 9XX XXX XXX"
+                          aria-label="Celular peruano, prefijo +51"
                           value={formData.phone}
                           onChange={e => setFormData({ ...formData, phone: e.target.value })}
                           maxLength={11}
@@ -259,6 +273,9 @@ export default function FindeLanding() {
                         <input
                           type="text"
                           placeholder="Nombre de tu agencia *"
+                          aria-label="Nombre de tu agencia"
+                          aria-required="true"
+                          autoComplete="organization"
                           value={formData.businessName}
                           onChange={e => setFormData({ ...formData, businessName: e.target.value })}
                         />
@@ -279,11 +296,16 @@ export default function FindeLanding() {
  
                   <button
                     className="btn-primary btn-full"
-                    disabled={!canSubmit}
+                    disabled={!canSubmit || submitting}
                     onClick={handleSubmit}
+                    type="button"
+                    aria-busy={submitting}
                   >
-                    {mode === "operator" ? "Registrar mi agencia" : "Quiero acceso anticipado"}
-                    <Icon name="arrow" className="btn-icon" />
+                    {submitting
+                      ? "Enviando…"
+                      : (mode === "operator" ? "Registrar mi agencia" : "Quiero acceso anticipado")
+                    }
+                    {!submitting && <Icon name="arrow" className="btn-icon" />}
                   </button>
  
                   <div className="form-foot">
@@ -373,8 +395,10 @@ export default function FindeLanding() {
               {MOCKUP_TABS.map(t => (
                 <button
                   key={t.id}
+                  type="button"
                   className={`mockup-tab ${activeMockup === t.id ? "mockup-tab-active" : ""}`}
                   onClick={() => setActiveMockup(t.id)}
+                  aria-pressed={activeMockup === t.id}
                 >
                   {t.label}
                 </button>
@@ -385,7 +409,7 @@ export default function FindeLanding() {
               <div className="mockup-phone">
                 <div className="mockup-notch" />
                 <div className="mockup-frame">
-                  <img src={`/mockups/mockup-${activeMockup === "search" ? "home" : activeMockup}.png`} alt={activeMockup === "search" ? "finde — pantalla de búsqueda" : activeMockup === "detail" ? "finde — detalle de experiencia" : "finde — pago con Yape"} className="mockup-img" loading="lazy" />
+                  <img src={`/mockups/mockup-${activeMockup === "search" ? "home" : activeMockup}.png`} alt={activeMockup === "search" ? "finde — pantalla de búsqueda" : activeMockup === "detail" ? "finde — detalle de experiencia" : "finde — pago con Yape"} className="mockup-img" loading="lazy" decoding="async" width="848" height="1552" />
                 </div>
                 <div className="mockup-home-bar" />
               </div>
@@ -456,7 +480,7 @@ export default function FindeLanding() {
             <div className="footer-links">
               <a href="mailto:hola@finde.pe">hola@finde.pe</a>
               <span>·</span>
-              <a href="https://wa.me/51900000000" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+              <a href="https://wa.me/51997117173" target="_blank" rel="noopener noreferrer">WhatsApp</a>
               <span>·</span>
               <span>Lima, Perú</span>
             </div>
@@ -479,16 +503,29 @@ const CSS = `
 .landing {
   --f: #1B3A2D; --m: #2D5A3D; --sg: #6B8F71; --sd: #E8DDD3;
   --cr: #F5F0EA; --wh: #FAFAF7; --tr: #C7613A; --trl: #E8845A;
-  --gd: #D4A843; --ch: #2C2C2A; --gy: #8A8A85; --lg: #D4D0C8;
+  --gd: #D4A843; --ch: #2C2C2A; --gy: #6B6B68; --gy-soft: #737370; --lg: #959591;
+  --focus: rgba(199, 97, 58, .35);
 }
  
 .landing * { margin: 0; padding: 0; box-sizing: border-box; }
 .landing { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: var(--wh); color: var(--ch); -webkit-font-smoothing: antialiased; }
+
+/* Focus accesible — solo en navegación con teclado, no en clicks de mouse */
+.landing :focus { outline: none; }
+.landing a:focus-visible,
+.landing button:focus-visible,
+.landing input:focus-visible,
+.landing summary:focus-visible,
+.landing label:focus-visible { outline: 2px solid var(--tr); outline-offset: 2px; border-radius: 4px; }
+.landing input:focus-visible { outline-offset: 0; box-shadow: 0 0 0 4px var(--focus); border-color: var(--m); }
  
 /* Reset: neutralizar estilos globales de App.css / index.css que pisan la landing */
 .landing { overflow-x: hidden; width: 100vw; max-width: 100%; margin: 0; padding: 0; text-align: left; border: none; display: block; font: 16px/1.5 'Plus Jakarta Sans', system-ui, sans-serif; letter-spacing: normal; color: var(--ch); }
 .landing h1, .landing h2, .landing h3, .landing h4 { font-family: 'DM Serif Display', Georgia, serif; margin: 0; font-weight: 400; letter-spacing: -0.5px; }
 .landing p, .landing span, .landing div, .landing a, .landing button, .landing input, .landing label { letter-spacing: normal; }
+
+/* Anchor scroll: el nav fijo ocupa ~70-80px, evitamos que tape el inicio de la sección */
+.landing section[id], .landing [id="registro"] { scroll-margin-top: 90px; }
  
 @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 .fd0 { animation: fadeUp .5s ease forwards; }
@@ -496,6 +533,16 @@ const CSS = `
 .fd2 { animation: fadeUp .5s ease .2s forwards; opacity: 0; }
 .fd3 { animation: fadeUp .5s ease .35s forwards; opacity: 0; }
 @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .landing *, .landing *::before, .landing *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .fd0, .fd1, .fd2, .fd3 { opacity: 1; transform: none; }
+}
  
 /* NAV */
 .nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; padding: 18px 40px; transition: all .3s ease; }
@@ -504,10 +551,13 @@ const CSS = `
 .nav-logo { font-family: 'DM Serif Display', Georgia, serif; font-size: 30px; color: var(--f); letter-spacing: -.5px; text-decoration: none; }
 .nav-logo span { color: var(--tr); }
 .nav-links { display: flex; gap: 28px; flex: 1; justify-content: flex-end; padding-right: 16px; }
-.nav-links a { font-size: 14px; font-weight: 600; color: var(--ch); text-decoration: none; transition: color .2s; }
+.nav-links a { font-size: 14px; font-weight: 600; color: var(--ch); text-decoration: none; transition: color .2s; position: relative; padding: 12px 4px; display: inline-flex; align-items: center; }
+.nav-links a::after { content: ""; position: absolute; left: 4px; right: 4px; bottom: 8px; height: 2px; background: var(--tr); transform: scaleX(0); transform-origin: left; transition: transform .2s ease; }
 .nav-links a:hover { color: var(--tr); }
+.nav-links a:hover::after { transform: scaleX(1); }
 .nav-cta { padding: 10px 24px; border-radius: 100px; background: var(--f); color: white; font-weight: 700; font-size: 14px; border: none; cursor: pointer; font-family: inherit; transition: all .2s; }
-.nav-cta:hover { background: var(--m); transform: translateY(-1px); }
+.nav-cta:hover { background: var(--m); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(27,58,45,.2); }
+.nav-cta:active { transform: translateY(0); }
  
 /* HERO */
 .hero { min-height: 100vh; padding: 100px 48px 40px; position: relative; overflow: hidden; background: linear-gradient(170deg, var(--wh) 0%, var(--cr) 40%, var(--sd) 100%); display: flex; align-items: center; justify-content: center; }
@@ -542,28 +592,31 @@ const CSS = `
  
 .mode-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; background: var(--cr); border-radius: 10px; margin-bottom: 20px; }
 .mode-tab { padding: 12px 16px; border-radius: 7px; background: transparent; border: none; font-family: inherit; font-size: 14px; font-weight: 700; color: var(--gy); cursor: pointer; transition: all .2s; }
+.mode-tab:hover:not(.mode-tab-active) { color: var(--ch); background: rgba(255,255,255,.4); }
 .mode-tab-active { background: white; color: var(--f); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
  
 .form-fields { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
-.field input { width: 100%; padding: 16px 18px; border-radius: 11px; border: 1.5px solid var(--sd); font-size: 16px; font-family: inherit; background: white; color: var(--ch); outline: none; transition: border .2s; }
-.field input:focus { border-color: var(--m); }
+.field input { width: 100%; padding: 16px 18px; border-radius: 11px; border: 1.5px solid var(--sd); font-size: 16px; font-family: inherit; background: white; color: var(--ch); outline: none; transition: border-color .2s, box-shadow .2s; }
+.field input:hover { border-color: var(--sg); }
+.field input:focus { border-color: var(--m); box-shadow: 0 0 0 4px var(--focus); }
 .field input::placeholder { color: var(--lg); }
-.field-hint { display: block; font-size: 12px; color: var(--gy); margin-top: 6px; line-height: 1.4; }
+.field-hint { display: block; font-size: 12px; color: var(--gy-soft); margin-top: 6px; line-height: 1.4; }
 .phone-row { display: flex; gap: 6px; }
 .phone-prefix { padding: 13px 12px; border-radius: 11px; border: 1.5px solid var(--sd); font-size: 14px; font-family: inherit; text-align: center; background: var(--cr); color: var(--ch); font-weight: 700; }
 .phone-row input { flex: 1; letter-spacing: .5px; }
  
-.consent { display: flex; gap: 9px; align-items: flex-start; font-size: 12px; color: var(--gy); line-height: 1.5; cursor: pointer; padding-top: 2px; }
+.consent { display: flex; gap: 9px; align-items: flex-start; font-size: 12px; color: var(--gy-soft); line-height: 1.5; cursor: pointer; padding-top: 2px; }
 .consent input[type="checkbox"] { width: 16px; height: 16px; margin-top: 1px; accent-color: var(--f); cursor: pointer; flex-shrink: 0; }
 .consent a { color: var(--f); text-decoration: underline; }
  
 .btn-primary { padding: 16px 32px; border-radius: 12px; background: var(--f); color: white; font-weight: 700; font-size: 16px; border: none; cursor: pointer; font-family: inherit; transition: all .2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .btn-primary:hover:not(:disabled) { background: var(--m); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(27,58,45,.25); }
-.btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+.btn-primary:active:not(:disabled) { transform: translateY(0); box-shadow: 0 2px 8px rgba(27,58,45,.2); }
+.btn-primary:disabled { opacity: .5; cursor: not-allowed; }
 .btn-full { width: 100%; }
 .btn-icon { width: 16px; height: 16px; transition: transform .2s; }
 .btn-primary:hover:not(:disabled) .btn-icon { transform: translateX(3px); }
-.form-foot { font-size: 11px; color: var(--gy); text-align: center; margin-top: 12px; margin-bottom: 8px; line-height: 1.5; }
+.form-foot { font-size: 11px; color: var(--gy-soft); text-align: center; margin-top: 12px; margin-bottom: 8px; line-height: 1.5; }
  
 /* SUCCESS */
 .success { text-align: center; padding: 12px 0; }
@@ -572,17 +625,8 @@ const CSS = `
 .success-title { font-family: 'DM Serif Display', Georgia, serif; font-size: 24px; margin-bottom: 12px; color: var(--f); }
 .success-desc { font-size: 14px; line-height: 1.65; color: var(--ch); margin-bottom: 20px; }
 .success-desc strong { color: var(--f); }
-.referral { padding: 16px; background: var(--cr); border-radius: 12px; text-align: left; }
-.referral-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; font-weight: 800; color: var(--tr); margin-bottom: 8px; }
-.referral-sub { font-size: 13px; color: var(--gy); line-height: 1.55; margin-bottom: 16px; }
-.referral-row { display: flex; gap: 6px; margin-bottom: 10px; }
-.referral-box { flex: 1; padding: 10px 12px; border-radius: 8px; border: 1.5px dashed rgba(212,168,67,.5); background: white; font-size: 12px; font-weight: 600; display: flex; align-items: center; overflow: hidden; white-space: nowrap; }
-.referral-domain { color: var(--gy); }
-.referral-code { color: var(--f); font-weight: 800; }
-.referral-btn { padding: 10px 14px; border-radius: 8px; background: var(--f); color: white; border: none; font-family: inherit; font-weight: 700; font-size: 12px; cursor: pointer; white-space: nowrap; }
-.referral-btn:hover { background: var(--m); }
-.share-wa { width: 100%; padding: 11px; border-radius: 8px; background: #25D366; color: white; border: none; font-family: inherit; font-weight: 700; font-size: 13px; cursor: pointer; transition: background .2s; }
-.share-wa:hover { background: #1eb954; }
+.share-wa { width: 100%; padding: 14px; border-radius: 10px; background: #25D366; color: white; border: none; font-family: inherit; font-weight: 700; font-size: 14px; cursor: pointer; transition: all .2s; }
+.share-wa:hover { background: #1eb954; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(37,211,102,.3); }
  
 /* SECTIONS */
 .section-inner { max-width: 1100px; margin: 0 auto; padding: 0 40px; }
@@ -595,10 +639,10 @@ const CSS = `
 .problem-stats { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; gap: 32px; }
 .problem-stat { text-align: center; }
 .problem-num { font-family: 'DM Serif Display', Georgia, serif; font-size: clamp(32px, 3.5vw, 44px); color: var(--gd); line-height: 1; margin-bottom: 8px; }
-.problem-lbl { font-size: 14px; color: rgba(255,255,255,.75); line-height: 1.55; max-width: 240px; margin: 0 auto; }
+.problem-lbl { font-size: 14px; color: rgba(255,255,255,.85); line-height: 1.55; max-width: 240px; margin: 0 auto; }
 .problem-lbl sup { color: var(--gd); }
-.problem-divider { width: 1px; height: 56px; background: rgba(255,255,255,.12); }
-.problem-sources { text-align: center; font-size: 11px; color: rgba(255,255,255,.4); margin-top: 28px; }
+.problem-divider { width: 1px; height: 56px; background: rgba(255,255,255,.18); }
+.problem-sources { text-align: center; font-size: 11px; color: rgba(255,255,255,.6); margin-top: 28px; }
 .problem-sources sup { color: var(--gd); }
  
 /* VALUE */
@@ -617,24 +661,28 @@ const CSS = `
 .mockup .section-title { text-align: center; }
 .mockup-tabs { display: flex; gap: 8px; justify-content: center; margin-bottom: 48px; flex-wrap: wrap; }
 .mockup-tab { padding: 10px 20px; border-radius: 100px; background: white; border: 1.5px solid rgba(0,0,0,.08); font-family: inherit; font-size: 13px; font-weight: 700; color: var(--gy); cursor: pointer; transition: all .2s; }
-.mockup-tab:hover { border-color: var(--sg); color: var(--f); }
+.mockup-tab:hover:not(.mockup-tab-active) { border-color: var(--sg); color: var(--f); transform: translateY(-1px); }
 .mockup-tab-active { background: var(--f); color: white; border-color: var(--f); }
+.mockup-tab-active:hover { background: var(--m); border-color: var(--m); }
 .mockup-stage { display: flex; justify-content: center; }
 .mockup-phone { width: 300px; margin: 0 auto; background: #000; border-radius: 40px; padding: 8px; position: relative; box-shadow: 0 20px 50px -15px rgba(0,0,0,.25); }
 .mockup-notch { display: none; }
-.mockup-frame { width: 100%; border-radius: 32px; overflow: hidden; background: white; }
-.mockup-img { display: block; width: 100%; height: auto; }
+.mockup-frame { width: 100%; border-radius: 32px; overflow: hidden; background: white; aspect-ratio: 9/16.5; }
+.mockup-img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .mockup-home-bar { display: none; }
  
 /* FAQ */
 .faq { padding: 100px 40px; }
 .faq .section-title { text-align: center; }
-.faq-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 48px; }
-.faq-item { background: white; border: 1px solid rgba(0,0,0,.06); border-radius: 14px; overflow: hidden; }
-.faq-item summary { padding: 18px 24px; font-weight: 700; font-size: 15px; cursor: pointer; list-style: none; color: var(--ch); display: flex; justify-content: space-between; align-items: center; }
+.faq-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 56px; }
+.faq-item { background: white; border: 1px solid rgba(0,0,0,.06); border-radius: 14px; overflow: hidden; transition: border-color .2s, box-shadow .2s; }
+.faq-item:hover { border-color: rgba(199,97,58,.35); }
+.faq-item[open] { border-color: rgba(199,97,58,.5); box-shadow: 0 4px 16px rgba(27,58,45,.05); }
+.faq-item summary { padding: 18px 24px; font-weight: 700; font-size: 15px; cursor: pointer; list-style: none; color: var(--ch); display: flex; justify-content: space-between; align-items: center; gap: 16px; transition: color .2s; }
+.faq-item:hover summary { color: var(--f); }
 .faq-item summary::-webkit-details-marker { display: none; }
-.faq-item summary::after { content: "+"; font-size: 22px; color: var(--tr); font-weight: 400; transition: transform .2s; }
-.faq-item[open] summary::after { content: "−"; transform: none; }
+.faq-item summary::after { content: "+"; font-size: 22px; color: var(--tr); font-weight: 400; flex-shrink: 0; line-height: 1; }
+.faq-item[open] summary::after { content: "−"; }
 .faq-item p { padding: 0 24px 20px; font-size: 14px; line-height: 1.75; color: var(--gy); }
 .faq-cta { text-align: center; }
  
@@ -656,15 +704,15 @@ const CSS = `
 .footer-logo span { color: var(--tr); }
 .footer-tagline { font-size: 14px; line-height: 1.55; max-width: 400px; margin: 0 auto; }
 .footer-links { display: flex; gap: 12px; justify-content: center; font-size: 13px; margin-bottom: 24px; flex-wrap: wrap; }
-.footer-links a { color: rgba(255,255,255,.7); text-decoration: none; transition: color .2s; }
-.footer-links a:hover { color: white; }
-.footer-links span { color: rgba(255,255,255,.3); }
-.footer-legal { font-size: 11px; line-height: 1.65; color: rgba(255,255,255,.4); max-width: 520px; margin: 0 auto 14px; }
-.footer-copy { font-size: 10px; color: rgba(255,255,255,.3); }
+.footer-links a { color: rgba(255,255,255,.85); text-decoration: none; transition: color .2s; }
+.footer-links a:hover { color: white; text-decoration: underline; }
+.footer-links span { color: rgba(255,255,255,.4); }
+.footer-legal { font-size: 12px; line-height: 1.65; color: rgba(255,255,255,.6); max-width: 520px; margin: 0 auto 14px; }
+.footer-copy { font-size: 11px; color: rgba(255,255,255,.5); }
  
 /* ══════ RESPONSIVE ══════ */
 @media (max-width: 1100px) {
-  .hero { padding: 0 32px; }
+  .hero { padding: 100px 32px 48px; }
   .hero-grid { gap: 48px; }
 }
 @media (max-width: 960px) {
@@ -684,17 +732,15 @@ const CSS = `
   .nav-links { display: none; }
 }
 @media (max-width: 640px) {
-  .hero { padding: 90px 16px 40px; }
+  .hero { padding: 90px 20px 40px; }
   .hero-title { font-size: 32px; }
-  .hero-form { padding: 22px; border-radius: 18px; }
+  .hero-form { padding: 28px; border-radius: 18px; }
   .hero-destinations { grid-template-columns: repeat(2, 1fr); }
   .problem-stats { grid-template-columns: 1fr; gap: 24px; }
   .problem-divider { display: none; }
   .problem { padding: 40px 16px; }
   .mockup-phone { width: 260px; border-radius: 36px; padding: 7px; }
   .mockup-frame { border-radius: 28px; }
-  .referral-row { flex-direction: column; }
-  .referral-btn { width: 100%; }
   .footer { padding: 40px 16px 24px; }
   .hero-mincetur { font-size: 12px; padding-top: 16px; }
 }
