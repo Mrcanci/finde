@@ -503,7 +503,7 @@ const CSS = `
 .nav-cta:hover { background: var(--m); transform: translateY(-1px); }
  
 /* HERO */
-.hero { min-height: 100vh; padding: 0 48px; position: relative; overflow: hidden; background: linear-gradient(170deg, var(--wh) 0%, var(--cr) 40%, var(--sd) 100%); display: flex; align-items: center; justify-content: center; }
+.hero { min-height: 100vh; padding: 100px 48px 40px; position: relative; overflow: hidden; background: linear-gradient(170deg, var(--wh) 0%, var(--cr) 40%, var(--sd) 100%); display: flex; align-items: center; justify-content: center; }
 .hero-texture { position: absolute; inset: 0; background: repeating-linear-gradient(45deg, transparent, transparent 12px, rgba(27,58,45,.018) 12px, rgba(27,58,45,.018) 24px); pointer-events: none; }
 .hero-grid { max-width: 1200px; width: 100%; margin: 0 auto; display: grid; grid-template-columns: 1.15fr 1fr; gap: 56px; align-items: center; position: relative; z-index: 2; }
  
