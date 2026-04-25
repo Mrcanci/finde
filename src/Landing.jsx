@@ -79,7 +79,7 @@ export default function FindeLanding() {
   // Validación email simple pero suficiente
   const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
  
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!formData.consent) return;
     if (!isValidEmail(formData.email)) return;
     if (mode === "operator" && !formData.businessName.trim()) return;
@@ -96,8 +96,9 @@ export default function FindeLanding() {
       referralCode: code,
     });
 
-    const img = new Image();
-    img.src = "https://script.google.com/macros/s/AKfycbxgW7R-djQ0dE_SFhNgPykemzNSMkimFJS4KKnrEci5sjPCYO2-4PwHSJu-KDDK8NZTzA/exec?" + params.toString();
+    const url = "https://script.google.com/macros/s/AKfycbxgW7R-djQ0dE_SFhNgPykemzNSMkimFJS4KKnrEci5sjPCYO2-4PwHSJu-KDDK8NZTzA/exec?" + params.toString();
+
+    navigator.sendBeacon(url);
 
     setSubmitted(true);
   };
