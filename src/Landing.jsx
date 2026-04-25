@@ -50,7 +50,8 @@ const FAQ = [
   { q: "¿Los tours están verificados?", a: "Sí. Trabajamos exclusivamente con agencias formalizadas y guías con certificación vigente (MINCETUR, SERNANP o colegiados). Además, todos los tours tienen reseñas de viajeros reales." },
   { q: "¿Puedo reservar para un grupo?", a: "Sí. Al momento de reservar puedes indicar cuántas personas van. Muchas experiencias ofrecen precios especiales para grupos de 4 o más." },
   // ── Para agencias
-  { q: "Soy agencia, ¿cuánto me cobran?", a: "Cero costo de alta y cero mensualidad. Solo cobramos una comisión por cada venta concretada a través de finde. Los detalles los compartimos en el onboarding." },
+  { q: "Soy agencia, ¿cuánto me cobran?", a: "Cero costo de alta y cero mensualidad. Los detalles comerciales los compartimos directamente contigo en el onboarding cuando te contactemos por WhatsApp." },
+  { q: "¿Qué beneficio tengo por registrarme ahora?", a: "Las agencias que se pre-registran antes del lanzamiento obtienen prioridad en los resultados de búsqueda durante la etapa inicial. Es nuestra forma de agradecer a quienes confían en finde desde el principio." },
   { q: "¿Puedo seguir usando mis otros canales de venta?", a: "Por supuesto. finde es un canal adicional, no un reemplazo. Tú decides qué tours listar, a qué precios, y con qué disponibilidad. No pedimos exclusividad." },
   { q: "¿Mis datos están protegidos?", a: "Sí. Cumplimos la Ley 29733 de Protección de Datos Personales del Perú. Solo usamos tus datos para contactarte por el lanzamiento y, si lo autorizas, enviarte novedades." },
 ];
@@ -78,11 +79,32 @@ export default function FindeLanding() {
   // Validación email simple pero suficiente
   const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
  
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.consent) return;
     if (!isValidEmail(formData.email)) return;
     if (mode === "operator" && !formData.businessName.trim()) return;
-    setReferralCode(generateRefCode());
+
+    const code = generateRefCode();
+    setReferralCode(code);
+
+    try {
+      await fetch("https://script.google.com/macros/s/AKfycbxgW7R-djQ0dE_SFhNgPykemzNSMkimFJS4KKnrEci5sjPCYO2-4PwHSJu-KDDK8NZTzA/exec", {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: mode === "operator" ? "Agencia" : "Viajero",
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          businessName: formData.businessName,
+          referralCode: code,
+        }),
+      });
+    } catch (err) {
+      console.log("Error enviando datos:", err);
+    }
+
     setSubmitted(true);
   };
  
@@ -141,7 +163,7 @@ export default function FindeLanding() {
                 </div>
                 <div className="hero-proof-item">
                   <Icon name="check" className="hero-proof-icon" />
-                  <span>Soporte humano por WhatsApp</span>
+                  <span>Soporte y recomendaciones por WhatsApp con IA</span>
                 </div>
               </div>
  
@@ -172,8 +194,10 @@ export default function FindeLanding() {
                       Acceso anticipado <span className="form-title-dot">+</span> experiencia gratis
                     </h3>
                     <p className="form-sub">
-                      Los primeros 500 viajeros reciben acceso 48h antes del lanzamiento y
-                      una experiencia exclusiva sin costo con una de nuestras agencias validadas.
+                      {mode === "operator"
+                        ? "Las agencias que se registren antes del lanzamiento reciben prioridad en resultados de búsqueda durante la etapa inicial."
+                        : "Los primeros 500 viajeros reciben acceso 48h antes del lanzamiento y una experiencia exclusiva sin costo con una de nuestras agencias validadas."
+                      }
                     </p>
                   </div>
  
@@ -524,7 +548,7 @@ const CSS = `
 .hero-dest-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .4s ease; }
 .hero-dest-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,.6) 0%, rgba(0,0,0,.2) 40%, transparent 100%); pointer-events: none; }
 .hero-dest-name { font-size: 16px; font-weight: 800; color: white; line-height: 1; text-shadow: 0 1px 3px rgba(0,0,0,.5); position: relative; z-index: 2; }
-.hero-mincetur { grid-column: 1 / -1; text-align: center; font-size: 13px; font-weight: 600; color: var(--gy); letter-spacing: 0.3px; padding-top: 24px; }
+.hero-mincetur { grid-column: 1 / -1; text-align: center; font-size: 15px; font-weight: 600; color: var(--gy); letter-spacing: 0.3px; padding-top: 24px; }
  
 /* FORM IN HERO */
 .hero-form { background: white; border-radius: 24px; padding: 40px; border: 1px solid rgba(0,0,0,.06); box-shadow: 0 16px 48px rgba(27,58,45,.1); max-width: 520px; width: 100%; justify-self: end; }
@@ -628,7 +652,7 @@ const CSS = `
 .faq-item summary { padding: 18px 24px; font-weight: 700; font-size: 15px; cursor: pointer; list-style: none; color: var(--ch); display: flex; justify-content: space-between; align-items: center; }
 .faq-item summary::-webkit-details-marker { display: none; }
 .faq-item summary::after { content: "+"; font-size: 22px; color: var(--tr); font-weight: 400; transition: transform .2s; }
-.faq-item[open] summary::after { transform: rotate(45deg); }
+.faq-item[open] summary::after { content: "−"; transform: none; }
 .faq-item p { padding: 0 24px 20px; font-size: 14px; line-height: 1.75; color: var(--gy); }
 .faq-cta { text-align: center; }
  
@@ -690,7 +714,7 @@ const CSS = `
   .referral-row { flex-direction: column; }
   .referral-btn { width: 100%; }
   .footer { padding: 40px 16px 24px; }
-  .hero-mincetur { font-size: 11px; padding-top: 16px; }
+  .hero-mincetur { font-size: 12px; padding-top: 16px; }
 }
  
 `;
