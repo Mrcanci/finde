@@ -260,10 +260,48 @@ const imgBg = (image) => {
 
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
-.app{--f:#1B3A2D;--m:#2D5A3D;--sg:#6B8F71;--sd:#E8DDD3;--cr:#F5F0EA;--wh:#FAFAF7;--tr:#C7613A;--trl:#E8845A;--gd:#D4A843;--ch:#2C2C2A;--gy:#8A8A85;--lg:#D4D0C8;--yp:#6B2FA0;--pl:#00B4D8;--ai:#0EA5E9}
+html{scrollbar-gutter:stable}
+.app{--f:#1B3A2D;--m:#2D5A3D;--sg:#6B8F71;--sd:#E8DDD3;--cr:#F5F0EA;--wh:#FAFAF7;--tr:#C7613A;--trl:#E8845A;--gd:#D4A843;--ch:#2C2C2A;--gy:#737370;--gy-soft:#8A8A85;--lg:#959591;--yp:#6B2FA0;--pl:#00B4D8;--ai:#0EA5E9;--focus:rgba(199,97,58,.4)}
 .app *{margin:0;padding:0;box-sizing:border-box}
 .app{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--wh);color:var(--ch);-webkit-font-smoothing:antialiased;overflow-x:hidden}
 .app{min-height:100vh;background:var(--wh);position:relative}
+
+/* Focus accesible — solo navegación con teclado */
+.app :focus{outline:none}
+.app a:focus-visible,.app button:focus-visible,.app summary:focus-visible,.app [role="button"]:focus-visible,.app [tabindex="0"]:focus-visible{outline:2px solid var(--tr);outline-offset:2px;border-radius:4px}
+.app input:focus-visible,.app textarea:focus-visible,.app select:focus-visible{outline:none;border-color:var(--m);box-shadow:0 0 0 4px var(--focus)}
+.app input[type="checkbox"]:focus-visible,.app input[type="radio"]:focus-visible{outline:2px solid var(--tr);outline-offset:2px;box-shadow:none}
+
+@media (prefers-reduced-motion: reduce){
+  .app *,.app *::before,.app *::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}
+}
+
+/* Hover/active states unificados para botones y elementos interactivos */
+.app .chip:hover{border-color:var(--sg);color:var(--f)}
+.app .chip.on{background:var(--f);color:white;border-color:var(--f)}
+.app .tc:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(0,0,0,.08);border-color:rgba(199,97,58,.18)}
+.app .tc:active{transform:translateY(-1px)}
+.app .gc:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.07);border-color:rgba(199,97,58,.18)}
+.app .gc:active{transform:translateY(0)}
+.app .bk-btn:hover{background:white;transform:scale(1.05)}
+.app .bk-btn:active{transform:scale(.95)}
+.app .bn-i:hover{color:var(--ch)}
+.app .bn-i.on:hover{color:var(--f)}
+.app .tp-tab:hover:not(.on){border-color:var(--sg);color:var(--ch)}
+.app .dsh-tab:hover:not(.on){color:var(--ch)}
+.app .pm:hover:not(.sel){border-color:var(--sg)}
+.app .pm:active{transform:scale(.98)}
+.app .login-btn:active:not(:disabled),.app .mbtn:active:not(:disabled),.app .bb-bt:active:not(:disabled){transform:translateY(1px);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.app .login-btn:hover:not(:disabled),.app .mbtn:hover:not(:disabled),.app .bb-bt:hover:not(:disabled){box-shadow:0 4px 12px rgba(27,58,45,.18)}
+
+/* Disabled state visualmente claro */
+.app .login-btn:disabled,.app .mbtn:disabled,.app .bb-bt:disabled{background:var(--gy);box-shadow:none}
+
+/* Inputs y textareas con focus mejorado (border + box-shadow) */
+.app .inp:focus,.app .login-phone-input:focus,.app .ai-cc-input:focus,.app .rv-textarea:focus,.app .otp-digit:focus{border-color:var(--m);box-shadow:0 0 0 4px var(--focus)}
+
+/* Smooth scroll en contenedores horizontales */
+.app .cats,.app .dsh-tabs,.app .tscr{scroll-behavior:smooth;-webkit-overflow-scrolling:touch}
 @keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
@@ -282,7 +320,7 @@ const CSS = `
 .login-hero-stat{display:flex;gap:20px;margin-top:20px;position:relative;z-index:2}
 .login-hero-stat-i{text-align:center}
 .login-hero-stat-v{font-size:18px;font-weight:800;color:white}
-.login-hero-stat-l{font-size:9px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.login-hero-stat-l{font-size:10px;color:rgba(255,255,255,.75);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
 .login-body{flex:1;padding:28px 24px;display:flex;flex-direction:column}
 .login-title{font-family:'DM Serif Display',Georgia,serif;font-size:24px;margin-bottom:4px}
 .login-sub{font-size:13px;color:var(--gy);margin-bottom:24px;line-height:1.5}
@@ -474,8 +512,10 @@ const CSS = `
 .inp{width:100%;padding:14px 16px;border:2px solid var(--sd);border-radius:14px;font-size:15px;font-family:inherit;background:white;color:var(--ch);outline:none;transition:.2s}
 .inp:focus{border-color:var(--m)}
 .gctr{display:flex;align-items:center;gap:0;border:2px solid var(--sd);border-radius:14px;overflow:hidden;width:fit-content}
-.gbtn{width:44px;height:44px;background:var(--cr);border:none;font-size:20px;cursor:pointer;font-family:inherit;transition:.2s}
-.gbtn:hover{background:var(--sd)}
+.gbtn{width:44px;height:44px;background:var(--cr);border:none;font-size:20px;cursor:pointer;font-family:inherit;transition:.2s;color:var(--ch)}
+.gbtn:hover:not(:disabled){background:var(--sd)}
+.gbtn:active:not(:disabled){background:var(--lg)}
+.gbtn:disabled{opacity:.4;cursor:not-allowed;color:var(--gy)}
 .gcnt{width:60px;text-align:center;font-size:18px;font-weight:700}
 .sum{background:var(--cr);border-radius:16px;padding:16px;margin-bottom:20px}
 .sum-r{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.06);font-size:14px}
@@ -503,12 +543,15 @@ const CSS = `
 .suc-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.06);font-size:14px}
 .suc-row:last-child{border-bottom:none}
 .suc-row .l{color:var(--gy)}
-.suc-wa{width:100%;padding:14px;border-radius:14px;background:#25D366;color:white;font-weight:700;font-size:14px;border:none;cursor:pointer;font-family:inherit;margin-bottom:10px}
+.suc-wa{width:100%;padding:14px;border-radius:14px;background:#25D366;color:white;font-weight:700;font-size:14px;border:none;cursor:pointer;font-family:inherit;margin-bottom:10px;transition:.2s}
+.suc-wa:hover{background:#1eb954;box-shadow:0 4px 12px rgba(37,211,102,.3)}
+.suc-wa:active{transform:translateY(1px)}
 
 /* Booking extras */
 .login-banner{background:var(--f);color:white;padding:12px 16px;text-align:center;font-size:13px;font-weight:600;border-radius:12px;margin:0 0 16px}
-.inp-err{border-color:#e53e3e !important}
-.field-err{font-size:11px;color:#e53e3e;margin-top:4px;font-weight:600}
+.inp-err{border-color:#e53e3e !important;background:rgba(229,62,62,.04) !important}
+.inp-err:focus{box-shadow:0 0 0 4px rgba(229,62,62,.18) !important;border-color:#e53e3e !important}
+.field-err{font-size:11px;color:#e53e3e;margin-top:4px;font-weight:600;display:flex;align-items:center;gap:4px}
 .bk-phone-row{display:flex;gap:0}
 .bk-phone-prefix{display:flex;align-items:center;gap:6px;padding:0 12px;border:2px solid var(--sd);border-radius:14px 0 0 14px;font-size:14px;font-weight:600;background:var(--cr);color:var(--ch);border-right:none;white-space:nowrap}
 .bk-phone-prefix .wa-ic{color:#25D366;font-size:16px}
@@ -534,15 +577,15 @@ const CSS = `
 
 /* ── Trips ── */
 .tp-page{padding:20px 16px 120px}
-.tp-h{margin-bottom:16px}.tp-h h2{font-family:'DM Serif Display',Georgia,serif;font-size:24px}.tp-h p{font-size:13px;color:var(--gy);margin-top:2px}
+.tp-h{margin-bottom:20px}.tp-h h2{font-family:'DM Serif Display',Georgia,serif;font-size:28px;color:var(--ch)}.tp-h p{font-size:14px;color:var(--gy);margin-top:4px}
 .tp-tabs{display:flex;gap:6px;margin-bottom:16px}
 .tp-tab{padding:8px 16px;border-radius:100px;font-size:13px;font-weight:600;border:1.5px solid var(--sd);background:white;color:var(--gy);cursor:pointer;font-family:inherit;transition:.2s}
 .tp-tab.on{background:var(--f);color:white;border-color:var(--f)}
-.tp-card{display:flex;gap:12px;padding:14px;background:white;border-radius:16px;border:1px solid rgba(0,0,0,.06);margin-bottom:8px;cursor:pointer;transition:.2s}
+.tp-card{display:flex;gap:14px;padding:16px;background:white;border-radius:16px;border:1px solid rgba(0,0,0,.06);margin-bottom:10px;cursor:pointer;transition:.2s;width:100%}
 .tp-card:hover{box-shadow:0 2px 12px rgba(0,0,0,.08)}
-.tp-img{width:80px;height:80px;border-radius:12px;flex-shrink:0}
+.tp-img{width:100px;height:100px;border-radius:12px;flex-shrink:0}
 .tp-info{flex:1;min-width:0}
-.tp-name{font-size:14px;font-weight:700;margin-bottom:3px}
+.tp-name{font-size:15px;font-weight:700;margin-bottom:4px;color:var(--ch)}
 .tp-det{font-size:12px;color:var(--gy);margin-bottom:3px}
 .tp-code{font-size:11px;color:var(--lg);font-family:monospace;margin-bottom:6px}
 .tp-foot{display:flex;justify-content:space-between;align-items:center}
@@ -591,7 +634,7 @@ const CSS = `
 .rv-cancel{padding:12px 16px;border-radius:12px;background:none;border:1.5px solid var(--sd);font-size:13px;font-weight:600;color:var(--gy);cursor:pointer;font-family:inherit}
 
 /* ── Profile ── */
-.pf-page{padding-bottom:120px}
+.pf-page{padding-bottom:120px;overflow-x:hidden}
 .pf-hdr{padding:24px 20px;text-align:center;border-bottom:1px solid rgba(0,0,0,.06);margin-bottom:20px}
 .pf-av{width:72px;height:72px;border-radius:50%;background:var(--f);color:white;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;margin:0 auto 12px}
 .pf-name{font-family:'DM Serif Display',Georgia,serif;font-size:22px;margin-bottom:2px}
@@ -609,12 +652,13 @@ const CSS = `
 .pf-logout{margin:20px;padding:14px;border-radius:14px;background:none;border:2px solid var(--tr);color:var(--tr);font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;width:calc(100% - 40px);transition:.2s;text-align:center}
 .pf-logout:hover{background:var(--tr);color:white}
 .pf-ver{text-align:center;padding:16px;font-size:11px;color:var(--lg)}
-.pf-op-card{margin:0 20px 20px;padding:16px;background:var(--f);border-radius:14px;color:white;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:.2s}
+.pf-op-card{margin:0 20px 20px;padding:18px 20px;background:var(--f);border-radius:14px;color:white;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:.2s;min-height:80px}
 .pf-op-card:hover{opacity:.9}
-.pf-op-left{display:flex;align-items:center;gap:12px}
+.pf-op-left{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
+.pf-op-left>div:last-child{min-width:0;flex:1}
 .pf-op-ic{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white}
-.pf-op-title{font-size:14px;font-weight:700}
-.pf-op-desc{font-size:11px;opacity:.7;margin-top:1px}
+.pf-op-title{font-size:14px;font-weight:700;white-space:nowrap}
+.pf-op-desc{font-size:11px;opacity:.7;margin-top:1px;text-overflow:ellipsis;overflow:hidden}
 
 /* ═══ DASHBOARD ═══ */
 .dsh{padding-bottom:100px}
@@ -627,7 +671,7 @@ const CSS = `
 .dsh-tabs::-webkit-scrollbar{display:none}
 .dsh-tab{padding:14px 14px;font-size:12px;font-weight:600;color:var(--gy);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit;transition:.2s}
 .dsh-tab.on{color:var(--f);border-bottom-color:var(--f)}
-.dsh-bk{margin:0 16px 10px;padding:16px;background:white;border-radius:14px;border:1px solid rgba(0,0,0,.06);display:flex;align-items:center;gap:14px;cursor:pointer;transition:.2s}
+.dsh-bk{margin:0 0 10px;padding:16px;background:white;border-radius:14px;border:1px solid rgba(0,0,0,.06);display:flex;align-items:center;gap:14px;cursor:pointer;transition:.2s;width:100%}
 .dsh-bk:hover{box-shadow:0 1px 3px rgba(0,0,0,.06)}
 .dsh-bk-av{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:white;flex-shrink:0}
 .dsh-bk-i{flex:1;min-width:0}.dsh-bk-n{font-size:14px;font-weight:700}.dsh-bk-d{font-size:12px;color:var(--gy);margin-top:2px}
@@ -636,7 +680,7 @@ const CSS = `
 .st-confirmed{background:rgba(45,90,61,.1);color:var(--m)}.st-pending{background:rgba(212,168,67,.15);color:#B8860B}.st-completed{background:rgba(107,143,113,.15);color:var(--sg)}.st-cancelled{background:rgba(199,97,58,.1);color:var(--tr)}
 
 /* AI Content Creator */
-.ai-cc{margin:16px;padding:20px;background:linear-gradient(135deg,rgba(14,165,233,.06),rgba(14,165,233,.02));border:1.5px solid rgba(14,165,233,.15);border-radius:16px}
+.ai-cc{margin:0 0 16px 0;padding:20px;background:linear-gradient(135deg,rgba(14,165,233,.06),rgba(14,165,233,.02));border:1.5px solid rgba(14,165,233,.15);border-radius:16px}
 .ai-cc-h{display:flex;align-items:center;gap:8px;margin-bottom:12px}
 .ai-cc-h span{font-size:18px}
 .ai-cc-h h3{font-size:15px;font-weight:700;color:var(--ai)}
@@ -652,11 +696,11 @@ const CSS = `
 .ai-cc-lang.on{background:var(--f);color:white;border-color:var(--f)}
 .ai-cc-lang.qu{background:var(--gd);color:white;border-color:var(--gd)}
 
-.dsh-ls{margin:0 16px 12px;padding:16px;background:white;border-radius:14px;border:1px solid rgba(0,0,0,.06);display:flex;gap:14px}
+.dsh-ls{margin:0 0 12px 0;padding:16px;background:white;border-radius:14px;border:1px solid rgba(0,0,0,.06);display:flex;gap:14px;width:100%}
 .dsh-ls-img{width:80px;height:80px;border-radius:12px;flex-shrink:0}
 .dsh-ls-i{flex:1}.dsh-ls-t{font-size:14px;font-weight:700;margin-bottom:4px}.dsh-ls-m{font-size:12px;color:var(--gy);margin-bottom:8px}
 .dsh-ls-sts{display:flex;gap:16px}.dsh-ls-st{font-size:12px;display:flex;align-items:center;gap:4px}.dsh-ls-st .v{font-weight:700;color:var(--f)}
-.biz-sec{margin:0 16px 16px;padding:20px;background:white;border-radius:14px;border:1px solid rgba(0,0,0,.06)}
+.biz-sec{margin:0 0 16px;padding:20px;background:white;border-radius:14px;border:1px solid rgba(0,0,0,.06)}
 .biz-sec-t{font-size:15px;font-weight:700;color:var(--f);margin-bottom:16px;display:flex;align-items:center;gap:8px}
 .biz-badge{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:100px;font-size:11px;font-weight:700}
 .biz-badge.ok{background:rgba(45,90,61,.1);color:var(--m)}
@@ -674,8 +718,8 @@ const CSS = `
 .biz-doc-btn:hover{border-color:var(--m);color:var(--f)}
 .biz-saved{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--m);margin-top:8px}
 
-.earn-tot{margin:0 16px 12px;padding:20px;background:var(--f);color:white;border-radius:14px;display:flex;justify-content:space-between;align-items:center}
-.earn-chart{margin:0 16px 20px;padding:20px;background:white;border-radius:14px;border:1px solid rgba(0,0,0,.06)}
+.earn-tot{margin:0 0 12px;padding:20px;background:var(--f);color:white;border-radius:14px;display:flex;justify-content:space-between;align-items:center;width:100%;box-sizing:border-box}
+.earn-chart{margin:0 0 20px;padding:20px;background:white;border-radius:14px;border:1px solid rgba(0,0,0,.06);width:100%;box-sizing:border-box}
 .earn-bars{display:flex;align-items:flex-end;gap:12px;height:140px;margin-top:16px}
 .earn-bg{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
 .earn-bc{width:100%;display:flex;gap:3px;align-items:flex-end;height:120px}
@@ -683,8 +727,8 @@ const CSS = `
 .earn-bl{font-size:10px;font-weight:600;color:var(--gy)}
 .earn-leg{display:flex;gap:16px;margin-top:16px;padding-top:12px;border-top:1px solid var(--sd)}
 .earn-li{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--gy)}.earn-dt{width:8px;height:8px;border-radius:3px}
-.earn-rows{margin:0 16px;display:flex;flex-direction:column;gap:8px}
-.earn-row{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:white;border-radius:14px;border:1px solid rgba(0,0,0,.04)}
+.earn-rows{margin:0;display:flex;flex-direction:column;gap:8px;width:100%}
+.earn-row{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:white;border-radius:14px;border:1px solid rgba(0,0,0,.04);width:100%;box-sizing:border-box}
 
 /* ══ DESKTOP NAV LINKS (hidden on mobile) ═══════════ */
 .tn-links{display:none;gap:2px;align-items:center}
@@ -702,12 +746,12 @@ const CSS = `
 .site-footer-brand .logo{font-size:24px;color:white;margin-bottom:10px;display:block}
 .site-footer-brand .logo span{color:var(--trl)}
 .site-footer-tagline{font-size:13px;color:rgba(255,255,255,.55);line-height:1.7;max-width:240px}
-.site-footer-col-t{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.4);margin-bottom:16px}
+.site-footer-col-t{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.7);margin-bottom:16px}
 .site-footer-col a,.site-footer-col button{display:block;font-size:13px;color:rgba(255,255,255,.7);text-decoration:none;margin-bottom:10px;cursor:pointer;transition:.15s;background:none;border:none;font-family:inherit;padding:0;text-align:left}
 .site-footer-col a:hover,.site-footer-col button:hover{color:white}
-.site-footer-copy{font-size:12px;color:rgba(255,255,255,.3);padding:24px 0;border-top:1px solid rgba(255,255,255,.1);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+.site-footer-copy{font-size:12px;color:rgba(255,255,255,.55);padding:24px 0;border-top:1px solid rgba(255,255,255,.15);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
 .site-footer-copy-links{display:flex;gap:20px}
-.site-footer-copy-links button{font-size:12px;color:rgba(255,255,255,.3);background:none;border:none;cursor:pointer;font-family:inherit;padding:0;transition:.15s}
+.site-footer-copy-links button{font-size:12px;color:rgba(255,255,255,.55);background:none;border:none;cursor:pointer;font-family:inherit;padding:0;transition:.15s}
 .site-footer-copy-links button:hover{color:rgba(255,255,255,.6)}
 
 /* ═══ TABLET ≥640px ═════════════════════════════════ */
@@ -803,7 +847,7 @@ const CSS = `
 
   .bkf{max-width:640px;margin:0 auto;padding:40px 40px 100px}
 
-  .dsh{display:grid;grid-template-columns:220px 1fr;padding-bottom:0;align-items:start;max-width:1280px;margin:0 auto}
+  .dsh{display:grid;grid-template-columns:220px 1fr;padding-bottom:0;align-items:start;max-width:1280px;margin:0 auto;width:100%}
   .dsh-h{grid-column:1/-1;grid-row:1}
   .dsh-tabs{grid-column:1;grid-row:2;flex-direction:column;border-bottom:none;
             border-right:2px solid var(--sd);padding:16px 0;margin-bottom:0;
@@ -813,8 +857,8 @@ const CSS = `
            margin-bottom:0;padding:13px 20px;width:100%;font-size:13px;transition:background .15s}
   .dsh-tab:hover{background:rgba(27,58,45,.04)}
   .dsh-tab.on{color:var(--f);border-left-color:var(--f);border-bottom-color:transparent;background:rgba(27,58,45,.05)}
-  .dsh>.fu:not(.dsh-h){grid-column:2;grid-row:2}
-  .biz-sec{margin:0 0 16px 16px}
+  .dsh>.fu:not(.dsh-h){grid-column:2;grid-row:2;padding:20px}
+  .biz-sec{margin:0 0 16px 0}
 
   .npage{padding:32px 40px 48px;max-width:1080px;margin:0 auto}
   .tp-page{padding:32px 40px 48px;max-width:960px;margin:0 auto}
@@ -850,9 +894,9 @@ function TopNav({ onHome, onDash, onNotif, view, unread, isOperator, navActive, 
           ))}
         </div>
         <div className="tn-r">
-          {isOperator && <button className={`tn-btn ${view === "dashboard" ? "on" : ""}`} onClick={onDash}>{view === "dashboard" || view === "new-tour" ? <Home size={18} strokeWidth={1.5} /> : <BarChart3 size={18} strokeWidth={1.5} />}</button>}
-          <button className="tn-btn" onClick={onNotif}>{unread > 0 && <span className="ndot" />}<Bell size={18} strokeWidth={1.5} /></button>
-          <button className="tn-btn tn-profile" onClick={() => onNavClick("profile")}><User size={18} strokeWidth={1.5} /></button>
+          <button className={`tn-btn ${view === "dashboard" ? "on" : ""}`} onClick={onDash} aria-label={view === "dashboard" || view === "new-tour" ? "Inicio" : "Dashboard"} type="button" style={{ visibility: isOperator ? 'visible' : 'hidden' }}>{view === "dashboard" || view === "new-tour" ? <Home size={18} strokeWidth={1.5} /> : <BarChart3 size={18} strokeWidth={1.5} />}</button>
+          <button className="tn-btn" onClick={onNotif} aria-label={unread > 0 ? `Notificaciones, ${unread} sin leer` : "Notificaciones"} type="button">{unread > 0 && <span className="ndot" />}<Bell size={18} strokeWidth={1.5} /></button>
+          <button className="tn-btn tn-profile" onClick={() => onNavClick("profile")} aria-label="Perfil" type="button"><User size={18} strokeWidth={1.5} /></button>
         </div>
       </div>
     </div>
@@ -861,13 +905,13 @@ function TopNav({ onHome, onDash, onNotif, view, unread, isOperator, navActive, 
 
 function BNav({ active, go }) {
   return (
-    <div className="bn">
+    <nav className="bn" aria-label="Navegación principal">
       {[{ id: "explore", ic: Compass, l: "Explorar" }, { id: "search", ic: Search, l: "Buscar" }, { id: "trips", ic: Ticket, l: "Mis Viajes" }, { id: "profile", ic: User, l: "Perfil" }].map((i) => (
-        <button key={i.id} className={`bn-i ${active === i.id ? "on" : ""}`} onClick={() => go(i.id)}>
-          <span className="ni"><i.ic size={20} strokeWidth={1.5} /></span>{i.l}<span className="nd" />
+        <button key={i.id} className={`bn-i ${active === i.id ? "on" : ""}`} onClick={() => go(i.id)} aria-label={i.l} aria-current={active === i.id ? "page" : undefined} type="button">
+          <span className="ni" aria-hidden="true"><i.ic size={20} strokeWidth={1.5} /></span>{i.l}<span className="nd" aria-hidden="true" />
         </button>
       ))}
-    </div>
+    </nav>
   );
 }
 
@@ -1009,7 +1053,8 @@ function OTPView({ go }) {
         <div className="otp-row">
           {otp.map((d, i) => (
             <input key={i} ref={refs[i]} className="otp-digit" value={d} maxLength={1}
-              type="tel" inputMode="numeric"
+              type="tel" inputMode="numeric" autoComplete="one-time-code"
+              aria-label={`Dígito ${i + 1} del código de verificación`}
               onChange={(e) => handleOtp(i, e.target.value)}
               onKeyDown={(e) => handleKey(i, e)} />
           ))}
@@ -1205,7 +1250,7 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
   return (
     <div className="det">
       <div className="det-hero" style={imgBg(tour.image)}><div className="det-ov" />
-        <button className="bk-btn" onClick={() => go("home")}><ArrowLeft size={20} strokeWidth={1.5} /></button>
+        <button className="bk-btn" onClick={() => go("home")} aria-label="Volver al inicio" type="button"><ArrowLeft size={20} strokeWidth={1.5} /></button>
         <div className="det-nfo">
           <div className="det-tl">{isQu ? tour.titleQu : tour.title}</div>
         </div>
@@ -1323,13 +1368,13 @@ function BookingView({ tour, go }) {
 
   return (
     <div className="bkf fu">
-      <button className="bk-btn" onClick={() => step === 1 ? go("detail") : setStep(step - 1)} style={{ position: "relative", marginBottom: 16 }}><ArrowLeft size={20} strokeWidth={1.5} /></button>
+      <button className="bk-btn" onClick={() => step === 1 ? go("detail") : setStep(step - 1)} style={{ position: "relative", marginBottom: 16 }} aria-label={step === 1 ? "Volver al tour" : "Paso anterior"} type="button"><ArrowLeft size={20} strokeWidth={1.5} /></button>
       <div className="bkf-st"><div className={`bkf-s ${step >= 1 ? "on" : ""}`} /><div className={`bkf-s ${step >= 2 ? "on" : ""}`} /><div className={`bkf-s ${step >= 3 ? "on" : ""}`} /><div className="bkf-s" /></div>
 
       {step === 1 && <div className="fu">
         <div className="bkf-t">Elige fecha y viajeros</div><div className="bkf-sub">{tour.title}</div>
-        <div className="fg"><label className="lbl">Fecha</label><input type="date" className="inp" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-        <div className="fg"><label className="lbl">Personas</label><div className="gctr"><button className="gbtn" onClick={() => setGuests(Math.max(1, guests - 1))}>−</button><div className="gcnt">{guests}</div><button className="gbtn" onClick={() => setGuests(Math.min(tour.capacity, guests + 1))}>+</button></div></div>
+        <div className="fg"><label className="lbl">Fecha</label><input type="date" className="inp" value={date} min={new Date().toISOString().split("T")[0]} onChange={(e) => setDate(e.target.value)} aria-label="Fecha del tour" /></div>
+        <div className="fg"><label className="lbl">Personas</label><div className="gctr" role="group" aria-label="Cantidad de personas"><button type="button" className="gbtn" onClick={() => setGuests(Math.max(1, guests - 1))} disabled={guests <= 1} aria-label="Disminuir número de personas">−</button><div className="gcnt" aria-live="polite">{guests}</div><button type="button" className="gbtn" onClick={() => setGuests(Math.min(tour.capacity, guests + 1))} disabled={guests >= tour.capacity} aria-label="Aumentar número de personas">+</button></div></div>
         <div className="sum"><div className="sum-r"><span>S/ {tour.price} × {guests}</span><span>S/ {total.toFixed(2)}</span></div><div className="sum-t"><span>Total</span><span>S/ {total.toFixed(2)}</span></div></div>
         <button className="mbtn" onClick={() => setStep(2)}>Continuar</button>
       </div>}
@@ -1454,16 +1499,33 @@ function ProfileView({ go, isOperator, setIsOperator }) {
         <div className="pf-av">{USER.avatar}</div><div className="pf-name">{USER.name}</div><div className="pf-since">Viajera desde {USER.joinDate}</div>
         <div className="pf-stats"><div className="pf-stat"><div className="pf-stat-v">{USER.trips}</div><div className="pf-stat-l">Viajes</div></div><div className="pf-stat"><div className="pf-stat-v">{USER.reviews}</div><div className="pf-stat-l">Reseñas</div></div></div>
       </div>
-      <div className="pf-op-card" onClick={() => { if (!isOperator) { setIsOperator(true); } else { go("dashboard"); } }}>
-        <div className="pf-op-left">
-          <div className="pf-op-ic"><MountainSnow size={20} strokeWidth={1.5} color="white" /></div>
-          <div>
-            <div className="pf-op-title">{isOperator ? "Panel de operador" : "¿Ofreces tours?"}</div>
-            <div className="pf-op-desc">{isOperator ? "Gestiona reservas, ingresos y tours" : "Activa tu perfil de operador y empieza a vender"}</div>
+      {!isOperator ? (
+        <div className="pf-op-card" onClick={() => setIsOperator(true)}>
+          <div className="pf-op-left">
+            <div className="pf-op-ic">
+              <MountainSnow size={20} strokeWidth={1.5} color="white" />
+            </div>
+            <div>
+              <div className="pf-op-title">¿Ofreces tours?</div>
+              <div className="pf-op-desc">Activa tu perfil de operador</div>
+            </div>
           </div>
+          <ChevronRight size={16} strokeWidth={1.5} style={{ color: "var(--lg)" }} />
         </div>
-        <ChevronRight size={16} strokeWidth={1.5} style={{ color: "var(--lg)" }} />
-      </div>
+      ) : (
+        <div className="pf-op-card" onClick={() => go("dashboard")}>
+          <div className="pf-op-left">
+            <div className="pf-op-ic">
+              <MountainSnow size={20} strokeWidth={1.5} color="white" />
+            </div>
+            <div>
+              <div className="pf-op-title">Panel de operador</div>
+              <div className="pf-op-desc">Gestiona reservas e ingresos</div>
+            </div>
+          </div>
+          <ChevronRight size={16} strokeWidth={1.5} style={{ color: "var(--lg)" }} />
+        </div>
+      )}
       <div className="pf-sec"><div className="pf-sec-t">Datos personales</div>
         {[["Nombre", USER.name], ["Teléfono", USER.phone], ["Email", USER.email], ["Ciudad", USER.city]].map(([l, v]) => (
           <div key={l} className="pf-field"><div><div className="pf-field-l">{l}</div><div className="pf-field-v">{v}</div></div><ChevronRight size={16} strokeWidth={1.5} style={{ color: "var(--lg)" }} /></div>
@@ -1618,7 +1680,7 @@ function DashView({ go, opTours, setOpTours, onEditTour, initialTab = "bookings"
         </div>
 
         {/* Saldo disponible + solicitar pago */}
-        <div style={{ margin: "0 16px 16px", padding: 16, background: "var(--cr)", borderRadius: 16, border: "1px solid var(--lg)" }}>
+        <div style={{ margin: "0 0 16px 0", padding: 16, background: "var(--cr)", borderRadius: 16, border: "1px solid var(--lg)" }}>
           <div style={{ fontSize: 12, color: "var(--gy)", marginBottom: 4 }}>Saldo disponible para retiro</div>
           <div style={{ fontSize: 26, fontWeight: 800, color: "var(--f)", marginBottom: 14 }}>
             S/ {payoutState === "success" ? "0.00" : totR.toLocaleString()}
@@ -1829,7 +1891,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
 
   return (
     <div className="bkf fu">
-      <button className="bk-btn" onClick={() => step === 1 ? onCancel() : setStep(step - 1)} style={{ position: "relative", marginBottom: 16 }}><ArrowLeft size={20} strokeWidth={1.5} /></button>
+      <button className="bk-btn" onClick={() => step === 1 ? onCancel() : setStep(step - 1)} style={{ position: "relative", marginBottom: 16 }} aria-label={step === 1 ? "Cancelar" : "Paso anterior"} type="button"><ArrowLeft size={20} strokeWidth={1.5} /></button>
       <div className="bkf-st">
         {[1, 2, 3, 4, 5].map((s) => <div key={s} className={`bkf-s ${step >= s ? "on" : ""}`} />)}
       </div>
