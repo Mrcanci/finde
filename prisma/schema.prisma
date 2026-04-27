@@ -1,0 +1,104 @@
+// Finde — Prisma schema
+// Postgres (Supabase) + pgvector + pg_trgm
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [pgvector(map: "vector"), pg_trgm, pg_stat_statements, pgcrypto, supabase_vault, uuid_ossp(map: "uuid-ossp")]
+}
+
+// ---------- Enums ----------
+
+enum Category {
+  adventure
+  cultural
+  gastronomy
+  nature
+  mystic
+}
+
+// ---------- Models ----------
+
+model Operator {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  verified  Boolean  @default(false)
+  city      String?
+  createdAt DateTime @default(now())
+
+  tours     Tour[]
+}
+
+model Tour {
+  id            String   @id @default(cuid())
+  operatorId    String
+  operator      Operator @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+
+  title         String
+  description   String   @db.Text
+  shortPitch    String?
+
+  category      Category
+  difficulty    String?
+  city          String
+  region        String
+
+  durationHours Int
+  priceSoles    Int      // céntimos de sol (ej: 8500 = S/85.00)
+  capacity      Int      @default(10)
+
+  language      String[] @default(["es"])
+  included      String[] @default([])
+  excluded      String[] @default([])
+
+  imageUrl      String?
+  rating        Float    @default(0)
+  reviewsCount  Int      @default(0)
+
+  embedding     Unsupported("vector(1024)")?
+
+  createdAt     DateTime @default(now())
+
+  bookings      Booking[]
+
+  @@index([category])
+  @@index([city])
+}
+
+model Booking {
+  id           String   @id @default(cuid())
+  tourId       String
+  tour         Tour     @relation(fields: [tourId], references: [id], onDelete: Cascade)
+
+  userEmail    String
+  userName     String
+  userPhone    String?
+
+  guests       Int      @default(1)
+  totalSoles   Int      // céntimos de sol (ej: 17000 = S/170.00)
+
+  status       String   @default("confirmed")
+  bookingCode  String   @unique
+  scheduledAt  DateTime
+
+  createdAt    DateTime @default(now())
+
+  @@index([tourId])
+  @@index([userEmail])
+}
+
+model SearchLog {
+  id         String   @id @default(cuid())
+  query      String
+  resultIds  String[] @default([])
+  reasoning  String?  @db.Text
+  createdAt  DateTime @default(now())
+}
