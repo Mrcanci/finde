@@ -1,5 +1,8 @@
 {
-    "rewrites": [
-      { "source": "/(.*)", "destination": "/" }
-    ]
-  }
+  "buildCommand": "vite build",
+  "devCommand": "vite --port $PORT",
+  "framework": null,
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/" }
+  ]
+}
