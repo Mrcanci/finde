@@ -9,6 +9,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
 import { anthropic, MODEL } from "../../lib/anthropic";
+import { rateLimit, ipFromRequest } from "../../lib/rate-limit";
 
 const CATEGORIES = ["adventure", "cultural", "gastronomy", "nature", "mystic"] as const;
 
@@ -196,6 +197,17 @@ export default async function handler(
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     res.status(405).json({ error: "Método no permitido" });
+    return;
+  }
+
+  const ip = ipFromRequest(req.headers["x-forwarded-for"]);
+  const rl = rateLimit(ip, "ai-description", 10);
+  if (!rl.allowed) {
+    const seconds = rl.retryAfterSeconds ?? 60;
+    res.setHeader("Retry-After", String(seconds));
+    res.status(429).json({
+      error: `Demasiadas peticiones, intenta en ${seconds} segundos`,
+    });
     return;
   }
 
