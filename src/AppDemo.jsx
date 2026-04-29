@@ -33,6 +33,39 @@ const TOURS = [
   { id:14, title:"Lunahuaná: Canotaje + Canopy + Vino", titleQu:"", location:"Lunahuaná, Lima", price:175, rating:4.7, reviews:3, duration:"Full day", image:"https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=800&h=600&fit=crop", badge:"Combo", category:"adventure", operator:"Lunahuaná Extremo", verified:true, capacity:14, altitude:"479", difficulty:"Moderada", included:["Transporte desde Lima","Rafting","Canopy","Degustación de vinos","Almuerzo campestre"], excluded:["Fotos y videos","Propinas","Compras en bodega"], desc:"El combo perfecto: adrenalina + relax. Baja los rápidos del río Cañete en rafting clase III, cruza el valle en canopy con vistas increíbles, y termina con degustación de vinos y piscos en una bodega artesanal. A solo 3 horas de Lima.", descQu:"", aiSummary:"La combinación de aventura y relax es lo que más destacan. El rafting es emocionante y la degustación de vinos el cierre perfecto.", altTour:null, tags:["aventura","rafting","canopy","vino","lunahuaná","lima"] },
 ];
 
+const CAT_API_TO_UI = { cultural: "culture", gastronomy: "gastro" };
+const CAT_UI_TO_API = { culture: "cultural", gastro: "gastronomy" };
+
+function mapTourFromApi(t) {
+  return {
+    id: t.id,
+    title: t.title,
+    titleQu: "",
+    location: t.region && t.region !== t.city ? `${t.city}, ${t.region}` : t.city,
+    price: Math.round(t.priceSoles / 100),
+    rating: t.rating,
+    reviews: t.reviewsCount,
+    duration: t.durationHours >= 24
+      ? `${Math.round(t.durationHours / 24)} días`
+      : `${t.durationHours} horas`,
+    image: t.imageUrl,
+    badge: "",
+    category: CAT_API_TO_UI[t.category] || t.category,
+    operator: t.operator?.name || "Operador Finde",
+    verified: !!t.operator?.verified,
+    capacity: t.capacity,
+    altitude: "",
+    difficulty: t.difficulty || "Moderada",
+    included: t.included || [],
+    excluded: t.excluded || [],
+    desc: t.description,
+    descQu: "",
+    aiSummary: t.shortPitch || "",
+    altTour: null,
+    tags: [],
+  };
+}
+
 const AI_SUGGESTIONS = [
   { query: "algo tranquilo con niños sin mucha altitud", results: [2, 11, 13, 3], reason: "Baja altitud + actividades familiares" },
   { query: "aventura extrema para jóvenes", results: [5, 9, 14, 1, 10], reason: "Alta adrenalina + desafío físico" },
@@ -122,28 +155,6 @@ function searchTours(tours, query, categoryFilter) {
   if (matchedFilters.sort === "price_asc") results.sort((a, b) => a.tour.price - b.tour.price);
   else results.sort((a, b) => b.score - a.score);
   return { results: results.map(s => s.tour), hasKeywordMatch, sort: matchedFilters.sort || null };
-}
-
-async function callGeminiSearch(tours, query) {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey || apiKey === "your_gemini_api_key_here") return null;
-  try {
-    const catalog = tours.map(t => ({ id: t.id, title: t.title, location: t.location, category: t.category, price: t.price, difficulty: t.difficulty, altitude: t.altitude, duration: t.duration, desc: t.desc, tags: t.tags, included: t.included }));
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: `Eres el buscador inteligente de FINDE, un marketplace de tours en Perú. Dado el catálogo de tours y la búsqueda del usuario, devuelve SOLO un JSON array con los IDs de los tours que mejor coinciden, ordenados por relevancia. Máximo 5 resultados. Si ninguno coincide, devuelve un array vacío [].\n\nCatálogo: ${JSON.stringify(catalog)}\n\nBúsqueda: "${query}"` }] }],
-        generationConfig: { temperature: 0.1, maxOutputTokens: 100 }
-      })
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-    const match = text.match(/\[[\d,\s]*\]/);
-    if (!match) return null;
-    return JSON.parse(match[0]);
-  } catch { return null; }
 }
 
 const NOTIFS = [
@@ -1118,6 +1129,7 @@ function CatalogView({ go, pick, cat, setCat, tours }) {
   const [geminiLoading, setGeminiLoading] = useState(false);
   const [geminiIds, setGeminiIds] = useState(null);
   const [aiResult, setAiResult] = useState(null);
+  const [apiReasoning, setApiReasoning] = useState("");
   const geminiTimer = useRef(null);
   const fullSearch = q.length >= 2 ? searchTours(tours, q, cat) : null;
   const filt = aiResult
@@ -1142,12 +1154,21 @@ function CatalogView({ go, pick, cat, setCat, tours }) {
       geminiTimer.current = setTimeout(async () => {
         setGeminiLoading(true);
         try {
-          const ids = await callGeminiSearch(tours, value);
-          if (ids && ids.length > 0) {
-            setGeminiIds(ids);
-            const geminiTours = ids.map(id => tours.find(t => t.id === id)).filter(Boolean);
-            const localNotInGemini = results.filter(t => !ids.includes(t.id));
-            setLocalResults([...geminiTours, ...localNotInGemini].slice(0, 5));
+          const r = await fetch("/api/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ query: value }),
+          });
+          if (r.ok) {
+            const data = await r.json();
+            const ids = (data.results || []).map(t => t.id);
+            if (ids.length > 0) {
+              setGeminiIds(ids);
+              const apiTours = ids.map(id => tours.find(t => t.id === id)).filter(Boolean);
+              const localNotInApi = results.filter(t => !ids.includes(t.id));
+              setLocalResults([...apiTours, ...localNotInApi].slice(0, 5));
+              setApiReasoning(data.reasoning || "");
+            }
           }
         } catch { /* silent fallback */ }
         setGeminiLoading(false);
@@ -1223,8 +1244,8 @@ function CatalogView({ go, pick, cat, setCat, tours }) {
         {geminiIds && !aiResult && (
           <div className="ai-result">
             <div className="ai-result-ic"><Sparkles size={16} strokeWidth={1.5} /></div>
-            <div><div className="ai-result-t">IA encontró {filt.length} experiencias</div><div className="ai-result-b">&ldquo;{q}&rdquo;</div></div>
-            <button className="sr-clear" onClick={() => { setGeminiIds(null); }}><X size={16} strokeWidth={1.5} /></button>
+            <div><div className="ai-result-t">IA encontró {filt.length} experiencias</div><div className="ai-result-b">{apiReasoning ? apiReasoning : <>&ldquo;{q}&rdquo;</>}</div></div>
+            <button className="sr-clear" onClick={() => { setGeminiIds(null); setApiReasoning(""); }}><X size={16} strokeWidth={1.5} /></button>
           </div>
         )}
         <div className="cats">{CATS.map((c) => <button key={c.id} className={`chip ${cat === c.id ? "on" : ""}`} onClick={() => { setCat(c.id); setQ(""); setGeminiIds(null); setAiResult(null); setLocalResults([]); }}><c.ic size={16} strokeWidth={1.5} /> {c.n}</button>)}</div>
@@ -1239,6 +1260,42 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
   const [lang, setLang] = useState("es");
   const [langOpen, setLangOpen] = useState(false);
   const [showAllRevs, setShowAllRevs] = useState(false);
+  const [quechuaByTour, setQuechuaByTour] = useState({});
+  const [quechuaLoading, setQuechuaLoading] = useState(false);
+  const [quechuaError, setQuechuaError] = useState("");
+  const quechuaText = (tour?.id && quechuaByTour[tour.id]) || tour?.descQu || "";
+
+  useEffect(() => {
+    if (lang !== "qu") return;
+    if (!tour?.id) return;
+    if (quechuaByTour[tour.id]) return;
+    if (tour.descQu) return;
+    if (!tour.desc || tour.desc.length < 50) return;
+
+    let cancel = false;
+    (async () => {
+      setQuechuaError("");
+      setQuechuaLoading(true);
+      try {
+        const r = await fetch("/api/ai/generate-quechua", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ spanishText: tour.desc }),
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const d = await r.json();
+        if (!cancel) {
+          setQuechuaByTour(prev => ({ ...prev, [tour.id]: d.quechuaText || "" }));
+        }
+      } catch {
+        if (!cancel) setQuechuaError("No pudimos traducir al quechua. Intenta de nuevo.");
+      } finally {
+        if (!cancel) setQuechuaLoading(false);
+      }
+    })();
+    return () => { cancel = true; };
+  }, [lang, tour?.id]);
+
   if (!tour) return null;
   const isQu = lang === "qu";
   const langLabels = { es: "Español", qu: "Quechua", en: "English" };
@@ -1284,7 +1341,12 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
           <div className="det-mi"><span className="mic"><Users size={14} strokeWidth={1.5} /></span>Max {tour.capacity}</div>
           <div className="det-mi"><span className="mic"><Dumbbell size={14} strokeWidth={1.5} /></span>{tour.difficulty}</div>
         </div>
-        <p className="det-ds">{isQu ? tour.descQu : tour.desc}</p>
+        <p className="det-ds">
+          {isQu
+            ? (quechuaText
+                || (quechuaLoading ? "Traduciendo a quechua…" : (quechuaError || tour.desc)))
+            : tour.desc}
+        </p>
         <div className="det-op">
           <div className="det-op-av">{tour.operator[0]}</div>
           <div><div className="det-op-n">{tour.operator}</div><div className="det-op-d">{tour.verified ? <><ShieldCheck size={14} strokeWidth={1.5} /> Verificado MINCETUR</> : "Operador"}</div></div>
@@ -1345,6 +1407,42 @@ function BookingView({ tour, go }) {
   const [pay, setPay] = useState("yape");
   const [touched, setTouched] = useState(false);
   const [bookingCode] = useState(() => Math.random().toString(36).substring(2, 8).toUpperCase());
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [serverBooking, setServerBooking] = useState(null);
+
+  const submitBooking = async () => {
+    setSubmitting(true);
+    setSubmitError("");
+    try {
+      const phoneClean = phone.replace(/\D/g, "");
+      const scheduledAt = new Date(`${date}T13:00:00.000Z`).toISOString();
+      const r = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tourId: tour.id,
+          userName: name,
+          userEmail: email,
+          userPhone: phoneClean,
+          guests,
+          scheduledAt,
+        }),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${r.status}`);
+      }
+      const data = await r.json();
+      setServerBooking(data.booking || null);
+      setStep(4);
+    } catch (e) {
+      setSubmitError(e.message || "Error creando la reserva");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (!tour) return null;
   const total = tour.price * guests;
   const step2Valid = name.trim() && phone.trim() && email.trim() && docId.trim();
@@ -1355,11 +1453,11 @@ function BookingView({ tour, go }) {
       <div className="suc-chk"><Check size={28} strokeWidth={2.5} /></div><div className="suc-t">¡Reserva confirmada!</div>
       <div className="suc-sub">Recibirás la confirmación por WhatsApp en minutos.</div>
       <div className="suc-card">
-        <div className="suc-row"><span className="l">Tour</span><span style={{ fontWeight: 700 }}>{tour.title}</span></div>
+        <div className="suc-row"><span className="l">Tour</span><span style={{ fontWeight: 700 }}>{serverBooking?.tourTitle || tour.title}</span></div>
         <div className="suc-row"><span className="l">Fecha</span><span>{date}</span></div>
-        <div className="suc-row"><span className="l">Personas</span><span>{guests}</span></div>
-        <div className="suc-row"><span className="l">Total</span><span style={{ fontWeight: 800, color: "var(--f)" }}>S/ {total.toFixed(2)}</span></div>
-        <div className="suc-row"><span className="l">Código</span><span style={{ fontWeight: 700 }}>FND-{bookingCode}</span></div>
+        <div className="suc-row"><span className="l">Personas</span><span>{serverBooking?.guests ?? guests}</span></div>
+        <div className="suc-row"><span className="l">Total</span><span style={{ fontWeight: 800, color: "var(--f)" }}>{serverBooking?.totalSoles != null ? `S/ ${(serverBooking.totalSoles / 100).toFixed(2)}` : `S/ ${total.toFixed(2)}`}</span></div>
+        <div className="suc-row"><span className="l">Código</span><span style={{ fontWeight: 700 }}>{serverBooking?.bookingCode || `FND-${bookingCode}`}</span></div>
       </div>
       <button className="suc-wa"><Smartphone size={16} strokeWidth={1.5} /> Ver en WhatsApp</button>
       <button className="mbtn" onClick={() => go("home")} style={{ background: "var(--ch)" }}>Volver al inicio</button>
@@ -1420,8 +1518,11 @@ function BookingView({ tour, go }) {
             </div>
           ))}
         </div>
-        <button className={`mbtn ${pay === "yape" ? "yp" : ""}`} onClick={() => setStep(4)}>
-          {pay === "cash" ? "Generar código PagoEfectivo" : `Pagar S/ ${total.toFixed(2)} con ${payLabels[pay]}`}
+        {submitError && <div className="field-err" style={{ marginBottom: 12 }}>{submitError}</div>}
+        <button className={`mbtn ${pay === "yape" ? "yp" : ""}`} disabled={submitting} onClick={submitBooking}>
+          {submitting
+            ? "Procesando reserva…"
+            : pay === "cash" ? "Generar código PagoEfectivo" : `Pagar S/ ${total.toFixed(2)} con ${payLabels[pay]}`}
         </button>
       </div>}
     </div>
@@ -1493,14 +1594,56 @@ function TripsView({ go, pick, onReview, trips, tours }) {
 }
 
 function ProfileView({ go, isOperator, setIsOperator }) {
+  const [showOpForm, setShowOpForm] = useState(false);
+  const [opForm, setOpForm] = useState({
+    name: USER.name,
+    email: USER.email,
+    phone: (USER.phone || "").replace(/\D/g, ""),
+    city: USER.city,
+    ruc: "",
+  });
+  const [opLoading, setOpLoading] = useState(false);
+  const [opError, setOpError] = useState("");
+
+  const updOp = (k, v) => setOpForm(prev => ({ ...prev, [k]: v }));
+
+  const submitOperator = async () => {
+    setOpLoading(true);
+    setOpError("");
+    try {
+      const body = {
+        name: opForm.name,
+        email: opForm.email,
+        phone: opForm.phone,
+        city: opForm.city,
+        ...(opForm.ruc ? { ruc: opForm.ruc } : {}),
+      };
+      const r = await fetch("/api/operators", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${r.status}`);
+      }
+      setIsOperator(true);
+      setShowOpForm(false);
+    } catch (e) {
+      setOpError(e.message || "Error registrando operador");
+    } finally {
+      setOpLoading(false);
+    }
+  };
+
   return (
     <div className="pf-page fu">
       <div className="pf-hdr">
         <div className="pf-av">{USER.avatar}</div><div className="pf-name">{USER.name}</div><div className="pf-since">Viajera desde {USER.joinDate}</div>
         <div className="pf-stats"><div className="pf-stat"><div className="pf-stat-v">{USER.trips}</div><div className="pf-stat-l">Viajes</div></div><div className="pf-stat"><div className="pf-stat-v">{USER.reviews}</div><div className="pf-stat-l">Reseñas</div></div></div>
       </div>
-      {!isOperator ? (
-        <div className="pf-op-card" onClick={() => setIsOperator(true)}>
+      {!isOperator && !showOpForm ? (
+        <div className="pf-op-card" onClick={() => setShowOpForm(true)}>
           <div className="pf-op-left">
             <div className="pf-op-ic">
               <MountainSnow size={20} strokeWidth={1.5} color="white" />
@@ -1511,6 +1654,35 @@ function ProfileView({ go, isOperator, setIsOperator }) {
             </div>
           </div>
           <ChevronRight size={16} strokeWidth={1.5} style={{ color: "var(--lg)" }} />
+        </div>
+      ) : !isOperator && showOpForm ? (
+        <div className="pf-sec">
+          <div className="pf-sec-t">Registrarse como operador</div>
+          <div className="fg">
+            <label className="lbl">Nombre o razón social</label>
+            <input className="inp" value={opForm.name} onChange={(e) => updOp("name", e.target.value)} />
+          </div>
+          <div className="fg">
+            <label className="lbl">Email</label>
+            <input className="inp" type="email" value={opForm.email} onChange={(e) => updOp("email", e.target.value)} />
+          </div>
+          <div className="fg">
+            <label className="lbl">Teléfono (solo dígitos)</label>
+            <input className="inp" value={opForm.phone} onChange={(e) => updOp("phone", e.target.value.replace(/\D/g, ""))} maxLength={15} />
+          </div>
+          <div className="fg">
+            <label className="lbl">Ciudad</label>
+            <input className="inp" value={opForm.city} onChange={(e) => updOp("city", e.target.value)} />
+          </div>
+          <div className="fg">
+            <label className="lbl">RUC <span style={{ color: "var(--gy)", fontWeight: 400 }}>(opcional, 11 dígitos)</span></label>
+            <input className="inp" value={opForm.ruc} onChange={(e) => updOp("ruc", e.target.value.replace(/\D/g, ""))} maxLength={11} />
+          </div>
+          {opError && <div className="field-err" style={{ marginBottom: 12 }}>{opError}</div>}
+          <button className="mbtn" disabled={opLoading || !opForm.name || !opForm.email || !opForm.phone || !opForm.city} onClick={submitOperator}>
+            {opLoading ? "Registrando…" : "Registrarse como operador"}
+          </button>
+          <button className="rv-cancel" style={{ marginTop: 8, width: "100%" }} onClick={() => { setShowOpForm(false); setOpError(""); }}>Cancelar</button>
         </div>
       ) : (
         <div className="pf-op-card" onClick={() => go("dashboard")}>
@@ -1863,12 +2035,52 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
     days: [], startTime: "08:00", cancellation: "24h", photo: null
   });
   const [aiDesc, setAiDesc] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
   const [published, setPublished] = useState(false);
   const u = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
 
-  const generateAiDesc = () => {
-    if (form.title && form.location) {
-      setAiDesc(`Vive una experiencia única con ${form.title} en ${form.location}. Nuestros guías certificados te llevarán por rutas poco conocidas en una aventura de ${form.duration || "varias horas"}. ${form.included ? "Incluye: " + form.included + "." : ""} Ideal para grupos de hasta ${form.capacity || "10"} personas. Dificultad: ${form.difficulty}. Reserva con Yape o Plin y recibe confirmación por WhatsApp.`);
+  const generateAiDesc = async () => {
+    if (!form.title || !form.location) return;
+    setAiLoading(true);
+    setAiError("");
+    try {
+      const cityRegion = form.location.split(",").map(s => s.trim());
+      const apiCat = CAT_UI_TO_API[form.category] || form.category;
+      const allowed = ["adventure", "cultural", "gastronomy", "nature", "mystic"];
+      const safeCat = allowed.includes(apiCat) ? apiCat : "adventure";
+      const hours = parseInt((form.duration || "").match(/\d+/)?.[0] || "8", 10);
+      const inclArr = form.included
+        ? form.included.split(",").map(s => s.trim()).filter(s => s.length >= 1).slice(0, 10)
+        : [];
+      const highlights = (form.included
+        ? form.included.split(",").map(s => s.trim()).filter(s => s.length >= 5)
+        : []).slice(0, 5);
+      if (highlights.length === 0) highlights.push(`${form.title} en ${cityRegion[0] || form.location}`);
+      const body = {
+        title: form.title,
+        category: safeCat,
+        durationHours: Math.max(1, Math.min(168, hours)),
+        city: cityRegion[0] || form.location,
+        region: cityRegion[1] || cityRegion[0] || form.location,
+        highlights,
+        ...(inclArr.length ? { included: inclArr } : {}),
+      };
+      const r = await fetch("/api/ai/generate-description", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${r.status}`);
+      }
+      const data = await r.json();
+      setAiDesc(data.description || "");
+    } catch (e) {
+      setAiError(e.message || "No pudimos generar la descripción. Intenta de nuevo.");
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -2067,7 +2279,10 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         <div style={{ padding: 14, background: "var(--cr)", borderRadius: 12, marginBottom: 16 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--f)", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}><Sparkles size={12} strokeWidth={1.5} /> Generador IA</div>
           <div style={{ fontSize: 11, color: "var(--gy)", marginBottom: 10 }}>Genera una descripción profesional basada en los datos que ya ingresaste</div>
-          <button className="ai-cc-btn" onClick={generateAiDesc}><Sparkles size={12} strokeWidth={1.5} /> Generar descripción</button>
+          <button className="ai-cc-btn" onClick={generateAiDesc} disabled={aiLoading || !form.title || !form.location}>
+            <Sparkles size={12} strokeWidth={1.5} /> {aiLoading ? "Generando…" : "Generar descripción"}
+          </button>
+          {aiError && <div className="field-err" style={{ marginTop: 8 }}>{aiError}</div>}
           {aiDesc && (
             <div style={{ marginTop: 12, padding: 12, background: "white", borderRadius: 10, fontSize: 13, lineHeight: 1.6, color: "var(--ch)" }}>
               {aiDesc}
@@ -2155,6 +2370,22 @@ export default function AppDemo() {
   const [notifs, setNotifs] = useState(NOTIFS);
   const [isOperator, setIsOperator] = useState(false);
   const [tours, setTours] = useState(TOURS);
+
+  useEffect(() => {
+    let cancel = false;
+    fetch("/api/tours?limit=50")
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+      .then(data => {
+        if (cancel) return;
+        const mapped = (data.tours || []).map(mapTourFromApi);
+        if (mapped.length > 0) setTours(mapped);
+      })
+      .catch(err => {
+        console.error("Error cargando tours, fallback a mock:", err);
+      });
+    return () => { cancel = true; };
+  }, []);
+
   const [opTours, setOpTours] = useState(() => {
     const fromTour = (id, tourId, active, image) => {
       const t = TOURS.find(x => x.id === tourId) || {};

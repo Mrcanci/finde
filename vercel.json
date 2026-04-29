@@ -3,6 +3,7 @@
   "devCommand": "vite --port $PORT",
   "framework": null,
   "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/" }
+    { "source": "/demo/:path*", "destination": "/" },
+    { "source": "/app/:path*", "destination": "/" }
   ]
 }
