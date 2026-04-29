@@ -6,11 +6,11 @@
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
-import { db } from "../lib/db";
-import { voyage, MODEL_EMBED, DIM } from "../lib/voyage";
-import { anthropic, MODEL } from "../lib/anthropic";
-import { LIST_SELECT } from "../lib/tour-select";
-import { rateLimit, ipFromRequest } from "../lib/rate-limit";
+import { db } from "../lib/db.js";
+import { voyage, MODEL_EMBED, DIM } from "../lib/voyage.js";
+import { anthropic, MODEL } from "../lib/anthropic.js";
+import { LIST_SELECT } from "../lib/tour-select.js";
+import { rateLimit, ipFromRequest } from "../lib/rate-limit.js";
 
 const bodySchema = z.object({
   query: z.string().trim().min(3).max(500),

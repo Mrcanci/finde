@@ -4,8 +4,8 @@
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
-import { db } from "../../lib/db";
-import { LIST_SELECT } from "../../lib/tour-select";
+import { db } from "../../lib/db.js";
+import { LIST_SELECT } from "../../lib/tour-select.js";
 
 const querySchema = z.object({
   category: z

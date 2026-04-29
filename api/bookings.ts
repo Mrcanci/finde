@@ -8,8 +8,8 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
 import { randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
-import { db } from "../lib/db";
-import { rateLimit, ipFromRequest } from "../lib/rate-limit";
+import { db } from "../lib/db.js";
+import { rateLimit, ipFromRequest } from "../lib/rate-limit.js";
 
 // Tolerancia para zona horaria del cliente: aceptamos hasta 1 hora en el pasado.
 const PAST_TOLERANCE_MS = 60 * 60 * 1000;

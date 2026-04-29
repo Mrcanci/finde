@@ -7,8 +7,8 @@
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
-import { anthropic, MODEL } from "../../lib/anthropic";
-import { rateLimit, ipFromRequest } from "../../lib/rate-limit";
+import { anthropic, MODEL } from "../../lib/anthropic.js";
+import { rateLimit, ipFromRequest } from "../../lib/rate-limit.js";
 
 const bodySchema = z.object({
   spanishText: z.string().trim().min(50).max(1500),

@@ -12,8 +12,8 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
-import { db } from "../lib/db";
-import { rateLimit, ipFromRequest } from "../lib/rate-limit";
+import { db } from "../lib/db.js";
+import { rateLimit, ipFromRequest } from "../lib/rate-limit.js";
 
 const SESSION_COOKIE = "finde_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 días

@@ -4,8 +4,8 @@
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
-import { db } from "../../lib/db";
-import { DETAIL_SELECT } from "../../lib/tour-select";
+import { db } from "../../lib/db.js";
+import { DETAIL_SELECT } from "../../lib/tour-select.js";
 
 const paramsSchema = z.object({
   id: z.string().min(1),
