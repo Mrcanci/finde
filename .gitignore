@@ -26,3 +26,6 @@ dist-ssr
 .env
 .vercel
 .env*.local
+
+# DB backups (contienen datos sensibles, secretos en strings, etc.)
+backups/
