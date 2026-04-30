@@ -102,3 +102,13 @@ model SearchLog {
   reasoning  String?  @db.Text
   createdAt  DateTime @default(now())
 }
+
+model FeaturedSearch {
+  id              String   @id @default(cuid())
+  query           String   @unique
+  results         String[] @default([])
+  reasoning       String   @db.Text
+  filtersDetected Json     @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}

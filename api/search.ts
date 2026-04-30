@@ -11,6 +11,7 @@ import { voyage, MODEL_EMBED, DIM } from "../lib/voyage.js";
 import { anthropic, MODEL } from "../lib/anthropic.js";
 import { LIST_SELECT } from "../lib/tour-select.js";
 import { rateLimit, ipFromRequest } from "../lib/rate-limit.js";
+import { normalizeQuery } from "../lib/search-cache.js";
 
 const bodySchema = z.object({
   query: z.string().trim().min(3).max(500),
@@ -205,6 +206,39 @@ export default async function handler(
   }
 
   const { query } = parsed.data;
+
+  // Paso 0: cache hit en FeaturedSearch (queries famosos pre-cacheados).
+  // Salta Voyage + Claude → respuesta en <100ms en vez de ~10s.
+  // El rate limit ya se aplicó arriba, así que un cache hit no es bypass.
+  // No se escribe SearchLog en cache hit (la query ya está representada en
+  // FeaturedSearch y el demo no debe pagar el costo del INSERT).
+  const normalized = normalizeQuery(query);
+  const cached = await db.featuredSearch.findFirst({
+    where: { query: normalized },
+  });
+
+  if (cached && cached.results.length > 0) {
+    console.log(`[cache HIT] query: ${query}`);
+    const cachedTours = await db.tour.findMany({
+      where: { id: { in: cached.results } },
+      select: LIST_SELECT,
+    });
+    const byCachedId = new Map(cachedTours.map((t) => [t.id, t]));
+    const cachedResults = cached.results
+      .map((id) => byCachedId.get(id))
+      .filter((t): t is NonNullable<typeof t> => t != null);
+
+    res.status(200).json({
+      results: cachedResults,
+      reasoning: cached.reasoning,
+      query,
+      filters_detected:
+        (cached.filtersDetected as unknown as FiltrosDetectados) ?? {},
+    });
+    return;
+  }
+
+  console.log(`[cache MISS] query: ${query} — usando flujo completo`);
 
   // Paso 1: embedding del query (inputType "query" para retrieval asimétrico)
   let queryEmbedding: number[];
