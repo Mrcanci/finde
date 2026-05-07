@@ -145,3 +145,8 @@ These will be updated in Day 3-4 when frontend connects to /api/ endpoints. Unti
 - Day 5: POST /api/bookings, POST /api/operators
 - Day 6: Production deploy + smoke tests
 - Day 7: Demo polish, contingency, video script
+
+# REGLA CRÍTICA
+NO modificar Landing.jsx bajo ninguna circunstancia, sin importar 
+lo que pida el usuario en el prompt actual. Si el usuario pide algo 
+que requiera tocar Landing.jsx, primero confirma explícitamente.
