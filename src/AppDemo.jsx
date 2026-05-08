@@ -71,7 +71,9 @@ function isDateAvailable(dateStr, tour) {
   const added = tour.addedDates || [];
   if (excluded.includes(dateStr)) return false;
   if (added.includes(dateStr)) return true;
-  const days = (tour.days && tour.days.length > 0) ? tour.days : DEFAULT_DAYS;
+  // days == null (legacy) → todos los días.
+  // days == [] → solo opera en addedDates (nada del patrón recurrente).
+  const days = tour.days != null ? tour.days : DEFAULT_DAYS;
   return days.includes(dayCodeFromISO(dateStr));
 }
 function getAvailableDatesInRange(tour, fromISO, toISO) {
@@ -87,7 +89,9 @@ function ensureAvailabilityFields(t) {
   if (!t) return t;
   return {
     ...t,
-    days: (t.days && t.days.length > 0) ? t.days : DEFAULT_DAYS,
+    // Solo defaultear cuando `days` no viene en el objeto (legacy).
+    // Un array vacío explícito significa "solo fechas específicas".
+    days: t.days != null ? t.days : DEFAULT_DAYS,
     excludedDates: t.excludedDates || [],
     addedDates: t.addedDates || [],
   };
@@ -664,7 +668,7 @@ html{scrollbar-gutter:stable}
 .gc{border-radius:16px;overflow:hidden;background:white;border:1px solid rgba(0,0,0,.06);cursor:pointer;transition:.2s}
 .gc:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.08)}
 .gc-img{height:120px;position:relative}
-.gc-ver{position:absolute;bottom:6px;right:6px;width:20px;height:20px;border-radius:50%;background:var(--f);color:white;font-size:9px;display:flex;align-items:center;justify-content:center;font-weight:700}
+.gc-ver{position:absolute;bottom:8px;left:8px;padding:3px 8px;border-radius:100px;font-size:9px;font-weight:700;background:rgba(45,90,61,.9);color:white;display:inline-flex;align-items:center;gap:3px}
 .gc-b{padding:10px}
 .gc-loc{font-size:10px;color:var(--gy);font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px}
 .gc-t{font-size:13px;font-weight:700;margin-bottom:6px;line-height:1.3}
@@ -706,6 +710,10 @@ html{scrollbar-gutter:stable}
 .bkf-s.on{background:var(--f)}
 .bkf-t{font-family:'DM Serif Display',Georgia,serif;font-size:24px;margin-bottom:4px}
 .bkf-sub{font-size:13px;color:var(--gy);margin-bottom:24px}
+/* Altura mínima + ancho fijo para que paso 1 → 2 → 3 no "encoja". Iguala al paso 1 (calendario + sum + política). */
+.bkf-steps{min-height:820px;width:100%;box-sizing:border-box;display:block}
+.bkf-steps>.fu{width:100%;box-sizing:border-box;display:block}
+.bkf{width:100%;box-sizing:border-box}
 .fg{margin-bottom:20px}
 .lbl{display:block;font-size:12px;font-weight:700;color:var(--gy);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
 .inp{width:100%;padding:14px 16px;border:2px solid var(--sd);border-radius:14px;font-size:15px;font-family:inherit;background:white;color:var(--ch);outline:none;transition:.2s}
@@ -1176,7 +1184,7 @@ function GCard({ t, onClick }) {
   return (
     <div className="gc" onClick={onClick}>
       <div className="gc-img" style={imgBg(t.image)}>
-        {t.verified && <span className="gc-ver"><Check size={10} strokeWidth={2.5} /></span>}
+        {t.verified && <span className="gc-ver"><Check size={10} strokeWidth={2} /> Verificado</span>}
       </div>
       <div className="gc-b">
         <div className="gc-loc">{t.location}</div>
@@ -1685,8 +1693,13 @@ function BookingView({ tour, go }) {
       <button className="bk-btn" onClick={() => step === 1 ? go("detail") : setStep(step - 1)} style={{ position: "relative", marginBottom: 16 }} aria-label={step === 1 ? "Volver al tour" : "Paso anterior"} type="button"><ArrowLeft size={20} strokeWidth={1.5} /></button>
       <div className="bkf-st"><div className={`bkf-s ${step >= 1 ? "on" : ""}`} /><div className={`bkf-s ${step >= 2 ? "on" : ""}`} /><div className={`bkf-s ${step >= 3 ? "on" : ""}`} /><div className="bkf-s" /></div>
 
+      <div className="bkf-steps">
       {step === 1 && <div className="fu">
-        <div className="bkf-t">Elige fecha y viajeros</div><div className="bkf-sub">{tour.title}</div>
+        <div className="bkf-t">Elige fecha y viajeros</div>
+        <div className="bkf-sub" style={{ marginBottom: 10 }}>{tour.title}</div>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 12px", background: "var(--cr)", borderRadius: 100, fontSize: 12, color: "var(--gy)", fontWeight: 600, marginBottom: 24 }}>
+          <Clock size={13} strokeWidth={1.5} /> Duración: {tour.duration}
+        </div>
         <div className="fg">
           <label className="lbl">Fecha</label>
           <MonthCalendar
@@ -1782,6 +1795,7 @@ function BookingView({ tour, go }) {
             : pay === "cash" ? "Generar código PagoEfectivo" : `Pagar S/ ${total.toFixed(2)} con ${payLabels[pay]}`}
         </button>
       </div>}
+      </div>
     </div>
   );
 }
@@ -2501,7 +2515,9 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
             })}
           </div>
           <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 6 }}>
-            {form.days.length === 0 ? "Selecciona al menos un día" : `Opera: ${form.days.map(d => DAY_LABEL_LONG[d] || d).join(", ")}`}
+            {form.days.length === 0
+              ? "Sin días recurrentes — usa el calendario abajo para fechas específicas"
+              : `Opera: ${form.days.map(d => DAY_LABEL_LONG[d] || d).join(", ")}`}
           </div>
         </div>
         {/* Calendario de excepciones — Reglas v1.2 §3.2 */}
@@ -2582,7 +2598,12 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
             ))}
           </div>
         </div>
-        <button className="mbtn" style={{ marginTop: 8 }} disabled={form.days.length === 0} onClick={() => setStep(4)}>Siguiente</button>
+        {form.days.length === 0 && form.addedDates.length === 0 && (
+          <div style={{ padding: 10, background: "rgba(199,97,58,.08)", borderRadius: 10, fontSize: 12, color: "var(--tr)", lineHeight: 1.5, marginTop: 8, marginBottom: 8 }}>
+            Configura al menos un día recurrente o agrega fechas específicas en el calendario
+          </div>
+        )}
+        <button className="mbtn" style={{ marginTop: 8 }} disabled={form.days.length === 0 && form.addedDates.length === 0} onClick={() => setStep(4)}>Siguiente</button>
       </div>}
 
       {/* Step 4: Descripción con IA */}
@@ -2853,7 +2874,7 @@ export default function AppDemo() {
       altTour: null,
       tags: [],
       cancellation: formData.cancellation,
-      days: formData.days && formData.days.length > 0 ? formData.days : DEFAULT_DAYS,
+      days: formData.days || [],
       excludedDates: formData.excludedDates || [],
       addedDates: formData.addedDates || [],
     }]);
