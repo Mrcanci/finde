@@ -2726,8 +2726,26 @@ export default function AppDemo() {
       .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
       .then(data => {
         if (cancel) return;
-        const mapped = (data.tours || []).map(mapTourFromApi);
-        if (mapped.length > 0) setTours(mapped.map(ensureAvailabilityFields));
+        const apiMapped = (data.tours || []).map(mapTourFromApi).map(ensureAvailabilityFields);
+        // Merge API + locales: el API no devuelve algunos mocks que TripsView/NOTIFS
+        // referencian (ej. Sandboarding en Huacachina). Conservamos los locales no
+        // presentes en API, deduplicando por título y reasignando IDs si chocan.
+        const norm = (s) => (s || "").toLowerCase().trim();
+        const apiTitles = new Set(apiMapped.map(t => norm(t.title)));
+        const usedIds = new Set(apiMapped.map(t => t.id));
+        let nextId = apiMapped.reduce((m, t) => Math.max(m, Number(t.id) || 0), 0) + 10000;
+        const localOnly = TOURS
+          .map(ensureAvailabilityFields)
+          .filter(t => !apiTitles.has(norm(t.title)))
+          .map(t => {
+            if (!usedIds.has(t.id)) { usedIds.add(t.id); return t; }
+            const newId = nextId++;
+            usedIds.add(newId);
+            return { ...t, id: newId };
+          });
+        if (apiMapped.length > 0 || localOnly.length > 0) {
+          setTours([...apiMapped, ...localOnly]);
+        }
       })
       .catch(err => {
         console.error("Error cargando tours, fallback a mock:", err);
