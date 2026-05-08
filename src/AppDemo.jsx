@@ -436,6 +436,114 @@ const REVIEWS = {
   ],
 };
 
+// Pools determinísticos para reseñas mock de tours del API (CUIDs).
+// Los locales (IDs 1-14) tienen sus propias entradas en REVIEWS y se respetan.
+const REVIEW_AUTHORS = [
+  { author: "María García", avatar: "MG" },
+  { author: "Carlos Mendoza", avatar: "CM" },
+  { author: "Andrea Vargas", avatar: "AV" },
+  { author: "Diego Salazar", avatar: "DS" },
+  { author: "Lucía Ramos", avatar: "LR" },
+  { author: "Sebastián Castro", avatar: "SC" },
+  { author: "Camila Torres", avatar: "CT" },
+  { author: "Yanet Quispe", avatar: "YQ" },
+  { author: "Edgar Mamani", avatar: "EM" },
+  { author: "Rocío Huamán", avatar: "RH" },
+  { author: "Ana Rodríguez", avatar: "AR" },
+  { author: "James Wilson", avatar: "JW" },
+  { author: "Sofia Müller", avatar: "SM" },
+];
+
+const REVIEW_TEXTS_BY_CATEGORY = {
+  adventure: [
+    "Adrenalina pura y bien organizado. El equipo de seguridad estaba impecable y los instructores muy claros con las indicaciones.",
+    "Día intenso de principio a fin. Los breaks fueron en el momento justo y el almuerzo súper bien servido.",
+    "Si vienes a Perú a desconectarte y conectar con la naturaleza, este tour cumple. Las fotos del operador con drone son un plus.",
+    "Llevé buen calzado y ropa cómoda como recomendaron por WhatsApp y todo perfecto. Súper recomendado para grupos jóvenes.",
+  ],
+  trekking: [
+    "Subida exigente pero los paisajes valen cada paso. El guía supo manejar bien el ritmo del grupo, sobre todo con la altura.",
+    "Recomendadísimo para amantes de la montaña. Me preparé bien con el consejo del operador y todo salió perfecto.",
+    "Una experiencia que recordaré siempre. Las vistas desde la cumbre son impresionantes y el equipo del operador fue muy profesional.",
+    "Caminata dura pero gratificante. Los porteadores y el cocinero hicieron la diferencia, comimos mejor que en muchos restaurantes.",
+  ],
+  gastro: [
+    "Probamos cebiche, anticuchos, picarones... todo de primera. El guía conoce muy bien la historia detrás de cada plato.",
+    "Mucho más que solo comer. Aprendimos sobre la fusión peruana, las influencias chinas y japonesas. Excelente experiencia.",
+    "Las paradas estuvieron bien escogidas. Mi favorita fue la cevichería en Barranco. Volvería sin dudarlo.",
+    "Cantidad y calidad. No vinimos con hambre y aún así no abasteció. La causa rellena fue la estrella del recorrido.",
+  ],
+  culture: [
+    "El guía habla con pasión de la historia. Te das cuenta que ama lo que hace. Aprendí muchísimo del contexto pre-inca y colonial.",
+    "Sitio impresionante. Llegamos temprano y evitamos las hordas de turistas, gran consejo del operador.",
+    "Recomendado para quienes quieren entender el contexto, no sólo tomarse fotos. La narrativa conecta los puntos muy bien.",
+    "Volvería con mis hijos cuando estén un poco más grandes. Hay historia para tres tours en uno.",
+  ],
+  nature: [
+    "Vimos guacamayos, monos y hasta una nutria gigante. La selva peruana es mágica y el guía sabía identificar todo lo que se movía.",
+    "Tour bien organizado, los lodges cómodos. Los guías locales saben hasta de qué especie son las huellas en el barro.",
+    "Si te gusta la fauna, este tour es imperdible. Llevé buenos binoculares y valió la pena cada gramo.",
+    "El silencio del amanecer escuchando aves es algo que no se olvida. Excelente para fotógrafos amateur.",
+  ],
+  beach: [
+    "Aguas cristalinas y arena blanca. No esperaba esto en Perú. Para repetir con la familia.",
+    "Perfecto para ir con niños. Pudimos descansar al sol sin preocuparnos y el cooler con agua fue un detalle que se agradece.",
+    "Llevamos snorkel y vimos peces de colores. Recomiendo madrugar para tener la playa casi vacía.",
+    "El recorrido por la reserva complementa muy bien el día de playa. Los lobos marinos a metros nuestros, increíble.",
+  ],
+  mystic: [
+    "Una ceremonia con mucho respeto a la tradición. El maestro andino explicó cada paso y se sintió genuino.",
+    "No esperaba que me moviera tanto. La energía del lugar combinada con la guía hizo de este día algo especial.",
+    "Para venir con mente abierta. La conexión con la cosmovisión andina vale el viaje.",
+  ],
+  generic: [
+    "Comunicación impecable desde la reserva. Llegaron puntuales al hotel y todo el día fue muy fluido.",
+    "Muy buena relación calidad-precio. Lo único que cambiaría es empezar un poco más tarde.",
+    "Excelente experiencia con Finde. La agencia respondió rápido por WhatsApp y todo salió como lo prometieron.",
+    "Equipo súper amable. Hablaron español, inglés y un poquito de quechua con la gente del pueblo. Auténtico.",
+  ],
+};
+
+function hashTourId(id) {
+  const s = String(id);
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+function generateMockReviews(tour) {
+  if (!tour) return [];
+  const seed = hashTourId(tour.id);
+  const count = 3 + (seed % 2); // 3 ó 4 reseñas
+  const catKey = tour.category && REVIEW_TEXTS_BY_CATEGORY[tour.category] ? tour.category : "generic";
+  const catPool = REVIEW_TEXTS_BY_CATEGORY[catKey];
+  const monthsShort = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  const today = new Date();
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const author = REVIEW_AUTHORS[(seed + i * 7) % REVIEW_AUTHORS.length];
+    // Mezcla: ~70% comentarios de la categoría, ~30% genéricos.
+    const useGeneric = ((seed + i) % 10) >= 7;
+    const pool = useGeneric ? REVIEW_TEXTS_BY_CATEGORY.generic : catPool;
+    const text = pool[(seed + i * 3) % pool.length];
+    // ~25% de reseñas con 4 estrellas, resto 5.
+    const rating = ((seed + i) % 4) === 0 ? 4 : 5;
+    // Fechas espaciadas: 60-360 días atrás.
+    const daysBack = 60 + ((seed + i * 47) % 300);
+    const d = new Date(today.getTime() - daysBack * 86400000);
+    const date = `${String(d.getDate()).padStart(2, "0")} ${monthsShort[d.getMonth()]} ${d.getFullYear()}`;
+    out.push({
+      id: `mock-${tour.id}-${i}`,
+      author: author.author,
+      avatar: author.avatar,
+      rating,
+      text,
+      date,
+    });
+  }
+  return out;
+}
+
 const USER = { name:"Alejandra Quispe", phone:"+51 987 654 321", email:"ale.quispe@gmail.com", dni:"72345678", city:"Lima", joinDate:"Enero 2026", trips:4, favorites:6, reviews:2, avatar:"AQ" };
 
 const OP_BK = [
@@ -1497,7 +1605,13 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
   const isQu = lang === "qu";
   const langLabels = { es: "Español", qu: "Quechua", en: "English" };
   const langFlags = { es: "PE", qu: "QU", en: "EN" };
-  const tourRevs = reviews[tour.id] || [];
+  // Tours locales (id 1-14) usan REVIEWS curadas. Para tours del API (CUIDs)
+  // generamos reseñas determinísticas para no romper la coherencia con el
+  // contador del header (rating "4.9 (221)" no debe quedar sin reseñas).
+  const realRevs = reviews[tour.id];
+  const tourRevs = (realRevs && realRevs.length > 0)
+    ? realRevs
+    : (tour.reviews > 0 ? generateMockReviews(tour) : []);
   const visibleRevs = showAllRevs ? tourRevs : tourRevs.slice(0, 3);
   const starCounts = [5, 4, 3, 2, 1].map(s => ({ star: s, count: tourRevs.filter(r => r.rating === s).length }));
   const maxCount = Math.max(...starCounts.map(s => s.count), 1);
@@ -1530,14 +1644,26 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
           <div className="ai-sum-h"><Sparkles size={14} strokeWidth={1.5} /> Resumen de {tour.reviews} reseñas</div>
           <div className="ai-sum-t">{tour.aiSummary}</div>
         </div>
-        <div className="det-mb">
-          <div className="det-mi"><span className="mic"><MapPin size={14} strokeWidth={1.5} /></span>{tour.location}</div>
-          <div className="det-mi"><span className="mic"><Timer size={14} strokeWidth={1.5} /></span>{tour.duration}</div>
-          <div className="det-mi"><span className="mic"><Star size={14} strokeWidth={1.5} fill="currentColor" /></span>{tour.rating} ({tour.reviews})</div>
-          <div className="det-mi"><span className="mic"><ArrowUp size={14} strokeWidth={1.5} /></span>{tour.altitude}m</div>
-          <div className="det-mi"><span className="mic"><Users size={14} strokeWidth={1.5} /></span>Max {tour.capacity}</div>
-          <div className="det-mi"><span className="mic"><Dumbbell size={14} strokeWidth={1.5} /></span>{tour.difficulty}</div>
-        </div>
+        {(() => {
+          // Sólo mostramos la altitud cuando el dato es significativo. Tours
+          // costeños/citadinos vienen con "" o "0" y el bloque "↑ m" suelto
+          // queda vacío y feo.
+          const altRaw = (tour.altitude || "").toString().trim();
+          const altNum = parseInt(altRaw.replace(/,/g, ""), 10);
+          const hasAltitude = altRaw && altRaw !== "—" && !isNaN(altNum) && altNum > 0;
+          return (
+            <div className="det-mb">
+              <div className="det-mi"><span className="mic"><MapPin size={14} strokeWidth={1.5} /></span>{tour.location}</div>
+              <div className="det-mi"><span className="mic"><Timer size={14} strokeWidth={1.5} /></span>{tour.duration}</div>
+              <div className="det-mi"><span className="mic"><Star size={14} strokeWidth={1.5} fill="currentColor" /></span>{tour.rating} ({tour.reviews})</div>
+              {hasAltitude && (
+                <div className="det-mi"><span className="mic"><ArrowUp size={14} strokeWidth={1.5} /></span>{tour.altitude} m</div>
+              )}
+              <div className="det-mi"><span className="mic"><Users size={14} strokeWidth={1.5} /></span>Max {tour.capacity}</div>
+              <div className="det-mi"><span className="mic"><Dumbbell size={14} strokeWidth={1.5} /></span>{tour.difficulty}</div>
+            </div>
+          );
+        })()}
         <p className="det-ds">
           {isQu
             ? (quechuaText
