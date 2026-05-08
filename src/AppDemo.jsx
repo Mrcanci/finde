@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Umbrella, Footprints, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, CreditCard, Banknote, Smartphone, MessageCircle, Camera, MountainSnow, Hand, CircleDollarSign, FileText, Pencil, HelpCircle, Heart, Home, Calendar } from "lucide-react";
+import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Umbrella, Footprints, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, CreditCard, Banknote, Smartphone, MessageCircle, Camera, MountainSnow, Hand, CircleDollarSign, FileText, Pencil, HelpCircle, Heart, Home, Calendar } from "lucide-react";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // FINDE v3 — AI-Native Marketplace
@@ -37,6 +37,173 @@ const CANCEL_POLICIES = {
 };
 const getCancelPolicy = (id) => CANCEL_POLICIES[id] || CANCEL_POLICIES.flexible;
 
+// ─── Disponibilidad de tours ──────────────────────────
+// Trabajamos con strings YYYY-MM-DD para evitar bugs de zona horaria peruana.
+const DAY_CODES = ["dom", "lun", "mar", "mie", "jue", "vie", "sab"];
+const DAY_LABEL = { lun: "Lun", mar: "Mar", mie: "Mié", jue: "Jue", vie: "Vie", sab: "Sáb", dom: "Dom" };
+const DAY_LABEL_LONG = { lun: "lunes", mar: "martes", mie: "miércoles", jue: "jueves", vie: "viernes", sab: "sábado", dom: "domingo" };
+const DEFAULT_DAYS = ["lun", "mar", "mie", "jue", "vie", "sab", "dom"];
+const MONTH_LABELS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+const MONTH_LABELS_LOWER = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function addDaysISO(iso, days) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
+}
+function dayCodeFromISO(iso) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return DAY_CODES[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+}
+function formatLongDate(iso) {
+  if (!iso) return "";
+  const [y, m, d] = iso.split("-").map(Number);
+  return `${DAY_LABEL_LONG[dayCodeFromISO(iso)]} ${d} de ${MONTH_LABELS_LOWER[m - 1]} de ${y}`;
+}
+function isDateAvailable(dateStr, tour) {
+  if (!dateStr || !tour) return false;
+  if (dateStr < todayISO()) return false;
+  const excluded = tour.excludedDates || [];
+  const added = tour.addedDates || [];
+  if (excluded.includes(dateStr)) return false;
+  if (added.includes(dateStr)) return true;
+  const days = (tour.days && tour.days.length > 0) ? tour.days : DEFAULT_DAYS;
+  return days.includes(dayCodeFromISO(dateStr));
+}
+function getAvailableDatesInRange(tour, fromISO, toISO) {
+  const result = [];
+  let cur = fromISO;
+  while (cur <= toISO) {
+    if (isDateAvailable(cur, tour)) result.push(cur);
+    cur = addDaysISO(cur, 1);
+  }
+  return result;
+}
+function ensureAvailabilityFields(t) {
+  if (!t) return t;
+  return {
+    ...t,
+    days: (t.days && t.days.length > 0) ? t.days : DEFAULT_DAYS,
+    excludedDates: t.excludedDates || [],
+    addedDates: t.addedDates || [],
+  };
+}
+
+// Calendario reusable. mode="edit" (wizard) o mode="select" (booking).
+function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excludedDates = [], addedDates = [], onToggleException }) {
+  const todayStr = todayISO();
+  const [todayY, todayM] = todayStr.split("-").map(Number);
+  const [view, setView] = useState({ y: todayY, m: todayM });
+  const minKey = todayY * 12 + (todayM - 1);
+  const curKey = view.y * 12 + (view.m - 1);
+  const canPrev = curKey > minKey;
+  const canNext = curKey < minKey + 3;
+  const goPrev = () => {
+    if (!canPrev) return;
+    setView(v => v.m === 1 ? { y: v.y - 1, m: 12 } : { y: v.y, m: v.m - 1 });
+  };
+  const goNext = () => {
+    if (!canNext) return;
+    setView(v => v.m === 12 ? { y: v.y + 1, m: 1 } : { y: v.y, m: v.m + 1 });
+  };
+  const firstDayUtc = new Date(Date.UTC(view.y, view.m - 1, 1));
+  const lastDayUtc = new Date(Date.UTC(view.y, view.m, 0));
+  const numDays = lastDayUtc.getUTCDate();
+  const startCol = (firstDayUtc.getUTCDay() + 6) % 7; // 0 = Lunes
+  const cells = [];
+  for (let i = 0; i < startCol; i++) cells.push(null);
+  for (let d = 1; d <= numDays; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+  const headers = ["L", "M", "M", "J", "V", "S", "D"];
+  const navStyle = (enabled) => ({
+    width: 32, height: 32, borderRadius: 8, border: "none",
+    background: enabled ? "var(--cr)" : "transparent",
+    color: enabled ? "var(--ch)" : "var(--lg)",
+    cursor: enabled ? "pointer" : "not-allowed",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    padding: 0, fontFamily: "inherit",
+  });
+  return (
+    <div style={{ background: "white", border: "1px solid var(--sd)", borderRadius: 14, padding: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <button type="button" onClick={goPrev} disabled={!canPrev} style={navStyle(canPrev)} aria-label="Mes anterior">
+          <ChevronLeft size={18} strokeWidth={1.5} />
+        </button>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ch)" }}>
+          {MONTH_LABELS[view.m - 1]} {view.y}
+        </div>
+        <button type="button" onClick={goNext} disabled={!canNext} style={navStyle(canNext)} aria-label="Mes siguiente">
+          <ChevronRight size={18} strokeWidth={1.5} />
+        </button>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 4 }}>
+        {headers.map((h, i) => (
+          <div key={i} style={{ textAlign: "center", fontSize: 11, fontWeight: 600, color: "var(--gy)", padding: "4px 0" }}>{h}</div>
+        ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+        {cells.map((d, i) => {
+          if (d === null) return <div key={i} style={{ minHeight: 36 }} />;
+          const iso = `${view.y}-${String(view.m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+          const isPast = iso < todayStr;
+          const code = dayCodeFromISO(iso);
+          const inPattern = days.includes(code);
+          const inExcluded = excludedDates.includes(iso);
+          const inAdded = addedDates.includes(iso);
+          const isSelected = selectedDate === iso;
+          let state;
+          if (isPast) state = "disabled";
+          else if (inAdded) state = "added";
+          else if (inExcluded) state = inPattern ? "excluded" : "disabled";
+          else if (inPattern) state = "pattern";
+          else state = "neutral";
+          let bg = "transparent", color = "var(--ch)", textDecoration = "none";
+          let cursor = "pointer", opacity = 1, isClickable = true;
+          let border = "1.5px solid transparent";
+          if (mode === "select") {
+            const available = state === "added" || state === "pattern";
+            if (isSelected) { bg = "var(--f)"; color = "white"; border = "1.5px solid var(--f)"; }
+            else if (available) { bg = "var(--cr)"; color = "var(--f)"; }
+            else { color = "var(--lg)"; opacity = 0.5; cursor = "not-allowed"; isClickable = false; }
+          } else {
+            if (state === "disabled") { color = "var(--lg)"; opacity = 0.45; cursor = "not-allowed"; isClickable = false; }
+            else if (state === "added") { bg = "var(--f)"; color = "white"; }
+            else if (state === "excluded") { bg = "rgba(199,97,58,.15)"; color = "var(--tr)"; textDecoration = "line-through"; }
+            else if (state === "pattern") { bg = "var(--cr)"; color = "var(--f)"; }
+            else { color = "var(--gy)"; }
+          }
+          const titleAttr = (mode === "select" && !isClickable && !isPast) ? "El operador no opera este día" : undefined;
+          return (
+            <button
+              key={i}
+              type="button"
+              disabled={!isClickable}
+              title={titleAttr}
+              onClick={() => {
+                if (!isClickable) return;
+                if (mode === "select") onSelect && onSelect(iso);
+                else onToggleException && onToggleException(iso, state);
+              }}
+              style={{
+                minHeight: 36, aspectRatio: "1", borderRadius: 8, border,
+                background: bg, color, fontSize: 13, fontWeight: 600,
+                cursor, fontFamily: "inherit", textDecoration, opacity,
+                transition: "background .15s", padding: 0,
+              }}
+            >
+              {d}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 const TOURS = [
   { id:1, title:"Trekking al Nevado Pastoruri", titleQu:"Pastoruri Ritiq Qaqaman Puriy", location:"Huaraz, Áncash", price:189, rating:4.7, reviews:3, duration:"Full day", image:"https://images.unsplash.com/photo-1522409994346-2682217b9a3e?w=800&h=600&fit=crop", badge:"Más vendido", category:"trekking", operator:"Andes Trek Perú", verified:true, capacity:12, altitude:"5,240", difficulty:"Moderada", included:["Transporte ida y vuelta","Guía certificado","Almuerzo buffet","Entrada al parque","Oxígeno portátil"], excluded:["Propinas","Snacks"], desc:"Camina hasta el glaciar tropical más accesible del mundo a 5,240 msnm. Atraviesa paisajes de puya Raimondi y lagunas turquesa en la Cordillera Blanca.", descQu:"Kay ritiq qaqaqa tukuy pachapi aswan ñawpaq kachkan, 5,240 metrokunapi. Puya Raimondi sachakuna, qucha turquesa ñawinkuna Cordillera Blancapi.", aiSummary:"Los viajeros destacan el paisaje impactante y la buena organización. Algunos mencionan que la altitud puede ser desafiante.", altTour:{ name:"Pastoruri", alt:"Laguna 69 (menos masificada)", reason:"Similar paisaje glaciar con 60% menos visitantes" }, tags:["glaciar","altitud","naturaleza","cordillera"] },
   { id:2, title:"Tour Gastronómico por Lima", titleQu:"Lima Llaqtapi Mikhuy Puriy", location:"Miraflores, Lima", price:145, rating:4.7, reviews:3, duration:"4 horas", image:"https://images.unsplash.com/photo-1535400255456-984241443b29?w=800&h=600&fit=crop", badge:"Top rated", category:"gastro", operator:"Lima Foodie Tours", verified:true, capacity:8, altitude:"0", difficulty:"Fácil", included:["6 paradas gastronómicas","Degustaciones ilimitadas","Pisco sour de bienvenida","Guía bilingüe"], excluded:["Bebidas alcohólicas extra","Transporte al punto"], desc:"Recorre los mercados y huariques secretos de Miraflores y Barranco. Prueba ceviche, anticuchos, causa y picarones con los mejores cocineros locales.", descQu:"Miraflores, Barranco llaqtakunapi mikhuy qhatukunata, pakasqa wasikunata purimuy. Ceviche, anticucho, causa, picarón mikhuykunata llamk'aq wayk'uqkunawan.", aiSummary:"Experiencia altamente recomendada. Destacan la cantidad de comida y el conocimiento del guía. La mejor valorada de Lima.", altTour:null, tags:["comida","lima","ceviche","mercado"] },
@@ -58,7 +225,7 @@ const CAT_API_TO_UI = { cultural: "culture", gastronomy: "gastro" };
 const CAT_UI_TO_API = { culture: "cultural", gastro: "gastronomy" };
 
 function mapTourFromApi(t) {
-  return {
+  return ensureAvailabilityFields({
     id: t.id,
     title: t.title,
     titleQu: "",
@@ -84,7 +251,7 @@ function mapTourFromApi(t) {
     aiSummary: t.shortPitch || "",
     altTour: null,
     tags: [],
-  };
+  });
 }
 
 const AI_SUGGESTIONS = [
@@ -1443,7 +1610,12 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
 function BookingView({ tour, go }) {
   const [step, setStep] = useState(1);
   const [guests, setGuests] = useState(2);
-  const [date, setDate] = useState("2026-05-01");
+  const [date, setDate] = useState(() => {
+    if (!tour) return "";
+    const t0 = todayISO();
+    const available = getAvailableDatesInRange(tour, t0, addDaysISO(t0, 90));
+    return available[0] || "";
+  });
   const [name, setName] = useState(USER.name || "");
   const [phone, setPhone] = useState(USER.phone ? USER.phone.replace(/^\+51\s*/, "") : "");
   const [email, setEmail] = useState(USER.email || "");
@@ -1498,7 +1670,7 @@ function BookingView({ tour, go }) {
       <div className="suc-sub">Recibirás la confirmación por WhatsApp en minutos.</div>
       <div className="suc-card">
         <div className="suc-row"><span className="l">Tour</span><span style={{ fontWeight: 700 }}>{serverBooking?.tourTitle || tour.title}</span></div>
-        <div className="suc-row"><span className="l">Fecha</span><span>{date}</span></div>
+        <div className="suc-row"><span className="l">Fecha</span><span>{formatLongDate(date) || date}</span></div>
         <div className="suc-row"><span className="l">Personas</span><span>{serverBooking?.guests ?? guests}</span></div>
         <div className="suc-row"><span className="l">Total</span><span style={{ fontWeight: 800, color: "var(--f)" }}>{serverBooking?.totalSoles != null ? `S/ ${(serverBooking.totalSoles / 100).toFixed(2)}` : `S/ ${total.toFixed(2)}`}</span></div>
         <div className="suc-row"><span className="l">Código</span><span style={{ fontWeight: 700 }}>{serverBooking?.bookingCode || `FND-${bookingCode}`}</span></div>
@@ -1515,7 +1687,26 @@ function BookingView({ tour, go }) {
 
       {step === 1 && <div className="fu">
         <div className="bkf-t">Elige fecha y viajeros</div><div className="bkf-sub">{tour.title}</div>
-        <div className="fg"><label className="lbl">Fecha</label><input type="date" className="inp" value={date} min={new Date().toISOString().split("T")[0]} onChange={(e) => setDate(e.target.value)} aria-label="Fecha del tour" /></div>
+        <div className="fg">
+          <label className="lbl">Fecha</label>
+          <MonthCalendar
+            mode="select"
+            selectedDate={date}
+            onSelect={setDate}
+            days={tour.days || DEFAULT_DAYS}
+            excludedDates={tour.excludedDates || []}
+            addedDates={tour.addedDates || []}
+          />
+          {date ? (
+            <div style={{ marginTop: 10, fontSize: 12, color: "var(--gy)" }}>
+              Fecha seleccionada: <strong style={{ color: "var(--f)" }}>{formatLongDate(date)}</strong>
+            </div>
+          ) : (
+            <div style={{ marginTop: 10, padding: 10, background: "rgba(199,97,58,.08)", borderRadius: 10, fontSize: 12, color: "var(--tr)", lineHeight: 1.5 }}>
+              Sin fechas disponibles próximamente. Contacta al operador por WhatsApp.
+            </div>
+          )}
+        </div>
         <div className="fg"><label className="lbl">Personas</label><div className="gctr" role="group" aria-label="Cantidad de personas"><button type="button" className="gbtn" onClick={() => setGuests(Math.max(1, guests - 1))} disabled={guests <= 1} aria-label="Disminuir número de personas">−</button><div className="gcnt" aria-live="polite">{guests}</div><button type="button" className="gbtn" onClick={() => setGuests(Math.min(tour.capacity, guests + 1))} disabled={guests >= tour.capacity} aria-label="Aumentar número de personas">+</button></div></div>
         <div className="sum"><div className="sum-r"><span>S/ {tour.price} × {guests}</span><span>S/ {total.toFixed(2)}</span></div><div className="sum-t"><span>Total</span><span>S/ {total.toFixed(2)}</span></div></div>
         {(() => {
@@ -1529,7 +1720,7 @@ function BookingView({ tour, go }) {
             </div>
           );
         })()}
-        <button className="mbtn" onClick={() => setStep(2)}>Continuar</button>
+        <button className="mbtn" disabled={!date} onClick={() => setStep(2)}>Continuar</button>
       </div>}
 
       {step === 2 && <div className="fu">
@@ -1561,7 +1752,7 @@ function BookingView({ tour, go }) {
         <div className="bkf-t">Método de pago</div><div className="bkf-sub">Revisa tu reserva y elige cómo pagar</div>
         <div className="sum" style={{ marginBottom: 16 }}>
           <div className="bk-sum-tour">{tour.title}</div>
-          <div className="bk-sum-meta"><Calendar size={14} strokeWidth={1.5} /> {date} · <Users size={14} strokeWidth={1.5} /> {guests} persona{guests > 1 ? "s" : ""}</div>
+          <div className="bk-sum-meta"><Calendar size={14} strokeWidth={1.5} /> {formatLongDate(date) || date} · <Users size={14} strokeWidth={1.5} /> {guests} persona{guests > 1 ? "s" : ""}</div>
           <div className="sum-r"><span>S/ {tour.price} × {guests}</span><span>S/ {total.toFixed(2)}</span></div>
           <div className="sum-t"><span>Total</span><span>S/ {total.toFixed(2)}</span></div>
         </div>
@@ -2101,13 +2292,15 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
     included: editingTour.included || "",
     excluded: editingTour.excluded || "",
     days: editingTour.days || [],
+    excludedDates: editingTour.excludedDates || [],
+    addedDates: editingTour.addedDates || [],
     startTime: editingTour.startTime || "08:00",
     cancellation: editingTour.cancellation || "flexible",
     photo: editingTour.photo || null,
   } : {
     title: "", location: "", category: "adventure", duration: "", price: "",
     capacity: "", difficulty: "Moderada", description: "", included: "", excluded: "",
-    days: [], startTime: "08:00", cancellation: "flexible", photo: null
+    days: [], excludedDates: [], addedDates: [], startTime: "08:00", cancellation: "flexible", photo: null
   });
   const [aiDesc, setAiDesc] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -2291,11 +2484,12 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         <div className="fg">
           <label className="lbl">Días que operas</label>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {[["L","lunes"],["M","martes"],["X","miércoles"],["J","jueves"],["V","viernes"],["S","sábado"],["D","domingo"]].map(([short, full]) => {
-              const active = form.days.includes(full);
+            {[["L","lun"],["M","mar"],["M","mie"],["J","jue"],["V","vie"],["S","sab"],["D","dom"]].map(([short, code]) => {
+              const active = form.days.includes(code);
               return (
-                <button key={full}
-                  onClick={() => u("days", active ? form.days.filter(d => d !== full) : [...form.days, full])}
+                <button key={code}
+                  type="button"
+                  onClick={() => u("days", active ? form.days.filter(d => d !== code) : [...form.days, code])}
                   style={{
                     width: 40, height: 40, borderRadius: "50%", border: "2px solid",
                     borderColor: active ? "var(--f)" : "var(--lg)",
@@ -2307,7 +2501,49 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
             })}
           </div>
           <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 6 }}>
-            {form.days.length === 0 ? "Selecciona al menos un día" : `Opera: ${form.days.join(", ")}`}
+            {form.days.length === 0 ? "Selecciona al menos un día" : `Opera: ${form.days.map(d => DAY_LABEL_LONG[d] || d).join(", ")}`}
+          </div>
+        </div>
+        {/* Calendario de excepciones — Reglas v1.2 §3.2 */}
+        <div className="fg" style={{ marginTop: 4 }}>
+          <label className="lbl">Calendario de excepciones</label>
+          <div style={{ fontSize: 11, color: "var(--gy)", lineHeight: 1.5, marginBottom: 12 }}>
+            Por defecto, tu tour opera todos los días marcados arriba. Aquí puedes <strong>excluir</strong> fechas (feriados, mantenimiento) o <strong>agregar</strong> fechas extras fuera del patrón. Si solo operas según los días marcados, deja este calendario en blanco.
+          </div>
+          <MonthCalendar
+            mode="edit"
+            days={form.days}
+            excludedDates={form.excludedDates}
+            addedDates={form.addedDates}
+            onToggleException={(iso, state) => {
+              setForm(prev => {
+                const ex = new Set(prev.excludedDates);
+                const ad = new Set(prev.addedDates);
+                if (state === "pattern") ex.add(iso);
+                else if (state === "excluded") ex.delete(iso);
+                else if (state === "neutral") ad.add(iso);
+                else if (state === "added") ad.delete(iso);
+                return {
+                  ...prev,
+                  excludedDates: [...ex].sort(),
+                  addedDates: [...ad].sort(),
+                };
+              });
+            }}
+          />
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 12, fontSize: 11, color: "var(--gy)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 12, height: 12, borderRadius: 4, background: "var(--cr)", border: "1px solid var(--sd)" }} />Día operativo
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 12, height: 12, borderRadius: 4, background: "rgba(199,97,58,.15)" }} />Excluido
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 12, height: 12, borderRadius: 4, background: "var(--f)" }} />Agregado extra
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 12, height: 12, borderRadius: 4, background: "white", border: "1px solid var(--lg)" }} />Sin operación
+            </div>
           </div>
         </div>
         <div className="fg">
@@ -2398,7 +2634,17 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           <div className="sum-r"><span style={{ color: "var(--gy)" }}>Dificultad</span><span>{form.difficulty}</span></div>
           <div className="sum-r"><span style={{ color: "var(--gy)" }}>Duración</span><span>{form.duration}</span></div>
           <div className="sum-r"><span style={{ color: "var(--gy)" }}>Capacidad</span><span>{form.capacity} personas</span></div>
-          <div className="sum-r"><span style={{ color: "var(--gy)" }}>Días</span><span>{form.days.length > 0 ? form.days.map(d => d[0].toUpperCase()).join(", ") : "—"}</span></div>
+          <div className="sum-r"><span style={{ color: "var(--gy)" }}>Días recurrentes</span><span>{form.days.length > 0 ? form.days.map(d => DAY_LABEL[d] || d).join(", ") : "—"}</span></div>
+          {(form.excludedDates.length > 0 || form.addedDates.length > 0) && (
+            <div className="sum-r">
+              <span style={{ color: "var(--gy)" }}>Excepciones</span>
+              <span style={{ textAlign: "right" }}>
+                {form.excludedDates.length > 0 && `${form.excludedDates.length} fecha${form.excludedDates.length > 1 ? "s" : ""} excluida${form.excludedDates.length > 1 ? "s" : ""}`}
+                {form.excludedDates.length > 0 && form.addedDates.length > 0 && " · "}
+                {form.addedDates.length > 0 && `${form.addedDates.length} fecha${form.addedDates.length > 1 ? "s" : ""} extra agregada${form.addedDates.length > 1 ? "s" : ""}`}
+              </span>
+            </div>
+          )}
           <div className="sum-r"><span style={{ color: "var(--gy)" }}>Hora salida</span><span>{form.startTime}</span></div>
           <div className="sum-r"><span style={{ color: "var(--gy)" }}>Cancelación</span><span>{getCancelPolicy(form.cancellation).label}</span></div>
           <div className="sum-t"><span>Precio por persona</span><span>S/ {form.price}</span></div>
@@ -2451,7 +2697,7 @@ export default function AppDemo() {
   const [cat, setCat] = useState("all");
   const [notifs, setNotifs] = useState(NOTIFS);
   const [isOperator, setIsOperator] = useState(false);
-  const [tours, setTours] = useState(TOURS);
+  const [tours, setTours] = useState(() => TOURS.map(ensureAvailabilityFields));
 
   useEffect(() => {
     let cancel = false;
@@ -2460,7 +2706,7 @@ export default function AppDemo() {
       .then(data => {
         if (cancel) return;
         const mapped = (data.tours || []).map(mapTourFromApi);
-        if (mapped.length > 0) setTours(mapped);
+        if (mapped.length > 0) setTours(mapped.map(ensureAvailabilityFields));
       })
       .catch(err => {
         console.error("Error cargando tours, fallback a mock:", err);
@@ -2485,7 +2731,9 @@ export default function AppDemo() {
         description: t.desc || "",
         included: Array.isArray(t.included) ? t.included.join(", ") : (t.included || ""),
         excluded: Array.isArray(t.excluded) ? t.excluded.join(", ") : (t.excluded || ""),
-        days: [],
+        days: DEFAULT_DAYS,
+        excludedDates: [],
+        addedDates: [],
         startTime: "08:00",
         cancellation: "flexible",
         photo: null,
@@ -2554,6 +2802,9 @@ export default function AppDemo() {
         ...(updated.capacity && { capacity: Number(updated.capacity) }),
         ...(updated.category && { category: updated.category }),
         ...(updated.difficulty && { difficulty: updated.difficulty }),
+        days: updated.days || t.days,
+        excludedDates: updated.excludedDates || [],
+        addedDates: updated.addedDates || [],
       } : t));
     }
     setEditingTour(null);
@@ -2570,7 +2821,10 @@ export default function AppDemo() {
       image: cssImage, category: formData.category, capacity: formData.capacity,
       difficulty: formData.difficulty, description: formData.description,
       included: formData.included, excluded: formData.excluded,
-      days: formData.days, startTime: formData.startTime, cancellation: formData.cancellation,
+      days: formData.days,
+      excludedDates: formData.excludedDates || [],
+      addedDates: formData.addedDates || [],
+      startTime: formData.startTime, cancellation: formData.cancellation,
       photo: formData.photo,
     };
     setOpTours(prev => [...prev, newOpTour]);
@@ -2598,6 +2852,10 @@ export default function AppDemo() {
       aiSummary: "",
       altTour: null,
       tags: [],
+      cancellation: formData.cancellation,
+      days: formData.days && formData.days.length > 0 ? formData.days : DEFAULT_DAYS,
+      excludedDates: formData.excludedDates || [],
+      addedDates: formData.addedDates || [],
     }]);
     setDashTab("listings");
   };
