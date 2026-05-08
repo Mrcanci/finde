@@ -511,6 +511,33 @@ function hashTourId(id) {
   return h;
 }
 
+// Distribuye un total de reseñas en buckets de 5/4/3/2/1 estrellas según el
+// rating promedio. Para ratings altos (4.8+) la distribución se concentra
+// fuertemente en 5★; para ratings medios se reparte. Usado sólo para la viz
+// de barras cuando tour.reviews > tourRevs.length (caso tours del API).
+function distributeStars(rating, total) {
+  if (!total || total <= 0) return [5,4,3,2,1].map(s => ({ star: s, count: 0 }));
+  const r = Math.max(0, Math.min(5, Number(rating) || 0));
+  let pct;
+  if (r >= 4.8) pct = [0.88, 0.09, 0.02, 0.005, 0.005];
+  else if (r >= 4.5) pct = [0.70, 0.20, 0.07, 0.02, 0.01];
+  else if (r >= 4.2) pct = [0.55, 0.28, 0.10, 0.04, 0.03];
+  else if (r >= 4.0) pct = [0.45, 0.32, 0.15, 0.05, 0.03];
+  else if (r >= 3.5) pct = [0.30, 0.32, 0.22, 0.10, 0.06];
+  else pct = [0.20, 0.25, 0.30, 0.15, 0.10];
+  const exact = pct.map(p => p * total);
+  const counts = exact.map(Math.round);
+  let diff = total - counts.reduce((a, b) => a + b, 0);
+  let safety = 0;
+  while (diff !== 0 && safety++ < 100) {
+    let idx = 0;
+    for (let i = 1; i < counts.length; i++) if (counts[i] > counts[idx]) idx = i;
+    counts[idx] += diff > 0 ? 1 : -1;
+    diff += diff > 0 ? -1 : 1;
+  }
+  return [5,4,3,2,1].map((s, i) => ({ star: s, count: Math.max(0, counts[i]) }));
+}
+
 function generateMockReviews(tour) {
   if (!tour) return [];
   const seed = hashTourId(tour.id);
@@ -782,6 +809,8 @@ html{scrollbar-gutter:stable}
 .gc-loc{font-size:10px;color:var(--gy);font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px}
 .gc-t{font-size:13px;font-weight:700;margin-bottom:6px;line-height:1.3}
 .gc-p{font-size:14px;font-weight:800;color:var(--f)}.gc-p span{font-size:10px;font-weight:400;color:var(--gy)}
+.gc-m{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--gy);margin-bottom:6px;flex-wrap:wrap}
+.gc-m .rt{color:var(--gd);font-weight:700;display:inline-flex;align-items:center;gap:2px}
 
 /* ── Detail ── */
 .det{padding-bottom:100px}
@@ -1290,6 +1319,7 @@ function TCard({ t, onClick }) {
 }
 
 function GCard({ t, onClick }) {
+  const hasReviews = t.reviews > 0;
   return (
     <div className="gc" onClick={onClick}>
       <div className="gc-img" style={imgBg(t.image)}>
@@ -1298,6 +1328,20 @@ function GCard({ t, onClick }) {
       <div className="gc-b">
         <div className="gc-loc">{t.location}</div>
         <div className="gc-t">{t.title}</div>
+        <div className="gc-m">
+          {hasReviews ? (
+            <>
+              <span className="rt"><Star size={11} strokeWidth={1.5} fill="currentColor" /> {t.rating}</span>
+              <span>({t.reviews})</span>
+              {t.duration && <><span>·</span><span>{t.duration}</span></>}
+            </>
+          ) : (
+            <>
+              <span className="rt">Nuevo</span>
+              {t.duration && <><span>·</span><span>{t.duration}</span></>}
+            </>
+          )}
+        </div>
         <div className="gc-p">S/ {t.price} <span>/ pers</span></div>
       </div>
     </div>
@@ -1613,7 +1657,14 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
     ? realRevs
     : (tour.reviews > 0 ? generateMockReviews(tour) : []);
   const visibleRevs = showAllRevs ? tourRevs : tourRevs.slice(0, 3);
-  const starCounts = [5, 4, 3, 2, 1].map(s => ({ star: s, count: tourRevs.filter(r => r.rating === s).length }));
+  // Conteo total visible y distribución se calculan sobre tour.reviews (dato real),
+  // no sobre tourRevs.length (que son sólo las muestras renderizadas: 3-4). Así el
+  // header "(221)" coincide con la sección y las barras se ven proporcionales.
+  const totalReviews = Number(tour.reviews) || 0;
+  const useRealCounts = totalReviews > 0 && totalReviews === tourRevs.length;
+  const starCounts = useRealCounts
+    ? [5, 4, 3, 2, 1].map(s => ({ star: s, count: tourRevs.filter(r => r.rating === s).length }))
+    : distributeStars(tour.rating, totalReviews);
   const maxCount = Math.max(...starCounts.map(s => s.count), 1);
   return (
     <div className="det">
@@ -1702,14 +1753,14 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
             </div>
           );
         })()}
-        {tourRevs.length > 0 && (
+        {totalReviews > 0 && (
           <div className="rev-sec">
-            <div className="rev-hdr">Reseñas de viajeros ({tourRevs.length})</div>
+            <div className="rev-hdr">Reseñas de viajeros ({totalReviews})</div>
             <div className="rev-summary">
               <div className="rev-big">
                 <div className="rev-big-n">{tour.rating}</div>
                 <div className="rev-big-stars">{Array.from({length:5},(_,i)=><Star key={i} size={14} strokeWidth={1.5} fill={i < Math.round(tour.rating) ? "currentColor" : "none"} />)}</div>
-                <div className="rev-big-cnt">{tour.reviews} reseñas</div>
+                <div className="rev-big-cnt">{totalReviews} reseñas</div>
               </div>
               <div className="rev-bars">
                 {starCounts.map(s => (
