@@ -16,6 +16,27 @@ const CATS = [
   { id: "trekking", n: "Trekking", ic: Footprints },
 ];
 
+// Reglas v1.2 §3.2 — Cuatro políticas oficiales. Default = Flexible.
+const CANCEL_POLICIES = {
+  flexible: {
+    label: "Flexible",
+    short: "Cancelación gratuita hasta 24h antes del tour. Sin reembolso con menos de 24h.",
+  },
+  moderada: {
+    label: "Moderada",
+    short: "100% de reembolso si cancelas con 72h o más. 50% entre 72h y 24h. Sin reembolso con menos de 24h.",
+  },
+  estricta: {
+    label: "Estricta",
+    short: "100% si cancelas con 30+ días. 50% entre 15 y 30 días. Sin reembolso con menos de 15 días.",
+  },
+  no_reembolsable: {
+    label: "No reembolsable",
+    short: "Sin reembolso desde el momento del pago, salvo cancelación por la agencia o fuerza mayor.",
+  },
+};
+const getCancelPolicy = (id) => CANCEL_POLICIES[id] || CANCEL_POLICIES.flexible;
+
 const TOURS = [
   { id:1, title:"Trekking al Nevado Pastoruri", titleQu:"Pastoruri Ritiq Qaqaman Puriy", location:"Huaraz, Áncash", price:189, rating:4.7, reviews:3, duration:"Full day", image:"https://images.unsplash.com/photo-1522409994346-2682217b9a3e?w=800&h=600&fit=crop", badge:"Más vendido", category:"trekking", operator:"Andes Trek Perú", verified:true, capacity:12, altitude:"5,240", difficulty:"Moderada", included:["Transporte ida y vuelta","Guía certificado","Almuerzo buffet","Entrada al parque","Oxígeno portátil"], excluded:["Propinas","Snacks"], desc:"Camina hasta el glaciar tropical más accesible del mundo a 5,240 msnm. Atraviesa paisajes de puya Raimondi y lagunas turquesa en la Cordillera Blanca.", descQu:"Kay ritiq qaqaqa tukuy pachapi aswan ñawpaq kachkan, 5,240 metrokunapi. Puya Raimondi sachakuna, qucha turquesa ñawinkuna Cordillera Blancapi.", aiSummary:"Los viajeros destacan el paisaje impactante y la buena organización. Algunos mencionan que la altitud puede ser desafiante.", altTour:{ name:"Pastoruri", alt:"Laguna 69 (menos masificada)", reason:"Similar paisaje glaciar con 60% menos visitantes" }, tags:["glaciar","altitud","naturaleza","cordillera"] },
   { id:2, title:"Tour Gastronómico por Lima", titleQu:"Lima Llaqtapi Mikhuy Puriy", location:"Miraflores, Lima", price:145, rating:4.7, reviews:3, duration:"4 horas", image:"https://images.unsplash.com/photo-1535400255456-984241443b29?w=800&h=600&fit=crop", badge:"Top rated", category:"gastro", operator:"Lima Foodie Tours", verified:true, capacity:8, altitude:"0", difficulty:"Fácil", included:["6 paradas gastronómicas","Degustaciones ilimitadas","Pisco sour de bienvenida","Guía bilingüe"], excluded:["Bebidas alcohólicas extra","Transporte al punto"], desc:"Recorre los mercados y huariques secretos de Miraflores y Barranco. Prueba ceviche, anticuchos, causa y picarones con los mejores cocineros locales.", descQu:"Miraflores, Barranco llaqtakunapi mikhuy qhatukunata, pakasqa wasikunata purimuy. Ceviche, anticucho, causa, picarón mikhuykunata llamk'aq wayk'uqkunawan.", aiSummary:"Experiencia altamente recomendada. Destacan la cantidad de comida y el conocimiento del guía. La mejor valorada de Lima.", altTour:null, tags:["comida","lima","ceviche","mercado"] },
@@ -161,7 +182,7 @@ const NOTIFS = [
   { id:1, type:"ai", title:"Finde IA encontró algo para ti", body:"Basado en tu búsqueda de 'aventura sin altitud', te recomendamos Sandboarding en Huacachina.", time:"Hace 1 hora", read:false, icon:Bot },
   { id:2, type:"booking", title:"Reserva confirmada", body:"Tu Trekking al Nevado Pastoruri del 19 May está confirmado.", time:"Hace 3 horas", read:false, icon:CheckCircle },
   { id:3, type:"reminder", title:"Recordatorio: mañana sales", body:"Tour Gastronómico por Lima mañana 10:00 AM. Parque Kennedy.", time:"Hace 5 horas", read:false, icon:Clock },
-  { id:4, type:"promo", title:"Feriado largo: 20% OFF", body:"+200 experiencias con descuento para mayo.", time:"Hace 1 día", read:true, icon:Tag },
+  { id:4, type:"promo", title:"Feriado largo de mayo", body:"Nuevos tours añadidos para el feriado largo. Reserva con anticipación.", time:"Hace 1 día", read:true, icon:Tag },
   { id:5, type:"review", title:"¿Cómo estuvo tu experiencia?", body:"Cuéntanos sobre tu Sandboarding en Huacachina.", time:"Hace 3 días", read:true, icon:Star },
   { id:6, type:"quechua", title:"Nuevo: tours en quechua", body:"3 operadores ahora tienen descripciones en runasimi.", time:"Hace 5 días", read:true, icon:Languages },
 ];
@@ -1349,13 +1370,36 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
         </p>
         <div className="det-op">
           <div className="det-op-av">{tour.operator[0]}</div>
-          <div><div className="det-op-n">{tour.operator}</div><div className="det-op-d">{tour.verified ? <><ShieldCheck size={14} strokeWidth={1.5} /> Verificado MINCETUR</> : "Operador"}</div></div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="det-op-n">{tour.operator}</div>
+            <div className="det-op-d">
+              {tour.verified
+                ? <><ShieldCheck size={14} strokeWidth={1.5} /> Finde Verificado</>
+                : "Operador Finde Basic"}
+            </div>
+            {tour.verified && (
+              <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 4, lineHeight: 1.4 }}>
+                RUC: 20612345678 · MINCETUR: VER-2024-00891
+              </div>
+            )}
+          </div>
         </div>
         <div className="det-st">{isQu ? "Imapas chaypi kan" : "Incluye"}</div>
         <div className="det-incs">
           {tour.included.map((x, i) => <div key={i} className="det-inc"><div className="det-ic iy"><Check size={14} strokeWidth={2} /></div>{x}</div>)}
           {tour.excluded.map((x, i) => <div key={i} className="det-inc"><div className="det-ic in"><X size={14} strokeWidth={2} /></div>{x}</div>)}
         </div>
+        {(() => {
+          const pol = getCancelPolicy(tour.cancellation);
+          return (
+            <div style={{ padding: 14, background: "var(--cr)", borderRadius: 12, marginBottom: 20, borderLeft: "3px solid var(--f)" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--f)", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                <ShieldCheck size={14} strokeWidth={1.5} /> Política de cancelación: {pol.label}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--gy)", lineHeight: 1.5 }}>{pol.short}</div>
+            </div>
+          );
+        })()}
         {tourRevs.length > 0 && (
           <div className="rev-sec">
             <div className="rev-hdr">Reseñas de viajeros ({tourRevs.length})</div>
@@ -1474,6 +1518,17 @@ function BookingView({ tour, go }) {
         <div className="fg"><label className="lbl">Fecha</label><input type="date" className="inp" value={date} min={new Date().toISOString().split("T")[0]} onChange={(e) => setDate(e.target.value)} aria-label="Fecha del tour" /></div>
         <div className="fg"><label className="lbl">Personas</label><div className="gctr" role="group" aria-label="Cantidad de personas"><button type="button" className="gbtn" onClick={() => setGuests(Math.max(1, guests - 1))} disabled={guests <= 1} aria-label="Disminuir número de personas">−</button><div className="gcnt" aria-live="polite">{guests}</div><button type="button" className="gbtn" onClick={() => setGuests(Math.min(tour.capacity, guests + 1))} disabled={guests >= tour.capacity} aria-label="Aumentar número de personas">+</button></div></div>
         <div className="sum"><div className="sum-r"><span>S/ {tour.price} × {guests}</span><span>S/ {total.toFixed(2)}</span></div><div className="sum-t"><span>Total</span><span>S/ {total.toFixed(2)}</span></div></div>
+        {(() => {
+          const pol = getCancelPolicy(tour.cancellation);
+          return (
+            <div style={{ padding: 12, background: "var(--cr)", borderRadius: 12, marginBottom: 16, borderLeft: "3px solid var(--f)" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--f)", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                <ShieldCheck size={14} strokeWidth={1.5} /> Política de cancelación: {pol.label}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--gy)", lineHeight: 1.5 }}>{pol.short}</div>
+            </div>
+          );
+        })()}
         <button className="mbtn" onClick={() => setStep(2)}>Continuar</button>
       </div>}
 
@@ -1504,12 +1559,23 @@ function BookingView({ tour, go }) {
 
       {step === 3 && <div className="fu">
         <div className="bkf-t">Método de pago</div><div className="bkf-sub">Revisa tu reserva y elige cómo pagar</div>
-        <div className="sum" style={{ marginBottom: 24 }}>
+        <div className="sum" style={{ marginBottom: 16 }}>
           <div className="bk-sum-tour">{tour.title}</div>
           <div className="bk-sum-meta"><Calendar size={14} strokeWidth={1.5} /> {date} · <Users size={14} strokeWidth={1.5} /> {guests} persona{guests > 1 ? "s" : ""}</div>
           <div className="sum-r"><span>S/ {tour.price} × {guests}</span><span>S/ {total.toFixed(2)}</span></div>
           <div className="sum-t"><span>Total</span><span>S/ {total.toFixed(2)}</span></div>
         </div>
+        {(() => {
+          const pol = getCancelPolicy(tour.cancellation);
+          return (
+            <div style={{ padding: 12, background: "var(--cr)", borderRadius: 12, marginBottom: 24, borderLeft: "3px solid var(--f)" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--f)", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                <ShieldCheck size={14} strokeWidth={1.5} /> Política de cancelación: {pol.label}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--gy)", lineHeight: 1.5 }}>{pol.short}</div>
+            </div>
+          );
+        })()}
         <label className="lbl" style={{ marginBottom: 12 }}>Método de pago</label>
         <div className="pms">
           {[{ id: "yape", n: "Yape", c: "var(--yp)", tg: "Popular" }, { id: "plin", n: "Plin", c: "var(--pl)" }, { id: "card", n: "Tarjeta", c: "var(--ch)", ic: CreditCard }, { id: "cash", n: "PagoEfectivo", c: "#FF6B00", ic: Banknote }].map((m) => (
@@ -1604,10 +1670,15 @@ function ProfileView({ go, isOperator, setIsOperator }) {
   });
   const [opLoading, setOpLoading] = useState(false);
   const [opError, setOpError] = useState("");
+  const [opAcceptTerms, setOpAcceptTerms] = useState(false);
 
   const updOp = (k, v) => setOpForm(prev => ({ ...prev, [k]: v }));
+  const opRucValid = /^\d{11}$/.test(opForm.ruc);
+  const opFormValid = opForm.name && opForm.email && opForm.phone && opForm.city && opRucValid && opAcceptTerms;
 
   const submitOperator = async () => {
+    if (!opRucValid) { setOpError("El RUC debe tener exactamente 11 dígitos"); return; }
+    if (!opAcceptTerms) { setOpError("Debes aceptar los Términos y Condiciones"); return; }
     setOpLoading(true);
     setOpError("");
     try {
@@ -1616,7 +1687,7 @@ function ProfileView({ go, isOperator, setIsOperator }) {
         email: opForm.email,
         phone: opForm.phone,
         city: opForm.city,
-        ...(opForm.ruc ? { ruc: opForm.ruc } : {}),
+        ruc: opForm.ruc,
       };
       const r = await fetch("/api/operators", {
         method: "POST",
@@ -1675,11 +1746,26 @@ function ProfileView({ go, isOperator, setIsOperator }) {
             <input className="inp" value={opForm.city} onChange={(e) => updOp("city", e.target.value)} />
           </div>
           <div className="fg">
-            <label className="lbl">RUC <span style={{ color: "var(--gy)", fontWeight: 400 }}>(opcional, 11 dígitos)</span></label>
-            <input className="inp" value={opForm.ruc} onChange={(e) => updOp("ruc", e.target.value.replace(/\D/g, ""))} maxLength={11} />
+            <label className="lbl">RUC <span style={{ color: "var(--tr)" }}>*</span> <span style={{ color: "var(--gy)", fontWeight: 400 }}>(11 dígitos)</span></label>
+            <input className={`inp${opForm.ruc && !opRucValid ? " inp-err" : ""}`} value={opForm.ruc} onChange={(e) => updOp("ruc", e.target.value.replace(/\D/g, ""))} maxLength={11} placeholder="20612345678" />
+            {opForm.ruc && !opRucValid && <div className="field-err">El RUC debe tener 11 dígitos</div>}
+            <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 6, lineHeight: 1.5 }}>
+              Solo agencias con RUC activo pueden vender en Finde. Validaremos contra SUNAT.
+            </div>
           </div>
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 0", marginBottom: 12, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={opAcceptTerms}
+              onChange={(e) => setOpAcceptTerms(e.target.checked)}
+              style={{ marginTop: 3, width: 18, height: 18, accentColor: "var(--f)", flexShrink: 0, cursor: "pointer" }}
+            />
+            <span style={{ fontSize: 12, color: "var(--ch)", lineHeight: 1.5 }}>
+              Acepto los <span style={{ color: "var(--f)", fontWeight: 700, textDecoration: "underline" }}>Términos y Condiciones</span> de Finde y confirmo que la información proporcionada es verídica.
+            </span>
+          </label>
           {opError && <div className="field-err" style={{ marginBottom: 12 }}>{opError}</div>}
-          <button className="mbtn" disabled={opLoading || !opForm.name || !opForm.email || !opForm.phone || !opForm.city} onClick={submitOperator}>
+          <button className="mbtn" disabled={opLoading || !opFormValid} onClick={submitOperator}>
             {opLoading ? "Registrando…" : "Registrarse como operador"}
           </button>
           <button className="rv-cancel" style={{ marginTop: 8, width: "100%" }} onClick={() => { setShowOpForm(false); setOpError(""); }}>Cancelar</button>
@@ -1709,6 +1795,20 @@ function ProfileView({ go, isOperator, setIsOperator }) {
       ].map((i, idx) => (
         <div key={idx} className="pf-mi"><div className="pf-mi-ic" style={{ background: i.bg }}><i.ic size={18} strokeWidth={1.5} color="#2D5A3D" /></div><div className="pf-mi-txt"><div className="pf-mi-t">{i.t}</div><div className="pf-mi-d">{i.d}</div></div><ChevronRight size={16} strokeWidth={1.5} style={{ color: "var(--lg)" }} /></div>
       ))}
+      <div
+        className="pf-mi"
+        onClick={() => alert("Próximamente: aquí podrás presentar reclamos formales conforme a la Ley 32495.\n\nMientras tanto, escríbenos a reclamos@finde.pe")}
+        style={{ cursor: "pointer" }}
+      >
+        <div className="pf-mi-ic" style={{ background: "rgba(199,97,58,.1)" }}>
+          <FileText size={18} strokeWidth={1.5} color="#C7613A" />
+        </div>
+        <div className="pf-mi-txt">
+          <div className="pf-mi-t">Libro de Reclamaciones</div>
+          <div className="pf-mi-d">Presenta un reclamo formal · Ley 32495</div>
+        </div>
+        <ChevronRight size={16} strokeWidth={1.5} style={{ color: "var(--lg)" }} />
+      </div>
       <button className="pf-logout" onClick={() => go("login")}>Cerrar sesión</button>
       <div className="pf-ver">finde. AI v3.0 · Hecho en Perú</div>
     </div>
@@ -1720,7 +1820,6 @@ function DashView({ go, opTours, setOpTours, onEditTour, initialTab = "bookings"
   useEffect(() => { if (onTabConsumed) onTabConsumed(); }, []);
   const [bookings, setBookings] = useState(OP_BK);
   const [selectedBooking, setSelectedBooking] = useState(null);
-  const [payoutState, setPayoutState] = useState("idle");
   const totR = EARN.reduce((s, w) => s + w.n, 0);
   const maxE = Math.max(...EARN.map((w) => w.g));
   const stC = { confirmed: "var(--f)", pending: "#D4A843", completed: "var(--sg)", cancelled: "var(--tr)" };
@@ -1851,45 +1950,21 @@ function DashView({ go, opTours, setOpTours, onEditTour, initialTab = "bookings"
           </div>
         </div>
 
-        {/* Saldo disponible + solicitar pago */}
+        {/* Próximo payout automático quincenal — Reglas v1.2 §5.1 */}
         <div style={{ margin: "0 0 16px 0", padding: 16, background: "var(--cr)", borderRadius: 16, border: "1px solid var(--lg)" }}>
-          <div style={{ fontSize: 12, color: "var(--gy)", marginBottom: 4 }}>Saldo disponible para retiro</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: "var(--f)", marginBottom: 14 }}>
-            S/ {payoutState === "success" ? "0.00" : totR.toLocaleString()}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+            <CircleDollarSign size={14} strokeWidth={1.5} style={{ color: "var(--f)" }} />
+            <div style={{ fontSize: 12, color: "var(--gy)", fontWeight: 600 }}>Próximo payout automático</div>
           </div>
-          {payoutState === "idle" && (
-            <button onClick={() => setPayoutState("confirm")} style={{
-              width: "100%", padding: "13px 0", borderRadius: 12, border: "none",
-              background: "var(--f)", color: "white", fontWeight: 700,
-              fontSize: 14, cursor: "pointer", fontFamily: "inherit"
-            }}><CircleDollarSign size={16} strokeWidth={1.5} /> Solicitar pago</button>
-          )}
-          {payoutState === "confirm" && (
-            <div>
-              <div style={{ fontSize: 13, color: "var(--ch)", marginBottom: 12, lineHeight: 1.5 }}>
-                Se transferirá <strong>S/ {totR.toLocaleString()}</strong> a tu cuenta Yape registrada <strong>+51 987 654 321</strong> en 1-2 días hábiles.
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => setPayoutState("success")} style={{
-                  flex: 1, padding: "11px 0", borderRadius: 12, border: "none",
-                  background: "var(--f)", color: "white", fontWeight: 700,
-                  fontSize: 13, cursor: "pointer", fontFamily: "inherit"
-                }}><Check size={14} strokeWidth={2} /> Confirmar</button>
-                <button onClick={() => setPayoutState("idle")} style={{
-                  flex: 1, padding: "11px 0", borderRadius: 12, border: "2px solid var(--lg)",
-                  background: "transparent", color: "var(--gy)", fontWeight: 700,
-                  fontSize: 13, cursor: "pointer", fontFamily: "inherit"
-                }}>Cancelar</button>
-              </div>
-            </div>
-          )}
-          {payoutState === "success" && (
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 28, marginBottom: 4 }}><Check size={28} strokeWidth={2.5} style={{color:"var(--f)",margin:"0 auto"}} /></div>
-              <div style={{ fontWeight: 700, color: "var(--f)", fontSize: 14 }}>¡Pago solicitado!</div>
-              <div style={{ fontSize: 12, color: "var(--gy)", marginTop: 4 }}>Recibirás S/ {totR.toLocaleString()} en tu Yape en 1-2 días hábiles.</div>
-            </div>
-          )}
+          <div style={{ fontSize: 26, fontWeight: 800, color: "var(--f)", marginBottom: 4 }}>
+            S/ {totR.toLocaleString()}
+          </div>
+          <div style={{ fontSize: 13, color: "var(--ch)", fontWeight: 600, marginBottom: 10 }}>
+            Lunes 19 de mayo · a tu CCI 0021 ····2847
+          </div>
+          <div style={{ fontSize: 11, color: "var(--gy)", lineHeight: 1.5, paddingTop: 10, borderTop: "1px solid var(--sd)" }}>
+            Pagamos <strong>los días 4 y 19</strong> de cada mes a tu cuenta bancaria. Sin acción requerida — Finde absorbe el costo de transferencia.
+          </div>
         </div>
 
         <div className="earn-chart">
@@ -2027,12 +2102,12 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
     excluded: editingTour.excluded || "",
     days: editingTour.days || [],
     startTime: editingTour.startTime || "08:00",
-    cancellation: editingTour.cancellation || "24h",
+    cancellation: editingTour.cancellation || "flexible",
     photo: editingTour.photo || null,
   } : {
     title: "", location: "", category: "adventure", duration: "", price: "",
     capacity: "", difficulty: "Moderada", description: "", included: "", excluded: "",
-    days: [], startTime: "08:00", cancellation: "24h", photo: null
+    days: [], startTime: "08:00", cancellation: "flexible", photo: null
   });
   const [aiDesc, setAiDesc] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -2241,25 +2316,32 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         </div>
         <div className="fg">
           <label className="lbl">Política de cancelación</label>
+          <div style={{ fontSize: 11, color: "var(--gy)", marginBottom: 8, lineHeight: 1.5 }}>
+            Elige la que aplica a este tour. Recomendamos <strong>Flexible</strong> para tours cortos.
+          </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {[
-              { id: "24h", label: "Cancelación gratuita hasta 24h antes" },
-              { id: "48h", label: "Cancelación gratuita hasta 48h antes" },
-              { id: "no", label: "Sin cancelación (no reembolsable)" },
+              { id: "flexible", label: "Flexible", desc: "100% si cancela 24+ horas antes. 0% con menos de 24h." },
+              { id: "moderada", label: "Moderada", desc: "100% si cancela 72+ horas antes. 50% entre 72h y 24h. 0% con menos de 24h." },
+              { id: "estricta", label: "Estricta", desc: "100% si cancela 30+ días antes. 50% entre 15 y 30 días. 0% con menos de 15 días." },
+              { id: "no_reembolsable", label: "No reembolsable", desc: "Sin reembolso desde el momento del pago. Solo para tours con permisos prepagados." },
             ].map((opt) => (
               <div key={opt.id} onClick={() => u("cancellation", opt.id)} style={{
                 padding: "12px 14px", borderRadius: 12, border: "2px solid",
                 borderColor: form.cancellation === opt.id ? "var(--f)" : "var(--lg)",
                 background: form.cancellation === opt.id ? "rgba(27,58,45,.05)" : "transparent",
-                cursor: "pointer", display: "flex", alignItems: "center", gap: 10
+                cursor: "pointer", display: "flex", alignItems: "flex-start", gap: 10
               }}>
                 <div style={{
                   width: 20, height: 20, borderRadius: "50%",
                   background: form.cancellation === opt.id ? "var(--f)" : "var(--lg)",
                   color: "white", display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 10, fontWeight: 700, flexShrink: 0
+                  fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 1
                 }}>{form.cancellation === opt.id ? "●" : ""}</div>
-                <span style={{ fontSize: 13, color: "var(--ch)" }}>{opt.label}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ch)" }}>{opt.label}</div>
+                  <div style={{ fontSize: 11, color: "var(--gy)", lineHeight: 1.5, marginTop: 2 }}>{opt.desc}</div>
+                </div>
               </div>
             ))}
           </div>
@@ -2318,7 +2400,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           <div className="sum-r"><span style={{ color: "var(--gy)" }}>Capacidad</span><span>{form.capacity} personas</span></div>
           <div className="sum-r"><span style={{ color: "var(--gy)" }}>Días</span><span>{form.days.length > 0 ? form.days.map(d => d[0].toUpperCase()).join(", ") : "—"}</span></div>
           <div className="sum-r"><span style={{ color: "var(--gy)" }}>Hora salida</span><span>{form.startTime}</span></div>
-          <div className="sum-r"><span style={{ color: "var(--gy)" }}>Cancelación</span><span>{form.cancellation === "24h" ? "Libre hasta 24h" : form.cancellation === "48h" ? "Libre hasta 48h" : "No reembolsable"}</span></div>
+          <div className="sum-r"><span style={{ color: "var(--gy)" }}>Cancelación</span><span>{getCancelPolicy(form.cancellation).label}</span></div>
           <div className="sum-t"><span>Precio por persona</span><span>S/ {form.price}</span></div>
         </div>
 
@@ -2405,7 +2487,7 @@ export default function AppDemo() {
         excluded: Array.isArray(t.excluded) ? t.excluded.join(", ") : (t.excluded || ""),
         days: [],
         startTime: "08:00",
-        cancellation: "24h",
+        cancellation: "flexible",
         photo: null,
       };
     };

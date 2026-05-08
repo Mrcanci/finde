@@ -26,11 +26,11 @@ const bodySchema = z.object({
     .trim()
     .regex(/^\d{8,15}$/, "phone debe tener entre 8 y 15 dígitos numéricos"),
   city: z.string().trim().min(2).max(50),
+  // Reglas v1.2 §6.3: solo agencias con RUC pueden vender en Finde.
   ruc: z
     .string()
     .trim()
-    .regex(/^\d{11}$/, "ruc debe tener exactamente 11 dígitos numéricos")
-    .optional(),
+    .regex(/^\d{11}$/, "ruc debe tener exactamente 11 dígitos numéricos"),
 });
 
 function buildSessionCookie(token: string): string {
