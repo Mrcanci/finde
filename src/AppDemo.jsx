@@ -762,9 +762,9 @@ html{scrollbar-gutter:stable}
 .ai-result-t{font-size:12px;font-weight:600;color:var(--f)}
 .ai-result-b{font-size:11px;color:var(--gy);margin-top:2px;line-height:1.4}
 .ai-result-x{font-size:13px;color:var(--ch);margin-top:8px;padding-top:8px;line-height:1.55;border-top:1px solid rgba(0,0,0,.08)}
-.ai-result.loading{border-color:rgba(14,165,233,.25);background:linear-gradient(135deg,rgba(14,165,233,.05),var(--cr))}
-.ai-result.loading .ai-result-ic{background:rgba(14,165,233,.12);color:var(--ai);animation:pulse 1.4s ease-in-out infinite}
-.ai-result.loading .ai-result-t{color:var(--ai)}
+/* Loading reusa exactamente el mismo banner que el resultado IA: solo el
+   ícono pulsa para indicar actividad, sin cambios de color. */
+.ai-result.loading .ai-result-ic{animation:pulse 1.4s ease-in-out infinite}
 
 /* ── Language Dropdown ── */
 .lang-dd{position:relative;display:inline-block}
