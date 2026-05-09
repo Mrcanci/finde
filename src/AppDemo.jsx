@@ -761,16 +761,10 @@ html{scrollbar-gutter:stable}
 .ai-result-ic{width:28px;height:28px;border-radius:8px;background:rgba(45,90,61,.1);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;color:var(--f)}
 .ai-result-t{font-size:12px;font-weight:600;color:var(--f)}
 .ai-result-b{font-size:11px;color:var(--gy);margin-top:2px;line-height:1.4}
-
-/* AI Analysis (prominente al final del grid) */
-.ai-analysis{margin:8px 16px 24px;padding:16px 18px;background:linear-gradient(135deg,rgba(14,165,233,.06),rgba(14,165,233,.02));border:1px solid rgba(14,165,233,.18);border-left:3px solid var(--ai);border-radius:14px}
-.ai-analysis-h{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:var(--ai);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}
-.ai-analysis-b{font-size:14px;color:var(--ch);line-height:1.65}
-.ai-analysis-q{font-size:12px;color:var(--gy);margin-top:10px;font-style:italic;border-top:1px solid rgba(14,165,233,.12);padding-top:10px}
-.ai-loading-box{min-height:240px;margin:0 16px 140px;padding:24px 18px;background:linear-gradient(135deg,rgba(14,165,233,.06),rgba(14,165,233,.02));border:1px solid rgba(14,165,233,.18);border-radius:14px;display:flex;align-items:center;gap:14px}
-.ai-loading-box .ai-result-ic{width:40px;height:40px;background:rgba(14,165,233,.12);color:var(--ai);animation:pulse 1.4s ease-in-out infinite}
-.ai-loading-box-t{font-size:14px;font-weight:700;color:var(--ai);margin-bottom:4px}
-.ai-loading-box-b{font-size:12px;color:var(--gy);line-height:1.5}
+.ai-result-x{font-size:13px;color:var(--ch);margin-top:8px;padding-top:8px;line-height:1.55;border-top:1px solid rgba(0,0,0,.08)}
+.ai-result.loading{border-color:rgba(14,165,233,.25);background:linear-gradient(135deg,rgba(14,165,233,.05),var(--cr))}
+.ai-result.loading .ai-result-ic{background:rgba(14,165,233,.12);color:var(--ai);animation:pulse 1.4s ease-in-out infinite}
+.ai-result.loading .ai-result-t{color:var(--ai)}
 
 /* ── Language Dropdown ── */
 .lang-dd{position:relative;display:inline-block}
@@ -1716,46 +1710,46 @@ function CatalogView({ go, pick, cat, setCat, tours }) {
         {geminiIds && !aiResult && (
           <div className="ai-result">
             <div className="ai-result-ic"><Sparkles size={16} strokeWidth={1.5} /></div>
-            <div><div className="ai-result-t">IA encontró {filt.length} experiencias</div><div className="ai-result-b">para &ldquo;{q}&rdquo;</div></div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="ai-result-t">IA encontró {filt.length} experiencias</div>
+              <div className="ai-result-b">para &ldquo;{q}&rdquo;</div>
+              {apiReasoning && <div className="ai-result-x">{apiReasoning}</div>}
+            </div>
             <button className="sr-clear" onClick={() => { setGeminiIds(null); setApiReasoning(""); }}><X size={16} strokeWidth={1.5} /></button>
           </div>
         )}
         <div className="cats">{CATS.map((c) => <button key={c.id} className={`chip ${cat === c.id ? "on" : ""}`} onClick={() => { setCat(c.id); setQ(""); setGeminiIds(null); setAiResult(null); setLocalResults([]); setHasSearched(false); }}><c.ic size={16} strokeWidth={1.5} /> {c.n}</button>)}</div>
-        {geminiLoading ? (
-          <div className="ai-loading-box">
-            <div className="ai-result-ic"><Sparkles size={20} strokeWidth={1.5} /></div>
-            <div>
-              <div className="ai-loading-box-t">Buscando con IA…</div>
-              <div className="ai-loading-box-b">Analizando tu consulta para encontrar las mejores experiencias</div>
+        {geminiLoading && (
+          <div className="ai-result loading">
+            <div className="ai-result-ic"><Sparkles size={16} strokeWidth={1.5} /></div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="ai-result-t">Buscando con IA…</div>
+              <div className="ai-result-b">Analizando tu consulta para encontrar las mejores experiencias</div>
             </div>
           </div>
-        ) : (hasSearched && filt.length === 0) ? (
-          <>
-            <div style={{ padding: "32px 16px 24px", textAlign: "center", color: "var(--gy)", minHeight: 180 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ch)", marginBottom: 6 }}>No se encontraron resultados</div>
-              <div style={{ fontSize: 12, lineHeight: 1.5 }}>Prueba con otras palabras o explora por categoría.</div>
+        )}
+        {!geminiLoading && hasSearched && filt.length === 0 && apiReasoning && (
+          <div className="ai-result">
+            <div className="ai-result-ic"><Sparkles size={16} strokeWidth={1.5} /></div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="ai-result-t">No se encontraron resultados con IA</div>
+              <div className="ai-result-b">para &ldquo;{q}&rdquo;</div>
+              <div className="ai-result-x">{apiReasoning}</div>
             </div>
-            {apiReasoning && (
-              <div className="ai-analysis">
-                <div className="ai-analysis-h"><Sparkles size={12} strokeWidth={1.5} /> Análisis de tu búsqueda</div>
-                <div className="ai-analysis-b">{apiReasoning}</div>
-                <div className="ai-analysis-q">Para &ldquo;{q}&rdquo;</div>
-              </div>
-            )}
-          </>
+            <button className="sr-clear" onClick={() => { setApiReasoning(""); }}><X size={16} strokeWidth={1.5} /></button>
+          </div>
+        )}
+        {!geminiLoading && !(hasSearched && filt.length === 0 && apiReasoning) && (hasSearched && filt.length === 0 ? (
+          <div style={{ padding: "32px 16px 24px", textAlign: "center", color: "var(--gy)", minHeight: 180 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ch)", marginBottom: 6 }}>No se encontraron resultados</div>
+            <div style={{ fontSize: 12, lineHeight: 1.5 }}>Prueba con otras palabras o explora por categoría.</div>
+          </div>
         ) : (
           <>
             <div style={{ paddingBottom: 12, fontSize: 13, color: "var(--gy)" }}>{filt.length} experiencias verificadas</div>
             <div className="tg">{filt.map((t) => <GCard key={t.id} t={t} onClick={() => { pick(t); go("detail"); }} />)}</div>
-            {apiReasoning && (geminiIds || aiResult) && (
-              <div className="ai-analysis">
-                <div className="ai-analysis-h"><Sparkles size={12} strokeWidth={1.5} /> Análisis de tu búsqueda</div>
-                <div className="ai-analysis-b">{apiReasoning}</div>
-                <div className="ai-analysis-q">Para &ldquo;{q}&rdquo;</div>
-              </div>
-            )}
           </>
-        )}
+        ))}
       </div>
     </div>
   );
