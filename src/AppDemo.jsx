@@ -1863,6 +1863,22 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
       }
       const data = await r.json();
       setServerBooking(data.booking || null);
+      // Registrar también el viaje en el estado local para que aparezca en
+      // TripsView. Reusamos el mismo handler que el flujo simulado: TripsView
+      // no necesita distinguir entre booking del API y booking local.
+      if (onLocalBookingSuccess) {
+        const apiCode = data.booking?.bookingCode || `FND-${bookingCode}`;
+        const apiTotal = data.booking?.totalSoles != null
+          ? data.booking.totalSoles / 100
+          : tour.price * guests;
+        onLocalBookingSuccess({
+          tour,
+          date,
+          guests,
+          total: apiTotal,
+          code: apiCode,
+        });
+      }
       setStep(4);
     } catch (e) {
       setSubmitError(e.message || "Error creando la reserva");
