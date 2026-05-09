@@ -209,20 +209,20 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
 }
 
 const TOURS = [
-  { id:1, title:"Trekking al Nevado Pastoruri", titleQu:"Pastoruri Ritiq Qaqaman Puriy", location:"Huaraz, Áncash", price:189, rating:4.7, reviews:3, duration:"Full day", image:"https://images.unsplash.com/photo-1522409994346-2682217b9a3e?w=800&h=600&fit=crop", badge:"Más vendido", category:"trekking", operator:"Andes Trek Perú", verified:true, capacity:12, altitude:"5,240", difficulty:"Moderada", cancellation:"estricta", included:["Transporte ida y vuelta","Guía certificado","Almuerzo buffet","Entrada al parque","Oxígeno portátil"], excluded:["Propinas","Snacks"], desc:"Camina hasta el glaciar tropical más accesible del mundo a 5,240 msnm. Atraviesa paisajes de puya Raimondi y lagunas turquesa en la Cordillera Blanca.", descQu:"Kay ritiq qaqaqa tukuy pachapi aswan ñawpaq kachkan, 5,240 metrokunapi. Puya Raimondi sachakuna, qucha turquesa ñawinkuna Cordillera Blancapi.", aiSummary:"Los viajeros destacan el paisaje impactante y la buena organización. Algunos mencionan que la altitud puede ser desafiante.", altTour:{ name:"Pastoruri", alt:"Laguna 69 (menos masificada)", reason:"Similar paisaje glaciar con 60% menos visitantes" }, tags:["glaciar","altitud","naturaleza","cordillera"] },
-  { id:2, title:"Tour Gastronómico por Lima", titleQu:"Lima Llaqtapi Mikhuy Puriy", location:"Miraflores, Lima", price:145, rating:4.7, reviews:3, duration:"4 horas", image:"https://images.unsplash.com/photo-1535400255456-984241443b29?w=800&h=600&fit=crop", badge:"Top rated", category:"gastro", operator:"Lima Foodie Tours", verified:true, capacity:8, altitude:"0", difficulty:"Fácil", cancellation:"moderada", included:["6 paradas gastronómicas","Degustaciones ilimitadas","Pisco sour de bienvenida","Guía bilingüe"], excluded:["Bebidas alcohólicas extra","Transporte al punto"], desc:"Recorre los mercados y huariques secretos de Miraflores y Barranco. Prueba ceviche, anticuchos, causa y picarones con los mejores cocineros locales.", descQu:"Miraflores, Barranco llaqtakunapi mikhuy qhatukunata, pakasqa wasikunata purimuy. Ceviche, anticucho, causa, picarón mikhuykunata llamk'aq wayk'uqkunawan.", aiSummary:"Experiencia altamente recomendada. Destacan la cantidad de comida y el conocimiento del guía. La mejor valorada de Lima.", altTour:null, tags:["comida","lima","ceviche","mercado"] },
-  { id:3, title:"Islas Ballestas + Paracas", titleQu:"Ballestas Wat'akunapi + Paracas", location:"Paracas, Ica", price:120, rating:4.5, reviews:2, duration:"Full day", image:"https://images.unsplash.com/photo-1694946733518-8e726bd7df24?w=800&h=600&fit=crop", badge:"Cancelación gratis", category:"nature", operator:"Paracas Explorer", verified:true, capacity:20, altitude:"0", difficulty:"Fácil", cancellation:"moderada", included:["Lancha a Islas Ballestas","Tour Reserva Nacional","Guía naturalista","Recojo del hotel"], excluded:["Almuerzo","Entrada a museo"], desc:"Navega entre lobos marinos, pingüinos de Humboldt y El Candelabro.", descQu:"Uywa qucha ukhupi, Humboldt pingüinokunawan, Candelabro rikuyniwan purimuy.", aiSummary:"Muy popular, pero algunos reportan masificación en temporada alta. Recomiendan ir temprano.", altTour:{ name:"Islas Ballestas", alt:"Reserva San Fernando (Nazca)", reason:"Fauna marina similar, casi sin turistas. 95% menos saturación" }, tags:["mar","fauna","lobos marinos","lancha"] },
-  { id:4, title:"Valle Sagrado en un Día", titleQu:"Huk P'unchaypi Valle Sagrado", location:"Cusco", price:210, rating:4.5, reviews:4, duration:"10 horas", image:"https://images.unsplash.com/photo-1568729670692-0d2de9a3c027?w=800&h=600&fit=crop", badge:"Más vendido", category:"culture", operator:"Cusco Sacred Tours", verified:true, capacity:15, altitude:"3,400", difficulty:"Fácil", cancellation:"moderada", included:["Transporte","Guía profesional","Almuerzo buffet","Entradas Pisac y Ollantaytambo"], excluded:["Boleto turístico","Propinas"], desc:"Visita Pisac, Ollantaytambo y Chinchero en un recorrido por el corazón del imperio Inca.", descQu:"Pisac, Ollantaytambo, Chinchero llaqtakunata watukuy, Inka suyuq sunqunpi.", aiSummary:"Tour clásico bien organizado. Algunos sienten que es apurado para cubrir todo. Guías excelentes.", altTour:{ name:"Valle Sagrado clásico", alt:"Valle Sur de Cusco (Tipón + Pikillacta)", reason:"Ruinas pre-incas sin multitudes. Solo 5% del tráfico del Valle Sagrado" }, tags:["inca","ruinas","cusco","historia"] },
-  { id:5, title:"Sandboarding en Huacachina", titleQu:"Huacachina Tiyupi Sandboarding", location:"Ica", price:85, rating:4.5, reviews:2, duration:"3 horas", image:"https://images.unsplash.com/photo-1723134087756-3fdd46625a84?w=800&h=600&fit=crop", badge:"Aventura", category:"adventure", operator:"Desert Adventures Ica", verified:true, capacity:10, altitude:"400", difficulty:"Moderada", cancellation:"flexible", included:["Buggy arenero","Tabla de sandboard","Instructor","Fotos y video"], excluded:["Transporte a Huacachina","Bebidas"], desc:"Sube dunas de hasta 100 metros en buggy y deslízate sobre la arena dorada del oasis.", descQu:"Pachak metro tiyukunaman buggy-pi wichay, quri t'iyu patapi uraykamuy.", aiSummary:"Adrenalina pura. Algunos mencionan que el buggy puede ser intenso para niños pequeños.", altTour:null, tags:["aventura","desierto","adrenalina","oasis"] },
-  { id:6, title:"Avistamiento de Ballenas", titleQu:"Hatun Challwakunata Qhaway", location:"Los Órganos, Piura", price:160, rating:5.0, reviews:2, duration:"3 horas", image:"https://images.unsplash.com/photo-1723748651613-e24586599f30?w=800&h=600&fit=crop", badge:"Temporada", category:"nature", operator:"Máncora Marine", verified:true, capacity:12, altitude:"0", difficulty:"Fácil", cancellation:"flexible", included:["Embarcación equipada","Guía biólogo marino","Chaleco","Snack"], excluded:["Transporte","Protector solar"], desc:"Ballenas jorobadas migran frente a la costa norte del Perú entre agosto y octubre.", descQu:"Agosto-octubre killapi hatun challwakuna Perú wichay qucha patanpi purinku.", aiSummary:"Experiencia inolvidable cuando hay avistamiento. Biólogo muy informativo. Temporada: ago-oct.", altTour:null, tags:["ballenas","mar","piura","naturaleza"] },
-  { id:7, title:"Choquequirao: El Otro Machu Picchu", titleQu:"Choquequirao: Huknin Machu Picchu", location:"Apurímac", price:450, rating:5.0, reviews:2, duration:"4 días", image:"https://images.unsplash.com/photo-1664659457566-143cf6d45812?w=800&h=600&fit=crop", badge:"Anti-overtourism", category:"trekking", operator:"Apurímac Treks", verified:true, capacity:8, altitude:"3,033", difficulty:"Alta", cancellation:"estricta", included:["Guía profesional","Cocinero","Equipo de camping","3 noches campamento","Todas las comidas","Mulas de carga"], excluded:["Saco de dormir","Bastones"], desc:"Solo 30 visitantes al día vs. 4,500 en Machu Picchu. Ruinas incas espectaculares con 70% sin excavar, a las que solo se llega caminando 2 días.", descQu:"Sapa p'unchay kinsa chunka watukuqkuna Machu Picchu waranqa tawa pachak pichqayuq runa rantipi. Inka llaqta mana riqsisqa, iskay p'unchay puriylla.", aiSummary:"Experiencia transformadora según todos los viajeros. Exigente físicamente pero incomparable. Sin multitudes.", altTour:null, tags:["trekking","ruinas","alternativo","sin turistas"] },
-  { id:8, title:"Cañón del Colca 2D/1N", titleQu:"Colca Wayq'opi Iskay P'unchay", location:"Arequipa", price:175, rating:4.3, reviews:3, duration:"2 días", image:"https://images.unsplash.com/photo-1489229185904-38aa7e8f4790?w=800&h=600&fit=crop", badge:"2 días", category:"trekking", operator:"Colca Expedition", verified:true, capacity:12, altitude:"3,270", difficulty:"Alta", cancellation:"estricta", included:["Transporte","1 noche Chivay","Desayuno y almuerzo","Guía","Aguas termales"], excluded:["Entrada cañón S/70","Cena"], desc:"El cañón más profundo del mundo y cóndores al amanecer.", descQu:"Tukuy pachapi aswan ukhu wayq'o, kunturkunaq paqarin phaway rikuyninwan.", aiSummary:"Cóndores al amanecer es el highlight absoluto. El trek es exigente. Aguas termales perfectas para recuperarse.", altTour:null, tags:["cañón","cóndor","trekking","arequipa"] },
-  { id:9, title:"Sandboarding & Buggy en Paracas", titleQu:"", location:"Paracas, Ica", price:110, rating:4.7, reviews:3, duration:"3 horas", image:"https://images.unsplash.com/photo-1509316785289-025f5b846b35?w=800&h=600&fit=crop", badge:"Aventura", category:"adventure", operator:"Paracas Adventure Tours", verified:true, capacity:12, altitude:"400", difficulty:"Moderada", cancellation:"moderada", included:["Buggy","Sandboard","Instructor","Seguro","Fotos con drone"], excluded:["Transporte desde Lima","Propinas","Bebidas"], desc:"Adrenalina pura en las dunas de Paracas. Recorre el desierto en buggy a toda velocidad y deslízate por las dunas más altas en sandboard. Incluye atardecer en el desierto con vista al océano.", descQu:"", aiSummary:"Los viajeros destacan la adrenalina del buggy y las fotos con drone. El atardecer en las dunas es el momento favorito.", altTour:null, tags:["aventura","desierto","sandboarding","buggy","paracas"] },
-  { id:10, title:"Trekking al Nevado Rajuntay", titleQu:"", location:"Marcapomacocha, Lima", price:195, rating:4.7, reviews:3, duration:"Full day", image:"https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&h=600&fit=crop", badge:"Alta montaña", category:"trekking", operator:"Lima Trek Expeditions", verified:true, capacity:10, altitude:"5,470", difficulty:"Alta", cancellation:"estricta", included:["Transporte desde Lima","Guía certificado","Desayuno","Equipo de seguridad","Crampones"], excluded:["Almuerzo","Equipo personal","Seguro de montaña"], desc:"Conquista uno de los nevados más accesibles desde Lima. Camina sobre glaciares a más de 5,000 msnm con vistas panorámicas de la Cordillera Central. Salida desde Lima a las 3am, ideal para montañistas con experiencia en altura.", descQu:"", aiSummary:"Experiencia desafiante pero gratificante. El glaciar a 5,400m es el punto culminante. Solo para personas con buena condición física.", altTour:null, tags:["trekking","nevado","glaciar","lima","alta montaña"] },
-  { id:11, title:"Playa La Mina & Reserva de Paracas", titleQu:"", location:"Paracas, Ica", price:85, rating:4.7, reviews:3, duration:"Full day", image:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&h=600&fit=crop", badge:"Familiar", category:"beach", operator:"Paracas Beach Tours", verified:true, capacity:20, altitude:"0", difficulty:"Fácil", cancellation:"flexible", included:["Transporte desde Paracas","Entrada a la reserva","Guía","Cooler con agua"], excluded:["Almuerzo","Snorkel","Sombrilla"], desc:"Descubre la playa más hermosa de la costa peruana. Aguas turquesa, arena blanca y cero olas. Perfecta para familias. Incluye recorrido por la Reserva Nacional de Paracas con paradas en la Catedral y el mirador de lobos marinos.", descQu:"", aiSummary:"Playa La Mina es el destino favorito para familias. Aguas cristalinas y tranquilas. El recorrido por la reserva complementa perfectamente.", altTour:null, tags:["playa","familia","paracas","naturaleza","lobos marinos"] },
-  { id:12, title:"Castillo de Chancay & Puerto", titleQu:"", location:"Chancay, Lima", price:65, rating:4.3, reviews:3, duration:"6 horas", image:"https://images.unsplash.com/photo-1533929736458-ca588d08c8be?w=800&h=600&fit=crop", badge:"Cerca de Lima", category:"culture", operator:"Lima Cultural Tours", verified:true, capacity:25, altitude:"43", difficulty:"Fácil", cancellation:"flexible", included:["Transporte desde Lima","Entrada al castillo","Guía","Almuerzo de mariscos"], excluded:["Bebidas","Souvenirs","Propinas"], desc:"Visita el icónico Castillo de Chancay, una fortaleza frente al mar construida en los años 20. Recorre sus torres, pasadizos secretos y disfruta de la vista al Pacífico. Incluye parada en el nuevo Puerto de Chancay y almuerzo de mariscos frescos en el malecón.", descQu:"", aiSummary:"El castillo sorprende a todos los visitantes. El almuerzo de mariscos en el puerto es el highlight. Muy accesible desde Lima.", altTour:null, tags:["castillo","chancay","cultura","mariscos","lima"] },
-  { id:13, title:"Lima de Noche: Circuito Mágico del Agua", titleQu:"", location:"Lima, Lima", price:55, rating:4.7, reviews:3, duration:"4 horas", image:"https://images.unsplash.com/photo-1555217851-6141535bd771?w=800&h=600&fit=crop", badge:"Nocturno", category:"culture", operator:"Lima Night Tours", verified:true, capacity:30, altitude:"154", difficulty:"Fácil", cancellation:"moderada", included:["Transporte","Guía bilingüe","Entrada al Circuito Mágico del Agua"], excluded:["Cena","Bebidas","Propinas"], desc:"Descubre Lima iluminada. Recorre la Plaza Mayor, la Catedral y el Palacio de Gobierno de noche. Termina en el Circuito Mágico del Agua con su espectáculo de luces, música y fuentes danzantes. El tour nocturno más popular de Lima.", descQu:"", aiSummary:"Lima de noche es mágica según los viajeros. Las fuentes del Circuito Mágico son el punto culminante. Perfecto para familias y parejas.", altTour:null, tags:["lima","noche","fuentes","cultura","centro histórico"] },
-  { id:14, title:"Lunahuaná: Canotaje + Canopy + Vino", titleQu:"", location:"Lunahuaná, Lima", price:175, rating:4.7, reviews:3, duration:"Full day", image:"https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=800&h=600&fit=crop", badge:"Combo", category:"adventure", operator:"Lunahuaná Extremo", verified:true, capacity:14, altitude:"479", difficulty:"Moderada", cancellation:"moderada", included:["Transporte desde Lima","Rafting","Canopy","Degustación de vinos","Almuerzo campestre"], excluded:["Fotos y videos","Propinas","Compras en bodega"], desc:"El combo perfecto: adrenalina + relax. Baja los rápidos del río Cañete en rafting clase III, cruza el valle en canopy con vistas increíbles, y termina con degustación de vinos y piscos en una bodega artesanal. A solo 3 horas de Lima.", descQu:"", aiSummary:"La combinación de aventura y relax es lo que más destacan. El rafting es emocionante y la degustación de vinos el cierre perfecto.", altTour:null, tags:["aventura","rafting","canopy","vino","lunahuaná","lima"] },
+  { id:1, title:"Trekking al Nevado Pastoruri", titleQu:"Pastoruri Ritiq Qaqaman Puriy", location:"Huaraz, Áncash", price:189, rating:4.7, reviews:3, duration:"Full day", image:"https://images.unsplash.com/photo-1522409994346-2682217b9a3e?w=800&h=600&fit=crop", badge:"Más vendido", category:"trekking", operator:"Andes Trek Perú", verified:true, capacity:12, altitude:"5,240", difficulty:"Moderada", cancellation:"estricta", meetingPoint:"Hotel Andino Club, Av. Pedro Cochachín 357, Huaraz", included:["Transporte ida y vuelta","Guía certificado","Almuerzo buffet","Entrada al parque","Oxígeno portátil"], excluded:["Propinas","Snacks"], desc:"Camina hasta el glaciar tropical más accesible del mundo a 5,240 msnm. Atraviesa paisajes de puya Raimondi y lagunas turquesa en la Cordillera Blanca.", descQu:"Kay ritiq qaqaqa tukuy pachapi aswan ñawpaq kachkan, 5,240 metrokunapi. Puya Raimondi sachakuna, qucha turquesa ñawinkuna Cordillera Blancapi.", aiSummary:"Los viajeros destacan el paisaje impactante y la buena organización. Algunos mencionan que la altitud puede ser desafiante.", altTour:{ name:"Pastoruri", alt:"Laguna 69 (menos masificada)", reason:"Similar paisaje glaciar con 60% menos visitantes" }, tags:["glaciar","altitud","naturaleza","cordillera"] },
+  { id:2, title:"Tour Gastronómico por Lima", titleQu:"Lima Llaqtapi Mikhuy Puriy", location:"Miraflores, Lima", price:145, rating:4.7, reviews:3, duration:"4 horas", image:"https://images.unsplash.com/photo-1535400255456-984241443b29?w=800&h=600&fit=crop", badge:"Top rated", category:"gastro", operator:"Lima Foodie Tours", verified:true, capacity:8, altitude:"0", difficulty:"Fácil", cancellation:"moderada", meetingPoint:"Larcomar, frente a la entrada principal de Saga Falabella, Miraflores", included:["6 paradas gastronómicas","Degustaciones ilimitadas","Pisco sour de bienvenida","Guía bilingüe"], excluded:["Bebidas alcohólicas extra","Transporte al punto"], desc:"Recorre los mercados y huariques secretos de Miraflores y Barranco. Prueba ceviche, anticuchos, causa y picarones con los mejores cocineros locales.", descQu:"Miraflores, Barranco llaqtakunapi mikhuy qhatukunata, pakasqa wasikunata purimuy. Ceviche, anticucho, causa, picarón mikhuykunata llamk'aq wayk'uqkunawan.", aiSummary:"Experiencia altamente recomendada. Destacan la cantidad de comida y el conocimiento del guía. La mejor valorada de Lima.", altTour:null, tags:["comida","lima","ceviche","mercado"] },
+  { id:3, title:"Islas Ballestas + Paracas", titleQu:"Ballestas Wat'akunapi + Paracas", location:"Paracas, Ica", price:120, rating:4.5, reviews:2, duration:"Full day", image:"https://images.unsplash.com/photo-1694946733518-8e726bd7df24?w=800&h=600&fit=crop", badge:"Cancelación gratis", category:"nature", operator:"Paracas Explorer", verified:true, capacity:20, altitude:"0", difficulty:"Fácil", cancellation:"moderada", meetingPoint:"Embarcadero turístico de Paracas, frente a la oficina de capitanía", included:["Lancha a Islas Ballestas","Tour Reserva Nacional","Guía naturalista","Recojo del hotel"], excluded:["Almuerzo","Entrada a museo"], desc:"Navega entre lobos marinos, pingüinos de Humboldt y El Candelabro.", descQu:"Uywa qucha ukhupi, Humboldt pingüinokunawan, Candelabro rikuyniwan purimuy.", aiSummary:"Muy popular, pero algunos reportan masificación en temporada alta. Recomiendan ir temprano.", altTour:{ name:"Islas Ballestas", alt:"Reserva San Fernando (Nazca)", reason:"Fauna marina similar, casi sin turistas. 95% menos saturación" }, tags:["mar","fauna","lobos marinos","lancha"] },
+  { id:4, title:"Valle Sagrado en un Día", titleQu:"Huk P'unchaypi Valle Sagrado", location:"Cusco", price:210, rating:4.5, reviews:4, duration:"10 horas", image:"https://images.unsplash.com/photo-1568729670692-0d2de9a3c027?w=800&h=600&fit=crop", badge:"Más vendido", category:"culture", operator:"Cusco Sacred Tours", verified:true, capacity:15, altitude:"3,400", difficulty:"Fácil", cancellation:"moderada", meetingPoint:"Plaza Regocijo, Cusco, frente a la oficina de información turística", included:["Transporte","Guía profesional","Almuerzo buffet","Entradas Pisac y Ollantaytambo"], excluded:["Boleto turístico","Propinas"], desc:"Visita Pisac, Ollantaytambo y Chinchero en un recorrido por el corazón del imperio Inca.", descQu:"Pisac, Ollantaytambo, Chinchero llaqtakunata watukuy, Inka suyuq sunqunpi.", aiSummary:"Tour clásico bien organizado. Algunos sienten que es apurado para cubrir todo. Guías excelentes.", altTour:{ name:"Valle Sagrado clásico", alt:"Valle Sur de Cusco (Tipón + Pikillacta)", reason:"Ruinas pre-incas sin multitudes. Solo 5% del tráfico del Valle Sagrado" }, tags:["inca","ruinas","cusco","historia"] },
+  { id:5, title:"Sandboarding en Huacachina", titleQu:"Huacachina Tiyupi Sandboarding", location:"Ica", price:85, rating:4.5, reviews:2, duration:"3 horas", image:"https://images.unsplash.com/photo-1723134087756-3fdd46625a84?w=800&h=600&fit=crop", badge:"Aventura", category:"adventure", operator:"Desert Adventures Ica", verified:true, capacity:10, altitude:"400", difficulty:"Moderada", cancellation:"flexible", meetingPoint:"Plaza de Armas de Ica, frente al monumento principal", included:["Buggy arenero","Tabla de sandboard","Instructor","Fotos y video"], excluded:["Transporte a Huacachina","Bebidas"], desc:"Sube dunas de hasta 100 metros en buggy y deslízate sobre la arena dorada del oasis.", descQu:"Pachak metro tiyukunaman buggy-pi wichay, quri t'iyu patapi uraykamuy.", aiSummary:"Adrenalina pura. Algunos mencionan que el buggy puede ser intenso para niños pequeños.", altTour:null, tags:["aventura","desierto","adrenalina","oasis"] },
+  { id:6, title:"Avistamiento de Ballenas", titleQu:"Hatun Challwakunata Qhaway", location:"Los Órganos, Piura", price:160, rating:5.0, reviews:2, duration:"3 horas", image:"https://images.unsplash.com/photo-1723748651613-e24586599f30?w=800&h=600&fit=crop", badge:"Temporada", category:"nature", operator:"Máncora Marine", verified:true, capacity:12, altitude:"0", difficulty:"Fácil", cancellation:"flexible", meetingPoint:"Embarcadero de Los Órganos, Piura (frente a la caseta del muelle)", included:["Embarcación equipada","Guía biólogo marino","Chaleco","Snack"], excluded:["Transporte","Protector solar"], desc:"Ballenas jorobadas migran frente a la costa norte del Perú entre agosto y octubre.", descQu:"Agosto-octubre killapi hatun challwakuna Perú wichay qucha patanpi purinku.", aiSummary:"Experiencia inolvidable cuando hay avistamiento. Biólogo muy informativo. Temporada: ago-oct.", altTour:null, tags:["ballenas","mar","piura","naturaleza"] },
+  { id:7, title:"Choquequirao: El Otro Machu Picchu", titleQu:"Choquequirao: Huknin Machu Picchu", location:"Apurímac", price:450, rating:5.0, reviews:2, duration:"4 días", image:"https://images.unsplash.com/photo-1664659457566-143cf6d45812?w=800&h=600&fit=crop", badge:"Anti-overtourism", category:"trekking", operator:"Apurímac Treks", verified:true, capacity:8, altitude:"3,033", difficulty:"Alta", cancellation:"estricta", meetingPoint:"Plaza Regocijo, Cusco, frente al Café El Encuentro (recogemos a las 4:00 AM)", included:["Guía profesional","Cocinero","Equipo de camping","3 noches campamento","Todas las comidas","Mulas de carga"], excluded:["Saco de dormir","Bastones"], desc:"Solo 30 visitantes al día vs. 4,500 en Machu Picchu. Ruinas incas espectaculares con 70% sin excavar, a las que solo se llega caminando 2 días.", descQu:"Sapa p'unchay kinsa chunka watukuqkuna Machu Picchu waranqa tawa pachak pichqayuq runa rantipi. Inka llaqta mana riqsisqa, iskay p'unchay puriylla.", aiSummary:"Experiencia transformadora según todos los viajeros. Exigente físicamente pero incomparable. Sin multitudes.", altTour:null, tags:["trekking","ruinas","alternativo","sin turistas"] },
+  { id:8, title:"Cañón del Colca 2D/1N", titleQu:"Colca Wayq'opi Iskay P'unchay", location:"Arequipa", price:175, rating:4.3, reviews:3, duration:"2 días", image:"https://images.unsplash.com/photo-1489229185904-38aa7e8f4790?w=800&h=600&fit=crop", badge:"2 días", category:"trekking", operator:"Colca Expedition", verified:true, capacity:12, altitude:"3,270", difficulty:"Alta", cancellation:"estricta", meetingPoint:"Plaza de Armas de Arequipa, frente a la catedral", included:["Transporte","1 noche Chivay","Desayuno y almuerzo","Guía","Aguas termales"], excluded:["Entrada cañón S/70","Cena"], desc:"El cañón más profundo del mundo y cóndores al amanecer.", descQu:"Tukuy pachapi aswan ukhu wayq'o, kunturkunaq paqarin phaway rikuyninwan.", aiSummary:"Cóndores al amanecer es el highlight absoluto. El trek es exigente. Aguas termales perfectas para recuperarse.", altTour:null, tags:["cañón","cóndor","trekking","arequipa"] },
+  { id:9, title:"Sandboarding & Buggy en Paracas", titleQu:"", location:"Paracas, Ica", price:110, rating:4.7, reviews:3, duration:"3 horas", image:"https://images.unsplash.com/photo-1509316785289-025f5b846b35?w=800&h=600&fit=crop", badge:"Aventura", category:"adventure", operator:"Paracas Adventure Tours", verified:true, capacity:12, altitude:"400", difficulty:"Moderada", cancellation:"moderada", meetingPoint:"Hotel Paracas Luxury Collection, Av. Paracas s/n, lobby principal", included:["Buggy","Sandboard","Instructor","Seguro","Fotos con drone"], excluded:["Transporte desde Lima","Propinas","Bebidas"], desc:"Adrenalina pura en las dunas de Paracas. Recorre el desierto en buggy a toda velocidad y deslízate por las dunas más altas en sandboard. Incluye atardecer en el desierto con vista al océano.", descQu:"", aiSummary:"Los viajeros destacan la adrenalina del buggy y las fotos con drone. El atardecer en las dunas es el momento favorito.", altTour:null, tags:["aventura","desierto","sandboarding","buggy","paracas"] },
+  { id:10, title:"Trekking al Nevado Rajuntay", titleQu:"", location:"Marcapomacocha, Lima", price:195, rating:4.7, reviews:3, duration:"Full day", image:"https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&h=600&fit=crop", badge:"Alta montaña", category:"trekking", operator:"Lima Trek Expeditions", verified:true, capacity:10, altitude:"5,470", difficulty:"Alta", cancellation:"estricta", meetingPoint:"Plaza Norte, Lima, frente a Tottus (recogemos a las 3:00 AM)", included:["Transporte desde Lima","Guía certificado","Desayuno","Equipo de seguridad","Crampones"], excluded:["Almuerzo","Equipo personal","Seguro de montaña"], desc:"Conquista uno de los nevados más accesibles desde Lima. Camina sobre glaciares a más de 5,000 msnm con vistas panorámicas de la Cordillera Central. Salida desde Lima a las 3am, ideal para montañistas con experiencia en altura.", descQu:"", aiSummary:"Experiencia desafiante pero gratificante. El glaciar a 5,400m es el punto culminante. Solo para personas con buena condición física.", altTour:null, tags:["trekking","nevado","glaciar","lima","alta montaña"] },
+  { id:11, title:"Playa La Mina & Reserva de Paracas", titleQu:"", location:"Paracas, Ica", price:85, rating:4.7, reviews:3, duration:"Full day", image:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&h=600&fit=crop", badge:"Familiar", category:"beach", operator:"Paracas Beach Tours", verified:true, capacity:20, altitude:"0", difficulty:"Fácil", cancellation:"flexible", meetingPoint:"Embarcadero turístico de Paracas, frente a la oficina de capitanía", included:["Transporte desde Paracas","Entrada a la reserva","Guía","Cooler con agua"], excluded:["Almuerzo","Snorkel","Sombrilla"], desc:"Descubre la playa más hermosa de la costa peruana. Aguas turquesa, arena blanca y cero olas. Perfecta para familias. Incluye recorrido por la Reserva Nacional de Paracas con paradas en la Catedral y el mirador de lobos marinos.", descQu:"", aiSummary:"Playa La Mina es el destino favorito para familias. Aguas cristalinas y tranquilas. El recorrido por la reserva complementa perfectamente.", altTour:null, tags:["playa","familia","paracas","naturaleza","lobos marinos"] },
+  { id:12, title:"Castillo de Chancay & Puerto", titleQu:"", location:"Chancay, Lima", price:65, rating:4.3, reviews:3, duration:"6 horas", image:"https://images.unsplash.com/photo-1533929736458-ca588d08c8be?w=800&h=600&fit=crop", badge:"Cerca de Lima", category:"culture", operator:"Lima Cultural Tours", verified:true, capacity:25, altitude:"43", difficulty:"Fácil", cancellation:"flexible", meetingPoint:"Estación Naranjal del Metropolitano, salida principal (recogemos a las 8:00 AM)", included:["Transporte desde Lima","Entrada al castillo","Guía","Almuerzo de mariscos"], excluded:["Bebidas","Souvenirs","Propinas"], desc:"Visita el icónico Castillo de Chancay, una fortaleza frente al mar construida en los años 20. Recorre sus torres, pasadizos secretos y disfruta de la vista al Pacífico. Incluye parada en el nuevo Puerto de Chancay y almuerzo de mariscos frescos en el malecón.", descQu:"", aiSummary:"El castillo sorprende a todos los visitantes. El almuerzo de mariscos en el puerto es el highlight. Muy accesible desde Lima.", altTour:null, tags:["castillo","chancay","cultura","mariscos","lima"] },
+  { id:13, title:"Lima de Noche: Circuito Mágico del Agua", titleQu:"", location:"Lima, Lima", price:55, rating:4.7, reviews:3, duration:"4 horas", image:"https://images.unsplash.com/photo-1555217851-6141535bd771?w=800&h=600&fit=crop", badge:"Nocturno", category:"culture", operator:"Lima Night Tours", verified:true, capacity:30, altitude:"154", difficulty:"Fácil", cancellation:"moderada", meetingPoint:"Hotel Marriott Miraflores, Malecón de la Reserva 615, lobby principal", included:["Transporte","Guía bilingüe","Entrada al Circuito Mágico del Agua"], excluded:["Cena","Bebidas","Propinas"], desc:"Descubre Lima iluminada. Recorre la Plaza Mayor, la Catedral y el Palacio de Gobierno de noche. Termina en el Circuito Mágico del Agua con su espectáculo de luces, música y fuentes danzantes. El tour nocturno más popular de Lima.", descQu:"", aiSummary:"Lima de noche es mágica según los viajeros. Las fuentes del Circuito Mágico son el punto culminante. Perfecto para familias y parejas.", altTour:null, tags:["lima","noche","fuentes","cultura","centro histórico"] },
+  { id:14, title:"Lunahuaná: Canotaje + Canopy + Vino", titleQu:"", location:"Lunahuaná, Lima", price:175, rating:4.7, reviews:3, duration:"Full day", image:"https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=800&h=600&fit=crop", badge:"Combo", category:"adventure", operator:"Lunahuaná Extremo", verified:true, capacity:14, altitude:"479", difficulty:"Moderada", cancellation:"moderada", meetingPoint:"Estación de buses CIVA, Av. Javier Prado Este 1109 (recogemos a las 6:00 AM)", included:["Transporte desde Lima","Rafting","Canopy","Degustación de vinos","Almuerzo campestre"], excluded:["Fotos y videos","Propinas","Compras en bodega"], desc:"El combo perfecto: adrenalina + relax. Baja los rápidos del río Cañete en rafting clase III, cruza el valle en canopy con vistas increíbles, y termina con degustación de vinos y piscos en una bodega artesanal. A solo 3 horas de Lima.", descQu:"", aiSummary:"La combinación de aventura y relax es lo que más destacan. El rafting es emocionante y la degustación de vinos el cierre perfecto.", altTour:null, tags:["aventura","rafting","canopy","vino","lunahuaná","lima"] },
 ];
 
 const CAT_API_TO_UI = { cultural: "culture", gastronomy: "gastro" };
@@ -256,6 +256,7 @@ function mapTourFromApi(t) {
     altTour: null,
     tags: [],
     cancellation: t.cancellation || "flexible",
+    meetingPoint: t.meetingPoint || "",
   });
 }
 
@@ -891,6 +892,47 @@ html{scrollbar-gutter:stable}
 .suc-wa{width:100%;padding:14px;border-radius:14px;background:#25D366;color:white;font-weight:700;font-size:14px;border:none;cursor:pointer;font-family:inherit;margin-bottom:10px;transition:.2s}
 .suc-wa:hover{background:#1eb954;box-shadow:0 4px 12px rgba(37,211,102,.3)}
 .suc-wa:active{transform:translateY(1px)}
+
+/* Voucher (post-pago + detalle de viaje) */
+.voucher{width:100%;background:white;border:1px solid rgba(0,0,0,.06);border-radius:16px;overflow:hidden;margin-bottom:20px;text-align:left;box-shadow:0 2px 12px rgba(0,0,0,.04)}
+.voucher-sec{padding:16px 18px;border-bottom:1px solid var(--cr)}
+.voucher-sec:last-child{border-bottom:none}
+.voucher-sec-l{font-size:10px;font-weight:700;color:var(--gy);text-transform:uppercase;letter-spacing:.7px;margin-bottom:10px}
+.voucher-tour{font-size:18px;font-weight:800;color:var(--ch);line-height:1.3;margin-bottom:10px}
+.voucher-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ch);margin-bottom:6px}
+.voucher-row:last-child{margin-bottom:0}
+.voucher-row .ic{color:var(--gy);flex-shrink:0;display:inline-flex;align-items:center}
+.voucher-note{font-size:11px;color:var(--gy);margin-top:6px;line-height:1.4}
+.voucher-link{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--tr);text-decoration:none;margin-top:8px}
+.voucher-link:hover{text-decoration:underline}
+.voucher-list{display:flex;flex-direction:column;gap:8px}
+.voucher-item{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ch)}
+.voucher-item .vi-ic{width:20px;height:20px;border-radius:50%;background:rgba(45,90,61,.1);color:var(--m);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.voucher-more{font-size:11px;color:var(--gy);margin-top:8px;font-style:italic}
+.voucher-cancel{padding:12px 14px;background:var(--cr);border-radius:10px;border-left:3px solid var(--f)}
+.voucher-cancel-t{font-size:12px;font-weight:700;color:var(--f);margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.voucher-cancel-d{font-size:12px;color:var(--gy);line-height:1.5}
+.voucher-pay-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px;color:var(--ch)}
+.voucher-pay-row .l{color:var(--gy)}
+.voucher-pay-row.total{padding-top:10px;margin-top:6px;border-top:1px solid rgba(0,0,0,.08);font-size:15px;font-weight:800;color:var(--f)}
+.voucher-pay-row.total .l{color:var(--ch);font-weight:600}
+.voucher-code{font-family:monospace;font-size:13px;font-weight:700;color:var(--ch);background:var(--cr);padding:5px 9px;border-radius:6px;letter-spacing:1px}
+.voucher-agency-n{font-size:14px;font-weight:700;color:var(--ch);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.voucher-verified{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:100px;font-size:10px;font-weight:700;background:rgba(45,90,61,.12);color:var(--m)}
+.voucher-agency-d{font-size:11px;color:var(--gy);margin-top:6px;line-height:1.4}
+.voucher-wa{display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;font-weight:600;color:var(--gy);text-decoration:none;padding:14px 8px;text-align:center}
+.voucher-wa:hover{color:var(--ch)}
+.voucher-wa svg{color:#25D366}
+
+/* Trip detail page */
+.tdet-page{padding:16px 16px 100px}
+.tdet-back{margin-bottom:8px}
+.tdet-h{font-family:'DM Serif Display',Georgia,serif;font-size:24px;color:var(--ch);margin-bottom:14px}
+.tdet-actions{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.tdet-act-prim{padding:13px 16px;border-radius:14px;background:var(--ch);color:white;font-weight:700;font-size:14px;border:none;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;transition:.2s}
+.tdet-act-prim:hover{background:#000}
+.tdet-act-sec{padding:13px 16px;border-radius:14px;background:transparent;color:var(--ch);font-weight:600;font-size:13px;border:1.5px solid var(--lg);cursor:pointer;font-family:inherit;transition:.2s}
+.tdet-act-sec:hover{border-color:var(--m)}
 
 /* Booking extras */
 .login-banner{background:var(--f);color:white;padding:12px 16px;text-align:center;font-size:13px;font-weight:600;border-radius:12px;margin:0 0 16px}
@@ -1793,6 +1835,192 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
   );
 }
 
+// Convierte el `date` de un trip (ISO "YYYY-MM-DD" o "DD MMM YYYY" en español)
+// a ISO. Sirve para reusar formatLongDate sin importar de dónde venga el trip.
+function tripDateISO(trip) {
+  if (!trip) return null;
+  if (trip.dateISO) return trip.dateISO;
+  const v = trip.date;
+  if (typeof v !== "string") return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  const monMap = { ene:1, feb:2, mar:3, abr:4, may:5, jun:6, jul:7, ago:8, sep:9, oct:10, nov:11, dic:12 };
+  const m = v.match(/^(\d{1,2})\s+([A-Za-zÁ-úé]{3})\s+(\d{4})$/);
+  if (!m) return null;
+  const day = parseInt(m[1], 10);
+  const mon = monMap[m[2].toLowerCase().slice(0, 3)];
+  const year = parseInt(m[3], 10);
+  if (!mon) return null;
+  return `${year}-${String(mon).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+}
+
+// Construye link wa.me para coordinar con la agencia. Hardcoded por ahora;
+// Fase 2 traer el número real del operador.
+function buildWhatsAppLink(trip) {
+  const phone = "51987654321";
+  const tourTitle = trip?.tour?.title || "mi tour";
+  const dateLabel = (() => {
+    const iso = tripDateISO(trip);
+    return iso ? formatLongDate(iso) : (trip?.date || "la fecha agendada");
+  })();
+  const code = trip?.code || "";
+  const customer = trip?.customerName || USER.name;
+  const lines = [
+    `Hola, soy ${customer}.`,
+    `Reservé ${tourTitle} para el ${dateLabel}.`,
+    code ? `Mi código es ${code}.` : "",
+    "Tengo una consulta.",
+  ].filter(Boolean);
+  return `https://wa.me/${phone}?text=${encodeURIComponent(lines.join(" "))}`;
+}
+
+const PAYMENT_LABELS = { yape: "Yape", plin: "Plin", card: "Tarjeta", cash: "PagoEfectivo" };
+
+// VoucherDetail — comprobante completo del viaje. Único componente compartido
+// entre la pantalla de éxito post-pago y el detalle del viaje en Mis Viajes,
+// para que el viajero vea exactamente la misma información en ambos lados.
+function VoucherDetail({ trip }) {
+  if (!trip || !trip.tour) return null;
+  const tour = trip.tour;
+  const iso = tripDateISO(trip);
+  const dateLabel = iso ? formatLongDate(iso) : (trip.date || "");
+  const startTime = tour.startTime || "08:00";
+  const endTime = tour.endTime || null;
+  const timeRange = endTime
+    ? `${startTime} → ${endTime}${tour.returnsNextDay ? " (regresa al día siguiente)" : ""}`
+    : (tour.duration ? `${startTime} · ${tour.duration}` : startTime);
+  const included = Array.isArray(tour.included) ? tour.included : [];
+  const includedShown = included.slice(0, 5);
+  const includedExtra = Math.max(0, included.length - 5);
+  const whatToBring = Array.isArray(tour.whatToBring) && tour.whatToBring.length > 0
+    ? tour.whatToBring
+    : [
+        "DNI o pasaporte original",
+        "Ropa cómoda y zapatillas adecuadas",
+        "Protector solar y agua",
+        "Efectivo extra para gastos personales",
+      ];
+  const pol = getCancelPolicy(tour.cancellation);
+  const totalSoles = Number(trip.total) || 0;
+  const payKey = trip.paymentMethod || "yape";
+  const payLabel = PAYMENT_LABELS[payKey] || payKey;
+  const code = trip.code || "—";
+  const meetingPoint = (tour.meetingPoint || "").trim();
+  const hasMeetingPoint = meetingPoint.length > 0;
+
+  return (
+    <div className="voucher">
+      {/* 1 — Tour + fecha */}
+      <div className="voucher-sec">
+        <div className="voucher-sec-l">Tu reserva</div>
+        <div className="voucher-tour">{tour.title}</div>
+        <div className="voucher-row">
+          <span className="ic"><Calendar size={14} strokeWidth={1.5} /></span>
+          <span style={{ textTransform: "capitalize" }}>{dateLabel}</span>
+        </div>
+        <div className="voucher-row">
+          <span className="ic"><Clock size={14} strokeWidth={1.5} /></span>
+          <span>{timeRange}</span>
+        </div>
+        <div className="voucher-row">
+          <span className="ic"><Users size={14} strokeWidth={1.5} /></span>
+          <span>{trip.guests} {trip.guests === 1 ? "persona" : "personas"}</span>
+        </div>
+      </div>
+
+      {/* 2 — Punto de encuentro */}
+      <div className="voucher-sec">
+        <div className="voucher-sec-l">Punto de encuentro</div>
+        {hasMeetingPoint ? (
+          <>
+            <div className="voucher-row">
+              <span className="ic"><MapPin size={14} strokeWidth={1.5} /></span>
+              <span style={{ fontWeight: 600 }}>{meetingPoint}</span>
+            </div>
+            {tour.location && <div className="voucher-note">{tour.location}</div>}
+          </>
+        ) : (
+          <>
+            <div className="voucher-row">
+              <span className="ic"><MapPin size={14} strokeWidth={1.5} /></span>
+              <span>{tour.location || "Por confirmar"}</span>
+            </div>
+            <div className="voucher-note">La agencia confirmará el punto exacto por WhatsApp.</div>
+          </>
+        )}
+      </div>
+
+      {/* 3 — Tu agencia */}
+      <div className="voucher-sec">
+        <div className="voucher-sec-l">Tu agencia</div>
+        <div className="voucher-agency-n">
+          {tour.operator || "Operador Finde"}
+          {tour.verified && (
+            <span className="voucher-verified"><ShieldCheck size={11} strokeWidth={1.5} /> Finde Verificado</span>
+          )}
+        </div>
+        {tour.verified && (
+          <div className="voucher-agency-d">RUC: 20612345678 · MINCETUR: VER-2024-00891</div>
+        )}
+      </div>
+
+      {/* 4 — Qué incluye */}
+      {includedShown.length > 0 && (
+        <div className="voucher-sec">
+          <div className="voucher-sec-l">Qué incluye</div>
+          <div className="voucher-list">
+            {includedShown.map((x, i) => (
+              <div key={i} className="voucher-item">
+                <div className="vi-ic"><Check size={12} strokeWidth={2.5} /></div>
+                <span>{x}</span>
+              </div>
+            ))}
+          </div>
+          {includedExtra > 0 && <div className="voucher-more">y {includedExtra} más</div>}
+        </div>
+      )}
+
+      {/* 5 — Qué llevar */}
+      <div className="voucher-sec">
+        <div className="voucher-sec-l">Qué llevar</div>
+        <div className="voucher-list">
+          {whatToBring.map((x, i) => (
+            <div key={i} className="voucher-item">
+              <div className="vi-ic"><Check size={12} strokeWidth={2.5} /></div>
+              <span>{x}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 6 — Política de cancelación */}
+      <div className="voucher-sec">
+        <div className="voucher-sec-l">Política de cancelación</div>
+        <div className="voucher-cancel">
+          <div className="voucher-cancel-t"><ShieldCheck size={13} strokeWidth={1.5} /> {pol.label}</div>
+          <div className="voucher-cancel-d">{pol.short}</div>
+        </div>
+      </div>
+
+      {/* 7 — Resumen de pago */}
+      <div className="voucher-sec">
+        <div className="voucher-sec-l">Resumen de pago</div>
+        <div className="voucher-pay-row">
+          <span className="l">Método</span>
+          <span style={{ fontWeight: 600 }}>{payLabel}</span>
+        </div>
+        <div className="voucher-pay-row">
+          <span className="l">Código de reserva</span>
+          <span className="voucher-code">{code}</span>
+        </div>
+        <div className="voucher-pay-row total">
+          <span className="l">Total pagado</span>
+          <span>S/ {totalSoles.toFixed(2)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function BookingView({ tour, go, onLocalBookingSuccess }) {
   const [step, setStep] = useState(1);
   const [guests, setGuests] = useState(2);
@@ -1836,6 +2064,10 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
           guests,
           total: tour.price * guests,
           code: localCode,
+          paymentMethod: pay,
+          customerName: name,
+          customerPhone: phone.replace(/\D/g, ""),
+          customerEmail: email,
         });
       }
       setStep(4);
@@ -1877,6 +2109,10 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
           guests,
           total: apiTotal,
           code: apiCode,
+          paymentMethod: pay,
+          customerName: name,
+          customerPhone: phone.replace(/\D/g, ""),
+          customerEmail: email,
         });
       }
       setStep(4);
@@ -1898,21 +2134,36 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
   const step2Valid = nameValid && phoneValid && emailValid && docIdValid;
   const payLabels = { yape: "Yape", plin: "Plin", card: "Tarjeta", cash: "PagoEfectivo" };
 
-  if (step === 4) return (
-    <div className="suc fu">
-      <div className="suc-chk"><Check size={28} strokeWidth={2.5} /></div><div className="suc-t">¡Reserva confirmada!</div>
-      <div className="suc-sub">Recibirás la confirmación por WhatsApp en minutos.</div>
-      <div className="suc-card">
-        <div className="suc-row"><span className="l">Tour</span><span style={{ fontWeight: 700 }}>{serverBooking?.tourTitle || tour.title}</span></div>
-        <div className="suc-row"><span className="l">Fecha</span><span>{formatLongDate(date) || date}</span></div>
-        <div className="suc-row"><span className="l">Personas</span><span>{serverBooking?.guests ?? guests}</span></div>
-        <div className="suc-row"><span className="l">Total</span><span style={{ fontWeight: 800, color: "var(--f)" }}>{serverBooking?.totalSoles != null ? `S/ ${(serverBooking.totalSoles / 100).toFixed(2)}` : `S/ ${total.toFixed(2)}`}</span></div>
-        <div className="suc-row"><span className="l">Código</span><span style={{ fontWeight: 700 }}>{serverBooking?.bookingCode || `FND-${bookingCode}`}</span></div>
+  if (step === 4) {
+    // Construimos el trip equivalente al que terminó en TripsView para que el
+    // voucher post-pago muestre exactamente la misma información que verá el
+    // viajero en el detalle de su viaje.
+    const successTrip = {
+      tour,
+      date,
+      guests: serverBooking?.guests ?? guests,
+      total: serverBooking?.totalSoles != null ? serverBooking.totalSoles / 100 : total,
+      code: serverBooking?.bookingCode || `FND-${bookingCode}`,
+      paymentMethod: pay,
+      customerName: name,
+    };
+    return (
+      <div className="suc fu" style={{ alignItems: "stretch", padding: "32px 16px 100px", textAlign: "left" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", marginBottom: 20 }}>
+          <div className="suc-chk"><Check size={28} strokeWidth={2.5} /></div>
+          <div className="suc-t">¡Reserva confirmada!</div>
+          <div className="suc-sub">Tu voucher está listo. Toda la información que necesitas está aquí abajo.</div>
+        </div>
+        <VoucherDetail trip={successTrip} />
+        <button className="tdet-act-prim" onClick={() => go("trips")}>
+          <Ticket size={16} strokeWidth={1.5} /> Ver en Mis Viajes
+        </button>
+        <a className="voucher-wa" href={buildWhatsAppLink(successTrip)} target="_blank" rel="noopener noreferrer">
+          <Smartphone size={14} strokeWidth={1.5} /> ¿Necesitas algo? Coordinar con la agencia por WhatsApp <ArrowRight size={12} strokeWidth={1.5} />
+        </a>
       </div>
-      <button className="suc-wa"><Smartphone size={16} strokeWidth={1.5} /> Ver en WhatsApp</button>
-      <button className="mbtn" onClick={() => go("home")} style={{ background: "var(--ch)" }}>Volver al inicio</button>
-    </div>
-  );
+    );
+  }
 
   return (
     <div className="bkf fu">
@@ -2041,51 +2292,79 @@ function NotifsView({ notifs, setNotifs }) {
   );
 }
 
-function TripsView({ go, pick, onReview, trips, tours }) {
+function TripsView({ go, onSelectTrip, trips }) {
   const [f, setF] = useState("all");
-  const [reviewTrip, setReviewTrip] = useState(null);
-  const [rvRating, setRvRating] = useState(0);
-  const [rvText, setRvText] = useState("");
   const list = f === "all" ? trips : trips.filter((t) => t.status === f);
-  const submitReview = () => {
-    if (!reviewTrip || rvRating === 0) return;
-    onReview(reviewTrip.id, reviewTrip.tour.id, rvRating, rvText);
-    setReviewTrip(null);
-    setRvRating(0);
-    setRvText("");
-  };
   return (
     <div className="tp-page fu">
       <div className="tp-h"><h2>Mis Viajes</h2><p>{trips.length} experiencias</p></div>
       <div className="tp-tabs">{[{ id: "all", l: "Todos" }, { id: "upcoming", l: "Próximos" }, { id: "completed", l: "Completados" }].map((x) => <button key={x.id} className={`tp-tab ${f === x.id ? "on" : ""}`} onClick={() => setF(x.id)}>{x.l}</button>)}</div>
       {list.map((trip) => (
         <div key={trip.id}>
-          <div className="tp-card" onClick={() => { pick(tours.find(x => x.id === trip.tour.id) || trip.tour); go("detail"); }}>
+          <div className="tp-card" onClick={() => { onSelectTrip(trip); go("trip-detail"); }}>
             <div className="tp-img" style={imgBg(trip.tour.image)} />
             <div className="tp-info"><div className="tp-name">{trip.tour.title}</div><div className="tp-det">{trip.date} · {trip.guests} pers</div><div className="tp-code">{trip.code}</div>
               <div className="tp-foot"><div className="tp-price">S/ {trip.total}</div><div className={`tp-st tp-${trip.status}`}>{trip.status === "upcoming" ? "Próximo" : "Completado"}</div></div>
             </div>
           </div>
-          {trip.status === "completed" && !trip.reviewed && reviewTrip?.id !== trip.id && (
-            <div className="tp-rv" onClick={() => { setReviewTrip(trip); setRvRating(0); setRvText(""); }}><Star size={14} strokeWidth={1.5} /> Deja tu reseña</div>
-          )}
-          {reviewTrip?.id === trip.id && (
-            <div className="rv-form">
-              <div className="rv-form-t">Tu reseña de {trip.tour.title}</div>
-              <div className="rv-stars">
-                {[1, 2, 3, 4, 5].map(s => (
-                  <button key={s} className={`rv-star ${s <= rvRating ? "on" : ""}`} onClick={() => setRvRating(s)}><Star size={22} strokeWidth={1.5} fill={s <= rvRating ? "currentColor" : "none"} /></button>
-                ))}
-              </div>
-              <textarea className="rv-textarea" placeholder="Comparte tu experiencia con otros viajeros..." value={rvText} onChange={(e) => setRvText(e.target.value)} />
-              <div className="rv-actions">
-                <button className="rv-cancel" onClick={() => setReviewTrip(null)}>Cancelar</button>
-                <button className="rv-submit" disabled={rvRating === 0} onClick={submitReview}>Publicar reseña</button>
-              </div>
-            </div>
-          )}
         </div>
       ))}
+    </div>
+  );
+}
+
+// Detalle del viaje: usa el mismo VoucherDetail que la pantalla de éxito.
+// Aquí también vive el formulario de reseña (antes inline en TripsView).
+function TripDetailView({ trip, go, onReview }) {
+  const [showRev, setShowRev] = useState(false);
+  const [rvRating, setRvRating] = useState(0);
+  const [rvText, setRvText] = useState("");
+  if (!trip || !trip.tour) return null;
+  const submitReview = () => {
+    if (rvRating === 0) return;
+    onReview(trip.id, trip.tour.id, rvRating, rvText);
+    setShowRev(false);
+    setRvRating(0);
+    setRvText("");
+  };
+  const canReview = trip.status === "completed" && !trip.reviewed;
+  const isUpcoming = trip.status === "upcoming";
+  return (
+    <div className="tdet-page fu">
+      <button className="bk-btn tdet-back" onClick={() => go("trips")} aria-label="Volver a Mis Viajes" type="button"><ArrowLeft size={20} strokeWidth={1.5} /></button>
+      <h2 className="tdet-h">Tu viaje</h2>
+      <VoucherDetail trip={trip} />
+      <div className="tdet-actions">
+        {canReview && !showRev && (
+          <button className="tdet-act-sec" onClick={() => { setShowRev(true); setRvRating(0); setRvText(""); }}>
+            <Star size={14} strokeWidth={1.5} style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />
+            Deja tu reseña
+          </button>
+        )}
+        {showRev && (
+          <div className="rv-form">
+            <div className="rv-form-t">Tu reseña de {trip.tour.title}</div>
+            <div className="rv-stars">
+              {[1, 2, 3, 4, 5].map(s => (
+                <button key={s} className={`rv-star ${s <= rvRating ? "on" : ""}`} onClick={() => setRvRating(s)}><Star size={22} strokeWidth={1.5} fill={s <= rvRating ? "currentColor" : "none"} /></button>
+              ))}
+            </div>
+            <textarea className="rv-textarea" placeholder="Comparte tu experiencia con otros viajeros..." value={rvText} onChange={(e) => setRvText(e.target.value)} />
+            <div className="rv-actions">
+              <button className="rv-cancel" onClick={() => setShowRev(false)}>Cancelar</button>
+              <button className="rv-submit" disabled={rvRating === 0} onClick={submitReview}>Publicar reseña</button>
+            </div>
+          </div>
+        )}
+        {isUpcoming && (
+          <button className="tdet-act-sec" onClick={() => alert("Próximamente: aquí podrás reportar un problema con esta reserva.\n\nMientras tanto escríbenos a soporte@finde.pe")}>
+            Reportar un problema
+          </button>
+        )}
+      </div>
+      <a className="voucher-wa" href={buildWhatsAppLink(trip)} target="_blank" rel="noopener noreferrer" style={{ marginTop: 12 }}>
+        <Smartphone size={14} strokeWidth={1.5} /> Coordinar con la agencia por WhatsApp <ArrowRight size={12} strokeWidth={1.5} />
+      </a>
     </div>
   );
 }
@@ -2523,6 +2802,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
   const [form, setForm] = useState(isEditing ? {
     title: editingTour.title || "",
     location: editingTour.location || "",
+    meetingPoint: editingTour.meetingPoint || "",
     category: editingTour.category || "adventure",
     duration: editingTour.duration || "",
     price: String(editingTour.price || ""),
@@ -2538,7 +2818,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
     cancellation: editingTour.cancellation || "flexible",
     photo: editingTour.photo || null,
   } : {
-    title: "", location: "", category: "adventure", duration: "", price: "",
+    title: "", location: "", meetingPoint: "", category: "adventure", duration: "", price: "",
     capacity: "", difficulty: "Moderada", description: "", included: "", excluded: "",
     days: [], excludedDates: [], addedDates: [], startTime: "08:00", cancellation: "flexible", photo: null
   });
@@ -2629,6 +2909,22 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           <input className="inp" placeholder="Ej: Huaraz, Áncash" value={form.location} onChange={(e) => u("location", e.target.value)} />
         </div>
         <div className="fg">
+          <label className="lbl">Punto de encuentro <span style={{ color: "var(--tr)" }}>*</span></label>
+          <div style={{ fontSize: 11, color: "var(--gy)", marginBottom: 8, lineHeight: 1.5 }}>
+            Lugar exacto donde tus viajeros te encontrarán (ej. "Frente a Larcomar, tienda Inkawasi, segundo piso")
+          </div>
+          <input
+            className={`inp${form.meetingPoint && form.meetingPoint.trim().length < 10 ? " inp-err" : ""}`}
+            placeholder="Ej. Plaza de Armas, frente a la catedral"
+            value={form.meetingPoint}
+            maxLength={200}
+            onChange={(e) => u("meetingPoint", e.target.value)}
+          />
+          {form.meetingPoint && form.meetingPoint.trim().length < 10 && (
+            <div className="field-err">Indica un punto de encuentro claro (mínimo 10 caracteres)</div>
+          )}
+        </div>
+        <div className="fg">
           <label className="lbl">Categoría</label>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {CATS.filter((c) => c.id !== "all").map((c) => (
@@ -2686,7 +2982,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           )}
         </div>
         <button className="mbtn" style={{ marginTop: 8 }}
-          disabled={!form.title || !form.location || (!form.photo && !(isEditing && editingTour.image))}
+          disabled={!form.title || !form.location || (form.meetingPoint || "").trim().length < 10 || (!form.photo && !(isEditing && editingTour.image))}
           onClick={() => setStep(2)}>Siguiente</button>
       </div>}
 
@@ -2877,6 +3173,9 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         <div className="sum">
           <div className="sum-r"><span style={{ color: "var(--gy)" }}>Nombre</span><span style={{ fontWeight: 700 }}>{form.title}</span></div>
           <div className="sum-r"><span style={{ color: "var(--gy)" }}>Ubicación</span><span>{form.location}</span></div>
+          {form.meetingPoint && (
+            <div className="sum-r"><span style={{ color: "var(--gy)" }}>Punto de encuentro</span><span style={{ textAlign: "right", maxWidth: "60%" }}>{form.meetingPoint}</span></div>
+          )}
           <div className="sum-r"><span style={{ color: "var(--gy)" }}>Categoría</span><span>{CATS.find((c) => c.id === form.category)?.n}</span></div>
           <div className="sum-r"><span style={{ color: "var(--gy)" }}>Dificultad</span><span>{form.difficulty}</span></div>
           <div className="sum-r"><span style={{ color: "var(--gy)" }}>Duración</span><span>{form.duration}</span></div>
@@ -3012,6 +3311,7 @@ export default function AppDemo() {
   const [loginMsg, setLoginMsg] = useState("");
   const [reviews, setReviews] = useState(REVIEWS);
   const [trips, setTrips] = useState(MY_TRIPS);
+  const [currentTrip, setCurrentTrip] = useState(null);
   const ref = useRef(null);
   const unread = notifs.filter((n) => !n.read).length;
 
@@ -3033,6 +3333,7 @@ export default function AppDemo() {
     const newReview = { id: Date.now(), author: USER.name, avatar: USER.avatar, rating, text, date: "Hoy" };
     setReviews(prev => ({ ...prev, [tourId]: [newReview, ...(prev[tourId] || [])] }));
     setTrips(prev => prev.map(t => t.id === tripId ? { ...t, reviewed: true } : t));
+    setCurrentTrip(prev => (prev && prev.id === tripId ? { ...prev, reviewed: true } : prev));
     setTours(prev => prev.map(t => {
       if (t.id !== tourId) return t;
       const newCount = t.reviews + 1;
@@ -3076,6 +3377,7 @@ export default function AppDemo() {
         ...(updated.category && { category: updated.category }),
         ...(updated.difficulty && { difficulty: updated.difficulty }),
         ...(updated.cancellation && { cancellation: updated.cancellation }),
+        ...(updated.meetingPoint && { meetingPoint: updated.meetingPoint }),
         days: updated.days || t.days,
         excludedDates: updated.excludedDates || [],
         addedDates: updated.addedDates || [],
@@ -3091,6 +3393,7 @@ export default function AppDemo() {
     const newOpTour = {
       id: newTourId, tourId: newTourId,
       title: formData.title, location: formData.location, duration: formData.duration,
+      meetingPoint: formData.meetingPoint || "",
       price: Number(formData.price) || 0, rating: 0, reviews: 0, active: true,
       image: cssImage, category: formData.category, capacity: formData.capacity,
       difficulty: formData.difficulty, description: formData.description,
@@ -3107,6 +3410,7 @@ export default function AppDemo() {
       title: formData.title,
       titleQu: "",
       location: formData.location,
+      meetingPoint: formData.meetingPoint || "",
       price: Number(formData.price) || 0,
       rating: 0,
       reviews: 0,
@@ -3139,26 +3443,33 @@ export default function AppDemo() {
   // el backend rechaza el POST por validación CUID. Aquí registramos el viaje
   // localmente para que aparezca en TripsView. Fase 2: seedear los 14 mocks
   // en DB para tener CUIDs reales y consolidar el flujo.
-  const handleAddLocalTrip = ({ tour: bookedTour, date, guests, total, code }) => {
+  const handleAddLocalTrip = ({ tour: bookedTour, date, guests, total, code, paymentMethod, customerName, customerPhone, customerEmail }) => {
     const months = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-    const [y, m, d] = (date || todayISO()).split("-").map(Number);
+    const isoDate = date || todayISO();
+    const [y, m, d] = isoDate.split("-").map(Number);
     const dateLabel = `${String(d).padStart(2, "0")} ${months[m - 1]} ${y}`;
     const newTrip = {
       id: Date.now(),
       tour: bookedTour,
       date: dateLabel,
+      dateISO: isoDate,
       guests,
       total,
       status: "upcoming",
       code,
+      paymentMethod: paymentMethod || "yape",
+      customerName: customerName || USER.name,
+      customerPhone: customerPhone || "",
+      customerEmail: customerEmail || "",
     };
     setTrips(prev => [newTrip, ...prev]);
+    setCurrentTrip(newTrip);
   };
 
   const isAuth = !["login", "otp", "welcome"].includes(view);
-  const showNav = isAuth && !["booking", "detail", "new-tour"].includes(view);
+  const showNav = isAuth && !["booking", "detail", "new-tour", "trip-detail"].includes(view);
   const showHeader = isAuth && !["booking", "new-tour"].includes(view);
-  const showFooter = isAuth && !["booking", "detail", "new-tour", "dashboard"].includes(view);
+  const showFooter = isAuth && !["booking", "detail", "new-tour", "dashboard", "trip-detail"].includes(view);
   const currentTour = tour ? tours.find(t => t.id === tour.id) || tour : null;
   const activeTours = tours.filter(t => { const op = opTours.find(o => o.tourId === t.id); return !op || op.active; });
 
@@ -3175,7 +3486,8 @@ export default function AppDemo() {
         {view === "detail" && <DetailView tour={currentTour} go={go} pick={setTour} onBook={handleBook} reviews={reviews} />}
         {view === "booking" && <BookingView tour={currentTour} go={go} onLocalBookingSuccess={handleAddLocalTrip} />}
         {view === "notifications" && <NotifsView notifs={notifs} setNotifs={setNotifs} />}
-        {view === "trips" && <TripsView go={go} pick={setTour} onReview={handleReview} trips={trips} tours={tours} />}
+        {view === "trips" && <TripsView go={go} onSelectTrip={setCurrentTrip} trips={trips} />}
+        {view === "trip-detail" && <TripDetailView trip={currentTrip} go={go} onReview={handleReview} />}
         {view === "profile" && <ProfileView go={go} isOperator={isOperator} setIsOperator={setIsOperator} />}
         {view === "dashboard" && <DashView go={go} opTours={opTours} setOpTours={setOpTours} onEditTour={handleEditTour} initialTab={dashTab} onTabConsumed={() => setDashTab("bookings")} />}
         {view === "new-tour" && <NewTourView go={go} editingTour={editingTour} onSaveTour={handleSaveTour} onCreateTour={handleCreateTour} onCancel={handleCancelTour} />}
