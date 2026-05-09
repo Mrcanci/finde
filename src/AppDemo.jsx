@@ -762,6 +762,16 @@ html{scrollbar-gutter:stable}
 .ai-result-t{font-size:12px;font-weight:600;color:var(--f)}
 .ai-result-b{font-size:11px;color:var(--gy);margin-top:2px;line-height:1.4}
 
+/* AI Analysis (prominente al final del grid) */
+.ai-analysis{margin:8px 16px 24px;padding:16px 18px;background:linear-gradient(135deg,rgba(14,165,233,.06),rgba(14,165,233,.02));border:1px solid rgba(14,165,233,.18);border-left:3px solid var(--ai);border-radius:14px}
+.ai-analysis-h{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:var(--ai);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}
+.ai-analysis-b{font-size:14px;color:var(--ch);line-height:1.65}
+.ai-analysis-q{font-size:12px;color:var(--gy);margin-top:10px;font-style:italic;border-top:1px solid rgba(14,165,233,.12);padding-top:10px}
+.ai-loading-box{min-height:240px;margin:0 16px 140px;padding:24px 18px;background:linear-gradient(135deg,rgba(14,165,233,.06),rgba(14,165,233,.02));border:1px solid rgba(14,165,233,.18);border-radius:14px;display:flex;align-items:center;gap:14px}
+.ai-loading-box .ai-result-ic{width:40px;height:40px;background:rgba(14,165,233,.12);color:var(--ai);animation:pulse 1.4s ease-in-out infinite}
+.ai-loading-box-t{font-size:14px;font-weight:700;color:var(--ai);margin-bottom:4px}
+.ai-loading-box-b{font-size:12px;color:var(--gy);line-height:1.5}
+
 /* ── Language Dropdown ── */
 .lang-dd{position:relative;display:inline-block}
 .lang-dd-btn{padding:5px 12px;border-radius:8px;font-size:11px;font-weight:600;border:1.5px solid var(--sd);background:white;color:var(--ch);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px}
@@ -1521,6 +1531,10 @@ function CatalogView({ go, pick, cat, setCat, tours }) {
   const [geminiIds, setGeminiIds] = useState(null);
   const [aiResult, setAiResult] = useState(null);
   const [apiReasoning, setApiReasoning] = useState("");
+  // hasSearched evita que aparezca "No se encontraron resultados" en la
+  // pantalla vacía inicial. Se prende con la primera búsqueda real (Enter,
+  // dispatch IA, o sugerencia clickeada) y se apaga al limpiar el query.
+  const [hasSearched, setHasSearched] = useState(false);
   const geminiTimer = useRef(null);
   const searchRef = useRef(null);
   const fullSearch = q.length >= 2 ? searchTours(tours, q, cat) : null;
@@ -1531,45 +1545,72 @@ function CatalogView({ go, pick, cat, setCat, tours }) {
       : fullSearch
         ? fullSearch.results
         : cat === "all" ? tours : tours.filter(t => t.category === cat);
-  const handleAiSearch = (suggestion) => { setQ(suggestion.query); setShowDropdown(false); setAiResult(suggestion); setGeminiIds(null); };
+  const handleAiSearch = (suggestion) => { setQ(suggestion.query); setShowDropdown(false); setAiResult(suggestion); setGeminiIds(null); setHasSearched(true); };
+
+  // Búsqueda IA reusable: la llama el debounce desde handleChange y también
+  // Enter (que cancela el timer pendiente y dispara la búsqueda al toque).
+  // Combina los 3 tours top de Claude con los matches locales relevantes para
+  // que el grid no quede limitado a 3 cards (api/search devuelve top_3_ids).
+  const runAiSearch = async (value) => {
+    setShowDropdown(false);
+    setHasSearched(true);
+    setGeminiLoading(true);
+    try {
+      const r = await fetch("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: value }),
+      });
+      if (r.ok) {
+        const data = await r.json();
+        const apiIds = (data.results || []).map(t => t.id);
+        const local = searchTours(tours, value, cat).results;
+        if (apiIds.length > 0) {
+          // Merge: top 3 de Claude primero (más relevantes), luego matches
+          // locales que no estén en la respuesta IA (para abundancia).
+          const apiSet = new Set(apiIds);
+          const localExtras = local.filter(t => !apiSet.has(t.id)).slice(0, 12);
+          const combinedIds = [...apiIds, ...localExtras.map(t => t.id)];
+          const apiTours = apiIds.map(id => tours.find(t => t.id === id)).filter(Boolean);
+          const localNotInApi = local.filter(t => !apiSet.has(t.id));
+          // Setear todo ANTES de bajar geminiLoading para evitar frame con
+          // loading=false + grid vacía.
+          setGeminiIds(combinedIds);
+          setApiReasoning(data.reasoning || "");
+          setLocalResults([...apiTours, ...localNotInApi].slice(0, 5));
+        } else {
+          // Backend respondió pero sin matches IA. Guardamos el reasoning
+          // ("Por ahora no encontramos…") para mostrarlo como análisis.
+          setApiReasoning(data.reasoning || "");
+        }
+      }
+    } catch { /* silent fallback */ }
+    setGeminiLoading(false);
+  };
+
   const handleChange = (value) => {
     setQ(value);
     setGeminiIds(null);
     setAiResult(null);
     if (geminiTimer.current) clearTimeout(geminiTimer.current);
-    if (value.trim().length < 2) { setLocalResults([]); setShowDropdown(false); return; }
+    if (value.trim().length < 2) {
+      setLocalResults([]);
+      setShowDropdown(false);
+      setHasSearched(false);
+      return;
+    }
     const { results, hasKeywordMatch } = searchTours(tours, value, cat);
     setLocalResults(results.slice(0, 5));
     setShowDropdown(true);
-    const wordCount = value.trim().split(/\s+/).length;
-    if (wordCount >= 3 && (results.length === 0 || !hasKeywordMatch)) {
-      geminiTimer.current = setTimeout(async () => {
-        // Cerramos el dropdown apenas arranca la búsqueda IA: el usuario ve
-        // el query en el input + el banner "IA encontró X experiencias" cuando
-        // termina, sin sugerencias flotantes encima.
-        setShowDropdown(false);
-        setGeminiLoading(true);
-        try {
-          const r = await fetch("/api/search", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ query: value }),
-          });
-          if (r.ok) {
-            const data = await r.json();
-            const ids = (data.results || []).map(t => t.id);
-            if (ids.length > 0) {
-              setGeminiIds(ids);
-              const apiTours = ids.map(id => tours.find(t => t.id === id)).filter(Boolean);
-              const localNotInApi = results.filter(t => !ids.includes(t.id));
-              setLocalResults([...apiTours, ...localNotInApi].slice(0, 5));
-              setApiReasoning(data.reasoning || "");
-            }
-          }
-        } catch { /* silent fallback */ }
-        setGeminiLoading(false);
-      }, 800);
+    const wordCount = value.trim().split(/\s+/).filter(Boolean).length;
+    // 3+ palabras siempre dispara IA. Antes había una condición secundaria
+    // (solo si búsqueda local no matcheaba) que cortocircuitaba la IA en
+    // queries naturales como "que hacer en cusco este fin de semana".
+    if (wordCount >= 3) {
+      geminiTimer.current = setTimeout(() => runAiSearch(value), 800);
     }
+    // Silenciar warning de unused: hasKeywordMatch ya no se usa para gatear IA.
+    void hasKeywordMatch;
   };
   const handleFocus = () => {
     // Solo reabrimos el dropdown si el usuario ya estaba buscando algo. El
@@ -1580,10 +1621,28 @@ function CatalogView({ go, pick, cat, setCat, tours }) {
     setShowDropdown(true);
   };
   const handleKeyDown = (e) => {
-    if (e.key === "Enter" || e.key === "Escape") {
+    if (e.key === "Enter") {
       e.preventDefault();
       setShowDropdown(false);
-      // Quitamos el foco para que el dropdown no reaparezca por focus residual.
+      e.currentTarget.blur();
+      const value = q.trim();
+      if (value.length < 2) return;
+      setHasSearched(true);
+      // Si hay búsqueda IA pendiente en debounce, dispárala YA en lugar de
+      // esperar los 800ms — evita el flash de grid vacía mientras se carga.
+      if (geminiTimer.current) {
+        clearTimeout(geminiTimer.current);
+        geminiTimer.current = null;
+      }
+      const wordCount = value.split(/\s+/).filter(Boolean).length;
+      // 3+ palabras → IA siempre, sin condición secundaria (la regla del
+      // producto es "consulta natural = IA", no "IA solo si local falla").
+      if (wordCount >= 3) {
+        runAiSearch(value);
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setShowDropdown(false);
       e.currentTarget.blur();
     }
   };
@@ -1657,13 +1716,46 @@ function CatalogView({ go, pick, cat, setCat, tours }) {
         {geminiIds && !aiResult && (
           <div className="ai-result">
             <div className="ai-result-ic"><Sparkles size={16} strokeWidth={1.5} /></div>
-            <div><div className="ai-result-t">IA encontró {filt.length} experiencias</div><div className="ai-result-b">{apiReasoning ? apiReasoning : <>&ldquo;{q}&rdquo;</>}</div></div>
+            <div><div className="ai-result-t">IA encontró {filt.length} experiencias</div><div className="ai-result-b">para &ldquo;{q}&rdquo;</div></div>
             <button className="sr-clear" onClick={() => { setGeminiIds(null); setApiReasoning(""); }}><X size={16} strokeWidth={1.5} /></button>
           </div>
         )}
-        <div className="cats">{CATS.map((c) => <button key={c.id} className={`chip ${cat === c.id ? "on" : ""}`} onClick={() => { setCat(c.id); setQ(""); setGeminiIds(null); setAiResult(null); setLocalResults([]); }}><c.ic size={16} strokeWidth={1.5} /> {c.n}</button>)}</div>
-        <div style={{ paddingBottom: 12, fontSize: 13, color: "var(--gy)" }}>{filt.length} experiencias verificadas</div>
-        <div className="tg">{filt.map((t) => <GCard key={t.id} t={t} onClick={() => { pick(t); go("detail"); }} />)}</div>
+        <div className="cats">{CATS.map((c) => <button key={c.id} className={`chip ${cat === c.id ? "on" : ""}`} onClick={() => { setCat(c.id); setQ(""); setGeminiIds(null); setAiResult(null); setLocalResults([]); setHasSearched(false); }}><c.ic size={16} strokeWidth={1.5} /> {c.n}</button>)}</div>
+        {geminiLoading ? (
+          <div className="ai-loading-box">
+            <div className="ai-result-ic"><Sparkles size={20} strokeWidth={1.5} /></div>
+            <div>
+              <div className="ai-loading-box-t">Buscando con IA…</div>
+              <div className="ai-loading-box-b">Analizando tu consulta para encontrar las mejores experiencias</div>
+            </div>
+          </div>
+        ) : (hasSearched && filt.length === 0) ? (
+          <>
+            <div style={{ padding: "32px 16px 24px", textAlign: "center", color: "var(--gy)", minHeight: 180 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ch)", marginBottom: 6 }}>No se encontraron resultados</div>
+              <div style={{ fontSize: 12, lineHeight: 1.5 }}>Prueba con otras palabras o explora por categoría.</div>
+            </div>
+            {apiReasoning && (
+              <div className="ai-analysis">
+                <div className="ai-analysis-h"><Sparkles size={12} strokeWidth={1.5} /> Análisis de tu búsqueda</div>
+                <div className="ai-analysis-b">{apiReasoning}</div>
+                <div className="ai-analysis-q">Para &ldquo;{q}&rdquo;</div>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div style={{ paddingBottom: 12, fontSize: 13, color: "var(--gy)" }}>{filt.length} experiencias verificadas</div>
+            <div className="tg">{filt.map((t) => <GCard key={t.id} t={t} onClick={() => { pick(t); go("detail"); }} />)}</div>
+            {apiReasoning && (geminiIds || aiResult) && (
+              <div className="ai-analysis">
+                <div className="ai-analysis-h"><Sparkles size={12} strokeWidth={1.5} /> Análisis de tu búsqueda</div>
+                <div className="ai-analysis-b">{apiReasoning}</div>
+                <div className="ai-analysis-q">Para &ldquo;{q}&rdquo;</div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
