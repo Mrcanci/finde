@@ -1522,6 +1522,7 @@ function CatalogView({ go, pick, cat, setCat, tours }) {
   const [aiResult, setAiResult] = useState(null);
   const [apiReasoning, setApiReasoning] = useState("");
   const geminiTimer = useRef(null);
+  const searchRef = useRef(null);
   const fullSearch = q.length >= 2 ? searchTours(tours, q, cat) : null;
   const filt = aiResult
     ? tours.filter(t => aiResult.results.includes(t.id))
@@ -1543,6 +1544,10 @@ function CatalogView({ go, pick, cat, setCat, tours }) {
     const wordCount = value.trim().split(/\s+/).length;
     if (wordCount >= 3 && (results.length === 0 || !hasKeywordMatch)) {
       geminiTimer.current = setTimeout(async () => {
+        // Cerramos el dropdown apenas arranca la búsqueda IA: el usuario ve
+        // el query en el input + el banner "IA encontró X experiencias" cuando
+        // termina, sin sugerencias flotantes encima.
+        setShowDropdown(false);
         setGeminiLoading(true);
         try {
           const r = await fetch("/api/search", {
@@ -1567,30 +1572,47 @@ function CatalogView({ go, pick, cat, setCat, tours }) {
     }
   };
   const handleFocus = () => {
-    if (q.trim().length === 0) {
-      const popular = [...tours].sort((a, b) => b.reviews - a.reviews).slice(0, 3);
-      setLocalResults(popular);
-    } else if (q.trim().length >= 2) {
-      const { results } = searchTours(tours, q, cat);
-      setLocalResults(results.slice(0, 5));
-    }
+    // Solo reabrimos el dropdown si el usuario ya estaba buscando algo. El
+    // click en input vacío no abre nada — evita el dropdown fantasma.
+    if (q.trim().length < 2 || geminiLoading) return;
+    const { results } = searchTours(tours, q, cat);
+    setLocalResults(results.slice(0, 5));
     setShowDropdown(true);
   };
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" || e.key === "Escape") {
+      e.preventDefault();
+      setShowDropdown(false);
+      // Quitamos el foco para que el dropdown no reaparezca por focus residual.
+      e.currentTarget.blur();
+    }
+  };
   useEffect(() => { return () => { if (geminiTimer.current) clearTimeout(geminiTimer.current); }; }, []);
+  // Click/tap fuera del contenedor del buscador → cerrar dropdown.
+  useEffect(() => {
+    const onPointerDown = (ev) => {
+      if (searchRef.current && !searchRef.current.contains(ev.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, []);
   const isPopular = q.trim().length < 2;
   const hasResults = localResults.length > 0;
+  const dropdownOpen = showDropdown && !geminiLoading;
   return (
     <div>
       <div className="pg catalog-pg">
-        <div className="ai-sb" style={{ marginTop: 8 }}>
+        <div className="ai-sb" style={{ marginTop: 8 }} ref={searchRef}>
           <span className="ai-sb-ic"><Search size={16} strokeWidth={1.5} /></span>
           <input placeholder="¿Qué quieres hacer? ¿A dónde ir?"
             value={q}
             onChange={(e) => handleChange(e.target.value)}
             onFocus={handleFocus}
-            onBlur={() => setTimeout(() => setShowDropdown(false), 200)} />
+            onKeyDown={handleKeyDown} />
           <span className="ai-sb-tag"><Sparkles size={12} strokeWidth={1.5} /> IA</span>
-          {showDropdown && (
+          {dropdownOpen && (
             <div className="ai-suggest">
               {isPopular && hasResults && <div className="ai-suggest-h">Búsquedas populares</div>}
               {!isPopular && geminiLoading && <div className="sr-ai-hint"><Sparkles size={12} strokeWidth={1.5} /> Buscando con IA...</div>}
