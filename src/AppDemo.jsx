@@ -820,7 +820,9 @@ html{scrollbar-gutter:stable}
 /* ── Detail ── */
 .det{padding-bottom:100px}
 .det-hero{height:280px;position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:16px}
-.det-ov{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.2) 0%,rgba(0,0,0,.5) 100%)}
+/* Gradient con bottom reforzado para garantizar legibilidad del título blanco
+   sobre cualquier imagen — incluso playas, mar, platos claros, cielos. */
+.det-ov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.25) 0%,rgba(0,0,0,0) 30%,rgba(0,0,0,0) 50%,rgba(0,0,0,.7) 100%)}
 .bk-btn{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.9);border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;z-index:2;position:relative;backdrop-filter:blur(10px);color:var(--ch)}
 .det-nfo{position:relative;z-index:2}
 .det-bdg{display:inline-block;padding:4px 12px;border-radius:100px;font-size:10px;font-weight:700;background:rgba(255,255,255,.95);color:var(--ch);margin-bottom:8px}
@@ -1240,10 +1242,15 @@ html{scrollbar-gutter:stable}
   .ai-result{max-width:680px;margin:0 auto 20px}
 
   .det{display:grid;grid-template-columns:1fr 1fr;padding-bottom:0;align-items:start;max-width:1280px;margin:0 auto}
-  .det-hero{height:100vh;position:sticky;top:64px}
-  .det-hero .det-tl{display:none}
+  /* height ajustada a calc(100vh - 64px) para que el hero quepa exactamente
+     en el viewport bajo la nav y el título overlay sea visible (antes con
+     100vh el bottom del hero quedaba 64px por debajo del fold). */
+  .det-hero{height:calc(100vh - 64px);position:sticky;top:64px;padding:32px 40px}
+  .det-hero .det-tl{font-size:38px;max-width:92%}
   .det-c{padding:32px 40px 100px;max-height:calc(100vh - 64px);overflow-y:auto}
-  .det-tl-desktop{display:block;font-family:'DM Serif Display',Georgia,serif;font-size:34px;color:var(--ch);line-height:1.15;margin:0 0 20px;font-weight:400}
+  /* H1 del panel derecho ya no se necesita: el título vuelve a vivir sobre la
+     imagen del hero como en mobile, con gradient reforzado para legibilidad. */
+  .det-tl-desktop{display:none}
 
   .bkf{max-width:640px;margin:0 auto;padding:40px 40px 100px}
 
