@@ -1246,6 +1246,10 @@ html{scrollbar-gutter:stable}
      en el viewport bajo la nav y el título overlay sea visible (antes con
      100vh el bottom del hero quedaba 64px por debajo del fold). */
   .det-hero{height:calc(100vh - 64px);position:sticky;top:64px;padding:32px 40px}
+  /* Pinear el contenedor del título a la esquina inferior izquierda del hero
+     decopla el título del flex space-between y de la geometría del grid row,
+     evitando que se corte cuando .det-c colapsa o cuando hay sub-pixel issues. */
+  .det-hero .det-nfo{position:absolute;bottom:96px;left:40px;right:40px;z-index:2}
   .det-hero .det-tl{font-size:38px;max-width:92%}
   .det-c{padding:32px 40px 100px;max-height:calc(100vh - 64px);overflow-y:auto}
   /* H1 del panel derecho ya no se necesita: el título vuelve a vivir sobre la
