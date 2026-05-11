@@ -2149,6 +2149,10 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
   const [submitError, setSubmitError] = useState("");
   const [serverBooking, setServerBooking] = useState(null);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [step]);
+
   const submitBooking = async () => {
     setSubmitting(true);
     setSubmitError("");
@@ -3423,7 +3427,13 @@ export default function AppDemo() {
   const ref = useRef(null);
   const unread = notifs.filter((n) => !n.read).length;
 
-  useEffect(() => { if (ref.current) ref.current.scrollTop = 0; }, [view]);
+  // SPA fix: cambiar de vista no es navegación real, así que reseteamos
+  // manualmente el scroll de window y del contenedor principal en cada
+  // cambio de view para que el usuario aterrice arriba en la nueva pantalla.
+  useEffect(() => {
+    if (ref.current) ref.current.scrollTop = 0;
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [view]);
 
   const go = (v) => {
     if (v === "home" && view === "welcome") setLoggedIn(true);
