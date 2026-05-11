@@ -825,6 +825,11 @@ html{scrollbar-gutter:stable}
 .det-nfo{position:relative;z-index:2}
 .det-bdg{display:inline-block;padding:4px 12px;border-radius:100px;font-size:10px;font-weight:700;background:rgba(255,255,255,.95);color:var(--ch);margin-bottom:8px}
 .det-tl{font-family:'DM Serif Display',Georgia,serif;font-size:26px;color:white;line-height:1.2}
+/* Título del panel derecho — solo desktop. En mobile el título vive sobre la
+   imagen del hero (.det-tl). En desktop el hero es sticky y 100vh, así que el
+   título overlaid queda fuera del viewport. Mostramos un H1 en la columna de
+   contenido para que sea legible y natural. */
+.det-tl-desktop{display:none}
 .det-c{padding:20px}
 .ai-sum{padding:14px 16px;background:linear-gradient(135deg,rgba(14,165,233,.06),rgba(14,165,233,.02));border:1.5px solid rgba(14,165,233,.15);border-radius:14px;margin-bottom:20px}
 .ai-sum-h{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:var(--ai);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
@@ -1236,7 +1241,9 @@ html{scrollbar-gutter:stable}
 
   .det{display:grid;grid-template-columns:1fr 1fr;padding-bottom:0;align-items:start;max-width:1280px;margin:0 auto}
   .det-hero{height:100vh;position:sticky;top:64px}
+  .det-hero .det-tl{display:none}
   .det-c{padding:32px 40px 100px;max-height:calc(100vh - 64px);overflow-y:auto}
+  .det-tl-desktop{display:block;font-family:'DM Serif Display',Georgia,serif;font-size:34px;color:var(--ch);line-height:1.15;margin:0 0 20px;font-weight:400}
 
   .bkf{max-width:640px;margin:0 auto;padding:40px 40px 100px}
 
@@ -1827,6 +1834,7 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
         </div>
       </div>
       <div className="det-c fu">
+        <h1 className="det-tl-desktop">{isQu ? tour.titleQu : tour.title}</h1>
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
           <div className="lang-dd">
             <button className="lang-dd-btn" onClick={() => setLangOpen(!langOpen)}>
