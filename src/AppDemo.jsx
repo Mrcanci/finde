@@ -285,6 +285,48 @@ const CITY_ALIASES = {
   piura: ["Piura","Los Órganos","Máncora"], apurímac: ["Apurímac"],
 };
 
+// Feature "Tours en [ciudad]": 9 ciudades soportadas, ordenadas por tráfico
+// turístico. SUPPORTED_CITY_ALIASES amplía CITY_ALIASES (usado por la búsqueda
+// IA) con distritos de Lima y subdestinos de cada región, alineado con el
+// mapeo de lib/geo.ts del backend.
+const SUPPORTED_CITIES = [
+  "Lima","Cusco","Arequipa","Trujillo","Ica","Iquitos","Piura","Huaraz","Puerto Maldonado",
+];
+const SUPPORTED_CITY_ALIASES = {
+  "Lima": ["Lima","Miraflores","San Isidro","Barranco","Surco","La Molina","Callao","Chorrillos","San Borja","Magdalena","Pueblo Libre","Chancay","Lunahuaná","Marcapomacocha"],
+  "Cusco": ["Cusco","Cuzco"],
+  "Arequipa": ["Arequipa"],
+  "Trujillo": ["Trujillo"],
+  "Ica": ["Ica","Paracas","Huacachina","Nazca","Chincha"],
+  "Iquitos": ["Iquitos"],
+  "Piura": ["Piura","Máncora","Los Órganos","Talara"],
+  "Huaraz": ["Huaraz"],
+  "Puerto Maldonado": ["Puerto Maldonado","Tambopata"],
+};
+function normalizeCity(s) {
+  return (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+}
+// Dev-only: en localhost permitimos override por ?city=Cusco. En cualquier
+// otro host devuelve null y el frontend confía en /api/geo.
+function readDevCityOverride() {
+  if (typeof window === "undefined") return null;
+  const host = window.location.hostname;
+  if (host !== "localhost" && host !== "127.0.0.1") return null;
+  const params = new URLSearchParams(window.location.search);
+  const override = params.get("city");
+  if (!override) return null;
+  const norm = normalizeCity(override);
+  return SUPPORTED_CITIES.find(c => normalizeCity(c) === norm) || null;
+}
+function toursByCity(tours, city) {
+  const aliases = SUPPORTED_CITY_ALIASES[city] || [city];
+  const normAliases = aliases.map(normalizeCity);
+  return tours.filter(t => {
+    const loc = normalizeCity(t.location);
+    return loc && normAliases.some(a => loc.includes(a));
+  });
+}
+
 function parseAltitude(t) { return parseInt((t.altitude || "").replace(/,/g, ""), 10) || 0; }
 function parseDurationDays(t) {
   const d = (t.duration || "").toLowerCase();
@@ -787,6 +829,29 @@ html{scrollbar-gutter:stable}
 .st{font-family:'DM Serif Display',Georgia,serif;font-size:22px}
 .sl{font-size:13px;font-weight:600;color:var(--tr);cursor:pointer;border:none;background:none;font-family:inherit}
 
+/* ── Sección "Tours en [ciudad]" con selector ── */
+.city-sh{align-items:center}
+.city-near{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:13px;color:var(--gy);font-weight:400;letter-spacing:0}
+.city-actions{display:flex;align-items:center;gap:12px}
+.city-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;border:1.5px solid var(--sd);background:white;color:var(--ch);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:.2s}
+.city-btn:hover{border-color:var(--sg);color:var(--f)}
+.city-btn .city-btn-chev{transition:transform .2s}
+.city-btn.open .city-btn-chev{transform:rotate(180deg)}
+.city-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:90;animation:fadeUp .2s ease-out}
+.city-sheet{position:fixed;left:0;right:0;bottom:0;background:white;border-radius:20px 20px 0 0;padding:8px 0 24px;z-index:91;max-height:60vh;overflow-y:auto;animation:slideUp .25s ease-out;box-shadow:0 -8px 32px rgba(0,0,0,.15)}
+.city-sheet-grip{width:40px;height:4px;background:var(--sd);border-radius:2px;margin:10px auto 14px}
+.city-sheet-title{font-family:'DM Serif Display',Georgia,serif;font-size:18px;padding:0 20px 10px;color:var(--ch)}
+.city-sheet-opt{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;cursor:pointer;border:none;background:none;width:100%;font-family:inherit;font-size:14px;font-weight:600;color:var(--ch);text-align:left;transition:background .15s}
+.city-sheet-opt:hover{background:var(--cr)}
+.city-sheet-opt.on{color:var(--tr)}
+.city-sheet-opt .city-sheet-check{color:var(--tr)}
+.city-empty{margin:0 16px 24px;padding:32px 20px;background:var(--cr);border-radius:20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}
+.city-empty-ic{width:48px;height:48px;border-radius:50%;background:rgba(199,97,58,.12);color:var(--tr);display:flex;align-items:center;justify-content:center;margin-bottom:4px}
+.city-empty-tl{font-family:'DM Serif Display',Georgia,serif;font-size:18px;color:var(--ch);max-width:260px}
+.city-empty-sub{font-size:13px;color:var(--gy);max-width:300px;line-height:1.45}
+.city-empty-btn{margin-top:8px;padding:10px 18px;border-radius:999px;border:none;background:var(--f);color:white;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;transition:.2s}
+.city-empty-btn:hover{background:var(--m);box-shadow:0 4px 12px rgba(27,58,45,.18)}
+
 /* ── Cards ── */
 .tscr{display:flex;gap:14px;padding:0 16px 24px;overflow-x:auto;scrollbar-width:none}
 .tscr::-webkit-scrollbar{display:none}
@@ -796,14 +861,13 @@ html{scrollbar-gutter:stable}
 .tc-bdg{position:absolute;top:10px;left:10px;padding:4px 10px;border-radius:100px;font-size:10px;font-weight:700;background:rgba(255,255,255,.95);color:var(--ch);backdrop-filter:blur(10px)}
 .tc-bdg.anti{background:var(--f);color:white}
 .tc-ver{position:absolute;bottom:10px;left:10px;padding:3px 8px;border-radius:100px;font-size:9px;font-weight:700;background:rgba(45,90,61,.9);color:white}
-.tc-b{padding:14px}
+.tc-b{padding:14px;text-align:center}
 .tc-loc{font-size:11px;color:var(--gy);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
 .tc-tl{font-size:15px;font-weight:700;margin-bottom:6px;line-height:1.3}
-.tc-m{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--gy);margin-bottom:10px}
+.tc-m{display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:var(--gy);margin-bottom:10px}
 .tc-m .rt{color:var(--gd);font-weight:700}
-.tc-ft{display:flex;justify-content:space-between;align-items:center}
+.tc-ft{display:flex;justify-content:center;align-items:center}
 .tc-pr{font-size:16px;font-weight:800;color:var(--f)}.tc-pr span{font-size:11px;font-weight:400;color:var(--gy)}
-.tc-du{font-size:11px;color:var(--gy);background:var(--cr);padding:4px 8px;border-radius:6px;font-weight:600}
 
 .tg{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 16px 120px}
 .gc{border-radius:16px;overflow:hidden;background:white;border:1px solid rgba(0,0,0,.06);cursor:pointer;transition:.2s}
@@ -814,7 +878,7 @@ html{scrollbar-gutter:stable}
 .gc-loc{font-size:10px;color:var(--gy);font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px}
 .gc-t{font-size:13px;font-weight:700;margin-bottom:6px;line-height:1.3}
 .gc-p{font-size:14px;font-weight:800;color:var(--f)}.gc-p span{font-size:10px;font-weight:400;color:var(--gy)}
-.gc-m{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--gy);margin-bottom:6px;flex-wrap:wrap}
+.gc-m{display:flex;align-items:center;justify-content:center;gap:5px;font-size:11px;color:var(--gy);margin-bottom:6px;flex-wrap:wrap}
 .gc-m .rt{color:var(--gd);font-weight:700;display:inline-flex;align-items:center;gap:2px}
 
 /* ── Detail ── */
@@ -1175,6 +1239,15 @@ html{scrollbar-gutter:stable}
 
   .sh{padding:0;margin-bottom:20px}
   .tg{gap:16px;padding:0 0 40px}
+
+  /* Selector ciudad: pasa a dropdown anclado al botón (mobile usa bottom sheet) */
+  .city-sh{position:relative}
+  .city-backdrop{background:transparent}
+  .city-sheet{position:absolute;left:auto;right:0;bottom:auto;top:calc(100% + 6px);width:240px;max-height:none;border-radius:14px;padding:6px 0;animation:fadeUp .15s ease-out;box-shadow:0 10px 32px rgba(0,0,0,.15);border:1px solid var(--sd)}
+  .city-sheet-grip{display:none}
+  .city-sheet-title{display:none}
+  .city-sheet-opt{padding:10px 16px;font-size:13px}
+  .city-empty{margin:0 0 24px}
   .gc{display:flex;flex-direction:column;height:100%}
   .gc-b{flex:1}
   .gc-img{height:160px}
@@ -1233,6 +1306,7 @@ html{scrollbar-gutter:stable}
 
   .sh{margin-bottom:24px}
   .st{font-size:26px}
+  .city-near{font-size:14px}
 
   .tg{grid-template-columns:repeat(3,1fr);gap:24px;padding:0 0 48px}
   .gc:hover{transform:translateY(-5px);box-shadow:0 16px 40px rgba(0,0,0,.1)}
@@ -1378,7 +1452,7 @@ function TCard({ t, onClick }) {
         <div className="tc-loc">{t.location}</div>
         <div className="tc-tl">{t.title}</div>
         <div className="tc-m"><span className="rt"><Star size={12} strokeWidth={1.5} fill="currentColor" /> {t.rating}</span><span>({t.reviews})</span><span>·</span><span>{t.duration}</span></div>
-        <div className="tc-ft"><div className="tc-pr">S/ {t.price} <span>por persona</span></div><div className="tc-du">{t.duration}</div></div>
+        <div className="tc-ft"><div className="tc-pr">S/ {t.price} <span>por persona</span></div></div>
       </div>
     </div>
   );
@@ -1512,9 +1586,88 @@ function WelcomeView({ go }) {
   );
 }
 
-function HomeView({ go, pick, cat, setCat, tours }) {
+function CitySelector({ selectedCity, onPick }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    const onClick = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    // setTimeout 0 evita que el mismo click que abre cierre el sheet.
+    const t = setTimeout(() => window.addEventListener("mousedown", onClick), 0);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("mousedown", onClick);
+      clearTimeout(t);
+    };
+  }, [open]);
+
+  const handlePick = (city) => {
+    onPick(city);
+    setOpen(false);
+  };
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        type="button"
+        className={`city-btn ${open ? "open" : ""}`}
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <MapPin size={14} strokeWidth={1.5} />
+        {selectedCity}
+        <ChevronDown className="city-btn-chev" size={14} strokeWidth={1.5} />
+      </button>
+      {open && (
+        <>
+          <div className="city-backdrop" onClick={() => setOpen(false)} />
+          <div className="city-sheet" role="listbox" aria-label="Elegir ciudad">
+            <div className="city-sheet-grip" />
+            <div className="city-sheet-title">Elige tu ciudad</div>
+            {SUPPORTED_CITIES.map((c) => (
+              <button
+                key={c}
+                type="button"
+                role="option"
+                aria-selected={c === selectedCity}
+                className={`city-sheet-opt ${c === selectedCity ? "on" : ""}`}
+                onClick={() => handlePick(c)}
+              >
+                <span>{c}</span>
+                {c === selectedCity && (
+                  <Check className="city-sheet-check" size={16} strokeWidth={2} />
+                )}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function HomeView({ go, pick, cat, setCat, tours, selectedCity, setSelectedCity, geoSource }) {
+  const [cityExpanded, setCityExpanded] = useState(false);
   const filt = cat === "all" ? tours : tours.filter((t) => t.category === cat);
   const feat = [...filt].sort((a, b) => b.rating - a.rating || b.reviews - a.reviews).slice(0, 4);
+  // Todos los tours de la ciudad ordenados por rating desc (sin rating al final).
+  const allCityTours = toursByCity(filt, selectedCity)
+    .slice()
+    .sort((a, b) => (b.rating || 0) - (a.rating || 0));
+  const visibleCityTours = cityExpanded ? allCityTours : allCityTours.slice(0, 4);
+  // Cambiar de ciudad colapsa la sección para que el usuario no aterrice
+  // expandido en una ciudad nueva. Aplica tanto al CitySelector como al
+  // botón "Ver tours en Lima" del empty state.
+  const handleCityChange = (c) => {
+    setCityExpanded(false);
+    setSelectedCity(c);
+  };
   return (
     <div>
       <div className="hero fu"><div className="hero-tex" /><div className="hero-c">
@@ -1530,6 +1683,38 @@ function HomeView({ go, pick, cat, setCat, tours }) {
         <div className="cats fd2">{CATS.map((c) => <button key={c.id} className={`chip ${cat === c.id ? "on" : ""}`} onClick={() => setCat(c.id)}><c.ic size={16} strokeWidth={1.5} /> {c.n}</button>)}</div>
         <div className="sh fd2"><div className="st">Populares este mes</div><button className="sl" onClick={() => go("catalog")}>Ver todos <ArrowRight size={12} strokeWidth={1.5} style={{verticalAlign:"middle"}} /></button></div>
         <div className="tscr fd3">{feat.map((t) => <TCard key={t.id} t={t} onClick={() => { pick(t); go("detail"); }} />)}</div>
+        <div className="sh city-sh" style={{ marginTop: 8 }}>
+          <div className="st">
+            Tours en {selectedCity}
+            {geoSource === "geo" && <span className="city-near"> · cerca de ti</span>}
+          </div>
+          <div className="city-actions">
+            {allCityTours.length > 4 && (
+              <button className="sl" onClick={() => setCityExpanded((v) => !v)}>
+                {cityExpanded ? "Ver menos" : (
+                  <>Ver más <ArrowRight size={12} strokeWidth={1.5} style={{verticalAlign:"middle"}} /></>
+                )}
+              </button>
+            )}
+            <CitySelector selectedCity={selectedCity} onPick={handleCityChange} />
+          </div>
+        </div>
+        {allCityTours.length > 0 ? (
+          <div className="tscr">
+            {visibleCityTours.map((t) => (
+              <TCard key={t.id} t={t} onClick={() => { pick(t); go("detail"); }} />
+            ))}
+          </div>
+        ) : (
+          <div className="city-empty">
+            <div className="city-empty-ic"><MapPin size={22} strokeWidth={1.5} /></div>
+            <div className="city-empty-tl">Pronto tendremos experiencias en {selectedCity}</div>
+            <div className="city-empty-sub">Estamos sumando operadores verificados. Mientras tanto, mira los tours de Lima.</div>
+            <button type="button" className="city-empty-btn" onClick={() => handleCityChange("Lima")}>
+              Ver tours en Lima
+            </button>
+          </div>
+        )}
         <div className="sh" style={{ marginTop: 8 }}><div className="st">Explora experiencias</div></div>
         <div className="tg">{filt.map((t) => <GCard key={t.id} t={t} onClick={() => { pick(t); go("detail"); }} />)}</div>
       </div>
@@ -3377,6 +3562,17 @@ export default function AppDemo() {
   const [notifs, setNotifs] = useState(NOTIFS);
   const [isOperator, setIsOperator] = useState(false);
   const [tours, setTours] = useState(() => TOURS.map(ensureAvailabilityFields));
+  // Feature "Tours en [ciudad]": ciudad mostrada en la sección. Arranca en
+  // Lima para evitar flash/CLS antes de que llegue /api/geo. geoSource permite
+  // ignorar respuestas tardías de la geo si el usuario ya eligió manualmente.
+  const [selectedCity, setSelectedCity] = useState(() => readDevCityOverride() || "Lima");
+  // Si hay override en localhost lo tratamos como "manual" para que la respuesta
+  // tardía de /api/geo (siempre fallback en localhost) no lo pise.
+  const [geoSource, setGeoSource] = useState(() => readDevCityOverride() ? "manual" : "fallback");
+  const pickCity = useCallback((city) => {
+    setSelectedCity(city);
+    setGeoSource("manual");
+  }, []);
 
   useEffect(() => {
     let cancel = false;
@@ -3409,6 +3605,32 @@ export default function AppDemo() {
         console.error("Error cargando tours, fallback a mock:", err);
       });
     return () => { cancel = true; };
+  }, []);
+
+  // Resolución de ciudad vía /api/geo. Si el usuario ya cambió manualmente
+  // (geoSource === "manual") cuando llega la respuesta, la ignoramos
+  // (race condition R2). En localhost el dev override aplicado en el
+  // inicializador de useState ya marcó geoSource = "manual", así que esta
+  // respuesta tardía no lo pisará.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/geo")
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+      .then(data => {
+        if (cancelled) return;
+        setGeoSource(prevSource => {
+          if (prevSource === "manual") return prevSource;
+          if (data?.city && SUPPORTED_CITIES.includes(data.city)) {
+            setSelectedCity(data.city);
+            return data.source === "geo" ? "geo" : "fallback";
+          }
+          return prevSource;
+        });
+      })
+      .catch(() => {
+        // Silencioso: ya tenemos Lima por defecto.
+      });
+    return () => { cancelled = true; };
   }, []);
 
   const [opTours, setOpTours] = useState(() => {
@@ -3620,7 +3842,7 @@ export default function AppDemo() {
         {view === "login" && <LoginView go={go} loginMsg={loginMsg} />}
         {view === "otp" && <OTPView go={go} />}
         {view === "welcome" && <WelcomeView go={go} />}
-        {view === "home" && <HomeView go={go} pick={setTour} cat={cat} setCat={setCat} tours={activeTours} />}
+        {view === "home" && <HomeView go={go} pick={setTour} cat={cat} setCat={setCat} tours={activeTours} selectedCity={selectedCity} setSelectedCity={pickCity} geoSource={geoSource} />}
         {view === "catalog" && <CatalogView go={go} pick={setTour} cat={cat} setCat={setCat} tours={activeTours} />}
         {view === "detail" && <DetailView tour={currentTour} go={go} pick={setTour} onBook={handleBook} reviews={reviews} />}
         {view === "booking" && <BookingView tour={currentTour} go={go} onLocalBookingSuccess={handleAddLocalTrip} />}
