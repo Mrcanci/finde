@@ -360,7 +360,7 @@ export default function FindeLanding() {
                   <button
                     type="button"
                     className="share-wa"
-                    onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent("Mira esto: finde es el primer marketplace peruano de tours con Yape y Plin. Pre-regístrate acá: https://finde-two.vercel.app")}`, "_blank")}
+                    onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent("Reserva tours auténticos en Perú con operadores verificados. Paga con Yape, Plin o tarjeta. Pre-regístrate acá: https://finde.pe")}`, "_blank")}
                   >
                     Compartir por WhatsApp
                   </button>
