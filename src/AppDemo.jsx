@@ -833,6 +833,10 @@ html{scrollbar-gutter:stable}
 .city-sh{align-items:center}
 .city-near{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:13px;color:var(--gy);font-weight:400;letter-spacing:0}
 .city-actions{display:flex;align-items:center;gap:12px}
+/* Mobile-first: el botón "Ver todos / Ver menos" se oculta en mobile porque
+   el carrusel horizontal ya permite navegar todas las cards con swipe. En
+   ≥640px (donde .tscr pasa a grid) lo restauramos. */
+.city-actions .sl{display:none}
 .city-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;border:1.5px solid var(--sd);background:white;color:var(--ch);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:.2s}
 .city-btn:hover{border-color:var(--sg);color:var(--f)}
 .city-btn .city-btn-chev{transition:transform .2s}
@@ -1239,6 +1243,12 @@ html{scrollbar-gutter:stable}
 
   .sh{padding:0;margin-bottom:20px}
   .tg{gap:16px;padding:0 0 40px}
+
+  /* Botón "Ver todos / Ver menos" solo visible en ≥640px donde .tscr es grid. */
+  .city-actions .sl{display:inline-flex;align-items:center;gap:4px}
+  /* Cuando la sección no está expandida ocultamos cards 5+ vía CSS para no
+     depender de listeners de resize ni de detección de viewport en JS. */
+  .city-tscr:not(.expanded) > .tc:nth-child(n+5){display:none}
 
   /* Selector ciudad: pasa a dropdown anclado al botón (mobile usa bottom sheet) */
   .city-sh{position:relative}
@@ -1657,10 +1667,12 @@ function HomeView({ go, pick, cat, setCat, tours, selectedCity, setSelectedCity,
   const filt = cat === "all" ? tours : tours.filter((t) => t.category === cat);
   const feat = [...filt].sort((a, b) => b.rating - a.rating || b.reviews - a.reviews).slice(0, 4);
   // Todos los tours de la ciudad ordenados por rating desc (sin rating al final).
+  // Renderizamos siempre todos: en mobile el .tscr es carrusel horizontal y
+  // muestra todos por swipe natural. En ≥640px el CSS oculta las cards 5+
+  // cuando .city-tscr no tiene la clase .expanded.
   const allCityTours = toursByCity(filt, selectedCity)
     .slice()
     .sort((a, b) => (b.rating || 0) - (a.rating || 0));
-  const visibleCityTours = cityExpanded ? allCityTours : allCityTours.slice(0, 4);
   // Cambiar de ciudad colapsa la sección para que el usuario no aterrice
   // expandido en una ciudad nueva. Aplica tanto al CitySelector como al
   // botón "Ver tours en Lima" del empty state.
@@ -1692,7 +1704,7 @@ function HomeView({ go, pick, cat, setCat, tours, selectedCity, setSelectedCity,
             {allCityTours.length > 4 && (
               <button className="sl" onClick={() => setCityExpanded((v) => !v)}>
                 {cityExpanded ? "Ver menos" : (
-                  <>Ver más <ArrowRight size={12} strokeWidth={1.5} style={{verticalAlign:"middle"}} /></>
+                  <>Ver todos <ArrowRight size={12} strokeWidth={1.5} style={{verticalAlign:"middle"}} /></>
                 )}
               </button>
             )}
@@ -1700,8 +1712,8 @@ function HomeView({ go, pick, cat, setCat, tours, selectedCity, setSelectedCity,
           </div>
         </div>
         {allCityTours.length > 0 ? (
-          <div className="tscr">
-            {visibleCityTours.map((t) => (
+          <div className={`tscr city-tscr${cityExpanded ? " expanded" : ""}`}>
+            {allCityTours.map((t) => (
               <TCard key={t.id} t={t} onClick={() => { pick(t); go("detail"); }} />
             ))}
           </div>
