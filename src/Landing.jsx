@@ -58,7 +58,7 @@ const FAQ = [
  
 export default function FindeLanding() {
   const [mode, setMode] = useState("traveler");
-  const [formData, setFormData] = useState({ name: "", email: "", phone: "", businessName: "", consent: false });
+  const [formData, setFormData] = useState({ name: "", email: "", phone: "", businessName: "", ruc: "", consent: false });
   const [submitted, setSubmitted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeMockup, setActiveMockup] = useState("search");
@@ -85,14 +85,14 @@ export default function FindeLanding() {
     return `${base}-${Math.random().toString(36).slice(2, 6)}`;
   };
  
-  // Validación email simple pero suficiente
-  const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
- 
+  // Validación condicional: si el RUC tiene contenido, debe tener 11 dígitos
+  const isValidRuc = (ruc) => ruc === "" || /^\d{11}$/.test(ruc);
+
   const handleSubmit = () => {
     if (submitting) return;
     if (!formData.consent) return;
-    if (!isValidEmail(formData.email)) return;
     if (mode === "operator" && !formData.businessName.trim()) return;
+    if (mode === "operator" && !isValidRuc(formData.ruc)) return;
 
     setSubmitting(true);
 
@@ -104,6 +104,7 @@ export default function FindeLanding() {
       email: formData.email,
       phone: formData.phone,
       businessName: formData.businessName,
+      ruc: formData.ruc,
       referralCode: code,
     });
 
@@ -126,8 +127,7 @@ export default function FindeLanding() {
  
   const canSubmit =
     formData.consent &&
-    isValidEmail(formData.email) &&
-    (mode === "traveler" || formData.businessName.trim());
+    (mode === "traveler" || (formData.businessName.trim() && isValidRuc(formData.ruc)));
  
   return (
     <>
@@ -254,13 +254,32 @@ export default function FindeLanding() {
                         type="email"
                         inputMode="email"
                         autoComplete="email"
-                        placeholder="Tu email *"
+                        placeholder="Tu email (opcional)"
                         aria-label="Tu email"
-                        aria-required="true"
                         value={formData.email}
                         onChange={e => setFormData({ ...formData, email: e.target.value })}
                       />
                     </div>
+
+                    {mode === "operator" && (
+                      <div className="field">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={11}
+                          placeholder="RUC"
+                          aria-label="RUC de tu agencia"
+                          value={formData.ruc}
+                          onChange={e => setFormData({ ...formData, ruc: e.target.value.replace(/\D/g, '').slice(0, 11) })}
+                        />
+                        {formData.ruc !== "" && formData.ruc.length !== 11 && (
+                          <div className="field-hint" style={{ color: "#C7613A" }}>
+                            El RUC debe tener 11 dígitos
+                          </div>
+                        )}
+                      </div>
+                    )}
  
                     <div className="field">
                       <div className="phone-row">
