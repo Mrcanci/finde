@@ -23,6 +23,13 @@ enum Category {
   mystic
 }
 
+enum CancellationPolicy {
+  Flexible
+  Moderada
+  Estricta
+  NoReembolsable
+}
+
 // ---------- Models ----------
 
 model Operator {
@@ -62,6 +69,17 @@ model Tour {
   imageUrl      String?
   rating        Float    @default(0)
   reviewsCount  Int      @default(0)
+
+  aiSummary     String?
+  altTour       Json?
+  tags          String[]           @default([])
+  badge         String?
+  cancellation  CancellationPolicy @default(Moderada)
+  meetingPoint  String?
+  altitude      Int?
+  days          Boolean[]          @default([true, true, true, true, true, true, true])
+  excludedDates String[]           @default([])
+  addedDates    String[]           @default([])
 
   embedding     Unsupported("vector(1024)")?
 
