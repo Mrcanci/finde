@@ -1794,11 +1794,17 @@ function CatalogView({ go, pick, cat, setCat, tours }) {
     void hasKeywordMatch;
   };
   const handleFocus = () => {
-    // Solo reabrimos el dropdown si el usuario ya estaba buscando algo. El
-    // click en input vacío no abre nada — evita el dropdown fantasma.
-    if (q.trim().length < 2 || geminiLoading) return;
-    const { results } = searchTours(tours, q, cat);
-    setLocalResults(results.slice(0, 5));
+    if (geminiLoading) return;
+    if (q.trim().length >= 2) {
+      const { results } = searchTours(tours, q, cat);
+      setLocalResults(results.slice(0, 5));
+    } else {
+      // Input vacío: limpiamos localResults stale para que
+      // el dropdown muestre solo AI_SUGGESTIONS (sugerencias
+      // curadas), NO los top-3 por reviews (esa rama causaba
+      // el "dropdown fantasma" del commit a3cf9a6).
+      setLocalResults([]);
+    }
     setShowDropdown(true);
   };
   const handleKeyDown = (e) => {
