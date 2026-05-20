@@ -1325,6 +1325,26 @@ html{scrollbar-gutter:stable}
 @media(min-width:1200px){
   .tg{grid-template-columns:repeat(4,1fr)}
 }
+
+/* ── Skeleton loading (Fase 5) ─────────────────────────
+   Consume el @keyframes shimmer existente (L649). Las cards
+   skeleton reusan .tc / .gc para no introducir CLS. */
+.skeleton{
+  background:linear-gradient(90deg,#e8e8e8 0%,#f3f3f3 50%,#e8e8e8 100%);
+  background-size:200% 100%;
+  animation:shimmer 1.4s ease-in-out infinite;
+  border-radius:6px;
+}
+.skel-card{cursor:default;pointer-events:none}
+.skel-card:hover{transform:none;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.sk-line{height:12px;margin-bottom:8px;border-radius:6px}
+.sk-loc{width:40%;height:9px}
+.sk-title{width:85%;height:15px;margin-top:2px}
+.sk-meta{width:65%;height:10px;margin-top:10px}
+.sk-price{width:35%;height:14px;margin-top:8px}
+@media (prefers-reduced-motion: reduce){
+  .skeleton{animation:none;background:#efefef}
+}
 `;
 
 // ── Reusable Components ───────────────────────────────
@@ -1407,6 +1427,34 @@ function Footer({ go }) {
         </div>
       </div>
     </footer>
+  );
+}
+
+function TCardSkeleton() {
+  return (
+    <div className="tc skel-card" aria-hidden="true">
+      <div className="tc-img skeleton" />
+      <div className="tc-b">
+        <div className="sk-line skeleton sk-loc" />
+        <div className="sk-line skeleton sk-title" />
+        <div className="sk-line skeleton sk-meta" />
+        <div className="sk-line skeleton sk-price" />
+      </div>
+    </div>
+  );
+}
+
+function GCardSkeleton() {
+  return (
+    <div className="gc skel-card" aria-hidden="true">
+      <div className="gc-img skeleton" />
+      <div className="gc-b">
+        <div className="sk-line skeleton sk-loc" />
+        <div className="sk-line skeleton sk-title" />
+        <div className="sk-line skeleton sk-meta" />
+        <div className="sk-line skeleton sk-price" />
+      </div>
+    </div>
   );
 }
 
@@ -1620,7 +1668,7 @@ function CitySelector({ selectedCity, onPick }) {
   );
 }
 
-function HomeView({ go, pick, cat, setCat, tours, selectedCity, setSelectedCity, geoSource }) {
+function HomeView({ go, pick, cat, setCat, tours, toursLoading, selectedCity, setSelectedCity, geoSource }) {
   const [cityExpanded, setCityExpanded] = useState(false);
   const filt = cat === "all" ? tours : tours.filter((t) => t.category === cat);
   const feat = [...filt].sort((a, b) => b.rating - a.rating || b.reviews - a.reviews).slice(0, 4);
@@ -1652,7 +1700,7 @@ function HomeView({ go, pick, cat, setCat, tours, selectedCity, setSelectedCity,
         </div>
         <div className="cats fd2">{CATS.map((c) => <button key={c.id} className={`chip ${cat === c.id ? "on" : ""}`} onClick={() => setCat(c.id)}><c.ic size={16} strokeWidth={1.5} /> {c.n}</button>)}</div>
         <div className="sh fd2"><div className="st">Populares este mes</div><button className="sl" onClick={() => go("catalog")}>Ver todos <ArrowRight size={12} strokeWidth={1.5} style={{verticalAlign:"middle"}} /></button></div>
-        <div className="tscr fd3">{feat.map((t) => <TCard key={t.id} t={t} onClick={() => { pick(t); go("detail"); }} />)}</div>
+        <div className="tscr fd3">{toursLoading ? Array.from({ length: 4 }).map((_, i) => <TCardSkeleton key={i} />) : feat.map((t) => <TCard key={t.id} t={t} onClick={() => { pick(t); go("detail"); }} />)}</div>
         <div className="sh city-sh" style={{ marginTop: 8 }}>
           <div className="st">
             Tours en {selectedCity}
@@ -1669,7 +1717,11 @@ function HomeView({ go, pick, cat, setCat, tours, selectedCity, setSelectedCity,
             <CitySelector selectedCity={selectedCity} onPick={handleCityChange} />
           </div>
         </div>
-        {allCityTours.length > 0 ? (
+        {toursLoading ? (
+          <div className="tscr">
+            {Array.from({ length: 4 }).map((_, i) => <TCardSkeleton key={i} />)}
+          </div>
+        ) : allCityTours.length > 0 ? (
           <div className={`tscr city-tscr${cityExpanded ? " expanded" : ""}`}>
             {allCityTours.map((t) => (
               <TCard key={t.id} t={t} onClick={() => { pick(t); go("detail"); }} />
@@ -1686,13 +1738,13 @@ function HomeView({ go, pick, cat, setCat, tours, selectedCity, setSelectedCity,
           </div>
         )}
         <div className="sh" style={{ marginTop: 8 }}><div className="st">Explora experiencias</div></div>
-        <div className="tg">{filt.map((t) => <GCard key={t.id} t={t} onClick={() => { pick(t); go("detail"); }} />)}</div>
+        <div className="tg">{toursLoading ? Array.from({ length: 8 }).map((_, i) => <GCardSkeleton key={i} />) : filt.map((t) => <GCard key={t.id} t={t} onClick={() => { pick(t); go("detail"); }} />)}</div>
       </div>
     </div>
   );
 }
 
-function CatalogView({ go, pick, cat, setCat, tours }) {
+function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
   const [q, setQ] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const [localResults, setLocalResults] = useState([]);
@@ -1920,7 +1972,12 @@ function CatalogView({ go, pick, cat, setCat, tours }) {
             <button className="sr-clear" onClick={() => { setApiReasoning(""); }}><X size={16} strokeWidth={1.5} /></button>
           </div>
         )}
-        {!geminiLoading && !(hasSearched && filt.length === 0 && apiReasoning) && (hasSearched && filt.length === 0 ? (
+        {toursLoading ? (
+          <>
+            <div style={{ paddingBottom: 12, fontSize: 13, color: "var(--gy)" }}>Cargando experiencias…</div>
+            <div className="tg">{Array.from({ length: 8 }).map((_, i) => <GCardSkeleton key={i} />)}</div>
+          </>
+        ) : !geminiLoading && !(hasSearched && filt.length === 0 && apiReasoning) && (hasSearched && filt.length === 0 ? (
           <div style={{ padding: "32px 16px 24px", textAlign: "center", color: "var(--gy)", minHeight: 180 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ch)", marginBottom: 6 }}>No se encontraron resultados</div>
             <div style={{ fontSize: 12, lineHeight: 1.5 }}>Prueba con otras palabras o explora por categoría.</div>
@@ -3538,6 +3595,7 @@ export default function AppDemo() {
   const [notifs, setNotifs] = useState(NOTIFS);
   const [isOperator, setIsOperator] = useState(false);
   const [tours, setTours] = useState([]);
+  const [toursLoading, setToursLoading] = useState(true);
   // Feature "Tours en [ciudad]": ciudad mostrada en la sección. Arranca en
   // Lima para evitar flash/CLS antes de que llegue /api/geo. geoSource permite
   // ignorar respuestas tardías de la geo si el usuario ya eligió manualmente.
@@ -3596,6 +3654,9 @@ export default function AppDemo() {
       })
       .catch(err => {
         console.error("Error cargando tours:", err);
+      })
+      .finally(() => {
+        if (!cancel) setToursLoading(false);
       });
     return () => { cancel = true; };
   }, []);
@@ -3808,8 +3869,8 @@ export default function AppDemo() {
         {view === "login" && <LoginView go={go} loginMsg={loginMsg} />}
         {view === "otp" && <OTPView go={go} />}
         {view === "welcome" && <WelcomeView go={go} />}
-        {view === "home" && <HomeView go={go} pick={setTour} cat={cat} setCat={setCat} tours={activeTours} selectedCity={selectedCity} setSelectedCity={pickCity} geoSource={geoSource} />}
-        {view === "catalog" && <CatalogView go={go} pick={setTour} cat={cat} setCat={setCat} tours={activeTours} />}
+        {view === "home" && <HomeView go={go} pick={setTour} cat={cat} setCat={setCat} tours={activeTours} toursLoading={toursLoading} selectedCity={selectedCity} setSelectedCity={pickCity} geoSource={geoSource} />}
+        {view === "catalog" && <CatalogView go={go} pick={setTour} cat={cat} setCat={setCat} tours={activeTours} toursLoading={toursLoading} />}
         {view === "detail" && <DetailView tour={currentTour} go={go} pick={setTour} onBook={handleBook} reviews={reviews} />}
         {view === "booking" && <BookingView tour={currentTour} go={go} onLocalBookingSuccess={handleAddLocalTrip} />}
         {view === "notifications" && <NotifsView notifs={notifs} setNotifs={setNotifs} />}
