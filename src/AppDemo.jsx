@@ -208,23 +208,6 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
   );
 }
 
-const TOURS = [
-  { id:1, title:"Trekking al Nevado Pastoruri", titleQu:"Pastoruri Ritiq Qaqaman Puriy", location:"Huaraz, Áncash", price:189, rating:4.7, reviews:3, duration:"Full day", image:"https://images.unsplash.com/photo-1522409994346-2682217b9a3e?w=400&h=300&fit=crop", badge:"Más vendido", category:"trekking", operator:"Andes Trek Perú", verified:true, capacity:12, altitude:"5,240", difficulty:"Moderada", cancellation:"estricta", meetingPoint:"Hotel Andino Club, Av. Pedro Cochachín 357, Huaraz", included:["Transporte ida y vuelta","Guía certificado","Almuerzo buffet","Entrada al parque","Oxígeno portátil"], excluded:["Propinas","Snacks"], desc:"Camina hasta el glaciar tropical más accesible del mundo a 5,240 msnm. Atraviesa paisajes de puya Raimondi y lagunas turquesa en la Cordillera Blanca.", descQu:"Kay ritiq qaqaqa tukuy pachapi aswan ñawpaq kachkan, 5,240 metrokunapi. Puya Raimondi sachakuna, qucha turquesa ñawinkuna Cordillera Blancapi.", aiSummary:"Los viajeros destacan el paisaje impactante y la buena organización. Algunos mencionan que la altitud puede ser desafiante.", altTour:{ name:"Pastoruri", alt:"Laguna 69 (menos masificada)", reason:"Similar paisaje glaciar con 60% menos visitantes" }, tags:["glaciar","altitud","naturaleza","cordillera"] },
-  { id:2, title:"Tour Gastronómico por Lima", titleQu:"Lima Llaqtapi Mikhuy Puriy", location:"Miraflores, Lima", price:145, rating:4.7, reviews:3, duration:"4 horas", image:"https://images.unsplash.com/photo-1535400255456-984241443b29?w=400&h=300&fit=crop", badge:"Top rated", category:"gastro", operator:"Lima Foodie Tours", verified:true, capacity:8, altitude:"0", difficulty:"Fácil", cancellation:"moderada", meetingPoint:"Larcomar, frente a la entrada principal de Saga Falabella, Miraflores", included:["6 paradas gastronómicas","Degustaciones ilimitadas","Pisco sour de bienvenida","Guía bilingüe"], excluded:["Bebidas alcohólicas extra","Transporte al punto"], desc:"Recorre los mercados y huariques secretos de Miraflores y Barranco. Prueba ceviche, anticuchos, causa y picarones con los mejores cocineros locales.", descQu:"Miraflores, Barranco llaqtakunapi mikhuy qhatukunata, pakasqa wasikunata purimuy. Ceviche, anticucho, causa, picarón mikhuykunata llamk'aq wayk'uqkunawan.", aiSummary:"Experiencia altamente recomendada. Destacan la cantidad de comida y el conocimiento del guía. La mejor valorada de Lima.", altTour:null, tags:["comida","lima","ceviche","mercado"] },
-  { id:3, title:"Islas Ballestas + Paracas", titleQu:"Ballestas Wat'akunapi + Paracas", location:"Paracas, Ica", price:120, rating:4.5, reviews:2, duration:"Full day", image:"https://images.unsplash.com/photo-1694946733518-8e726bd7df24?w=400&h=300&fit=crop", badge:"Cancelación gratis", category:"nature", operator:"Paracas Explorer", verified:true, capacity:20, altitude:"0", difficulty:"Fácil", cancellation:"moderada", meetingPoint:"Embarcadero turístico de Paracas, frente a la oficina de capitanía", included:["Lancha a Islas Ballestas","Tour Reserva Nacional","Guía naturalista","Recojo del hotel"], excluded:["Almuerzo","Entrada a museo"], desc:"Navega entre lobos marinos, pingüinos de Humboldt y El Candelabro.", descQu:"Uywa qucha ukhupi, Humboldt pingüinokunawan, Candelabro rikuyniwan purimuy.", aiSummary:"Muy popular, pero algunos reportan masificación en temporada alta. Recomiendan ir temprano.", altTour:{ name:"Islas Ballestas", alt:"Reserva San Fernando (Nazca)", reason:"Fauna marina similar, casi sin turistas. 95% menos saturación" }, tags:["mar","fauna","lobos marinos","lancha"] },
-  { id:4, title:"Valle Sagrado en un Día", titleQu:"Huk P'unchaypi Valle Sagrado", location:"Cusco", price:210, rating:4.5, reviews:4, duration:"10 horas", image:"https://images.unsplash.com/photo-1568729670692-0d2de9a3c027?w=400&h=300&fit=crop", badge:"Más vendido", category:"culture", operator:"Cusco Sacred Tours", verified:true, capacity:15, altitude:"3,400", difficulty:"Fácil", cancellation:"moderada", meetingPoint:"Plaza Regocijo, Cusco, frente a la oficina de información turística", included:["Transporte","Guía profesional","Almuerzo buffet","Entradas Pisac y Ollantaytambo"], excluded:["Boleto turístico","Propinas"], desc:"Visita Pisac, Ollantaytambo y Chinchero en un recorrido por el corazón del imperio Inca.", descQu:"Pisac, Ollantaytambo, Chinchero llaqtakunata watukuy, Inka suyuq sunqunpi.", aiSummary:"Tour clásico bien organizado. Algunos sienten que es apurado para cubrir todo. Guías excelentes.", altTour:{ name:"Valle Sagrado clásico", alt:"Valle Sur de Cusco (Tipón + Pikillacta)", reason:"Ruinas pre-incas sin multitudes. Solo 5% del tráfico del Valle Sagrado" }, tags:["inca","ruinas","cusco","historia"] },
-  { id:5, title:"Sandboarding en Huacachina", titleQu:"Huacachina Tiyupi Sandboarding", location:"Ica", price:85, rating:4.5, reviews:2, duration:"3 horas", image:"https://images.unsplash.com/photo-1723134087756-3fdd46625a84?w=400&h=300&fit=crop", badge:"Aventura", category:"adventure", operator:"Desert Adventures Ica", verified:true, capacity:10, altitude:"400", difficulty:"Moderada", cancellation:"flexible", meetingPoint:"Plaza de Armas de Ica, frente al monumento principal", included:["Buggy arenero","Tabla de sandboard","Instructor","Fotos y video"], excluded:["Transporte a Huacachina","Bebidas"], desc:"Sube dunas de hasta 100 metros en buggy y deslízate sobre la arena dorada del oasis.", descQu:"Pachak metro tiyukunaman buggy-pi wichay, quri t'iyu patapi uraykamuy.", aiSummary:"Adrenalina pura. Algunos mencionan que el buggy puede ser intenso para niños pequeños.", altTour:null, tags:["aventura","desierto","adrenalina","oasis"] },
-  { id:6, title:"Avistamiento de Ballenas", titleQu:"Hatun Challwakunata Qhaway", location:"Los Órganos, Piura", price:160, rating:5.0, reviews:2, duration:"3 horas", image:"https://images.unsplash.com/photo-1723748651613-e24586599f30?w=400&h=300&fit=crop", badge:"Temporada", category:"nature", operator:"Máncora Marine", verified:true, capacity:12, altitude:"0", difficulty:"Fácil", cancellation:"flexible", meetingPoint:"Embarcadero de Los Órganos, Piura (frente a la caseta del muelle)", included:["Embarcación equipada","Guía biólogo marino","Chaleco","Snack"], excluded:["Transporte","Protector solar"], desc:"Ballenas jorobadas migran frente a la costa norte del Perú entre agosto y octubre.", descQu:"Agosto-octubre killapi hatun challwakuna Perú wichay qucha patanpi purinku.", aiSummary:"Experiencia inolvidable cuando hay avistamiento. Biólogo muy informativo. Temporada: ago-oct.", altTour:null, tags:["ballenas","mar","piura","naturaleza"] },
-  { id:7, title:"Choquequirao: El Otro Machu Picchu", titleQu:"Choquequirao: Huknin Machu Picchu", location:"Apurímac", price:450, rating:5.0, reviews:2, duration:"4 días", image:"https://images.unsplash.com/photo-1664659457566-143cf6d45812?w=400&h=300&fit=crop", badge:"Anti-overtourism", category:"trekking", operator:"Apurímac Treks", verified:true, capacity:8, altitude:"3,033", difficulty:"Alta", cancellation:"estricta", meetingPoint:"Plaza Regocijo, Cusco, frente al Café El Encuentro (recogemos a las 4:00 AM)", included:["Guía profesional","Cocinero","Equipo de camping","3 noches campamento","Todas las comidas","Mulas de carga"], excluded:["Saco de dormir","Bastones"], desc:"Solo 30 visitantes al día vs. 4,500 en Machu Picchu. Ruinas incas espectaculares con 70% sin excavar, a las que solo se llega caminando 2 días.", descQu:"Sapa p'unchay kinsa chunka watukuqkuna Machu Picchu waranqa tawa pachak pichqayuq runa rantipi. Inka llaqta mana riqsisqa, iskay p'unchay puriylla.", aiSummary:"Experiencia transformadora según todos los viajeros. Exigente físicamente pero incomparable. Sin multitudes.", altTour:null, tags:["trekking","ruinas","alternativo","sin turistas"] },
-  { id:8, title:"Cañón del Colca 2D/1N", titleQu:"Colca Wayq'opi Iskay P'unchay", location:"Arequipa", price:175, rating:4.3, reviews:3, duration:"2 días", image:"https://images.unsplash.com/photo-1489229185904-38aa7e8f4790?w=400&h=300&fit=crop", badge:"2 días", category:"trekking", operator:"Colca Expedition", verified:true, capacity:12, altitude:"3,270", difficulty:"Alta", cancellation:"estricta", meetingPoint:"Plaza de Armas de Arequipa, frente a la catedral", included:["Transporte","1 noche Chivay","Desayuno y almuerzo","Guía","Aguas termales"], excluded:["Entrada cañón S/70","Cena"], desc:"El cañón más profundo del mundo y cóndores al amanecer.", descQu:"Tukuy pachapi aswan ukhu wayq'o, kunturkunaq paqarin phaway rikuyninwan.", aiSummary:"Cóndores al amanecer es el highlight absoluto. El trek es exigente. Aguas termales perfectas para recuperarse.", altTour:null, tags:["cañón","cóndor","trekking","arequipa"] },
-  { id:9, title:"Sandboarding & Buggy en Paracas", titleQu:"", location:"Paracas, Ica", price:110, rating:4.7, reviews:3, duration:"3 horas", image:"https://images.unsplash.com/photo-1509316785289-025f5b846b35?w=400&h=300&fit=crop", badge:"Aventura", category:"adventure", operator:"Paracas Adventure Tours", verified:true, capacity:12, altitude:"400", difficulty:"Moderada", cancellation:"moderada", meetingPoint:"Hotel Paracas Luxury Collection, Av. Paracas s/n, lobby principal", included:["Buggy","Sandboard","Instructor","Seguro","Fotos con drone"], excluded:["Transporte desde Lima","Propinas","Bebidas"], desc:"Adrenalina pura en las dunas de Paracas. Recorre el desierto en buggy a toda velocidad y deslízate por las dunas más altas en sandboard. Incluye atardecer en el desierto con vista al océano.", descQu:"", aiSummary:"Los viajeros destacan la adrenalina del buggy y las fotos con drone. El atardecer en las dunas es el momento favorito.", altTour:null, tags:["aventura","desierto","sandboarding","buggy","paracas"] },
-  { id:10, title:"Trekking al Nevado Rajuntay", titleQu:"", location:"Marcapomacocha, Lima", price:195, rating:4.7, reviews:3, duration:"Full day", image:"https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=400&h=300&fit=crop", badge:"Alta montaña", category:"trekking", operator:"Lima Trek Expeditions", verified:true, capacity:10, altitude:"5,470", difficulty:"Alta", cancellation:"estricta", meetingPoint:"Plaza Norte, Lima, frente a Tottus (recogemos a las 3:00 AM)", included:["Transporte desde Lima","Guía certificado","Desayuno","Equipo de seguridad","Crampones"], excluded:["Almuerzo","Equipo personal","Seguro de montaña"], desc:"Conquista uno de los nevados más accesibles desde Lima. Camina sobre glaciares a más de 5,000 msnm con vistas panorámicas de la Cordillera Central. Salida desde Lima a las 3am, ideal para montañistas con experiencia en altura.", descQu:"", aiSummary:"Experiencia desafiante pero gratificante. El glaciar a 5,400m es el punto culminante. Solo para personas con buena condición física.", altTour:null, tags:["trekking","nevado","glaciar","lima","alta montaña"] },
-  { id:11, title:"Playa La Mina & Reserva de Paracas", titleQu:"", location:"Paracas, Ica", price:85, rating:4.7, reviews:3, duration:"Full day", image:"https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&h=300&fit=crop", badge:"Familiar", category:"beach", operator:"Paracas Beach Tours", verified:true, capacity:20, altitude:"0", difficulty:"Fácil", cancellation:"flexible", meetingPoint:"Embarcadero turístico de Paracas, frente a la oficina de capitanía", included:["Transporte desde Paracas","Entrada a la reserva","Guía","Cooler con agua"], excluded:["Almuerzo","Snorkel","Sombrilla"], desc:"Descubre la playa más hermosa de la costa peruana. Aguas turquesa, arena blanca y cero olas. Perfecta para familias. Incluye recorrido por la Reserva Nacional de Paracas con paradas en la Catedral y el mirador de lobos marinos.", descQu:"", aiSummary:"Playa La Mina es el destino favorito para familias. Aguas cristalinas y tranquilas. El recorrido por la reserva complementa perfectamente.", altTour:null, tags:["playa","familia","paracas","naturaleza","lobos marinos"] },
-  { id:12, title:"Castillo de Chancay & Puerto", titleQu:"", location:"Chancay, Lima", price:65, rating:4.3, reviews:3, duration:"6 horas", image:"https://images.unsplash.com/photo-1533929736458-ca588d08c8be?w=400&h=300&fit=crop", badge:"Cerca de Lima", category:"culture", operator:"Lima Cultural Tours", verified:true, capacity:25, altitude:"43", difficulty:"Fácil", cancellation:"flexible", meetingPoint:"Estación Naranjal del Metropolitano, salida principal (recogemos a las 8:00 AM)", included:["Transporte desde Lima","Entrada al castillo","Guía","Almuerzo de mariscos"], excluded:["Bebidas","Souvenirs","Propinas"], desc:"Visita el icónico Castillo de Chancay, una fortaleza frente al mar construida en los años 20. Recorre sus torres, pasadizos secretos y disfruta de la vista al Pacífico. Incluye parada en el nuevo Puerto de Chancay y almuerzo de mariscos frescos en el malecón.", descQu:"", aiSummary:"El castillo sorprende a todos los visitantes. El almuerzo de mariscos en el puerto es el highlight. Muy accesible desde Lima.", altTour:null, tags:["castillo","chancay","cultura","mariscos","lima"] },
-  { id:13, title:"Lima de Noche: Circuito Mágico del Agua", titleQu:"", location:"Lima, Lima", price:55, rating:4.7, reviews:3, duration:"4 horas", image:"https://images.unsplash.com/photo-1555217851-6141535bd771?w=400&h=300&fit=crop", badge:"Nocturno", category:"culture", operator:"Lima Night Tours", verified:true, capacity:30, altitude:"154", difficulty:"Fácil", cancellation:"moderada", meetingPoint:"Hotel Marriott Miraflores, Malecón de la Reserva 615, lobby principal", included:["Transporte","Guía bilingüe","Entrada al Circuito Mágico del Agua"], excluded:["Cena","Bebidas","Propinas"], desc:"Descubre Lima iluminada. Recorre la Plaza Mayor, la Catedral y el Palacio de Gobierno de noche. Termina en el Circuito Mágico del Agua con su espectáculo de luces, música y fuentes danzantes. El tour nocturno más popular de Lima.", descQu:"", aiSummary:"Lima de noche es mágica según los viajeros. Las fuentes del Circuito Mágico son el punto culminante. Perfecto para familias y parejas.", altTour:null, tags:["lima","noche","fuentes","cultura","centro histórico"] },
-  { id:14, title:"Lunahuaná: Canotaje + Canopy + Vino", titleQu:"", location:"Lunahuaná, Lima", price:175, rating:4.7, reviews:3, duration:"Full day", image:"https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=400&h=300&fit=crop", badge:"Combo", category:"adventure", operator:"Lunahuaná Extremo", verified:true, capacity:14, altitude:"479", difficulty:"Moderada", cancellation:"moderada", meetingPoint:"Estación de buses CIVA, Av. Javier Prado Este 1109 (recogemos a las 6:00 AM)", included:["Transporte desde Lima","Rafting","Canopy","Degustación de vinos","Almuerzo campestre"], excluded:["Fotos y videos","Propinas","Compras en bodega"], desc:"El combo perfecto: adrenalina + relax. Baja los rápidos del río Cañete en rafting clase III, cruza el valle en canopy con vistas increíbles, y termina con degustación de vinos y piscos en una bodega artesanal. A solo 3 horas de Lima.", descQu:"", aiSummary:"La combinación de aventura y relax es lo que más destacan. El rafting es emocionante y la degustación de vinos el cierre perfecto.", altTour:null, tags:["aventura","rafting","canopy","vino","lunahuaná","lima"] },
-];
-
 const CAT_API_TO_UI = { cultural: "culture", gastronomy: "gastro" };
 const CAT_UI_TO_API = { culture: "cultural", gastro: "gastronomy" };
 
@@ -402,85 +385,15 @@ const NOTIFS = [
   { id:6, type:"quechua", title:"Nuevo: tours en quechua", body:"3 operadores ahora tienen descripciones en runasimi.", time:"Hace 5 días", read:true, icon:Languages },
 ];
 
-const MY_TRIPS = [
-  { id:101, tour:TOURS[0], date:"19 May 2026", guests:2, total:378, status:"upcoming", code:"FND-8K3M2P" },
-  { id:102, tour:TOURS[1], date:"25 Abr 2026", guests:3, total:435, status:"upcoming", code:"FND-4J7N1Q" },
-  { id:103, tour:TOURS[4], date:"02 Abr 2026", guests:2, total:170, status:"completed", code:"FND-9R2L5X", reviewed:false },
-  { id:104, tour:TOURS[3], date:"15 Mar 2026", guests:4, total:840, status:"completed", code:"FND-1T8W3V", reviewed:true },
-];
+// Fase 3.1: vaciado tras eliminar el array TOURS hardcoded. Fase 3.2
+// rehidrata desde el fetch /api/tours usando CUIDs reales.
+const MY_TRIPS = [];
 
-const REVIEWS = {
-  1: [
-    { id:1, author:"Carlos M.", avatar:"CM", rating:5, text:"Experiencia increíble. El nevado Pastoruri es impresionante y el guía muy profesional. Recomiendo llevar ropa abrigada y hojas de coca para la altura.", date:"12 Abr 2026" },
-    { id:2, author:"Sofía R.", avatar:"SR", rating:4, text:"Hermoso paisaje, pero la altitud me afectó bastante. Lleven agua y vayan preparados.", date:"28 Mar 2026" },
-    { id:3, author:"Diego L.", avatar:"DL", rating:5, text:"Lo mejor de Huaraz sin duda. Nuestro guía Jorge fue espectacular explicando sobre el cambio climático y los glaciares.", date:"15 Mar 2026" },
-  ],
-  2: [
-    { id:4, author:"Valentina P.", avatar:"VP", rating:5, text:"La mejor experiencia gastronómica que he tenido. Probamos ceviche, anticuchos, causa y más. El guía conocía cada rincón de Lima.", date:"10 Abr 2026" },
-    { id:5, author:"Martín G.", avatar:"MG", rating:5, text:"Increíble recorrido. Mucha comida, muy buenas explicaciones. Perfecto para foodies.", date:"02 Abr 2026" },
-    { id:6, author:"Ana B.", avatar:"AB", rating:4, text:"Muy rico todo, pero el grupo era un poco grande. Hubiera preferido algo más íntimo.", date:"20 Mar 2026" },
-  ],
-  3: [
-    { id:7, author:"Pedro C.", avatar:"PC", rating:5, text:"Las Islas Ballestas son impresionantes. Vimos lobos marinos, pingüinos y miles de aves. Ir temprano es clave.", date:"05 Abr 2026" },
-    { id:8, author:"Lucía F.", avatar:"LF", rating:4, text:"Bonito tour pero en temporada alta hay demasiada gente. La Reserva de Paracas es hermosa.", date:"22 Mar 2026" },
-  ],
-  4: [
-    { id:9, author:"Alejandra Quispe", avatar:"AQ", rating:5, text:"Increíble recorrido por el Valle Sagrado. Ollantaytambo fue mi parte favorita. Los guías son muy conocedores de la historia inca.", date:"15 Mar 2026" },
-    { id:10, author:"Roberto H.", avatar:"RH", rating:4, text:"Buen tour pero algo apurado. Se intenta cubrir mucho en un solo día. Los sitios arqueológicos son espectaculares.", date:"08 Mar 2026" },
-    { id:11, author:"Camila S.", avatar:"CS", rating:5, text:"Perfecto para conocer lo esencial del Valle Sagrado. El almuerzo buffet en Urubamba estuvo delicioso.", date:"01 Mar 2026" },
-    { id:12, author:"Fernando T.", avatar:"FT", rating:4, text:"Buenos guías y buena organización. Pisac y su mercado artesanal es imperdible.", date:"20 Feb 2026" },
-  ],
-  5: [
-    { id:13, author:"Mateo V.", avatar:"MV", rating:5, text:"Adrenalina pura! El sandboarding y el buggy por las dunas fue lo más divertido del viaje. 100% recomendado.", date:"01 Abr 2026" },
-    { id:14, author:"Isabella D.", avatar:"ID", rating:4, text:"Muy divertido pero no apto para personas que se marean fácil. El atardecer desde las dunas es mágico.", date:"25 Mar 2026" },
-  ],
-  6: [
-    { id:15, author:"Gabriela N.", avatar:"GN", rating:5, text:"Ver ballenas jorobadas en su hábitat natural fue emocionante. El biólogo a bordo explicó todo con mucho detalle.", date:"15 Oct 2025" },
-    { id:16, author:"Andrés K.", avatar:"AK", rating:5, text:"Una experiencia que no se puede describir con palabras. Tuvimos suerte de ver una madre con su cría.", date:"02 Oct 2025" },
-  ],
-  7: [
-    { id:17, author:"Tomás W.", avatar:"TW", rating:5, text:"La caminata más desafiante que he hecho pero también la más gratificante. Sin turistas, naturaleza pura. Choquequirao es mágico.", date:"10 Mar 2026" },
-    { id:18, author:"Paula E.", avatar:"PE", rating:5, text:"Si estás en buena forma física, no lo dudes. Es mejor que Machu Picchu por la soledad y la inmensidad del lugar.", date:"28 Feb 2026" },
-  ],
-  8: [
-    { id:19, author:"Nicolás J.", avatar:"NJ", rating:5, text:"Ver los cóndores al amanecer en Cruz del Cóndor fue el momento más especial de todo mi viaje por Perú.", date:"08 Abr 2026" },
-    { id:20, author:"Elena M.", avatar:"EM", rating:4, text:"El trek es exigente pero vale la pena. Las aguas termales al final son la mejor recompensa.", date:"30 Mar 2026" },
-    { id:21, author:"Joaquín R.", avatar:"JR", rating:4, text:"Muy buen tour de 2 días. Chivay es un pueblo encantador. Llevar protector solar, el sol es fuerte.", date:"22 Mar 2026" },
-  ],
-  9: [
-    { id:22, author:"Miguel T.", avatar:"MT", rating:5, text:"Increíble experiencia. El buggy es una locura y el sandboarding súper divertido. El atardecer en las dunas fue espectacular.", date:"05 Abr 2026" },
-    { id:23, author:"Carla S.", avatar:"CS", rating:4, text:"Muy divertido aunque un poco corto. El instructor fue muy paciente enseñándonos a surfear en la arena.", date:"28 Mar 2026" },
-    { id:24, author:"Roberto L.", avatar:"RL", rating:5, text:"Lo mejor que hicimos en Ica. Las fotos con drone quedaron increíbles. Totalmente recomendado.", date:"15 Mar 2026" },
-  ],
-  10: [
-    { id:25, author:"Andrés M.", avatar:"AM", rating:5, text:"Experiencia de otro nivel. Pisar el glaciar a 5,400m fue emocionante. El guía Luis es un crack, muy profesional.", date:"08 Abr 2026" },
-    { id:26, author:"Patricia V.", avatar:"PV", rating:4, text:"Durísimo pero vale cada sol. Salimos de Lima a las 3am y valió la pena. Llevar mucha agua y coca.", date:"22 Mar 2026" },
-    { id:27, author:"Fernando G.", avatar:"FG", rating:5, text:"El mejor trekking cerca de Lima. Las vistas desde la cumbre son impresionantes. Solo para gente con buena condición física.", date:"10 Mar 2026" },
-  ],
-  11: [
-    { id:28, author:"Lucía R.", avatar:"LR", rating:5, text:"Playa La Mina es un paraíso escondido. El agua es cristalina y tranquila, perfecta para ir con niños.", date:"12 Abr 2026" },
-    { id:29, author:"Jorge H.", avatar:"JH", rating:5, text:"No pensé que Perú tenía playas así. El recorrido por la reserva también fue genial, vimos lobos marinos de cerca.", date:"01 Abr 2026" },
-    { id:30, author:"Daniela M.", avatar:"DM", rating:4, text:"Hermosa playa pero llevar su propia comida porque no hay restaurantes cerca. El guía muy amable.", date:"20 Mar 2026" },
-  ],
-  12: [
-    { id:31, author:"María E.", avatar:"ME", rating:4, text:"El castillo es hermoso y la historia fascinante. El almuerzo de mariscos en el puerto fue lo mejor.", date:"15 Abr 2026" },
-    { id:32, author:"Carlos P.", avatar:"CP", rating:5, text:"No sabía que existía este lugar tan cerca de Lima. El castillo parece sacado de Europa. Muy recomendado para familias.", date:"05 Abr 2026" },
-    { id:33, author:"Ana L.", avatar:"AL", rating:4, text:"Bonito paseo de medio día. El guía sabía mucho de la historia de Chancay. El puerto nuevo está impresionante.", date:"25 Mar 2026" },
-  ],
-  13: [
-    { id:34, author:"Sofía K.", avatar:"SK", rating:5, text:"Lima de noche es mágica. Las fuentes del Circuito Mágico son impresionantes, especialmente con niños.", date:"18 Abr 2026" },
-    { id:35, author:"David R.", avatar:"DR", rating:4, text:"Buen tour para conocer el centro histórico sin el calor del día. El guía Raúl fue excelente.", date:"08 Abr 2026" },
-    { id:36, author:"Isabella M.", avatar:"IM", rating:5, text:"Perfecta primera noche en Lima. Te da una buena perspectiva de la ciudad antes de explorar por tu cuenta.", date:"28 Mar 2026" },
-  ],
-  14: [
-    { id:37, author:"Renato C.", avatar:"RC", rating:5, text:"El mejor full day desde Lima. El rafting es emocionante, el canopy tiene vistas brutales y el vino artesanal riquísimo.", date:"20 Abr 2026" },
-    { id:38, author:"Camila B.", avatar:"CB", rating:5, text:"Fui con mis amigos y la pasamos increíble. El almuerzo campestre fue abundante y delicioso. Volveremos seguro.", date:"10 Abr 2026" },
-    { id:39, author:"Eduardo S.", avatar:"ES", rating:4, text:"Muy buena combinación de aventura y relax. El único pero es que el viaje de regreso a Lima es largo con tráfico.", date:"01 Abr 2026" },
-  ],
-};
+// Fase 3.1: eliminado el diccionario REVIEWS (claves 1-14 ya no aplican
+// porque los tours ahora usan CUIDs del API). reviews[cuid] retorna
+// undefined y cae al fallback determinístico generateMockReviews.
 
 // Pools determinísticos para reseñas mock de tours del API (CUIDs).
-// Los locales (IDs 1-14) tienen sus propias entradas en REVIEWS y se respetan.
 const REVIEW_AUTHORS = [
   { author: "María García", avatar: "MG" },
   { author: "Carlos Mendoza", avatar: "CM" },
@@ -3573,7 +3486,7 @@ export default function AppDemo() {
   const [cat, setCat] = useState("all");
   const [notifs, setNotifs] = useState(NOTIFS);
   const [isOperator, setIsOperator] = useState(false);
-  const [tours, setTours] = useState(() => TOURS.map(ensureAvailabilityFields));
+  const [tours, setTours] = useState([]);
   // Feature "Tours en [ciudad]": ciudad mostrada en la sección. Arranca en
   // Lima para evitar flash/CLS antes de que llegue /api/geo. geoSource permite
   // ignorar respuestas tardías de la geo si el usuario ya eligió manualmente.
@@ -3586,6 +3499,10 @@ export default function AppDemo() {
     setGeoSource("manual");
   }, []);
 
+  // Fase 3.1: opTours se inicializa vacío. Se hidrata desde el fetch de
+  // /api/tours en el useEffect de abajo (antes leía de TOURS hardcoded).
+  const [opTours, setOpTours] = useState([]);
+
   useEffect(() => {
     let cancel = false;
     fetch("/api/tours?limit=50")
@@ -3593,28 +3510,41 @@ export default function AppDemo() {
       .then(data => {
         if (cancel) return;
         const apiMapped = (data.tours || []).map(mapTourFromApi).map(ensureAvailabilityFields);
-        // Merge API + locales: el API no devuelve algunos mocks que TripsView/NOTIFS
-        // referencian (ej. Sandboarding en Huacachina). Conservamos los locales no
-        // presentes en API, deduplicando por título y reasignando IDs si chocan.
-        const norm = (s) => (s || "").toLowerCase().trim();
-        const apiTitles = new Set(apiMapped.map(t => norm(t.title)));
-        const usedIds = new Set(apiMapped.map(t => t.id));
-        let nextId = apiMapped.reduce((m, t) => Math.max(m, Number(t.id) || 0), 0) + 10000;
-        const localOnly = TOURS
-          .map(ensureAvailabilityFields)
-          .filter(t => !apiTitles.has(norm(t.title)))
-          .map(t => {
-            if (!usedIds.has(t.id)) { usedIds.add(t.id); return t; }
-            const newId = nextId++;
-            usedIds.add(newId);
-            return { ...t, id: newId };
-          });
-        if (apiMapped.length > 0 || localOnly.length > 0) {
-          setTours([...apiMapped, ...localOnly]);
-        }
+        setTours(apiMapped);
+        // Fase 3.1: opTours antes se seedea desde TOURS hardcoded. Ahora se
+        // hidrata desde el mismo fetch del API. Tomamos los primeros 4 tours
+        // como "tours del operador demo" (primeros 3 activos, 4to inactivo)
+        // y preservamos la misma forma que esperaba el dashboard del operador.
+        setOpTours(prev => {
+          if (prev.length > 0) return prev;
+          return apiMapped.slice(0, 4).map((t, i) => ({
+            id: i + 1,
+            tourId: t.id,
+            active: true,
+            image: t.image,
+            title: t.title || "",
+            location: t.location || "",
+            duration: t.duration || "",
+            price: t.price || 0,
+            rating: t.rating || 0,
+            reviews: t.reviews || 0,
+            category: t.category || "adventure",
+            capacity: String(t.capacity || ""),
+            difficulty: t.difficulty || "Moderada",
+            description: t.desc || "",
+            included: Array.isArray(t.included) ? t.included.join(", ") : (t.included || ""),
+            excluded: Array.isArray(t.excluded) ? t.excluded.join(", ") : (t.excluded || ""),
+            days: DEFAULT_DAYS,
+            excludedDates: [],
+            addedDates: [],
+            startTime: "08:00",
+            cancellation: "flexible",
+            photo: null,
+          }));
+        });
       })
       .catch(err => {
-        console.error("Error cargando tours, fallback a mock:", err);
+        console.error("Error cargando tours:", err);
       });
     return () => { cancel = true; };
   }, []);
@@ -3645,38 +3575,11 @@ export default function AppDemo() {
     return () => { cancelled = true; };
   }, []);
 
-  const [opTours, setOpTours] = useState(() => {
-    const fromTour = (id, tourId, active, image) => {
-      const t = TOURS.find(x => x.id === tourId) || {};
-      return {
-        id, tourId, active, image,
-        title: t.title || "",
-        location: t.location || "",
-        duration: t.duration || "",
-        price: t.price || 0,
-        rating: t.rating || 0,
-        reviews: t.reviews || 0,
-        category: t.category || "adventure",
-        capacity: String(t.capacity || ""),
-        difficulty: t.difficulty || "Moderada",
-        description: t.desc || "",
-        included: Array.isArray(t.included) ? t.included.join(", ") : (t.included || ""),
-        excluded: Array.isArray(t.excluded) ? t.excluded.join(", ") : (t.excluded || ""),
-        days: DEFAULT_DAYS,
-        excludedDates: [],
-        addedDates: [],
-        startTime: "08:00",
-        cancellation: "flexible",
-        photo: null,
-      };
-    };
-    return TOURS.map((t, i) => fromTour(i + 1, t.id, true, t.image));
-  });
   const [editingTour, setEditingTour] = useState(null);
   const [dashTab, setDashTab] = useState("bookings");
   const [loggedIn, setLoggedIn] = useState(false);
   const [loginMsg, setLoginMsg] = useState("");
-  const [reviews, setReviews] = useState(REVIEWS);
+  const [reviews, setReviews] = useState({});
   const [trips, setTrips] = useState(MY_TRIPS);
   const [currentTrip, setCurrentTrip] = useState(null);
   const ref = useRef(null);
