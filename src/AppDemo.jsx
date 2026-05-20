@@ -244,12 +244,12 @@ function mapTourFromApi(t) {
 }
 
 const AI_SUGGESTIONS = [
-  { query: "algo tranquilo con niños sin mucha altitud", results: [2, 11, 13, 3], reason: "Baja altitud + actividades familiares" },
-  { query: "aventura extrema para jóvenes", results: [5, 9, 14, 1, 10], reason: "Alta adrenalina + desafío físico" },
-  { query: "tour barato con almuerzo incluido", results: [13, 12, 5, 11, 3], reason: "Precio accesible + almuerzo en inclusiones" },
-  { query: "qué hacer en feriado largo de mayo", results: [14, 3, 4, 8, 11], reason: "Multi-día o full day + temporada seca" },
-  { query: "sin turistas y naturaleza pura", results: [7, 6, 11, 8], reason: "Baja masificación + naturaleza" },
-  { query: "planes cerca de Lima para el fin de semana", results: [12, 13, 14, 2, 11], reason: "Destinos accesibles desde Lima" },
+  { query: "algo tranquilo con niños sin mucha altitud", results: ["cmoh8rd3t000zvpn2vn252gw0", "cmoh8rd6l0011vpn2gh5sebuu", "cmoh8rdvu001jvpn2mor2wbyw"], reason: "Baja altitud + actividades familiares" },
+  { query: "aventura extrema para jóvenes", results: ["cmoh8rceb000hvpn29qhzz4ug", "cmoh8rdhw0019vpn2wq5xn8tk", "cmoh8rc8h000dvpn22yhhhrii"], reason: "Alta adrenalina + desafío físico" },
+  { query: "tour barato con almuerzo incluido", results: ["cmoh8rcvc000tvpn23butdi5i", "cmoh8rdkp001bvpn26emecam2", "cmoh8rcha000jvpn2fo8kzet0", "cmoh8rdf30017vpn2syj9r18z"], reason: "Precio accesible + almuerzo en inclusiones" },
+  { query: "qué hacer en feriado largo de mayo", results: ["cmoh8re7d001rvpn2eyvaz3bk", "cmoh8re4h001pvpn23qzu04f2", "cmoh8re1o001nvpn2yispucfu"], reason: "Multi-día o full day + temporada seca" },
+  { query: "sin turistas y naturaleza pura", results: ["cmoh8rea5001tvpn2uchbmxj4", "cmoh8rdyo001lvpn28ylkpior", "cmoh8rdt1001hvpn2a6g2ai1a"], reason: "Baja masificación + naturaleza" },
+  { query: "planes cerca de Lima para el fin de semana", results: ["cmoh8rd0x000xvpn2orc0q2wm", "cmoh8rd3t000zvpn2vn252gw0", "cmpdm1s1e000rvpl9a1qv68up", "cmpdm1po0000nvpl9zonbjbq3"], reason: "Destinos accesibles desde Lima" },
 ];
 
 const KEYWORD_MAPS = [
@@ -385,9 +385,66 @@ const NOTIFS = [
   { id:6, type:"quechua", title:"Nuevo: tours en quechua", body:"3 operadores ahora tienen descripciones en runasimi.", time:"Hace 5 días", read:true, icon:Languages },
 ];
 
-// Fase 3.1: vaciado tras eliminar el array TOURS hardcoded. Fase 3.2
-// rehidrata desde el fetch /api/tours usando CUIDs reales.
-const MY_TRIPS = [];
+// Fase 3.2: 2 trips fijos con CUIDs reales de DB (tour objects inline
+// replicados desde data/track-b/tours-db-snapshot.json). El shape
+// anidado { id, tour: {...}, date, total, ... } coincide con el
+// consumido por TripsView, VoucherDetail y buildWhatsAppLink.
+const MY_TRIPS = [
+  {
+    id: 101,
+    tour: {
+      id: "cmoh8rbzp0009vpn26ju9npzp",
+      title: "Machu Picchu Full Day desde Cusco",
+      location: "Cusco",
+      price: 475,
+      duration: "17 horas",
+      image: "https://images.unsplash.com/photo-1526392060635-9d6019884377?w=1200&q=80",
+      operator: "Inka Trail Co",
+      verified: true,
+      included: [
+        "Transporte privado Cusco-Ollantaytambo y retorno",
+        "Tren PeruRail Expedition ida y vuelta",
+        "Bus Consettur subida y bajada",
+        "Boleto de ingreso Machu Picchu circuito 2",
+        "Guía oficial Mincetur español/inglés",
+      ],
+      cancellation: "flexible",
+      meetingPoint: "",
+    },
+    date: "2025-08-15",
+    guests: 2,
+    total: 950,
+    status: "completed",
+    code: "FINDE-MP-001",
+    reviewed: false,
+  },
+  {
+    id: 102,
+    tour: {
+      id: "cmoh8rcvc000tvpn23butdi5i",
+      title: "Lima Colonial: Centro Histórico patrimonio UNESCO",
+      location: "Lima",
+      price: 75,
+      duration: "4 horas",
+      image: "https://images.unsplash.com/photo-1687835071853-b72ebad325d1?w=1200&q=80",
+      operator: "Lima Cultural Tours",
+      verified: true,
+      included: [
+        "Guía oficial Mincetur bilingüe",
+        "Entrada al Convento de San Francisco y catacumbas",
+        "Entrada a Casa de Aliaga",
+      ],
+      cancellation: "flexible",
+      meetingPoint: "",
+    },
+    date: "2025-11-22",
+    guests: 1,
+    total: 75,
+    status: "completed",
+    code: "FINDE-LC-002",
+    reviewed: false,
+  },
+];
 
 // Fase 3.1: eliminado el diccionario REVIEWS (claves 1-14 ya no aplican
 // porque los tours ahora usan CUIDs del API). reviews[cuid] retorna
