@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Umbrella, Footprints, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, CreditCard, Banknote, Smartphone, MessageCircle, Camera, MountainSnow, Hand, CircleDollarSign, FileText, Pencil, HelpCircle, Heart, Home, Calendar } from "lucide-react";
+import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, CreditCard, Banknote, Smartphone, MessageCircle, Camera, MountainSnow, Hand, CircleDollarSign, FileText, Pencil, HelpCircle, Heart, Home, Calendar } from "lucide-react";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // FINDE v3 — AI-Native Marketplace
@@ -12,8 +12,7 @@ const CATS = [
   { id: "culture", n: "Cultura", ic: Landmark },
   { id: "gastro", n: "Gastronomía", ic: UtensilsCrossed },
   { id: "nature", n: "Naturaleza", ic: Trees },
-  { id: "beach", n: "Playas", ic: Umbrella },
-  { id: "trekking", n: "Trekking", ic: Footprints },
+  { id: "mystic", n: "Místico", ic: Compass },
 ];
 
 // Reglas v1.2 §3.2 — Cuatro políticas oficiales. Default = Flexible.
@@ -253,8 +252,9 @@ const AI_SUGGESTIONS = [
 ];
 
 const KEYWORD_MAPS = [
-  { keywords: ["tranquilo","relajado","familia","niños","familiar"], filters: { difficulty: ["Fácil"], categories: ["nature","beach","culture","gastro"] } },
-  { keywords: ["aventura","extremo","adrenalina"], filters: { difficulty: ["Alta","Moderada"], categories: ["adventure","trekking"] } },
+  { keywords: ["tranquilo","relajado","familia","niños","familiar"], filters: { difficulty: ["Fácil"], categories: ["nature","culture","gastro"] } },
+  { keywords: ["aventura","extremo","adrenalina"], filters: { difficulty: ["Alta","Moderada"], categories: ["adventure"] } },
+  { keywords: ["místico","espiritual","ceremonia","ayahuasca","chamán","ritual"], filters: { categories: ["mystic"] } },
   { keywords: ["barato","económico"], filters: { sort: "price_asc" } },
   { keywords: ["full day","1 día"], filters: { durationMatch: "fullday" } },
   { keywords: ["fin de semana"], filters: { durationMatch: "multiday" } },
@@ -474,12 +474,6 @@ const REVIEW_TEXTS_BY_CATEGORY = {
     "Si vienes a Perú a desconectarte y conectar con la naturaleza, este tour cumple. Las fotos del operador con drone son un plus.",
     "Llevé buen calzado y ropa cómoda como recomendaron por WhatsApp y todo perfecto. Súper recomendado para grupos jóvenes.",
   ],
-  trekking: [
-    "Subida exigente pero los paisajes valen cada paso. El guía supo manejar bien el ritmo del grupo, sobre todo con la altura.",
-    "Recomendadísimo para amantes de la montaña. Me preparé bien con el consejo del operador y todo salió perfecto.",
-    "Una experiencia que recordaré siempre. Las vistas desde la cumbre son impresionantes y el equipo del operador fue muy profesional.",
-    "Caminata dura pero gratificante. Los porteadores y el cocinero hicieron la diferencia, comimos mejor que en muchos restaurantes.",
-  ],
   gastro: [
     "Probamos cebiche, anticuchos, picarones... todo de primera. El guía conoce muy bien la historia detrás de cada plato.",
     "Mucho más que solo comer. Aprendimos sobre la fusión peruana, las influencias chinas y japonesas. Excelente experiencia.",
@@ -497,12 +491,6 @@ const REVIEW_TEXTS_BY_CATEGORY = {
     "Tour bien organizado, los lodges cómodos. Los guías locales saben hasta de qué especie son las huellas en el barro.",
     "Si te gusta la fauna, este tour es imperdible. Llevé buenos binoculares y valió la pena cada gramo.",
     "El silencio del amanecer escuchando aves es algo que no se olvida. Excelente para fotógrafos amateur.",
-  ],
-  beach: [
-    "Aguas cristalinas y arena blanca. No esperaba esto en Perú. Para repetir con la familia.",
-    "Perfecto para ir con niños. Pudimos descansar al sol sin preocuparnos y el cooler con agua fue un detalle que se agradece.",
-    "Llevamos snorkel y vimos peces de colores. Recomiendo madrugar para tener la playa casi vacía.",
-    "El recorrido por la reserva complementa muy bien el día de playa. Los lobos marinos a metros nuestros, increíble.",
   ],
   mystic: [
     "Una ceremonia con mucho respeto a la tradición. El maestro andino explicó cada paso y se sintió genuino.",
