@@ -1,10 +1,40 @@
 // prisma/seed.ts
-// Finde — Seed inicial: 8 operadores + 30 tours peruanos
+// Finde — Seed idempotente:
+//   - Si la DB está vacía: crea operadores + 30 tours iniciales.
+//   - Siempre: aplica contenido editorial Track B a los 30 tours y
+//     crea los 10 tours migrados desde el array TOURS hardcoded.
 // Ejecutar con: npm run db:seed
 
-import { PrismaClient, Category } from "@prisma/client";
+import {
+  PrismaClient,
+  Category,
+  Prisma,
+  CancellationPolicy,
+} from "@prisma/client";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
 const prisma = new PrismaClient();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const TRACK_B_DIR = join(__dirname, "..", "data", "track-b");
+
+// imageUrl extraído del array TOURS de src/AppDemo.jsx (2026-05-19).
+// Indexado por originalHardcodedId del JSON tours-to-migrate-from-hardcoded.
+const HARDCODED_IMAGE_BY_ID: Record<number, string> = {
+  1: "https://images.unsplash.com/photo-1522409994346-2682217b9a3e?w=400&h=300&fit=crop",
+  3: "https://images.unsplash.com/photo-1694946733518-8e726bd7df24?w=400&h=300&fit=crop",
+  5: "https://images.unsplash.com/photo-1723134087756-3fdd46625a84?w=400&h=300&fit=crop",
+  6: "https://images.unsplash.com/photo-1723748651613-e24586599f30?w=400&h=300&fit=crop",
+  9: "https://images.unsplash.com/photo-1509316785289-025f5b846b35?w=400&h=300&fit=crop",
+  10: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=400&h=300&fit=crop",
+  11: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&h=300&fit=crop",
+  12: "https://images.unsplash.com/photo-1533929736458-ca588d08c8be?w=400&h=300&fit=crop",
+  13: "https://images.unsplash.com/photo-1555217851-6141535bd771?w=400&h=300&fit=crop",
+  14: "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=400&h=300&fit=crop",
+};
 
 type OperatorSeed = {
   name: string;
@@ -878,36 +908,244 @@ const TOURS: TourSeed[] = [
   },
 ];
 
-async function main(): Promise<void> {
-  console.log("Limpiando datos previos…");
-  // Orden importa por foreign keys: bookings → tours → operators
-  await prisma.booking.deleteMany();
-  await prisma.tour.deleteMany();
-  await prisma.operator.deleteMany();
-  console.log("Datos previos eliminados");
+// ===== Tipos del contenido editorial Track B =====
 
-  console.log("Sembrando operadores…");
+interface EditorialAltTour {
+  tourId: string;
+  title: string;
+  reason: string;
+}
+
+interface EditorialTour {
+  id: string;
+  title: string;
+  aiSummary: string | null;
+  altTour: EditorialAltTour | null;
+  tags: string[];
+  badge: string | null;
+  cancellation: "Flexible" | "Moderada" | "Estricta" | "NoReembolsable";
+  meetingPoint: string | null;
+  altitude: number | null;
+  days: boolean[];
+  excludedDates: string[];
+  addedDates: string[];
+}
+
+interface MigrateTour extends EditorialTour {
+  migrationId: string;
+  originalHardcodedId: number;
+  shortPitch: string;
+  description: string;
+  category: string;
+  difficulty: string;
+  city: string;
+  region: string;
+  operatorName: string;
+  priceSoles: number;
+  durationHours: number;
+  capacity: number;
+  language: string[];
+  included: string[];
+  excluded: string[];
+  imageUrl: string;
+  rating: number;
+  reviewsCount: number;
+}
+
+function loadJson<T>(filename: string): T {
+  const raw = readFileSync(join(TRACK_B_DIR, filename), "utf8");
+  return JSON.parse(raw) as T;
+}
+
+// ===== Paso A: operadores + 30 tours iniciales (idempotente) =====
+
+async function seedOperatorsAndBaseTours(): Promise<void> {
+  console.log("Sembrando operadores (upsert por email)…");
   const operatorIdByName: Record<string, string> = {};
   for (const op of OPERATORS) {
-    const created = await prisma.operator.create({ data: op });
-    operatorIdByName[op.name] = created.id;
+    const upserted = await prisma.operator.upsert({
+      where: { email: op.email },
+      update: {},
+      create: op,
+    });
+    operatorIdByName[op.name] = upserted.id;
   }
-  console.log(`${OPERATORS.length} operadores creados`);
+  console.log(`${OPERATORS.length} operadores listos`);
 
-  console.log("Sembrando tours…");
-  let toursCreated = 0;
+  console.log("Sembrando 30 tours base (skip si ya existen por title+city)…");
+  let created = 0;
+  let skipped = 0;
   for (const tour of TOURS) {
     const { operatorName, ...rest } = tour;
     const operatorId = operatorIdByName[operatorName];
     if (!operatorId) {
-      throw new Error(`Operador no encontrado para tour "${tour.title}": ${operatorName}`);
+      throw new Error(
+        `Operador no encontrado para tour "${tour.title}": ${operatorName}`
+      );
+    }
+    const existing = await prisma.tour.findFirst({
+      where: { title: rest.title, city: rest.city },
+      select: { id: true },
+    });
+    if (existing) {
+      skipped++;
+      continue;
     }
     await prisma.tour.create({ data: { ...rest, operatorId } });
-    toursCreated++;
+    created++;
   }
-  console.log(`${toursCreated} tours creados`);
+  console.log(
+    `Tours base: ${created} creados, ${skipped} omitidos (ya existían)`
+  );
+}
 
-  console.log(`\nSembrados ${OPERATORS.length} operadores y ${toursCreated} tours`);
+// ===== Paso B: aplicar contenido editorial a 30 tours existentes =====
+
+async function applyEditorialUpdates(): Promise<void> {
+  const data = loadJson<{ tours: EditorialTour[] }>(
+    "tours-db-editorial-content.json"
+  );
+  console.log(
+    `\nAplicando contenido editorial a ${data.tours.length} tours…`
+  );
+
+  let updated = 0;
+  const notFound: string[] = [];
+
+  for (const t of data.tours) {
+    const existing = await prisma.tour.findUnique({
+      where: { id: t.id },
+      select: { id: true },
+    });
+    if (!existing) {
+      notFound.push(`${t.id} (${t.title})`);
+      continue;
+    }
+
+    await prisma.tour.update({
+      where: { id: t.id },
+      data: {
+        aiSummary: t.aiSummary,
+        altTour:
+          t.altTour === null
+            ? Prisma.DbNull
+            : (t.altTour as unknown as Prisma.InputJsonValue),
+        tags: t.tags,
+        badge: t.badge,
+        cancellation: t.cancellation as CancellationPolicy,
+        meetingPoint: t.meetingPoint,
+        altitude: t.altitude,
+        days: t.days,
+        excludedDates: t.excludedDates,
+        addedDates: t.addedDates,
+      },
+    });
+    updated++;
+  }
+
+  console.log(`Editorial: ${updated} actualizados`);
+  if (notFound.length > 0) {
+    console.warn(
+      `Atención: ${notFound.length} tour(s) del editorial no existen en DB (omitidos):`
+    );
+    for (const s of notFound) {
+      console.warn(`  - ${s}`);
+    }
+  }
+}
+
+// ===== Paso C: crear 10 tours migrados desde el array TOURS hardcoded =====
+
+async function createMigratedTours(): Promise<void> {
+  const data = loadJson<{ tours: MigrateTour[] }>(
+    "tours-to-migrate-from-hardcoded.json"
+  );
+  console.log(
+    `\nCreando hasta ${data.tours.length} tours migrados desde hardcoded…`
+  );
+
+  let created = 0;
+  let skipped = 0;
+
+  for (const t of data.tours) {
+    const op = await prisma.operator.findFirst({
+      where: { name: t.operatorName },
+      select: { id: true },
+    });
+    if (!op) {
+      throw new Error(
+        `Operador no encontrado para tour migrado "${t.title}": ${t.operatorName}`
+      );
+    }
+
+    const imageUrl = HARDCODED_IMAGE_BY_ID[t.originalHardcodedId];
+    if (!imageUrl) {
+      throw new Error(
+        `imageUrl no mapeado para originalHardcodedId=${t.originalHardcodedId} ("${t.title}")`
+      );
+    }
+
+    const existing = await prisma.tour.findFirst({
+      where: { title: t.title, city: t.city },
+      select: { id: true },
+    });
+    if (existing) {
+      skipped++;
+      continue;
+    }
+
+    await prisma.tour.create({
+      data: {
+        operatorId: op.id,
+        title: t.title,
+        description: t.description,
+        shortPitch: t.shortPitch,
+        category: t.category as Category,
+        difficulty: t.difficulty,
+        city: t.city,
+        region: t.region,
+        durationHours: t.durationHours,
+        priceSoles: t.priceSoles,
+        capacity: t.capacity,
+        language: t.language,
+        included: t.included,
+        excluded: t.excluded,
+        imageUrl,
+        rating: t.rating,
+        reviewsCount: t.reviewsCount,
+        aiSummary: t.aiSummary,
+        altTour:
+          t.altTour === null
+            ? Prisma.DbNull
+            : (t.altTour as unknown as Prisma.InputJsonValue),
+        tags: t.tags,
+        badge: t.badge,
+        cancellation: t.cancellation as CancellationPolicy,
+        meetingPoint: t.meetingPoint,
+        altitude: t.altitude,
+        days: t.days,
+        excludedDates: t.excludedDates,
+        addedDates: t.addedDates,
+      },
+    });
+    created++;
+  }
+
+  console.log(
+    `Migrados: ${created} creados, ${skipped} omitidos (ya existían)`
+  );
+}
+
+async function main(): Promise<void> {
+  const initialCount = await prisma.tour.count();
+  console.log(`Tours actuales en DB: ${initialCount}`);
+
+  await seedOperatorsAndBaseTours();
+  await applyEditorialUpdates();
+  await createMigratedTours();
+
+  const finalCount = await prisma.tour.count();
+  console.log(`\nSeed completado. Tours totales en DB: ${finalCount}`);
 }
 
 main()
