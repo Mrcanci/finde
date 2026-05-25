@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, CreditCard, Banknote, Smartphone, MessageCircle, Camera, MountainSnow, Hand, CircleDollarSign, FileText, Pencil, HelpCircle, Heart, Home, Calendar } from "lucide-react";
+import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, CreditCard, Banknote, Smartphone, MessageCircle, Camera, MountainSnow, Hand, CircleDollarSign, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff } from "lucide-react";
+import { useAuth } from "./contexts/AuthContext.jsx";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // FINDE v3 — AI-Native Marketplace
@@ -638,7 +639,7 @@ html{scrollbar-gutter:stable}
 .app .login-btn:disabled,.app .mbtn:disabled,.app .bb-bt:disabled{background:var(--gy);box-shadow:none}
 
 /* Inputs y textareas con focus mejorado (border + box-shadow) */
-.app .inp:focus,.app .login-phone-input:focus,.app .ai-cc-input:focus,.app .rv-textarea:focus,.app .otp-digit:focus{border-color:var(--m);box-shadow:0 0 0 4px var(--focus)}
+.app .inp:focus,.app .ai-cc-input:focus,.app .rv-textarea:focus,.app .otp-digit:focus{border-color:var(--m);box-shadow:0 0 0 4px var(--focus)}
 
 /* Smooth scroll en contenedores horizontales */
 .app .cats,.app .dsh-tabs,.app .tscr{scroll-behavior:smooth;-webkit-overflow-scrolling:touch}
@@ -664,10 +665,6 @@ html{scrollbar-gutter:stable}
 .login-body{flex:1;padding:28px 24px;display:flex;flex-direction:column}
 .login-title{font-family:'DM Serif Display',Georgia,serif;font-size:24px;margin-bottom:4px}
 .login-sub{font-size:13px;color:var(--gy);margin-bottom:24px;line-height:1.5}
-.login-phone-row{display:flex;gap:8px;margin-bottom:16px}
-.login-prefix{width:72px;padding:13px 10px;border:2px solid var(--sd);border-radius:14px;font-size:16px;font-family:inherit;text-align:center;background:var(--cr);color:var(--ch);font-weight:600;outline:none}
-.login-phone-input{flex:1;padding:13px 16px;border:2px solid var(--sd);border-radius:14px;font-size:16px;font-family:inherit;background:white;color:var(--ch);outline:none;transition:.2s;letter-spacing:1px}
-.login-phone-input:focus{border-color:var(--m)}
 .login-btn{width:100%;padding:16px;border-radius:14px;background:var(--f);color:white;font-weight:700;font-size:15px;border:none;cursor:pointer;font-family:inherit;transition:.2s;margin-bottom:12px}
 .login-btn:hover{background:var(--m)}
 .login-btn:disabled{opacity:.4;cursor:not-allowed}
@@ -680,6 +677,15 @@ html{scrollbar-gutter:stable}
 .login-skip:hover{border-color:var(--m);color:var(--ch)}
 .login-terms{font-size:11px;color:var(--lg);text-align:center;margin-top:auto;padding-top:16px;line-height:1.5}
 .login-terms a{color:var(--tr);text-decoration:none;font-weight:600}
+/* Login input (M1: email/password). No flex:1 ni letter-spacing del campo de teléfono. */
+.login-input{width:100%;padding:13px 16px;border:2px solid var(--sd);border-radius:14px;font-size:16px;font-family:inherit;background:white;color:var(--ch);outline:none;transition:.2s;box-sizing:border-box}
+.login-input:focus{border-color:var(--m);box-shadow:0 0 0 4px var(--focus)}
+.login-input:-webkit-autofill,.login-input:-webkit-autofill:hover,.login-input:-webkit-autofill:focus,.login-input:-webkit-autofill:active{-webkit-box-shadow:0 0 0 1000px white inset !important;box-shadow:0 0 0 1000px white inset !important;-webkit-text-fill-color:var(--ch) !important;caret-color:var(--ch);transition:background-color 9999s ease-in-out 0s}
+.login-input:-webkit-autofill:focus{-webkit-box-shadow:0 0 0 1000px white inset,0 0 0 4px var(--focus) !important;box-shadow:0 0 0 1000px white inset,0 0 0 4px var(--focus) !important}
+/* Segmented control signin/signup */
+.login-tabs{display:flex;gap:0;background:var(--cr);border:1.5px solid var(--sd);border-radius:12px;padding:4px;margin-bottom:20px}
+.login-tab{flex:1;padding:10px 12px;border:0;background:transparent;color:var(--gy);font-weight:600;font-size:13px;border-radius:8px;cursor:pointer;font-family:inherit;transition:.2s}
+.login-tab.on{background:var(--f);color:white;box-shadow:0 2px 6px rgba(27,58,45,.15)}
 
 /* OTP Input */
 .otp-row{display:flex;gap:10px;justify-content:center;margin-bottom:24px}
@@ -1505,8 +1511,49 @@ function GCard({ t, onClick }) {
 }
 
 function LoginView({ go, loginMsg }) {
-  const [phone, setPhone] = useState("");
-  const canContinue = phone.replace(/\s/g, "").length >= 9;
+  const { signInWithPassword, signUpWithPassword } = useAuth();
+  const [mode, setMode] = useState("signin"); // "signin" | "signup"
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const isSignIn = mode === "signin";
+  const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const validPassword = password.length >= 6;
+  const canSubmit = !busy && validEmail && validPassword;
+
+  function translateError(message) {
+    const m = (message || "").toLowerCase();
+    if (m.includes("invalid login credentials")) return "Email o contraseña incorrectos.";
+    if (m.includes("already registered")) return "Ya existe una cuenta con ese email. Intenta iniciar sesión.";
+    if (m.includes("email not confirmed")) return "Confirma tu email antes de iniciar sesión.";
+    if (m.includes("password should be at least")) return "La contraseña debe tener al menos 6 caracteres.";
+    if (m.includes("rate limit") || m.includes("too many")) return "Demasiados intentos. Espera un momento.";
+    if (m.includes("invalid email") || m.includes("not a valid email")) return "Email inválido.";
+    return "No pudimos completar la operación. Intenta de nuevo.";
+  }
+
+  async function handleSubmit() {
+    if (!canSubmit) return;
+    setError("");
+    setBusy(true);
+    const fn = isSignIn ? signInWithPassword : signUpWithPassword;
+    const { error: authError } = await fn({ email: email.trim(), password });
+    setBusy(false);
+    if (authError) {
+      setError(translateError(authError.message));
+      return;
+    }
+    go(isSignIn ? "home" : "welcome");
+  }
+
+  function toggleMode() {
+    setMode(isSignIn ? "signup" : "signin");
+    setError("");
+  }
+
   return (
     <div className="login fu">
       <div className="login-hero">
@@ -1521,65 +1568,88 @@ function LoginView({ go, loginMsg }) {
       </div>
       <div className="login-body">
         {loginMsg && <div className="login-banner">{loginMsg}</div>}
-        <div className="login-title">Ingresa con tu celular</div>
-        <div className="login-sub">Te enviaremos un código de verificación por SMS o WhatsApp</div>
-        <div className="login-phone-row">
-          <input className="login-prefix" value="+51" readOnly />
-          <input className="login-phone-input" placeholder="987 654 321" value={phone}
-            onChange={(e) => setPhone(e.target.value.replace(/[^0-9\s]/g, ""))}
-            type="tel" maxLength={11} />
-        </div>
-        <button className="login-btn" disabled={!canContinue} onClick={() => go("otp")}>Continuar</button>
-        <div className="login-divider">o</div>
-        <button className="login-google" onClick={() => go("welcome")}>
-          <svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-          Continuar con Google
-        </button>
-        <button className="login-skip" onClick={() => go("home")}>Explorar sin cuenta</button>
-        <div className="login-terms">Al continuar, aceptas los <a href="#">Términos de uso</a> y la <a href="#">Política de privacidad</a> de Finde</div>
-      </div>
-    </div>
-  );
-}
 
-function OTPView({ go }) {
-  const [otp, setOtp] = useState(["", "", "", ""]);
-  const [timer, setTimer] = useState(30);
-  const refs = [useRef(), useRef(), useRef(), useRef()];
-  useEffect(() => {
-    if (timer > 0) { const t = setTimeout(() => setTimer(timer - 1), 1000); return () => clearTimeout(t); }
-  }, [timer]);
-  const handleOtp = (i, val) => {
-    if (val.length > 1) val = val.slice(-1);
-    const next = [...otp]; next[i] = val; setOtp(next);
-    if (val && i < 3) refs[i + 1].current?.focus();
-  };
-  const handleKey = (i, e) => { if (e.key === "Backspace" && !otp[i] && i > 0) refs[i - 1].current?.focus(); };
-  const filled = otp.every((d) => d !== "");
-  return (
-    <div className="login fu">
-      <div className="login-hero" style={{ flex: "0 0 200px" }}>
-        <div className="login-hero-tex" />
-        <div className="login-hero-logo" style={{ fontSize: 32 }}>finde<span>.</span></div>
-        <div className="login-hero-tagline" style={{ fontSize: 13 }}>Verificación de código</div>
-      </div>
-      <div className="login-body">
-        <div className="login-title">Ingresa el código</div>
-        <div className="login-sub">Enviamos un código de 4 dígitos a tu número +51 987 *** 321</div>
-        <div className="otp-row">
-          {otp.map((d, i) => (
-            <input key={i} ref={refs[i]} className="otp-digit" value={d} maxLength={1}
-              type="tel" inputMode="numeric" autoComplete="one-time-code"
-              aria-label={`Dígito ${i + 1} del código de verificación`}
-              onChange={(e) => handleOtp(i, e.target.value)}
-              onKeyDown={(e) => handleKey(i, e)} />
-          ))}
+        <div className="login-tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={isSignIn}
+            className={`login-tab ${isSignIn ? "on" : ""}`}
+            onClick={() => { if (!isSignIn) toggleMode(); }}
+          >
+            Iniciar sesión
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={!isSignIn}
+            className={`login-tab ${!isSignIn ? "on" : ""}`}
+            onClick={() => { if (isSignIn) toggleMode(); }}
+          >
+            Crear cuenta
+          </button>
         </div>
-        <div className="otp-resend">
-          {timer > 0 ? <span>Reenviar código en {timer}s</span> : <button onClick={() => setTimer(30)}>Reenviar código</button>}
+
+        <div className="login-title">{isSignIn ? "Inicia sesión" : "Crea tu cuenta"}</div>
+        <div className="login-sub">
+          {isSignIn ? "Ingresa con tu email y contraseña" : "Regístrate con email y contraseña para empezar"}
         </div>
-        <button className="login-btn" disabled={!filled} onClick={() => go("welcome")}>Verificar</button>
-        <button className="login-skip" onClick={() => go("login")}><ArrowLeft size={14} strokeWidth={1.5} style={{verticalAlign:"middle",marginRight:4}} />Cambiar número</button>
+
+        <input
+          className="login-input"
+          type="email"
+          autoComplete="email"
+          placeholder="tucorreo@ejemplo.com"
+          value={email}
+          onChange={(e) => { setEmail(e.target.value); if (error) setError(""); }}
+          style={{ marginBottom: 10 }}
+        />
+
+        <div style={{ position: "relative", marginBottom: 12 }}>
+          <input
+            className="login-input"
+            type={showPassword ? "text" : "password"}
+            autoComplete={isSignIn ? "current-password" : "new-password"}
+            placeholder="Contraseña (mínimo 6 caracteres)"
+            value={password}
+            onChange={(e) => { setPassword(e.target.value); if (error) setError(""); }}
+            onKeyDown={(e) => { if (e.key === "Enter" && canSubmit) handleSubmit(); }}
+            style={{ paddingRight: 44 }}
+          />
+          <button
+            type="button"
+            aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+            onClick={() => setShowPassword((s) => !s)}
+            style={{
+              position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+              background: "transparent", border: 0, cursor: "pointer", padding: 6,
+              color: "#8A8A85", display: "flex", alignItems: "center",
+            }}
+          >
+            {showPassword ? <EyeOff size={18} strokeWidth={1.5} /> : <Eye size={18} strokeWidth={1.5} />}
+          </button>
+        </div>
+
+        {error && (
+          <div className="login-banner" style={{ background: "rgba(199,97,58,0.12)", color: "#C7613A" }}>
+            {error}
+          </div>
+        )}
+
+        <button
+          className="login-btn"
+          disabled={!canSubmit}
+          onClick={handleSubmit}
+        >
+          {busy ? "..." : isSignIn ? "Entrar" : "Crear cuenta"}
+        </button>
+
+        <div className="login-divider">o</div>
+        <button className="login-skip" onClick={() => go("home")}>Explorar sin cuenta</button>
+
+        {/* TODO(M1 sub-paso 8): enlace "¿Eres agencia de turismo?" para onboarding de operador. */}
+
+        <div className="login-terms">Al continuar, aceptas los <a href="#">Términos de uso</a> y la <a href="#">Política de privacidad</a> de Finde</div>
       </div>
     </div>
   );
@@ -3854,7 +3924,7 @@ export default function AppDemo() {
     setCurrentTrip(newTrip);
   };
 
-  const isAuth = !["login", "otp", "welcome"].includes(view);
+  const isAuth = !["login", "welcome"].includes(view);
   const showNav = isAuth && !["booking", "detail", "new-tour", "trip-detail"].includes(view);
   const showHeader = isAuth && !["booking", "new-tour"].includes(view);
   const showFooter = isAuth && !["booking", "detail", "new-tour", "dashboard", "trip-detail"].includes(view);
@@ -3867,7 +3937,6 @@ export default function AppDemo() {
       <div className="app app-demo" ref={ref}>
         {showHeader && <TopNav onHome={() => go("home")} onDash={() => go(view === "dashboard" ? "home" : "dashboard")} onNotif={() => go("notifications")} view={view} unread={unread} isOperator={isOperator} navActive={nav} onNavClick={navGo} />}
         {view === "login" && <LoginView go={go} loginMsg={loginMsg} />}
-        {view === "otp" && <OTPView go={go} />}
         {view === "welcome" && <WelcomeView go={go} />}
         {view === "home" && <HomeView go={go} pick={setTour} cat={cat} setCat={setCat} tours={activeTours} toursLoading={toursLoading} selectedCity={selectedCity} setSelectedCity={pickCity} geoSource={geoSource} />}
         {view === "catalog" && <CatalogView go={go} pick={setTour} cat={cat} setCat={setCat} tours={activeTours} toursLoading={toursLoading} />}
