@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, CreditCard, Banknote, Smartphone, MessageCircle, Camera, MountainSnow, Hand, CircleDollarSign, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff } from "lucide-react";
+import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, CreditCard, Banknote, Smartphone, MessageCircle, Camera, MountainSnow, Hand, CircleDollarSign, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff, Info } from "lucide-react";
 import { useAuth } from "./contexts/AuthContext.jsx";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -980,7 +980,8 @@ html{scrollbar-gutter:stable}
 .tdet-act-sec:hover{border-color:var(--m)}
 
 /* Booking extras */
-.login-banner{background:var(--f);color:white;padding:12px 16px;text-align:center;font-size:13px;font-weight:600;border-radius:12px;margin:0 0 16px}
+.login-banner{background:rgba(212,168,67,.14);border:1px solid rgba(212,168,67,.40);color:#8B6914;padding:12px 14px;font-size:13px;font-weight:600;line-height:1.4;border-radius:12px;margin:0 0 16px;display:flex;align-items:flex-start;gap:10px;text-align:left}
+.login-banner svg{flex-shrink:0;margin-top:1px;color:var(--gd)}
 .inp-err{border-color:#e53e3e !important;background:rgba(229,62,62,.04) !important}
 .inp-err:focus{box-shadow:0 0 0 4px rgba(229,62,62,.18) !important;border-color:#e53e3e !important}
 .field-err{font-size:11px;color:#e53e3e;margin-top:4px;font-weight:600;display:flex;align-items:center;gap:4px}
@@ -1567,7 +1568,12 @@ function LoginView({ go, loginMsg }) {
         </div>
       </div>
       <div className="login-body">
-        {loginMsg && <div className="login-banner">{loginMsg}</div>}
+        {loginMsg && (
+          <div className="login-banner" role="status">
+            <Info size={16} strokeWidth={2} aria-hidden="true" />
+            <span>{loginMsg}</span>
+          </div>
+        )}
 
         <div className="login-tabs" role="tablist">
           <button
@@ -3658,11 +3664,14 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
 
 // ── MAIN ──────────────────────────────────────────────
 export default function AppDemo() {
+  const { user, loading } = useAuth();
   const [view, setView] = useState("login");
   const [tour, setTour] = useState(null);
   const [nav, setNav] = useState("explore");
   const [cat, setCat] = useState("all");
   const [notifs, setNotifs] = useState(NOTIFS);
+  // TODO(M1 sub-paso 8): derivar isOperator de useAuth() cuando exista
+  //   Operator.userId en el schema. Por ahora queda como estado local.
   const [isOperator, setIsOperator] = useState(false);
   const [tours, setTours] = useState([]);
   const [toursLoading, setToursLoading] = useState(true);
@@ -3759,7 +3768,6 @@ export default function AppDemo() {
 
   const [editingTour, setEditingTour] = useState(null);
   const [dashTab, setDashTab] = useState("bookings");
-  const [loggedIn, setLoggedIn] = useState(false);
   const [loginMsg, setLoginMsg] = useState("");
   const [reviews, setReviews] = useState({});
   const [trips, setTrips] = useState(MY_TRIPS);
@@ -3776,15 +3784,13 @@ export default function AppDemo() {
   }, [view]);
 
   const go = (v) => {
-    if (v === "home" && view === "welcome") setLoggedIn(true);
-    if (v === "login") setLoggedIn(false);
     if (v !== "login") setLoginMsg("");
     setView(v);
     if (v === "home") setNav("explore");
     if (v === "catalog") setNav("search");
   };
   const handleBook = () => {
-    if (!loggedIn) { setLoginMsg("Inicia sesión o regístrate para reservar tu experiencia"); go("login"); }
+    if (!user) { setLoginMsg("Inicia sesión o regístrate para reservar tu experiencia"); go("login"); }
     else go("booking");
   };
   const handleReview = (tripId, tourId, rating, text) => {
@@ -3931,23 +3937,38 @@ export default function AppDemo() {
   const currentTour = tour ? tours.find(t => t.id === tour.id) || tour : null;
   const activeTours = tours.filter(t => { const op = opTours.find(o => o.tourId === t.id); return !op || op.active; });
 
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: "100vh", display: "flex", alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "'DM Serif Display', Georgia, serif",
+        fontSize: 32, color: "#1B3A2D", background: "#FAFAF7",
+      }}>
+        finde<span style={{ color: "#C7613A" }}>.</span>
+      </div>
+    );
+  }
+
+  const effectiveView = (user && view === "login") ? "home" : view;
+
   return (
     <>
       <style>{CSS}</style>
       <div className="app app-demo" ref={ref}>
         {showHeader && <TopNav onHome={() => go("home")} onDash={() => go(view === "dashboard" ? "home" : "dashboard")} onNotif={() => go("notifications")} view={view} unread={unread} isOperator={isOperator} navActive={nav} onNavClick={navGo} />}
-        {view === "login" && <LoginView go={go} loginMsg={loginMsg} />}
-        {view === "welcome" && <WelcomeView go={go} />}
-        {view === "home" && <HomeView go={go} pick={setTour} cat={cat} setCat={setCat} tours={activeTours} toursLoading={toursLoading} selectedCity={selectedCity} setSelectedCity={pickCity} geoSource={geoSource} />}
-        {view === "catalog" && <CatalogView go={go} pick={setTour} cat={cat} setCat={setCat} tours={activeTours} toursLoading={toursLoading} />}
-        {view === "detail" && <DetailView tour={currentTour} go={go} pick={setTour} onBook={handleBook} reviews={reviews} />}
-        {view === "booking" && <BookingView tour={currentTour} go={go} onLocalBookingSuccess={handleAddLocalTrip} />}
-        {view === "notifications" && <NotifsView notifs={notifs} setNotifs={setNotifs} />}
-        {view === "trips" && <TripsView go={go} onSelectTrip={setCurrentTrip} trips={trips} />}
-        {view === "trip-detail" && <TripDetailView trip={currentTrip} go={go} onReview={handleReview} />}
-        {view === "profile" && <ProfileView go={go} isOperator={isOperator} setIsOperator={setIsOperator} />}
-        {view === "dashboard" && <DashView go={go} opTours={opTours} setOpTours={setOpTours} onEditTour={handleEditTour} initialTab={dashTab} onTabConsumed={() => setDashTab("bookings")} />}
-        {view === "new-tour" && <NewTourView go={go} editingTour={editingTour} onSaveTour={handleSaveTour} onCreateTour={handleCreateTour} onCancel={handleCancelTour} />}
+        {effectiveView === "login" && <LoginView go={go} loginMsg={loginMsg} />}
+        {effectiveView === "welcome" && <WelcomeView go={go} />}
+        {effectiveView === "home" && <HomeView go={go} pick={setTour} cat={cat} setCat={setCat} tours={activeTours} toursLoading={toursLoading} selectedCity={selectedCity} setSelectedCity={pickCity} geoSource={geoSource} />}
+        {effectiveView === "catalog" && <CatalogView go={go} pick={setTour} cat={cat} setCat={setCat} tours={activeTours} toursLoading={toursLoading} />}
+        {effectiveView === "detail" && <DetailView tour={currentTour} go={go} pick={setTour} onBook={handleBook} reviews={reviews} />}
+        {effectiveView === "booking" && <BookingView tour={currentTour} go={go} onLocalBookingSuccess={handleAddLocalTrip} />}
+        {effectiveView === "notifications" && <NotifsView notifs={notifs} setNotifs={setNotifs} />}
+        {effectiveView === "trips" && <TripsView go={go} onSelectTrip={setCurrentTrip} trips={trips} />}
+        {effectiveView === "trip-detail" && <TripDetailView trip={currentTrip} go={go} onReview={handleReview} />}
+        {effectiveView === "profile" && <ProfileView go={go} isOperator={isOperator} setIsOperator={setIsOperator} />}
+        {effectiveView === "dashboard" && <DashView go={go} opTours={opTours} setOpTours={setOpTours} onEditTour={handleEditTour} initialTab={dashTab} onTabConsumed={() => setDashTab("bookings")} />}
+        {effectiveView === "new-tour" && <NewTourView go={go} editingTour={editingTour} onSaveTour={handleSaveTour} onCreateTour={handleCreateTour} onCancel={handleCancelTour} />}
         {showFooter && <Footer go={go} />}
         {showNav && <BNav active={nav} go={navGo} />}
       </div>
