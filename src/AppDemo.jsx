@@ -3934,10 +3934,14 @@ export default function AppDemo() {
     setCurrentTrip(newTrip);
   };
 
-  const isAuth = !["login", "welcome"].includes(view);
-  const showNav = isAuth && !["booking", "detail", "new-tour", "trip-detail"].includes(view);
-  const showHeader = isAuth && !["booking", "new-tour"].includes(view);
-  const showFooter = isAuth && !["booking", "detail", "new-tour", "dashboard", "trip-detail"].includes(view);
+  // effectiveView trata "login con sesión activa" como "home" (paso 6). El
+  // chrome (header/nav/footer) debe derivar de effectiveView, no de view, o
+  // se ocultaría al arrancar logueado hasta la primera navegación.
+  const effectiveView = (user && view === "login") ? "home" : view;
+  const isAuth = !["login", "welcome"].includes(effectiveView);
+  const showNav = isAuth && !["booking", "detail", "new-tour", "trip-detail"].includes(effectiveView);
+  const showHeader = isAuth && !["booking", "new-tour"].includes(effectiveView);
+  const showFooter = isAuth && !["booking", "detail", "new-tour", "dashboard", "trip-detail"].includes(effectiveView);
   const currentTour = tour ? tours.find(t => t.id === tour.id) || tour : null;
   const activeTours = tours.filter(t => { const op = opTours.find(o => o.tourId === t.id); return !op || op.active; });
 
@@ -3953,8 +3957,6 @@ export default function AppDemo() {
       </div>
     );
   }
-
-  const effectiveView = (user && view === "login") ? "home" : view;
 
   return (
     <>
