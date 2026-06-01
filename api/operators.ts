@@ -1,26 +1,21 @@
 // api/operators.ts
 // POST /api/operators — onboarding de operadores turísticos.
-// Crea una cuenta sin verificar (verified: false) y devuelve un sessionToken
-// que también se setea como cookie HttpOnly. La verificación manual ocurre
-// off-platform en el sprint; la columna `verified` se marca true a mano.
-//
-// El sessionToken NO se persiste en DB en este sprint: la cookie firmada por
-// el dominio es suficiente para mostrar el dashboard demo. En producción
-// (Pista B) se agrega tabla Sessions con expiración y revocación.
+// Requiere sesión: liga el operador al usuario autenticado (Operator.userId)
+// y toma el email del token, no del body. Crea la cuenta sin verificar
+// (verified: false); la verificación manual ocurre off-platform en el sprint
+// y la columna `verified` se marca true a mano.
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
-import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { db } from "../lib/db.js";
 import { rateLimit, ipFromRequest } from "../lib/rate-limit.js";
+import { requireAuth } from "../lib/auth.js";
 
-const SESSION_COOKIE = "finde_session";
-const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 días
-
+// email NO va en el schema: la identidad sale del token (requireAuth →
+// user.email), no del body. Consistente con POST /api/bookings.
 const bodySchema = z.object({
   name: z.string().trim().min(3).max(100),
-  email: z.string().trim().toLowerCase().email().max(150),
   phone: z
     .string()
     .trim()
@@ -33,20 +28,6 @@ const bodySchema = z.object({
     .regex(/^\d{11}$/, "ruc debe tener exactamente 11 dígitos numéricos"),
 });
 
-function buildSessionCookie(token: string): string {
-  const parts = [
-    `${SESSION_COOKIE}=${token}`,
-    "Path=/",
-    "HttpOnly",
-    "SameSite=Lax",
-    `Max-Age=${SESSION_MAX_AGE_SECONDS}`,
-  ];
-  if (process.env.NODE_ENV === "production") {
-    parts.push("Secure");
-  }
-  return parts.join("; ");
-}
-
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -55,6 +36,14 @@ export default async function handler(
     res.setHeader("Allow", "POST");
     res.status(405).json({ error: "Método no permitido" });
     return;
+  }
+
+  // El onboarding requiere sesión: el operador se liga al usuario autenticado.
+  let user;
+  try {
+    user = await requireAuth(req, res);
+  } catch {
+    return; // requireAuth ya respondió 401
   }
 
   // Rate limit anti-spam de cuentas: 3/min por IP.
@@ -78,14 +67,28 @@ export default async function handler(
     return;
   }
 
-  const { name, email, phone, city } = parsed.data;
-  // TODO: persistir ruc cuando agreguemos la columna en Pista B (Fase Producción).
-  // Por ahora validamos formato pero no lo guardamos.
+  const { name, phone, city, ruc } = parsed.data;
+  // Identidad desde el token, no del body.
+  const email = user.email;
+  if (!email) {
+    res.status(400).json({ error: "La cuenta no tiene email asociado" });
+    return;
+  }
+
+  // Un usuario solo puede tener un perfil de operador.
+  const existing = await db.operator.findUnique({
+    where: { userId: user.id },
+    select: { id: true },
+  });
+  if (existing) {
+    res.status(409).json({ error: "Ya eres operador" });
+    return;
+  }
 
   let operador;
   try {
     operador = await db.operator.create({
-      data: { name, email, phone, city, verified: false },
+      data: { name, email, phone, city, ruc, userId: user.id, verified: false },
       select: {
         id: true,
         name: true,
@@ -107,8 +110,5 @@ export default async function handler(
     return;
   }
 
-  const sessionToken = randomUUID();
-  res.setHeader("Set-Cookie", buildSessionCookie(sessionToken));
-
-  res.status(200).json({ operator: operador, sessionToken });
+  res.status(200).json({ operator: operador });
 }

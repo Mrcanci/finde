@@ -10,6 +10,7 @@ import { randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { db } from "../lib/db.js";
 import { rateLimit, ipFromRequest } from "../lib/rate-limit.js";
+import { requireAuth } from "../lib/auth.js";
 
 // Tolerancia para zona horaria del cliente: aceptamos hasta 1 hora en el pasado.
 const PAST_TOLERANCE_MS = 60 * 60 * 1000;
@@ -18,10 +19,12 @@ const YAPE_DEMO_PHONE = "999-111-222";
 const PAYMENT_NOTE =
   "Mock visual para demo. En producción se conecta a PayU sandbox.";
 
+// userEmail NO va en el schema: la identidad del comprador sale del token
+// validado (requireAuth → user.email), no del body. El cliente no puede
+// declararse como otro usuario.
 const bodySchema = z.object({
   tourId: z.string().cuid(),
   userName: z.string().trim().min(3).max(100),
-  userEmail: z.string().trim().toLowerCase().email().max(150),
   userPhone: z
     .string()
     .trim()
@@ -104,6 +107,15 @@ export default async function handler(
     return;
   }
 
+  // La reserva requiere sesión: el userEmail se deriva del token validado,
+  // no del body. requireAuth ya respondió 401 si no hay/inválido el token.
+  let user;
+  try {
+    user = await requireAuth(req, res);
+  } catch {
+    return;
+  }
+
   const ip = ipFromRequest(req.headers["x-forwarded-for"]);
   const rl = rateLimit(ip, "bookings", 5);
   if (!rl.allowed) {
@@ -124,8 +136,14 @@ export default async function handler(
     return;
   }
 
-  const { tourId, userName, userEmail, userPhone, guests, scheduledAt } =
-    parsed.data;
+  const { tourId, userName, userPhone, guests, scheduledAt } = parsed.data;
+
+  // Identidad del comprador desde el token, no del body.
+  const userEmail = user.email;
+  if (!userEmail) {
+    res.status(400).json({ error: "La cuenta no tiene email asociado" });
+    return;
+  }
 
   const scheduledDate = new Date(scheduledAt);
   if (scheduledDate.getTime() < Date.now() - PAST_TOLERANCE_MS) {

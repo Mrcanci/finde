@@ -1,0 +1,210 @@
+{
+  "backedUpAt": "2026-05-23T05:09:16.725Z",
+  "source": "Operator table, Supabase Postgres prod",
+  "reason": "Pre-M1 cleanup: borrar operadores con 0 tours y 0 bookings (cuentas de prueba)",
+  "whitelistIds": [
+    "cmojjx0wn0000vpaa37mzuttk",
+    "cmojjznj00000vpbgcjjp7di4",
+    "cmok3a4ej0000vp8nlwzt848k",
+    "cmok3dzfz0000vp920frqlx1b",
+    "cmol28p5g0000kv04f8wysnes",
+    "cmoweih750000vptxbwrhimtc",
+    "cmowmqswr0000vpedu0e2uuuh",
+    "cmownch390000vpyrmp1ynoh3",
+    "cmowwdpey0001l704029cd41v",
+    "cmowx7ztm0000i804j6qx0t1h",
+    "cmowz7iph0000vp4iwq0egdus",
+    "cmoxvii4j0000vpc1nzfl5041",
+    "cmoxvw7s30000vpzadum0b8wc",
+    "cmoxxgvih0000vpnpwgor1yap",
+    "cmoyk1n9j0000l1041ae8dckw",
+    "cmp0qv4qu0000l704hh7i7n44",
+    "cmp55uhht0000js04dnnl6vvd",
+    "cmp6fmflg0000l104hti8qvuu",
+    "cmp7bv1dz0000l704qbyco1q4",
+    "cmp7w3rls0001la043d52284x"
+  ],
+  "rowCount": 20,
+  "rows": [
+    {
+      "id": "cmojjx0wn0000vpaa37mzuttk",
+      "name": "Andina Tours SAC",
+      "email": "andina-1777436686@finde.pe",
+      "phone": "984123456",
+      "verified": false,
+      "city": "Cusco",
+      "createdAt": "2026-04-29T04:24:57.046Z"
+    },
+    {
+      "id": "cmojjznj00000vpbgcjjp7di4",
+      "name": "Apurimac Adventures",
+      "email": "apurimac-1777436686@finde.pe",
+      "phone": "998877665",
+      "verified": false,
+      "city": "Abancay",
+      "createdAt": "2026-04-29T04:26:59.675Z"
+    },
+    {
+      "id": "cmok3a4ej0000vp8nlwzt848k",
+      "name": "jose",
+      "email": "testoperador@test.com",
+      "phone": "987654321",
+      "verified": false,
+      "city": "Cusco",
+      "createdAt": "2026-04-29T13:27:00.811Z"
+    },
+    {
+      "id": "cmok3dzfz0000vp920frqlx1b",
+      "name": "Test Operador",
+      "email": "testop-1@ejemplo.com",
+      "phone": "987654321",
+      "verified": false,
+      "city": "Cusco",
+      "createdAt": "2026-04-29T13:30:01.007Z"
+    },
+    {
+      "id": "cmol28p5g0000kv04f8wysnes",
+      "name": "Alejandra Quispe",
+      "email": "ale.quispe@gmail.com",
+      "phone": "51987654321",
+      "verified": false,
+      "city": "Lima",
+      "createdAt": "2026-04-30T05:45:40.944Z"
+    },
+    {
+      "id": "cmoweih750000vptxbwrhimtc",
+      "name": "Alejandra Quispe",
+      "email": "ale.qauispe@gmail.com",
+      "phone": "51987654321",
+      "verified": false,
+      "city": "Lima",
+      "createdAt": "2026-05-08T04:14:40.530Z"
+    },
+    {
+      "id": "cmowmqswr0000vpedu0e2uuuh",
+      "name": "Alejandra Quispe",
+      "email": "ale.quispaae@gmail.com",
+      "phone": "51987654321",
+      "verified": false,
+      "city": "Lima",
+      "createdAt": "2026-05-08T08:05:05.882Z"
+    },
+    {
+      "id": "cmownch390000vpyrmp1ynoh3",
+      "name": "Alejandra Quispe",
+      "email": "ale.quasdispe@gmail.com",
+      "phone": "51987654321",
+      "verified": false,
+      "city": "Lima",
+      "createdAt": "2026-05-08T08:21:56.996Z"
+    },
+    {
+      "id": "cmowwdpey0001l704029cd41v",
+      "name": "Alejandra Quispe",
+      "email": "ale.quiaspe@gmail.com",
+      "phone": "51987654321",
+      "verified": false,
+      "city": "Lima",
+      "createdAt": "2026-05-08T12:34:50.987Z"
+    },
+    {
+      "id": "cmowx7ztm0000i804j6qx0t1h",
+      "name": "Alejandra Quispe",
+      "email": "ale.quispe@gmail.coma",
+      "phone": "51987654321",
+      "verified": false,
+      "city": "Lima",
+      "createdAt": "2026-05-08T12:58:24.151Z"
+    },
+    {
+      "id": "cmowz7iph0000vp4iwq0egdus",
+      "name": "Alejandra Quispe",
+      "email": "ale.quispae@gmail.com",
+      "phone": "51987654321",
+      "verified": false,
+      "city": "Lima",
+      "createdAt": "2026-05-08T13:54:01.206Z"
+    },
+    {
+      "id": "cmoxvii4j0000vpc1nzfl5041",
+      "name": "Alejandra Quispe",
+      "email": "ale.quispase@gmail.com",
+      "phone": "51987654321",
+      "verified": false,
+      "city": "Lima",
+      "createdAt": "2026-05-09T04:58:21.380Z"
+    },
+    {
+      "id": "cmoxvw7s30000vpzadum0b8wc",
+      "name": "jose",
+      "email": "asda@gmail.com",
+      "phone": "51987654321",
+      "verified": false,
+      "city": "Lima",
+      "createdAt": "2026-05-09T05:09:01.154Z"
+    },
+    {
+      "id": "cmoxxgvih0000vpnpwgor1yap",
+      "name": "Alejandra Quispe",
+      "email": "ale.quisape@gmail.com",
+      "phone": "51987654321",
+      "verified": false,
+      "city": "Lima",
+      "createdAt": "2026-05-09T05:53:04.648Z"
+    },
+    {
+      "id": "cmoyk1n9j0000l1041ae8dckw",
+      "name": "Alejandra Quispe",
+      "email": "ale.quispeh@gmail.com",
+      "phone": "51987654321",
+      "verified": false,
+      "city": "Lima",
+      "createdAt": "2026-05-09T16:25:05.284Z"
+    },
+    {
+      "id": "cmp0qv4qu0000l704hh7i7n44",
+      "name": "Alejandra Quispe",
+      "email": "ale.dquispe@gmail.com",
+      "phone": "51987654321",
+      "verified": false,
+      "city": "Lima",
+      "createdAt": "2026-05-11T05:11:31.011Z"
+    },
+    {
+      "id": "cmp55uhht0000js04dnnl6vvd",
+      "name": "Alejandra Quispe",
+      "email": "ale.quasdaispe@gmail.com",
+      "phone": "51987654321",
+      "verified": false,
+      "city": "Lima",
+      "createdAt": "2026-05-14T07:21:59.822Z"
+    },
+    {
+      "id": "cmp6fmflg0000l104hti8qvuu",
+      "name": "Alejandra Quispe",
+      "email": "ale.quispew@gmail.com",
+      "phone": "51987654321",
+      "verified": false,
+      "city": "Lima",
+      "createdAt": "2026-05-15T04:43:26.449Z"
+    },
+    {
+      "id": "cmp7bv1dz0000l704qbyco1q4",
+      "name": "Alejandra Quispe",
+      "email": "alee.quispe@gmail.com",
+      "phone": "51987654321",
+      "verified": false,
+      "city": "Lima",
+      "createdAt": "2026-05-15T19:45:55.652Z"
+    },
+    {
+      "id": "cmp7w3rls0001la043d52284x",
+      "name": "Alejandra Quispe",
+      "email": "ale.quaispe@gmail.com",
+      "phone": "51987654321",
+      "verified": false,
+      "city": "Lima",
+      "createdAt": "2026-05-16T05:12:35.201Z"
+    }
+  ]
+}

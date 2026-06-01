@@ -41,6 +41,12 @@ model Operator {
   city      String?
   createdAt DateTime @default(now())
 
+  // M1 sub-paso 8: vínculo con Supabase auth.users (nullable: operadores
+  // del seed quedan sin dueño). FK lógica, no la maneja Prisma.
+  userId    String?  @unique
+  // RUC del operador (persistido desde el onboarding; antes solo se validaba).
+  ruc       String?
+
   tours     Tour[]
 }
 
@@ -100,6 +106,10 @@ model Booking {
   userName     String
   userPhone    String?
 
+  // M1 sub-paso 8: vínculo con Supabase auth.users (nullable: bookings
+  // previos al auth quedan sin userId). FK lógica, no la maneja Prisma.
+  userId       String?
+
   guests       Int      @default(1)
   totalSoles   Int      // céntimos de sol (ej: 17000 = S/170.00)
 
@@ -111,6 +121,7 @@ model Booking {
 
   @@index([tourId])
   @@index([userEmail])
+  @@index([userId])
 }
 
 model SearchLog {
