@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { supabase } from "../lib/supabase.js";
+import { authFetch } from "../lib/authFetch.js";
 
 const AuthContext = createContext(null);
 
@@ -7,6 +8,24 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [operator, setOperator] = useState(null);
+
+  // Resuelve el perfil de operador del usuario actual vía /api/me.
+  // Estable (sin deps): lee el token a través de authFetch, no del closure.
+  // Cualquier fallo (incluido 401 sin sesión) deja operator=null.
+  const fetchOperator = useCallback(async () => {
+    try {
+      const r = await authFetch("/api/me");
+      if (!r.ok) {
+        setOperator(null);
+        return;
+      }
+      const data = await r.json();
+      setOperator(data.operator ?? null);
+    } catch {
+      setOperator(null);
+    }
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -17,6 +36,8 @@ export function AuthProvider({ children }) {
       setSession(data.session);
       setUser(data.session?.user ?? null);
       setLoading(false);
+      if (data.session?.user) fetchOperator();
+      else setOperator(null);
     });
 
     // Reaccionar a SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, INITIAL_SESSION.
@@ -24,6 +45,8 @@ export function AuthProvider({ children }) {
       (_event, newSession) => {
         setSession(newSession);
         setUser(newSession?.user ?? null);
+        if (newSession?.user) fetchOperator();
+        else setOperator(null);
       }
     );
 
@@ -31,15 +54,15 @@ export function AuthProvider({ children }) {
       active = false;
       subscription.unsubscribe();
     };
-  }, []);
-
-  // TODO(M1 sub-paso 8): exponer isOperator consultando /api/me cuando
-  // el endpoint devuelva info de Operator (requiere Operator.userId en schema).
+  }, [fetchOperator]);
 
   const value = {
     user,
     session,
     loading,
+    operator,
+    isOperator: !!operator,
+    refreshOperator: fetchOperator,
     signInWithPassword: ({ email, password }) =>
       supabase.auth.signInWithPassword({ email, password }),
     signUpWithPassword: ({ email, password }) =>
