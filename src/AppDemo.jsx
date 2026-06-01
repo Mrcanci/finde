@@ -2801,7 +2801,13 @@ function TripDetailView({ trip, go, onReview }) {
 }
 
 function ProfileView({ go }) {
-  const { user, isOperator, refreshOperator } = useAuth();
+  const { user, isOperator, refreshOperator, signOut } = useAuth();
+  // Opción 1 (mínimo honesto): solo datos reales. El email es el identificador
+  // principal; joinLabel sale de created_at si existe; no se finge nombre.
+  const joinLabel = user?.created_at
+    ? new Date(user.created_at).toLocaleDateString("es-PE", { month: "long", year: "numeric" })
+    : null;
+  const avatarInitials = (user?.email || "?").slice(0, 2).toUpperCase();
   const [showOpForm, setShowOpForm] = useState(false);
   const [opForm, setOpForm] = useState({
     name: USER.name,
@@ -2861,8 +2867,8 @@ function ProfileView({ go }) {
   return (
     <div className="pf-page fu">
       <div className="pf-hdr">
-        <div className="pf-av">{USER.avatar}</div><div className="pf-name">{USER.name}</div><div className="pf-since">Viajera desde {USER.joinDate}</div>
-        <div className="pf-stats"><div className="pf-stat"><div className="pf-stat-v">{USER.trips}</div><div className="pf-stat-l">Viajes</div></div><div className="pf-stat"><div className="pf-stat-v">{USER.reviews}</div><div className="pf-stat-l">Reseñas</div></div></div>
+        <div className="pf-av">{avatarInitials}</div><div className="pf-name">{user?.email || "—"}</div>
+        {joinLabel && <div className="pf-since">Miembro desde {joinLabel}</div>}
       </div>
       {!isOperator && !showOpForm ? (
         <div className="pf-op-card" onClick={() => setShowOpForm(true)}>
@@ -2936,9 +2942,7 @@ function ProfileView({ go }) {
         </div>
       )}
       <div className="pf-sec"><div className="pf-sec-t">Datos personales</div>
-        {[["Nombre", USER.name], ["Teléfono", USER.phone], ["Email", USER.email], ["Ciudad", USER.city]].map(([l, v]) => (
-          <div key={l} className="pf-field"><div><div className="pf-field-l">{l}</div><div className="pf-field-v">{v}</div></div><ChevronRight size={16} strokeWidth={1.5} style={{ color: "var(--lg)" }} /></div>
-        ))}
+        <div className="pf-field"><div><div className="pf-field-l">Email</div><div className="pf-field-v">{user?.email || "—"}</div></div><ChevronRight size={16} strokeWidth={1.5} style={{ color: "var(--lg)" }} /></div>
       </div>
       {[
         { ic: Languages, bg: "rgba(212,168,67,.1)", t: "Idioma", d: "Español · Runasimi disponible" },
@@ -2960,7 +2964,7 @@ function ProfileView({ go }) {
         </div>
         <ChevronRight size={16} strokeWidth={1.5} style={{ color: "var(--lg)" }} />
       </div>
-      <button className="pf-logout" onClick={() => go("login")}>Cerrar sesión</button>
+      <button className="pf-logout" onClick={() => signOut()}>Cerrar sesión</button>
       <div className="pf-ver">finde. AI v3.0 · Hecho en Perú</div>
     </div>
   );
@@ -3941,10 +3945,16 @@ export default function AppDemo() {
     setCurrentTrip(newTrip);
   };
 
-  // effectiveView trata "login con sesión activa" como "home" (paso 6). El
-  // chrome (header/nav/footer) debe derivar de effectiveView, no de view, o
-  // se ocultaría al arrancar logueado hasta la primera navegación.
-  const effectiveView = (user && view === "login") ? "home" : view;
+  // effectiveView desacopla el chrome/switch del view crudo:
+  // - con sesión y view==="login" → tratamos como "home" (paso 6), así el
+  //   chrome no se oculta al arrancar logueado hasta la primera navegación.
+  // - sin sesión en una vista protegida (logout o expiración de sesión) →
+  //   "login". Guard derivado durante el render (no useEffect/setState): sin
+  //   flash ni render extra. En el re-login, LoginView hace go("home").
+  const effectiveView =
+    user && view === "login" ? "home"
+      : !user && !["login", "welcome"].includes(view) ? "login"
+        : view;
   const isAuth = !["login", "welcome"].includes(effectiveView);
   const showNav = isAuth && !["booking", "detail", "new-tour", "trip-detail"].includes(effectiveView);
   const showHeader = isAuth && !["booking", "new-tour"].includes(effectiveView);
