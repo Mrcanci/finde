@@ -2800,11 +2800,13 @@ function TripDetailView({ trip, go, onReview }) {
   );
 }
 
-function ProfileView({ go, isOperator, setIsOperator }) {
+function ProfileView({ go }) {
+  const { user, isOperator, refreshOperator } = useAuth();
   const [showOpForm, setShowOpForm] = useState(false);
   const [opForm, setOpForm] = useState({
     name: USER.name,
-    email: USER.email,
+    // Email del usuario logueado (el backend lo toma del token; el body lo ignora).
+    email: user?.email || "",
     phone: (USER.phone || "").replace(/\D/g, ""),
     city: USER.city,
     ruc: "",
@@ -2823,23 +2825,31 @@ function ProfileView({ go, isOperator, setIsOperator }) {
     setOpLoading(true);
     setOpError("");
     try {
+      // email NO va en el body: el backend lo toma del token (sub-paso 8.4).
       const body = {
         name: opForm.name,
-        email: opForm.email,
         phone: opForm.phone,
         city: opForm.city,
         ruc: opForm.ruc,
       };
-      const r = await fetch("/api/operators", {
+      const r = await authFetch("/api/operators", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
+        if (r.status === 409) {
+          // Ya es operador (o email duplicado): refrescamos y cerramos el form.
+          await refreshOperator();
+          setShowOpForm(false);
+          return;
+        }
         throw new Error(err.error || `HTTP ${r.status}`);
       }
-      setIsOperator(true);
+      // Re-consulta /api/me para actualizar isOperator global (en vez de
+      // setear estado local, que ya no existe).
+      await refreshOperator();
       setShowOpForm(false);
     } catch (e) {
       setOpError(e.message || "Error registrando operador");
@@ -3668,15 +3678,12 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
 
 // ── MAIN ──────────────────────────────────────────────
 export default function AppDemo() {
-  const { user, loading } = useAuth();
+  const { user, loading, isOperator } = useAuth();
   const [view, setView] = useState("login");
   const [tour, setTour] = useState(null);
   const [nav, setNav] = useState("explore");
   const [cat, setCat] = useState("all");
   const [notifs, setNotifs] = useState(NOTIFS);
-  // TODO(M1 sub-paso 8): derivar isOperator de useAuth() cuando exista
-  //   Operator.userId en el schema. Por ahora queda como estado local.
-  const [isOperator, setIsOperator] = useState(false);
   const [tours, setTours] = useState([]);
   const [toursLoading, setToursLoading] = useState(true);
   // Feature "Tours en [ciudad]": ciudad mostrada en la sección. Arranca en
@@ -3972,7 +3979,7 @@ export default function AppDemo() {
         {effectiveView === "notifications" && <NotifsView notifs={notifs} setNotifs={setNotifs} />}
         {effectiveView === "trips" && <TripsView go={go} onSelectTrip={setCurrentTrip} trips={trips} />}
         {effectiveView === "trip-detail" && <TripDetailView trip={currentTrip} go={go} onReview={handleReview} />}
-        {effectiveView === "profile" && <ProfileView go={go} isOperator={isOperator} setIsOperator={setIsOperator} />}
+        {effectiveView === "profile" && <ProfileView go={go} />}
         {effectiveView === "dashboard" && <DashView go={go} opTours={opTours} setOpTours={setOpTours} onEditTour={handleEditTour} initialTab={dashTab} onTabConsumed={() => setDashTab("bookings")} />}
         {effectiveView === "new-tour" && <NewTourView go={go} editingTour={editingTour} onSaveTour={handleSaveTour} onCreateTour={handleCreateTour} onCancel={handleCancelTour} />}
         {showFooter && <Footer go={go} />}
