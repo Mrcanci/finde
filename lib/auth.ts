@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import type { User } from "@supabase/supabase-js";
 import { supabaseAdmin } from "./supabase-admin.js";
+import { db } from "./db.js";
 
 export class AuthRequiredError extends Error {
   constructor(message = "No autorizado") {
@@ -40,4 +41,24 @@ export async function requireAuth(
     throw new AuthRequiredError();
   }
   return user;
+}
+
+// requireOperator: sobre requireAuth, resuelve el Operator del usuario.
+// 401 si no hay sesión (vía requireAuth), 403 si la cuenta no es operador.
+// Lanza AuthRequiredError en ambos casos para que el `catch { return }` de
+// los handlers funcione igual que con requireAuth.
+export async function requireOperator(
+  req: VercelRequest,
+  res: VercelResponse
+): Promise<{ user: User; operator: { id: string; name: string; verified: boolean } }> {
+  const user = await requireAuth(req, res);
+  const operator = await db.operator.findUnique({
+    where: { userId: user.id },
+    select: { id: true, name: true, verified: true },
+  });
+  if (!operator) {
+    res.status(403).json({ error: "Requiere perfil de operador" });
+    throw new AuthRequiredError("Requiere perfil de operador");
+  }
+  return { user, operator };
 }
