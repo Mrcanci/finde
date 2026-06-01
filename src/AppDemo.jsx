@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, CreditCard, Banknote, Smartphone, MessageCircle, Camera, MountainSnow, Hand, CircleDollarSign, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff, Info } from "lucide-react";
 import { useAuth } from "./contexts/AuthContext.jsx";
+import { authFetch } from "./lib/authFetch.js";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // FINDE v3 — AI-Native Marketplace
@@ -2445,6 +2446,7 @@ function VoucherDetail({ trip }) {
 }
 
 function BookingView({ tour, go, onLocalBookingSuccess }) {
+  const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [guests, setGuests] = useState(2);
   const [date, setDate] = useState(() => {
@@ -2455,7 +2457,9 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
   });
   const [name, setName] = useState(USER.name || "");
   const [phone, setPhone] = useState(USER.phone ? USER.phone.replace(/^\+51\s*/, "") : "");
-  const [email, setEmail] = useState(USER.email || "");
+  // Prellenar con el email del usuario logueado. El backend ignora este valor
+  // y usa el del token; lo mostramos sólo para que el usuario vea su identidad.
+  const [email, setEmail] = useState(user?.email || "");
   const [docId, setDocId] = useState("");
   const [pay, setPay] = useState("yape");
   const [touched, setTouched] = useState(false);
@@ -2504,7 +2508,7 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
     try {
       const phoneClean = phone.replace(/\D/g, "");
       const scheduledAt = new Date(`${date}T13:00:00.000Z`).toISOString();
-      const r = await fetch("/api/bookings", {
+      const r = await authFetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
