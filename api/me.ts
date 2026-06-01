@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { requireAuth } from "../lib/auth.js";
+import { db } from "../lib/db.js";
 
 export default async function handler(
   req: VercelRequest,
@@ -18,11 +19,17 @@ export default async function handler(
     return; // requireAuth ya respondió 401
   }
 
-  // TODO(M1 sub-paso 8): incluir operator { id, verified, businessName } cuando exista Operator.userId.
+  // Resolver si el usuario tiene un perfil de operador asociado.
+  const operator = await db.operator.findUnique({
+    where: { userId: user.id },
+    select: { id: true, name: true, verified: true, city: true, ruc: true },
+  });
+
   res.status(200).json({
     user: {
       id: user.id,
       email: user.email,
     },
+    operator: operator ?? null,
   });
 }
