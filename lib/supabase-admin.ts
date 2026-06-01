@@ -1,10 +1,10 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const url = process.env.VITE_SUPABASE_URL;
+const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!url) {
-  throw new Error("Falta VITE_SUPABASE_URL en el entorno");
+  throw new Error("Falta SUPABASE_URL (o VITE_SUPABASE_URL) en el entorno");
 }
 if (!serviceKey) {
   throw new Error("Falta SUPABASE_SERVICE_ROLE_KEY en el entorno");
