@@ -70,7 +70,10 @@ export type TourData = {
   addedDates: string[];
   meetingPoint: string | null;
   cancellation: (typeof CANCEL_MAP)[keyof typeof CANCEL_MAP];
-  imageUrl: string | null;
+  // undefined (no string) cuando no se manda foto http válida: Prisma ignora
+  // undefined en update → el PUT PRESERVA la imagen existente; en create cae a
+  // null (columna nullable). null borraría la imagen, por eso se evita.
+  imageUrl?: string;
 };
 
 export type ParseTourInputResult =
@@ -125,8 +128,12 @@ export function parseTourInput(rawBody: unknown): ParseTourInputResult {
   }
 
   const priceSoles = Math.round(b.price * 100);
+  // Solo una URL http(s) cuenta como "foto nueva". Si no hay → undefined (NO
+  // null): en el PUT, Prisma ignora undefined y preserva la imagen actual; en
+  // el POST cae a null (columna nullable). Semántica: photo ausente/no-URL =
+  // "no tocar la imagen"; photo con URL = "reemplazar".
   const imageUrl =
-    typeof b.photo === "string" && /^https?:\/\//i.test(b.photo) ? b.photo : null;
+    typeof b.photo === "string" && /^https?:\/\//i.test(b.photo) ? b.photo : undefined;
 
   return {
     ok: true,

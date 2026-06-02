@@ -261,6 +261,36 @@ function mapTourFromApi(t) {
   });
 }
 
+// Mapeo inverso form (UI) → body que esperan POST/PUT /api/tours. Compartido
+// por crear (2.5) y editar (2.6) para no duplicar la conversión:
+// - category UI (culture/gastro) → enum API (el backend también lo tolera).
+// - days: day-codes (["lun",...]) → Boolean[7] indexado por DAY_CODES
+//   (índice i = DAY_CODES[i], misma convención getUTCDay() del front).
+// - included/excluded: el form ya los tiene como string coma-sep; el backend
+//   acepta string o array, así que se envían tal cual.
+// - price: soles tal cual (el backend hace el ×100).
+// - photo: solo si es URL http(s); el backend ignora lo demás.
+function tourFormToApiBody(f) {
+  return {
+    title: f.title,
+    location: f.location,
+    price: f.price,
+    duration: f.duration,
+    category: CAT_UI_TO_API[f.category] || f.category,
+    capacity: Number(f.capacity) || 10,
+    difficulty: f.difficulty || undefined,
+    description: f.description,
+    included: f.included || "",
+    excluded: f.excluded || "",
+    days: DAY_CODES.map((code) => (f.days || []).includes(code)),
+    excludedDates: f.excludedDates || [],
+    addedDates: f.addedDates || [],
+    meetingPoint: f.meetingPoint || undefined,
+    cancellation: f.cancellation || "flexible",
+    ...(f.photo && /^https?:\/\//i.test(f.photo) ? { photo: f.photo } : {}),
+  };
+}
+
 const AI_SUGGESTIONS = [
   { query: "algo tranquilo con niños sin mucha altitud", results: ["cmoh8rd3t000zvpn2vn252gw0", "cmoh8rd6l0011vpn2gh5sebuu", "cmoh8rdvu001jvpn2mor2wbyw"], reason: "Baja altitud + actividades familiares" },
   { query: "aventura extrema para jóvenes", results: ["cmoh8rceb000hvpn29qhzz4ug", "cmoh8rdhw0019vpn2wq5xn8tk", "cmoh8rc8h000dvpn22yhhhrii"], reason: "Alta adrenalina + desafío físico" },
@@ -3278,7 +3308,10 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
     addedDates: editingTour.addedDates || [],
     startTime: editingTour.startTime || "08:00",
     cancellation: editingTour.cancellation || "flexible",
-    photo: editingTour.photo || null,
+    // La imagen de un tour del API vive en `image` (URL); `photo` suele venir
+    // null. Cargarla aquí hace que el editor la muestre y la re-envíe (al ser
+    // URL http) para que el backend la preserve en vez de borrarla.
+    photo: editingTour.photo || editingTour.image || null,
   } : {
     title: "", location: "", meetingPoint: "", category: "adventure", duration: "", price: "",
     capacity: "", difficulty: "Moderada", description: "", included: "", excluded: "",
@@ -3411,7 +3444,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           </div>
         </div>
         <div className="fg">
-          <label className="lbl">Foto principal del tour <span style={{ color: "var(--tr)" }}>*</span></label>
+          <label className="lbl">Foto principal del tour <span style={{ color: "var(--gy)", fontWeight: 500 }}>(opcional)</span></label>
           {!form.photo && isEditing && editingTour.image && (
             <div style={{ borderRadius: 16, overflow: "hidden", height: 100, marginBottom: 8, ...imgBg(editingTour.image), display: "flex", alignItems: "center", justifyContent: "center" }}>
               <span style={{ fontSize: 11, color: "rgba(255,255,255,.7)", fontWeight: 600 }}>Imagen actual · Sube una foto para reemplazarla</span>
@@ -3426,6 +3459,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
               <Camera size={28} strokeWidth={1.5} style={{ color: "var(--f)" }} />
               <span style={{ fontSize: 13, fontWeight: 600, color: "var(--f)" }}>{isEditing ? "Cambiar foto" : "Subir foto"}</span>
               <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>Recomendado: 1200×800px · JPG o PNG · máx 5MB</span>
+              <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>Opcional por ahora — sin foto usamos un diseño por defecto.</span>
               <input type="file" accept="image/*" style={{ display: "none" }}
                 onChange={(e) => {
                   const file = e.target.files[0];
@@ -3448,7 +3482,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           )}
         </div>
         <button className="mbtn" style={{ marginTop: 8 }}
-          disabled={!form.title || !form.location || (form.meetingPoint || "").trim().length < 10 || (!form.photo && !(isEditing && editingTour.image))}
+          disabled={!form.title || !form.location || (form.meetingPoint || "").trim().length < 10}
           onClick={() => setStep(2)}>Siguiente</button>
       </div>}
 
@@ -3692,12 +3726,16 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           <div className="field-err" style={{ marginBottom: 10, textAlign: "center" }}>{submitError}</div>
         )}
         <button className="mbtn" disabled={submitting} onClick={async () => {
-          if (isEditing) {
-            onSaveTour({ ...editingTour, ...form, price: Number(form.price) || editingTour.price, image: form.photo ? `url(${form.photo})` : editingTour.image });
-            return;
-          }
           setSubmitError("");
           setSubmitting(true);
+          if (isEditing) {
+            const result = await onSaveTour({ ...editingTour, ...form, price: Number(form.price) || editingTour.price, image: form.photo ? `url(${form.photo})` : editingTour.image });
+            setSubmitting(false);
+            if (!result?.ok) {
+              setSubmitError(result?.error || "No pudimos guardar los cambios. Intenta de nuevo.");
+            }
+            return;
+          }
           const result = await onCreateTour(form);
           setSubmitting(false);
           if (result?.ok) {
@@ -3733,10 +3771,11 @@ export default function AppDemo() {
     setGeoSource("manual");
   }, []);
 
-  // Fase 3.1: opTours se inicializa vacío. Se hidrata desde el fetch de
-  // /api/tours en el useEffect de abajo (antes leía de TOURS hardcoded).
+  // opTours (dashboard del operador) se hidrata aparte, desde
+  // /api/operators/me/tours (ver efecto más abajo). Arranca vacío.
   const [opTours, setOpTours] = useState([]);
 
+  // Catálogo público: alimenta `tours` (NO opTours). Una sola vez al montar.
   useEffect(() => {
     let cancel = false;
     fetch("/api/tours?limit=50")
@@ -3745,37 +3784,6 @@ export default function AppDemo() {
         if (cancel) return;
         const apiMapped = (data.tours || []).map(mapTourFromApi).map(ensureAvailabilityFields);
         setTours(apiMapped);
-        // Fase 3.1: opTours antes se seedea desde TOURS hardcoded. Ahora se
-        // hidrata desde el mismo fetch del API. Tomamos los primeros 4 tours
-        // como "tours del operador demo" (primeros 3 activos, 4to inactivo)
-        // y preservamos la misma forma que esperaba el dashboard del operador.
-        setOpTours(prev => {
-          if (prev.length > 0) return prev;
-          return apiMapped.slice(0, 4).map((t, i) => ({
-            id: i + 1,
-            tourId: t.id,
-            active: true,
-            image: t.image,
-            title: t.title || "",
-            location: t.location || "",
-            duration: t.duration || "",
-            price: t.price || 0,
-            rating: t.rating || 0,
-            reviews: t.reviews || 0,
-            category: t.category || "adventure",
-            capacity: String(t.capacity || ""),
-            difficulty: t.difficulty || "Moderada",
-            description: t.desc || "",
-            included: Array.isArray(t.included) ? t.included.join(", ") : (t.included || ""),
-            excluded: Array.isArray(t.excluded) ? t.excluded.join(", ") : (t.excluded || ""),
-            days: DEFAULT_DAYS,
-            excludedDates: [],
-            addedDates: [],
-            startTime: "08:00",
-            cancellation: "flexible",
-            photo: null,
-          }));
-        });
       })
       .catch(err => {
         console.error("Error cargando tours:", err);
@@ -3785,6 +3793,64 @@ export default function AppDemo() {
       });
     return () => { cancel = true; };
   }, []);
+
+  // Sub-paso 2.7: opTours = los tours REALES del operador autenticado
+  // (GET /api/operators/me/tours, filtrado por operatorId del token). Reemplaza
+  // el mock previo de "primeros 4 del catálogo" (tours ajenos → editar daba 403).
+  // - Espera a que useAuth resuelva (loading) antes de decidir.
+  // - No operador → opTours vacío (no dashboard de tours).
+  // - tourId conserva el CUID real → handleSaveTour (2.6) edita el tour correcto
+  //   y, al ser propio, el PUT responde 200.
+  useEffect(() => {
+    if (loading) return;
+    let cancel = false;
+    // setState solo dentro de este callback async (no síncrono en el efecto).
+    const hydrateOpTours = async () => {
+      if (!isOperator) {
+        if (!cancel) setOpTours([]);
+        return;
+      }
+      try {
+        const r = await authFetch("/api/operators/me/tours");
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        if (cancel) return;
+        // mapTourFromApi ya normaliza (incl. days/cancellation reales vía
+        // LIST_SELECT ampliado); de ahí a la forma que espera el dashboard.
+        const mine = (data.tours || []).map(mapTourFromApi);
+        setOpTours(mine.map((t, i) => ({
+          id: i + 1,
+          tourId: t.id,
+          active: true,
+          image: t.image,
+          title: t.title || "",
+          location: t.location || "",
+          duration: t.duration || "",
+          price: t.price || 0,
+          rating: t.rating || 0,
+          reviews: t.reviews || 0,
+          category: t.category || "adventure",
+          capacity: String(t.capacity || ""),
+          difficulty: t.difficulty || "Moderada",
+          description: t.desc || "",
+          included: Array.isArray(t.included) ? t.included.join(", ") : (t.included || ""),
+          excluded: Array.isArray(t.excluded) ? t.excluded.join(", ") : (t.excluded || ""),
+          days: t.days || DEFAULT_DAYS,
+          excludedDates: t.excludedDates || [],
+          addedDates: t.addedDates || [],
+          meetingPoint: t.meetingPoint || "",
+          startTime: "08:00",
+          cancellation: t.cancellation || "flexible",
+          photo: null,
+        })));
+      } catch (err) {
+        console.error("Error cargando tours del operador:", err);
+        if (!cancel) setOpTours([]);
+      }
+    };
+    hydrateOpTours();
+    return () => { cancel = true; };
+  }, [isOperator, loading]);
 
   // Resolución de ciudad vía /api/geo. Si el usuario ya cambió manualmente
   // (geoSource === "manual") cuando llega la respuesta, la ignoramos
@@ -3862,17 +3928,19 @@ export default function AppDemo() {
   const navGo = (id) => { setNav(id); if (id === "explore") go("home"); else if (id === "search") go("catalog"); else if (id === "trips") go("trips"); else if (id === "profile") go("profile"); };
 
   const handleEditTour = (t) => { setEditingTour(t); go("new-tour"); };
-  const handleSaveTour = (updated) => {
+  // Normaliza included/excluded SIEMPRE a array (incluso vacío) para que
+  // DetailView no crashee con `"".map is not a function` si el operador deja
+  // el campo en blanco.
+  const toArr = (v) => Array.isArray(v)
+    ? v
+    : (typeof v === "string" && v.trim()
+        ? v.split(",").map(s => s.trim()).filter(Boolean)
+        : []);
+  // Update solo-local (sin API). Fallback para tours sin CUID en DB (id local
+  // numérico) — comportamiento previo a 2.6.
+  const applyLocalSave = (updated) => {
     setOpTours(prev => prev.map(t => t.id === updated.id ? updated : t));
     if (updated.tourId) {
-      // Normalizamos included/excluded SIEMPRE a array (incluso vacío),
-      // evita que DetailView crashee con `"".map is not a function`
-      // si el operador deja el campo en blanco al editar.
-      const toArr = (v) => Array.isArray(v)
-        ? v
-        : (typeof v === "string" && v.trim()
-            ? v.split(",").map(s => s.trim()).filter(Boolean)
-            : []);
       setTours(prev => prev.map(t => t.id === updated.tourId ? {
         ...t,
         title: updated.title,
@@ -3893,40 +3961,98 @@ export default function AppDemo() {
         addedDates: updated.addedDates || [],
       } : t));
     }
+  };
+  // Sub-paso 2.6: edita el tour en el backend real (PUT /api/tours/:id) con
+  // verificación de propiedad. Reusa el mismo mapeo form→body que crear (2.5)
+  // vía tourFormToApiBody. Devuelve { ok } / { ok:false, error } para que
+  // NewTourView muestre "Guardando…" y maneje el error sin navegar.
+  const handleSaveTour = async (updated) => {
+    // El CUID real vive en tourId (editingTour es un item de opTours, cuyo `id`
+    // es solo la clave local de lista). Tours sin CUID (id local numérico) no
+    // existen en DB → update solo local, sin pegarle al API.
+    const cuid = updated.tourId;
+    const isPersisted = typeof cuid === "string" && !/^\d+$/.test(cuid);
+
+    if (!isPersisted) {
+      applyLocalSave(updated);
+      setEditingTour(null);
+      setDashTab("listings");
+      go("dashboard");
+      return { ok: true };
+    }
+
+    const body = tourFormToApiBody(updated);
+    let res;
+    try {
+      res = await authFetch(`/api/tours/${cuid}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } catch {
+      return { ok: false, error: "No pudimos conectar. Revisa tu conexión e intenta de nuevo." };
+    }
+
+    if (res.status === 403) return { ok: false, error: "No puedes editar este tour." };
+    if (res.status === 404) return { ok: false, error: "El tour ya no existe." };
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { ok: false, error: data?.error || "No pudimos guardar los cambios. Revisa los datos." };
+    }
+
+    // Éxito. mapTourFromApi normaliza el tour real (DETAIL_SELECT ya expone
+    // days/meetingPoint/cancellation/fechas, así que viene completo).
+    const apiTour = ensureAvailabilityFields(mapTourFromApi(data.tour));
+
+    // tours: reemplazar la entrada (keyed por CUID) por la versión del API,
+    // preservando los day-codes/fechas que el operador dejó en el form.
+    setTours(prev => prev.map(t => t.id === cuid ? {
+      ...t,
+      ...apiTour,
+      days: Array.isArray(updated.days) ? updated.days : apiTour.days,
+      excludedDates: updated.excludedDates || apiTour.excludedDates || [],
+      addedDates: updated.addedDates || apiTour.addedDates || [],
+    } : t));
+
+    // opTours: misma forma de siempre (included/excluded string, image css,
+    // capacity string); se mantiene el id/active locales y se actualiza el resto.
+    const cssImage = updated.photo
+      ? `url(${updated.photo})`
+      : apiTour.image || "linear-gradient(135deg,#1B3A2D 0%,#2D5A3D 100%)";
+    setOpTours(prev => prev.map(t => t.id === updated.id ? {
+      ...t,
+      tourId: apiTour.id,
+      image: cssImage,
+      title: apiTour.title,
+      location: apiTour.location,
+      duration: apiTour.duration,
+      price: apiTour.price,
+      category: apiTour.category,
+      capacity: String(updated.capacity || apiTour.capacity || ""),
+      difficulty: apiTour.difficulty,
+      description: updated.description,
+      included: updated.included || "",
+      excluded: updated.excluded || "",
+      days: Array.isArray(updated.days) ? updated.days : DEFAULT_DAYS,
+      excludedDates: updated.excludedDates || [],
+      addedDates: updated.addedDates || [],
+      meetingPoint: apiTour.meetingPoint || updated.meetingPoint || "",
+      cancellation: apiTour.cancellation || updated.cancellation || "flexible",
+      startTime: updated.startTime || "08:00",
+      photo: updated.photo || null,
+    } : t));
+
     setEditingTour(null);
     setDashTab("listings");
     go("dashboard");
+    return { ok: true };
   };
   // Sub-paso 2.5: crea el tour en el backend real (POST /api/tours) en vez de
   // un tour local con id numérico. Devuelve { ok } / { ok:false, error } para
   // que NewTourView muestre "Guardando…" y maneje el error sin navegar.
   const handleCreateTour = async (formData) => {
-    // Mapeo inverso form (UI) → body que espera POST /api/tours:
-    // - category UI (culture/gastro) → enum API (el backend también lo tolera).
-    // - days: day-codes (["lun",...]) → Boolean[7] indexado por DAY_CODES
-    //   (índice i = DAY_CODES[i], misma convención getUTCDay() del front).
-    // - included/excluded: el form ya los tiene como string coma-sep; el
-    //   backend acepta string o array, así que se envían tal cual.
-    // - price: soles tal cual (el backend hace el ×100).
-    // - photo: solo si es URL http(s); el backend ignora lo demás.
-    const body = {
-      title: formData.title,
-      location: formData.location,
-      price: formData.price,
-      duration: formData.duration,
-      category: CAT_UI_TO_API[formData.category] || formData.category,
-      capacity: Number(formData.capacity) || 10,
-      difficulty: formData.difficulty || undefined,
-      description: formData.description,
-      included: formData.included || "",
-      excluded: formData.excluded || "",
-      days: DAY_CODES.map(code => (formData.days || []).includes(code)),
-      excludedDates: formData.excludedDates || [],
-      addedDates: formData.addedDates || [],
-      meetingPoint: formData.meetingPoint || undefined,
-      cancellation: formData.cancellation || "flexible",
-      ...(formData.photo && /^https?:\/\//i.test(formData.photo) ? { photo: formData.photo } : {}),
-    };
+    // Mapeo form→body compartido con editar (2.6) — ver tourFormToApiBody.
+    const body = tourFormToApiBody(formData);
 
     let res;
     try {
