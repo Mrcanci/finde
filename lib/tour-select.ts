@@ -28,6 +28,14 @@ const tourFields = {
   rating: true,
   reviewsCount: true,
   createdAt: true,
+  // Disponibilidad/políticas: el front (mapTourFromApi) los necesita para no
+  // caer a defaults al recargar (días → todos marcados). Son campos del select,
+  // no del schema DB.
+  days: true,
+  meetingPoint: true,
+  cancellation: true,
+  excludedDates: true,
+  addedDates: true,
 } as const;
 
 // Para listados: solo nombre y verificación del operador (info mínima de card).

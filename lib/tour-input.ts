@@ -84,6 +84,10 @@ function toStringArray(v: unknown): string[] {
 }
 
 function parseDurationHours(raw: string): number {
+  // Frases sin dígitos que el form ofrece como ejemplo ("Full day"): se
+  // resuelven a horas antes del parseo numérico.
+  if (/full\s*day|d[ií]a completo|todo el d[ií]a/i.test(raw)) return 8;
+  if (/medio d[ií]a|half\s*day/i.test(raw)) return 4;
   const n = parseInt(raw.match(/\d+/)?.[0] ?? "", 10);
   if (Number.isNaN(n) || n <= 0) return 0;
   return /d[ií]a/i.test(raw) ? n * 24 : n;

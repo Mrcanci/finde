@@ -211,6 +211,14 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
 
 const CAT_API_TO_UI = { cultural: "culture", gastronomy: "gastro" };
 const CAT_UI_TO_API = { culture: "cultural", gastro: "gastronomy" };
+// Enum del API (CancellationPolicy) → clave lowercase que usa el front
+// (CANCEL_POLICIES). Inverso del CANCEL_MAP del backend (lib/tour-input.ts).
+const CANCEL_API_TO_UI = {
+  Flexible: "flexible",
+  Moderada: "moderada",
+  Estricta: "estricta",
+  NoReembolsable: "no_reembolsable",
+};
 
 function mapTourFromApi(t) {
   return ensureAvailabilityFields({
@@ -239,8 +247,17 @@ function mapTourFromApi(t) {
     aiSummary: t.shortPitch || "",
     altTour: null,
     tags: [],
-    cancellation: t.cancellation || "flexible",
-    meetingPoint: t.meetingPoint || "",
+    // cancellation: enum API → key del front; undefined si el API no lo trae
+    // (getCancelPolicy ya defaultea a flexible al renderizar).
+    cancellation: t.cancellation ? (CANCEL_API_TO_UI[t.cancellation] || "flexible") : undefined,
+    meetingPoint: t.meetingPoint ?? "",
+    // days: Boolean[7] → day-codes, ESPEJO de la conversión de envío de
+    // handleCreateTour (DAY_CODES.map(c => form.days.includes(c))). undefined
+    // si el API no trae el campo → ensureAvailabilityFields aplica el default
+    // legacy (DEFAULT_DAYS) sin romper tours viejos.
+    days: Array.isArray(t.days) ? DAY_CODES.filter((_, i) => t.days[i]) : undefined,
+    excludedDates: t.excludedDates ?? undefined,
+    addedDates: t.addedDates ?? undefined,
   });
 }
 
@@ -3271,6 +3288,10 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
   const [published, setPublished] = useState(false);
+  // Sub-paso 2.5: estado del submit de creación (POST /api/tours es async; el
+  // embedding agrega 1-2s). El modo edición (2.6) sigue siendo síncrono.
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const u = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
 
   const generateAiDesc = async () => {
@@ -3667,14 +3688,24 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         <div style={{ padding: 12, background: "rgba(45,90,61,.05)", borderRadius: 12, marginBottom: 16, fontSize: 12, color: "var(--gy)", lineHeight: 1.5 }}>
           Al publicar, tu tour será revisado por el equipo de Finde y estará visible en un máximo de 24 horas. Comisión por reserva: 15%.
         </div>
-        <button className="mbtn" onClick={() => {
+        {submitError && (
+          <div className="field-err" style={{ marginBottom: 10, textAlign: "center" }}>{submitError}</div>
+        )}
+        <button className="mbtn" disabled={submitting} onClick={async () => {
           if (isEditing) {
             onSaveTour({ ...editingTour, ...form, price: Number(form.price) || editingTour.price, image: form.photo ? `url(${form.photo})` : editingTour.image });
-          } else {
-            onCreateTour(form);
-            setPublished(true);
+            return;
           }
-        }}>{isEditing ? "Guardar cambios" : "Publicar tour"}</button>
+          setSubmitError("");
+          setSubmitting(true);
+          const result = await onCreateTour(form);
+          setSubmitting(false);
+          if (result?.ok) {
+            setPublished(true);
+          } else {
+            setSubmitError(result?.error || "No pudimos publicar el tour. Intenta de nuevo.");
+          }
+        }}>{submitting ? "Guardando…" : (isEditing ? "Guardar cambios" : "Publicar tour")}</button>
       </div>}
     </div>
   );
@@ -3866,55 +3897,108 @@ export default function AppDemo() {
     setDashTab("listings");
     go("dashboard");
   };
-  const handleCreateTour = (formData) => {
-    const newTourId = Date.now();
-    const cssImage = formData.photo ? `url(${formData.photo})` : "linear-gradient(135deg,#1B3A2D 0%,#2D5A3D 100%)";
-    const newOpTour = {
-      id: newTourId, tourId: newTourId,
-      title: formData.title, location: formData.location, duration: formData.duration,
-      meetingPoint: formData.meetingPoint || "",
-      price: Number(formData.price) || 0, rating: 0, reviews: 0, active: true,
-      image: cssImage, category: formData.category, capacity: formData.capacity,
-      difficulty: formData.difficulty, description: formData.description,
-      included: formData.included, excluded: formData.excluded,
-      days: formData.days,
+  // Sub-paso 2.5: crea el tour en el backend real (POST /api/tours) en vez de
+  // un tour local con id numérico. Devuelve { ok } / { ok:false, error } para
+  // que NewTourView muestre "Guardando…" y maneje el error sin navegar.
+  const handleCreateTour = async (formData) => {
+    // Mapeo inverso form (UI) → body que espera POST /api/tours:
+    // - category UI (culture/gastro) → enum API (el backend también lo tolera).
+    // - days: day-codes (["lun",...]) → Boolean[7] indexado por DAY_CODES
+    //   (índice i = DAY_CODES[i], misma convención getUTCDay() del front).
+    // - included/excluded: el form ya los tiene como string coma-sep; el
+    //   backend acepta string o array, así que se envían tal cual.
+    // - price: soles tal cual (el backend hace el ×100).
+    // - photo: solo si es URL http(s); el backend ignora lo demás.
+    const body = {
+      title: formData.title,
+      location: formData.location,
+      price: formData.price,
+      duration: formData.duration,
+      category: CAT_UI_TO_API[formData.category] || formData.category,
+      capacity: Number(formData.capacity) || 10,
+      difficulty: formData.difficulty || undefined,
+      description: formData.description,
+      included: formData.included || "",
+      excluded: formData.excluded || "",
+      days: DAY_CODES.map(code => (formData.days || []).includes(code)),
       excludedDates: formData.excludedDates || [],
       addedDates: formData.addedDates || [],
-      startTime: formData.startTime, cancellation: formData.cancellation,
-      photo: formData.photo,
+      meetingPoint: formData.meetingPoint || undefined,
+      cancellation: formData.cancellation || "flexible",
+      ...(formData.photo && /^https?:\/\//i.test(formData.photo) ? { photo: formData.photo } : {}),
     };
-    setOpTours(prev => [...prev, newOpTour]);
-    setTours(prev => [...prev, {
-      id: newTourId,
-      title: formData.title,
-      titleQu: "",
-      location: formData.location,
-      meetingPoint: formData.meetingPoint || "",
-      price: Number(formData.price) || 0,
+
+    let res;
+    try {
+      res = await authFetch("/api/tours", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } catch {
+      return { ok: false, error: "No pudimos conectar. Revisa tu conexión e intenta de nuevo." };
+    }
+
+    if (res.status === 403) {
+      return { ok: false, error: "Necesitas un perfil de operador para publicar tours." };
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { ok: false, error: data?.error || "No pudimos publicar el tour. Revisa los datos." };
+    }
+
+    // Éxito (201). mapTourFromApi normaliza el tour real (CUID, no numérico).
+    // El API (DETAIL_SELECT) no devuelve days/meetingPoint/cancellation/fechas,
+    // así que preservamos lo que el operador ingresó en el form para el display
+    // optimista (limitación conocida: al recargar caen a defaults hasta ampliar
+    // tour-select.ts).
+    const apiTour = ensureAvailabilityFields(mapTourFromApi(data.tour));
+    // Respeta una selección vacía deliberada (form.days = [] → solo fechas
+    // específicas); no la confundas con "sin valor".
+    const formDays = Array.isArray(formData.days) ? formData.days : DEFAULT_DAYS;
+    const merged = {
+      ...apiTour,
+      meetingPoint: formData.meetingPoint || apiTour.meetingPoint || "",
+      cancellation: formData.cancellation || apiTour.cancellation || "flexible",
+      days: formDays,
+      excludedDates: formData.excludedDates || [],
+      addedDates: formData.addedDates || [],
+    };
+    setTours(prev => [...prev, merged]);
+
+    // opTours usa otra forma: included/excluded como string, image css, capacity
+    // string, tourId = CUID real (el id local es solo clave de lista).
+    const cssImage = formData.photo
+      ? `url(${formData.photo})`
+      : apiTour.image || "linear-gradient(135deg,#1B3A2D 0%,#2D5A3D 100%)";
+    setOpTours(prev => [...prev, {
+      id: prev.reduce((m, t) => Math.max(m, Number(t.id) || 0), 0) + 1,
+      tourId: merged.id,
+      active: true,
+      image: cssImage,
+      title: merged.title,
+      location: merged.location,
+      duration: merged.duration,
+      meetingPoint: merged.meetingPoint,
+      price: merged.price,
       rating: 0,
       reviews: 0,
-      duration: formData.duration,
-      image: cssImage,
-      badge: "Nuevo",
-      category: formData.category,
-      operator: "Andes Trek Perú",
-      verified: false,
-      capacity: Number(formData.capacity) || 10,
-      altitude: "",
-      difficulty: formData.difficulty,
-      included: formData.included ? formData.included.split(",").map(s => s.trim()).filter(Boolean) : [],
-      excluded: formData.excluded ? formData.excluded.split(",").map(s => s.trim()).filter(Boolean) : [],
-      desc: formData.description,
-      descQu: "",
-      aiSummary: "",
-      altTour: null,
-      tags: [],
-      cancellation: formData.cancellation,
-      days: formData.days || [],
+      category: merged.category,
+      capacity: String(formData.capacity || merged.capacity || ""),
+      difficulty: merged.difficulty,
+      description: formData.description,
+      included: formData.included || "",
+      excluded: formData.excluded || "",
+      days: Array.isArray(formData.days) ? formData.days : DEFAULT_DAYS,
       excludedDates: formData.excludedDates || [],
       addedDates: formData.addedDates || [],
+      startTime: formData.startTime || "08:00",
+      cancellation: formData.cancellation || "flexible",
+      photo: formData.photo || null,
     }]);
+
     setDashTab("listings");
+    return { ok: true };
   };
   const handleCancelTour = () => { setEditingTour(null); setDashTab("bookings"); go("dashboard"); };
 
