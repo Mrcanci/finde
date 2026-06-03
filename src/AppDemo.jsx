@@ -1162,16 +1162,16 @@ html{scrollbar-gutter:stable}
 .st-confirmed{background:rgba(45,90,61,.1);color:var(--m)}.st-pending{background:rgba(212,168,67,.15);color:#B8860B}.st-completed{background:rgba(107,143,113,.15);color:var(--sg)}.st-cancelled{background:rgba(199,97,58,.1);color:var(--tr)}
 
 /* AI Content Creator */
-.ai-cc{margin:0 0 16px 0;padding:20px;background:linear-gradient(135deg,rgba(14,165,233,.06),rgba(14,165,233,.02));border:1.5px solid rgba(14,165,233,.15);border-radius:16px}
+.ai-cc{margin:0 0 16px 0;padding:20px;background:linear-gradient(135deg,rgba(45,90,61,.06),rgba(45,90,61,.02));border:1.5px solid rgba(45,90,61,.15);border-radius:16px}
 .ai-cc-h{display:flex;align-items:center;gap:8px;margin-bottom:12px}
 .ai-cc-h span{font-size:18px}
-.ai-cc-h h3{font-size:15px;font-weight:700;color:var(--ai)}
+.ai-cc-h h3{font-size:15px;font-weight:700;color:var(--f)}
 .ai-cc-desc{font-size:12px;color:var(--gy);margin-bottom:14px;line-height:1.5}
-.ai-cc-input{width:100%;padding:11px;border:1.5px solid rgba(14,165,233,.2);border-radius:10px;font-size:16px;font-family:inherit;background:white;color:var(--ch);outline:none;resize:vertical;min-height:70px;transition:.2s}
-.ai-cc-input:focus{border-color:var(--ai)}
-.ai-cc-btn{margin-top:10px;padding:10px 20px;border-radius:100px;background:var(--ai);color:white;font-weight:700;font-size:12px;border:none;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px}
-.ai-cc-result{margin-top:14px;padding:14px;background:white;border-radius:10px;border:1px solid rgba(14,165,233,.1)}
-.ai-cc-result-h{font-size:10px;font-weight:700;color:var(--ai);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.ai-cc-input{width:100%;padding:11px;border:1.5px solid var(--sd);border-radius:10px;font-size:16px;font-family:inherit;background:white;color:var(--ch);outline:none;resize:vertical;min-height:70px;transition:.2s}
+.ai-cc-input:focus{border-color:var(--m)}
+.ai-cc-btn{margin-top:10px;padding:10px 20px;border-radius:100px;background:var(--gd);color:white;font-weight:700;font-size:12px;border:none;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px}
+.ai-cc-result{margin-top:14px;padding:14px;background:white;border-radius:10px;border:1px solid var(--sd)}
+.ai-cc-result-h{font-size:10px;font-weight:700;color:var(--f);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
 .ai-cc-result-t{font-size:13px;color:var(--ch);line-height:1.6}
 .ai-cc-langs{display:flex;gap:6px;margin-top:10px}
 .ai-cc-lang{padding:4px 10px;border-radius:100px;font-size:10px;font-weight:600;border:1px solid var(--sd);background:white;cursor:pointer;font-family:inherit}
@@ -3452,7 +3452,15 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         <div className="bkf-sub">Paso 1 de 5 · Nombre, ubicación y categoría</div>
         <div className="fg">
           <label className="lbl">Nombre del tour <span style={{ color: "var(--tr)" }}>*</span></label>
-          <input className="inp" placeholder="Ej: Trekking al Nevado Pastoruri" value={form.title} onChange={(e) => u("title", e.target.value)} />
+          <input
+            className={`inp${(form.title || "").trim().length > 0 && (form.title || "").trim().length < 3 ? " inp-err" : ""}`}
+            placeholder="Ej: Trekking al Nevado Pastoruri"
+            value={form.title}
+            onChange={(e) => u("title", e.target.value)}
+          />
+          {(form.title || "").trim().length > 0 && (form.title || "").trim().length < 3 && (
+            <div className="field-err">El nombre debe tener al menos 3 caracteres</div>
+          )}
         </div>
         <div className="fg">
           <label className="lbl">Ubicación <span style={{ color: "var(--tr)" }}>*</span></label>
@@ -3539,7 +3547,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           )}
         </div>
         <button className="mbtn" style={{ marginTop: 8 }}
-          disabled={!form.title || !form.location || (form.meetingPoint || "").trim().length < 10}
+          disabled={(form.title || "").trim().length < 3 || (form.location || "").trim().length < 2 || (form.meetingPoint || "").trim().length < 10}
           onClick={() => setStep(2)}>Siguiente</button>
       </div>}
 
@@ -3693,6 +3701,14 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           <label className="lbl">Descripción del tour <span style={{ color: "var(--tr)" }}>*</span></label>
           <textarea className="ai-cc-input" style={{ minHeight: 100 }} placeholder="Describe tu experiencia con detalle: qué verán los viajeros, qué hace especial este tour, qué pueden esperar..."
             value={form.description} onChange={(e) => u("description", e.target.value)} />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+            {(form.description || "").trim().length > 0 && (form.description || "").trim().length < 10
+              ? <span className="field-err">Mínimo 10 caracteres</span>
+              : <span style={{ fontSize: 11, color: "var(--gy)", fontWeight: 600 }}>Mínimo 10 caracteres</span>}
+            <span style={{ fontSize: 11, fontWeight: 600, color: (form.description || "").trim().length >= 10 ? "var(--m)" : "var(--gy)" }}>
+              {(form.description || "").trim().length}/10
+            </span>
+          </div>
         </div>
         <div style={{ padding: 14, background: "var(--cr)", borderRadius: 12, marginBottom: 16 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--f)", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}><Sparkles size={12} strokeWidth={1.5} /> Generador IA</div>
@@ -3713,7 +3729,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
             </div>
           )}
         </div>
-        <button className="mbtn" disabled={!form.description} onClick={() => setStep(5)}>Siguiente</button>
+        <button className="mbtn" disabled={(form.description || "").trim().length < 10} onClick={() => setStep(5)}>Siguiente</button>
       </div>}
 
       {/* Step 5: Revisión y publicar */}
