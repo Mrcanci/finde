@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, CreditCard, Banknote, Smartphone, MessageCircle, Camera, MountainSnow, Hand, CircleDollarSign, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff, Info } from "lucide-react";
 import { useAuth } from "./contexts/AuthContext.jsx";
 import { authFetch } from "./lib/authFetch.js";
+import { supabase } from "./lib/supabase.js";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // FINDE v3 — AI-Native Marketplace
@@ -3325,7 +3326,57 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
   // embedding agrega 1-2s). El modo edición (2.6) sigue siendo síncrono.
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  // Sub-paso 3.2: estado de la subida de foto (Flujo A — el archivo va directo
+  // a Supabase Storage con una signed URL que emite el backend en 3.1).
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const u = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
+
+  // Sube la foto real a Storage (Flujo A) y deja la URL pública en form.photo.
+  // Reemplaza el viejo readAsDataURL (que descartaba el archivo). Como photo
+  // queda como URL http(s), tourFormToApiBody la incluye y el backend la guarda
+  // en imageUrl — sin cambios en el submit.
+  const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png"];
+  const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5MB, alineado con el bucket.
+  const handlePhotoUpload = async (file) => {
+    if (!file) return;
+    setUploadError("");
+    // 1. Validación de front (UX): tipo y tamaño ANTES de pedir la URL firmada.
+    if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
+      setUploadError("Formato no válido. Sube una imagen JPG o PNG.");
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      setUploadError("La imagen supera los 5MB. Elige una más liviana.");
+      return;
+    }
+    setUploading(true);
+    try {
+      // 2. Pedir la signed upload URL (solo operadores; authFetch agrega Bearer).
+      const r = await authFetch("/api/uploads/tour-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentType: file.type }),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${r.status}`);
+      }
+      const { token, path, publicUrl } = await r.json();
+      // 3. Subir el archivo DIRECTO a Storage con la URL firmada (no pasa por
+      //    la function → esquiva el límite ~4.5MB de Vercel).
+      const { error: upErr } = await supabase.storage
+        .from("tour-images")
+        .uploadToSignedUrl(path, token, file);
+      if (upErr) throw new Error(upErr.message || "No se pudo subir la imagen");
+      // 4. Éxito: la URL pública va a form.photo (el submit ya sabe usarla).
+      setForm(prev => ({ ...prev, photo: publicUrl }));
+    } catch (e) {
+      setUploadError(e.message || "No pudimos subir la imagen. Intenta de nuevo.");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const generateAiDesc = async () => {
     if (!form.title || !form.location) return;
@@ -3450,7 +3501,17 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
               <span style={{ fontSize: 11, color: "rgba(255,255,255,.7)", fontWeight: 600 }}>Imagen actual · Sube una foto para reemplazarla</span>
             </div>
           )}
-          {!form.photo ? (
+          {uploading ? (
+            <div style={{
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+              gap: 8, padding: 24, borderRadius: 16, border: "2px dashed var(--lg)",
+              background: "var(--cr)"
+            }}>
+              <Camera size={28} strokeWidth={1.5} style={{ color: "var(--f)", opacity: .5 }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--f)" }}>Subiendo…</span>
+              <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>Subiendo tu foto, no cierres esta pantalla.</span>
+            </div>
+          ) : !form.photo ? (
             <label style={{
               display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
               gap: 8, padding: 24, borderRadius: 16, border: "2px dashed var(--lg)",
@@ -3460,15 +3521,8 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
               <span style={{ fontSize: 13, fontWeight: 600, color: "var(--f)" }}>{isEditing ? "Cambiar foto" : "Subir foto"}</span>
               <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>Recomendado: 1200×800px · JPG o PNG · máx 5MB</span>
               <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>Opcional por ahora — sin foto usamos un diseño por defecto.</span>
-              <input type="file" accept="image/*" style={{ display: "none" }}
-                onChange={(e) => {
-                  const file = e.target.files[0];
-                  if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (ev) => setForm(prev => ({ ...prev, photo: ev.target.result }));
-                    reader.readAsDataURL(file);
-                  }
-                }} />
+              <input type="file" accept="image/jpeg,image/png" style={{ display: "none" }}
+                onChange={(e) => { handlePhotoUpload(e.target.files[0]); e.target.value = ""; }} />
             </label>
           ) : (
             <div style={{ position: "relative", borderRadius: 16, overflow: "hidden", height: 160 }}>
@@ -3479,6 +3533,9 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
                 color: "white", fontSize: 14, cursor: "pointer", fontFamily: "inherit"
               }}><X size={14} strokeWidth={2} /></button>
             </div>
+          )}
+          {uploadError && (
+            <div style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: "var(--tr)" }}>{uploadError}</div>
           )}
         </div>
         <button className="mbtn" style={{ marginTop: 8 }}
