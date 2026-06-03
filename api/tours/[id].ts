@@ -9,6 +9,23 @@ import { db } from "../../lib/db.js";
 import { DETAIL_SELECT } from "../../lib/tour-select.js";
 import { requireOperator } from "../../lib/auth.js";
 import { parseTourInput, embedTourSafe } from "../../lib/tour-input.js";
+import { supabaseAdmin } from "../../lib/supabase-admin.js";
+
+const STORAGE_BUCKET = "tour-images";
+// Marca de las URLs públicas de NUESTRO bucket. Solo borramos de Storage las
+// imágenes que viven aquí; URLs externas (p.ej. unsplash del seed) se ignoran.
+const PUBLIC_PREFIX = `/storage/v1/object/public/${STORAGE_BUCKET}/`;
+
+// De una imageUrl pública de tour-images, extrae el path del archivo
+// (${operatorId}/${uuid}.${ext}). Devuelve null si la URL no es de nuestro
+// bucket (no se debe tocar Storage en ese caso).
+function storagePathFromImageUrl(imageUrl: string | null): string | null {
+  if (!imageUrl) return null;
+  const idx = imageUrl.indexOf(PUBLIC_PREFIX);
+  if (idx === -1) return null;
+  const path = imageUrl.slice(idx + PUBLIC_PREFIX.length);
+  return path.length > 0 ? path : null;
+}
 
 const paramsSchema = z.object({
   id: z.string().min(1),
@@ -22,8 +39,12 @@ export default async function handler(
     await handlePut(req, res);
     return;
   }
+  if (req.method === "DELETE") {
+    await handleDelete(req, res);
+    return;
+  }
   if (req.method !== "GET") {
-    res.setHeader("Allow", "GET, PUT");
+    res.setHeader("Allow", "GET, PUT, DELETE");
     res.status(405).json({ error: "Método no permitido" });
     return;
   }
@@ -120,4 +141,78 @@ async function handlePut(
   await embedTourSafe(tour.id, input.embeddingText);
 
   res.status(200).json({ tour });
+}
+
+// ── DELETE /api/tours/:id — borrar un tour propio (hard delete) + su foto ──
+// Verifica propiedad (mismo patrón que PUT). Orden de borrado: DB primero,
+// Storage después. Si el borrado de la foto falla, NO rompe la request: el
+// tour ya está borrado y una foto huérfana es un problema menor (se loguea).
+// Solo se intenta borrar de Storage si la imageUrl pertenece a nuestro bucket
+// tour-images; las URLs externas (unsplash del seed) se dejan intactas.
+
+async function handleDelete(
+  req: VercelRequest,
+  res: VercelResponse
+): Promise<void> {
+  let operator: { id: string; name: string; verified: boolean };
+  try {
+    ({ operator } = await requireOperator(req, res));
+  } catch {
+    return; // requireOperator ya respondió 401 (sin sesión) o 403 (no operador)
+  }
+
+  const id = typeof req.query.id === "string" ? req.query.id : "";
+  if (!id) {
+    res.status(400).json({ error: "id inválido" });
+    return;
+  }
+
+  // Verificación de PROPIEDAD: solo el dueño puede borrar su tour.
+  const existing = await db.tour.findUnique({
+    where: { id },
+    select: { id: true, operatorId: true, imageUrl: true },
+  });
+  if (!existing) {
+    res.status(404).json({ error: "Tour no encontrado" });
+    return;
+  }
+  if (existing.operatorId !== operator.id) {
+    res.status(403).json({ error: "No puedes borrar este tour" });
+    return;
+  }
+
+  // (a) Borrar el tour de la DB PRIMERO. Si falla, no tocamos Storage.
+  try {
+    await db.tour.delete({ where: { id } });
+  } catch (error) {
+    console.error("Error borrando tour:", error);
+    res.status(500).json({ error: "Error borrando el tour" });
+    return;
+  }
+
+  // (b) Borrar la foto de Storage DESPUÉS, solo si vive en nuestro bucket.
+  // Un fallo aquí se loguea pero NO rompe la request: el tour ya se borró.
+  const path = storagePathFromImageUrl(existing.imageUrl);
+  if (path) {
+    try {
+      const { error } = await supabaseAdmin.storage
+        .from(STORAGE_BUCKET)
+        .remove([path]);
+      if (error) {
+        console.error(
+          "Tour borrado, pero falló borrar la foto de Storage (huérfana):",
+          path,
+          error
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Tour borrado, pero error inesperado borrando la foto de Storage:",
+        path,
+        error
+      );
+    }
+  }
+
+  res.status(200).json({ ok: true, id });
 }
