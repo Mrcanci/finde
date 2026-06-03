@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, CreditCard, Banknote, Smartphone, MessageCircle, Camera, MountainSnow, Hand, CircleDollarSign, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff, Info } from "lucide-react";
+import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, CreditCard, Banknote, Smartphone, MessageCircle, Camera, MountainSnow, Hand, CircleDollarSign, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff, Info, Trash2 } from "lucide-react";
 import { useAuth } from "./contexts/AuthContext.jsx";
 import { authFetch } from "./lib/authFetch.js";
 import { supabase } from "./lib/supabase.js";
@@ -3045,7 +3045,7 @@ function ProfileView({ go }) {
   );
 }
 
-function DashView({ go, opTours, setOpTours, onEditTour, initialTab = "bookings", onTabConsumed }) {
+function DashView({ go, opTours, setOpTours, onEditTour, onDeleteTour, initialTab = "bookings", onTabConsumed }) {
   const [tab, setTab] = useState(initialTab);
   useEffect(() => { if (onTabConsumed) onTabConsumed(); }, []);
   const [bookings, setBookings] = useState(OP_BK);
@@ -3066,6 +3066,23 @@ function DashView({ go, opTours, setOpTours, onEditTour, initialTab = "bookings"
   const updateBiz = (k, v) => { setBiz(prev => ({ ...prev, [k]: v })); setBizSaved(false); };
   const updateStatus = (id, newStatus) => setBookings(prev => prev.map(b => b.id === id ? { ...b, status: newStatus } : b));
   const toggleTour = (id) => setOpTours(prev => prev.map(t => t.id === id ? { ...t, active: !t.active } : t));
+
+  // Sub-paso M2.6b: borrado de tour CON confirmación. `confirmDel` guarda el
+  // tour pendiente de confirmar; el borrado real solo ocurre al Confirmar.
+  const [confirmDel, setConfirmDel] = useState(null);
+  const [delBusy, setDelBusy] = useState(false);
+  const [delError, setDelError] = useState("");
+  const askDelete = (t) => { setDelError(""); setConfirmDel(t); };
+  const cancelDelete = () => { if (!delBusy) { setConfirmDel(null); setDelError(""); } };
+  const confirmDelete = async () => {
+    if (!confirmDel) return;
+    setDelBusy(true);
+    setDelError("");
+    const result = await onDeleteTour(confirmDel);
+    setDelBusy(false);
+    if (result?.ok) setConfirmDel(null);
+    else setDelError(result?.error || "No pudimos borrar el tour.");
+  };
 
 
 
@@ -3304,6 +3321,12 @@ function DashView({ go, opTours, setOpTours, onEditTour, initialTab = "bookings"
                 flex: 1, padding: "9px 0", background: "none", border: "none",
                 fontSize: 12, fontWeight: 600, color: "var(--f)", cursor: "pointer", fontFamily: "inherit"
               }} onClick={() => onEditTour(t)}><Pencil size={13} strokeWidth={1.5} /> Editar</button>
+              <div style={{ width: 1, background: "var(--cr)" }} />
+              <button style={{
+                flex: 1, padding: "9px 0", background: "none", border: "none",
+                fontSize: 12, fontWeight: 600, color: "#C0392B", cursor: "pointer", fontFamily: "inherit",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 4
+              }} onClick={() => askDelete(t)}><Trash2 size={13} strokeWidth={1.5} /> Borrar</button>
             </div>
           </div>
         ))}
@@ -3311,6 +3334,60 @@ function DashView({ go, opTours, setOpTours, onEditTour, initialTab = "bookings"
           <button className="mbtn" style={{ background: "var(--tr)" }} onClick={() => go("new-tour")}>+ Agregar nuevo tour</button>
         </div>
       </div>}
+
+      {/* Diálogo de confirmación de borrado (Sub-paso M2.6b). Borrado real solo
+          al Confirmar; Cancelar (o clic en el fondo) cierra sin borrar. */}
+      {confirmDel && (
+        <div
+          onClick={cancelDelete}
+          style={{
+            position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,.45)",
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+            animation: "fadeUp .2s ease-out"
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{
+            width: "100%", maxWidth: 340, background: "white", borderRadius: 18, padding: 20,
+            boxShadow: "0 12px 40px rgba(0,0,0,.25)"
+          }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: "50%", background: "rgba(192,57,43,.1)",
+              display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12
+            }}>
+              <Trash2 size={20} strokeWidth={1.75} style={{ color: "#C0392B" }} />
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--ch)", marginBottom: 6 }}>
+              ¿Borrar este tour?
+            </div>
+            <div style={{ fontSize: 13, color: "var(--gy)", lineHeight: 1.5, marginBottom: 16 }}>
+              "{confirmDel.title}" se eliminará de forma permanente. Esta acción no se puede deshacer.
+            </div>
+            {delError && <div className="field-err" style={{ marginBottom: 12 }}>{delError}</div>}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={cancelDelete}
+                disabled={delBusy}
+                style={{
+                  flex: 1, padding: "11px 0", borderRadius: 12, border: "1.5px solid var(--sd)",
+                  background: "white", color: "var(--ch)", fontSize: 13, fontWeight: 700,
+                  cursor: delBusy ? "default" : "pointer", fontFamily: "inherit", opacity: delBusy ? 0.6 : 1
+                }}
+              >Cancelar</button>
+              <button
+                onClick={confirmDelete}
+                disabled={delBusy}
+                style={{
+                  flex: 1, padding: "11px 0", borderRadius: 12, border: "none",
+                  background: "#C0392B", color: "white", fontSize: 13, fontWeight: 700,
+                  cursor: delBusy ? "default" : "pointer", fontFamily: "inherit", opacity: delBusy ? 0.7 : 1
+                }}
+              >{delBusy ? "Borrando…" : "Borrar"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -4066,6 +4143,34 @@ export default function AppDemo() {
   const navGo = (id) => { setNav(id); if (id === "explore") go("home"); else if (id === "search") go("catalog"); else if (id === "trips") go("trips"); else if (id === "profile") go("profile"); };
 
   const handleEditTour = (t) => { setEditingTour(t); go("new-tour"); };
+  // Sub-paso M2.6b: borra el tour propio (hard delete) vía DELETE /api/tours/:id
+  // y lo quita de las listas al instante. Usa el CUID real (tourId), igual que
+  // editar. Devuelve { ok } / { ok:false, error } para que el diálogo de
+  // confirmación en DashView muestre "Borrando…" y maneje el error.
+  const handleDeleteTour = async (tour) => {
+    const cuid = tour.tourId;
+    // Sin CUID real (tour local no persistido en DB) → solo quitar de la lista.
+    const isPersisted = typeof cuid === "string" && !/^\d+$/.test(cuid);
+    if (!isPersisted) {
+      setOpTours(prev => prev.filter(t => t.id !== tour.id));
+      return { ok: true };
+    }
+    let res;
+    try {
+      res = await authFetch(`/api/tours/${cuid}`, { method: "DELETE" });
+    } catch {
+      return { ok: false, error: "No pudimos conectar. Revisa tu conexión e intenta de nuevo." };
+    }
+    // 404 = el tour ya no existe → lo tratamos como borrado (quitarlo igual).
+    if (res.ok || res.status === 404) {
+      setOpTours(prev => prev.filter(t => t.id !== tour.id));
+      setTours(prev => prev.filter(t => t.id !== cuid));
+      return { ok: true };
+    }
+    if (res.status === 403) return { ok: false, error: "No puedes borrar este tour." };
+    const data = await res.json().catch(() => ({}));
+    return { ok: false, error: data?.error || "No pudimos borrar el tour. Intenta de nuevo." };
+  };
   // Normaliza included/excluded SIEMPRE a array (incluso vacío) para que
   // DetailView no crashee con `"".map is not a function` si el operador deja
   // el campo en blanco.
@@ -4338,7 +4443,7 @@ export default function AppDemo() {
         {effectiveView === "trips" && <TripsView go={go} onSelectTrip={setCurrentTrip} trips={trips} />}
         {effectiveView === "trip-detail" && <TripDetailView trip={currentTrip} go={go} onReview={handleReview} />}
         {effectiveView === "profile" && <ProfileView go={go} />}
-        {effectiveView === "dashboard" && <DashView go={go} opTours={opTours} setOpTours={setOpTours} onEditTour={handleEditTour} initialTab={dashTab} onTabConsumed={() => setDashTab("bookings")} />}
+        {effectiveView === "dashboard" && <DashView go={go} opTours={opTours} setOpTours={setOpTours} onEditTour={handleEditTour} onDeleteTour={handleDeleteTour} initialTab={dashTab} onTabConsumed={() => setDashTab("bookings")} />}
         {effectiveView === "new-tour" && <NewTourView go={go} editingTour={editingTour} onSaveTour={handleSaveTour} onCreateTour={handleCreateTour} onCancel={handleCancelTour} />}
         {showFooter && <Footer go={go} />}
         {showNav && <BNav active={nav} go={navGo} />}
