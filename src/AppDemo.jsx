@@ -278,7 +278,7 @@ function tourFormToApiBody(f) {
     price: f.price,
     duration: f.duration,
     category: CAT_UI_TO_API[f.category] || f.category,
-    capacity: Number(f.capacity) || 10,
+    capacity: f.capacity,
     difficulty: f.difficulty || undefined,
     description: f.description,
     included: f.included || "",
@@ -290,6 +290,33 @@ function tourFormToApiBody(f) {
     cancellation: f.cancellation || "flexible",
     ...(f.photo && /^https?:\/\//i.test(f.photo) ? { photo: f.photo } : {}),
   };
+}
+
+// Etiquetas amigables por campo (mismo set que lib/tour-input.ts) para nombrar
+// el campo que falló a partir de `details` (zod issues) cuando POST/PUT /api/tours
+// responde 400. Evita el mensaje genérico que oculta la causa.
+const API_FIELD_LABELS = {
+  title: "Nombre", location: "Ubicación", price: "Precio", duration: "Duración",
+  category: "Categoría", capacity: "Cantidad de personas", difficulty: "Dificultad",
+  description: "Descripción", included: "Qué incluye", excluded: "Qué no incluye",
+  days: "Días", excludedDates: "Fechas excluidas", addedDates: "Fechas agregadas",
+  meetingPoint: "Punto de encuentro", cancellation: "Política de cancelación",
+  photo: "Foto", startTime: "Hora de salida",
+};
+
+// Construye un mensaje útil desde la respuesta de error del API de tours:
+// si trae `details` (zod issues), nombra los campos que fallaron; si no, usa
+// data.error (que el backend ya enriquece) o el fallback.
+function describeTourApiError(data, fallback) {
+  const issues = Array.isArray(data?.details) ? data.details : [];
+  const fields = [...new Set(issues.map((i) => {
+    const key = Array.isArray(i?.path) && typeof i.path[0] === "string" ? i.path[0] : "";
+    return API_FIELD_LABELS[key] || key;
+  }))].filter(Boolean);
+  if (fields.length > 0) {
+    return `Revisa ${fields.length > 1 ? "estos campos" : "el campo"}: ${fields.join(", ")}`;
+  }
+  return data?.error || fallback;
 }
 
 const AI_SUGGESTIONS = [
@@ -3432,12 +3459,26 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           <div className="suc-row"><span className="l">Tour</span><span style={{ fontWeight: 700 }}>{form.title}</span></div>
           <div className="suc-row"><span className="l">Ubicación</span><span>{form.location}</span></div>
           <div className="suc-row"><span className="l">Precio</span><span style={{ fontWeight: 800, color: "var(--f)" }}>S/ {form.price || "0"}</span></div>
-          <div className="suc-row"><span className="l">Capacidad</span><span>{form.capacity || "10"} personas</span></div>
+          <div className="suc-row"><span className="l">Cantidad de personas</span><span>{form.capacity} personas</span></div>
         </div>
         <button className="mbtn" onClick={() => isEditing ? onSaveTour({ ...editingTour, ...form, price: Number(form.price) || editingTour.price, image: form.photo ? `url(${form.photo})` : editingTour.image }) : go("dashboard")}>Volver al panel</button>
       </div>
     );
   }
+
+  // Validez del paso 2, alineada con las reglas zod del backend (lib/tour-input.ts).
+  // Antes estos campos no se validaban en el front y fallaban recién al publicar
+  // con un "Cuerpo inválido" que no decía cuál.
+  const durationValid = (form.duration || "").trim().length >= 1; // requerido (min 1)
+  const priceNum = Number(form.price);
+  const priceValid = Number.isFinite(priceNum) && priceNum > 0 && priceNum <= 100000;
+  const capacityRaw = (form.capacity ?? "").toString().trim();
+  const capacityNum = Number(form.capacity);
+  // Tope superior (3000) es solo red de seguridad silenciosa, alineada con el
+  // backend; no se comunica al usuario porque en la práctica nadie lo alcanza.
+  const capacityInRange = Number.isInteger(capacityNum) && capacityNum >= 1 && capacityNum <= 3000;
+  // Requerido (sin default): vacío es inválido y bloquea el "Siguiente".
+  const capacityValid = capacityRaw !== "" && capacityInRange;
 
   return (
     <div className="bkf fu">
@@ -3556,16 +3597,40 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         <div className="bkf-t">Detalles del tour</div>
         <div className="bkf-sub">Paso 2 de 5 · Duración, precio y capacidad</div>
         <div className="fg">
-          <label className="lbl">Duración</label>
-          <input className="inp" placeholder="Ej: 8 horas, Full day, 2 días" value={form.duration} onChange={(e) => u("duration", e.target.value)} />
+          <label className="lbl">Duración <span style={{ color: "var(--tr)" }}>*</span></label>
+          <input
+            className="inp"
+            placeholder="Ej: 8 horas, Full day, 2 días"
+            value={form.duration}
+            onChange={(e) => u("duration", e.target.value)}
+          />
+          <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 4 }}>Ej. "8 horas", "Full day" o "2 días". Obligatorio.</div>
         </div>
         <div className="fg">
           <label className="lbl">Precio por persona (S/) <span style={{ color: "var(--tr)" }}>*</span></label>
-          <input className="inp" placeholder="150" type="number" value={form.price} onChange={(e) => u("price", e.target.value)} />
+          <input
+            className={`inp${form.price !== "" && form.price != null && !priceValid ? " inp-err" : ""}`}
+            placeholder="150"
+            type="number"
+            value={form.price}
+            onChange={(e) => u("price", e.target.value)}
+          />
+          {form.price !== "" && form.price != null && !priceValid
+            ? <div className="field-err">El precio debe estar entre S/ 1 y S/ 100,000</div>
+            : <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 4 }}>Entre S/ 1 y S/ 100,000</div>}
         </div>
         <div className="fg">
-          <label className="lbl">Capacidad máxima</label>
-          <input className="inp" placeholder="12" type="number" value={form.capacity} onChange={(e) => u("capacity", e.target.value)} />
+          <label className="lbl">Cantidad de personas <span style={{ color: "var(--tr)" }}>*</span></label>
+          <input
+            className={`inp${capacityRaw !== "" && !capacityInRange ? " inp-err" : ""}`}
+            placeholder="12"
+            type="number"
+            value={form.capacity}
+            onChange={(e) => u("capacity", e.target.value)}
+          />
+          {capacityRaw !== "" && !capacityInRange
+            ? <div className="field-err">Ingresa un número entero válido (mínimo 1)</div>
+            : <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 4 }}>Personas por salida. Obligatorio.</div>}
         </div>
         <div className="fg">
           <label className="lbl">Qué incluye (separado por comas)</label>
@@ -3575,7 +3640,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           <label className="lbl">Qué no incluye (separado por comas)</label>
           <input className="inp" placeholder="Propinas, snacks, seguro" value={form.excluded} onChange={(e) => u("excluded", e.target.value)} />
         </div>
-        <button className="mbtn" style={{ marginTop: 8 }} disabled={!form.price} onClick={() => setStep(3)}>Siguiente</button>
+        <button className="mbtn" style={{ marginTop: 8 }} disabled={!durationValid || !priceValid || !capacityValid} onClick={() => setStep(3)}>Siguiente</button>
       </div>}
 
       {/* Step 3: Disponibilidad */}
@@ -3752,7 +3817,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           <div className="sum-r"><span style={{ color: "var(--gy)" }}>Categoría</span><span>{CATS.find((c) => c.id === form.category)?.n}</span></div>
           <div className="sum-r"><span style={{ color: "var(--gy)" }}>Dificultad</span><span>{form.difficulty}</span></div>
           <div className="sum-r"><span style={{ color: "var(--gy)" }}>Duración</span><span>{form.duration}</span></div>
-          <div className="sum-r"><span style={{ color: "var(--gy)" }}>Capacidad</span><span>{form.capacity} personas</span></div>
+          <div className="sum-r"><span style={{ color: "var(--gy)" }}>Cantidad de personas</span><span>{form.capacity} personas</span></div>
           <div className="sum-r"><span style={{ color: "var(--gy)" }}>Días recurrentes</span><span>{form.days.length > 0 ? form.days.map(d => DAY_LABEL[d] || d).join(", ") : "—"}</span></div>
           {(form.excludedDates.length > 0 || form.addedDates.length > 0) && (
             <div className="sum-r">
@@ -4070,7 +4135,7 @@ export default function AppDemo() {
     if (res.status === 404) return { ok: false, error: "El tour ya no existe." };
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return { ok: false, error: data?.error || "No pudimos guardar los cambios. Revisa los datos." };
+      return { ok: false, error: describeTourApiError(data, "No pudimos guardar los cambios. Revisa los datos.") };
     }
 
     // Éxito. mapTourFromApi normaliza el tour real (DETAIL_SELECT ya expone
@@ -4143,7 +4208,7 @@ export default function AppDemo() {
     }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return { ok: false, error: data?.error || "No pudimos publicar el tour. Revisa los datos." };
+      return { ok: false, error: describeTourApiError(data, "No pudimos publicar el tour. Revisa los datos.") };
     }
 
     // Éxito (201). mapTourFromApi normaliza el tour real (CUID, no numérico).

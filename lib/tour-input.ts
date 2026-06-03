@@ -31,7 +31,7 @@ export const tourInputSchema = z.object({
     .string()
     .transform((c) => (c === "culture" ? "cultural" : c === "gastro" ? "gastronomy" : c))
     .pipe(z.enum(["adventure", "cultural", "gastronomy", "nature", "mystic"])),
-  capacity: z.coerce.number().int().min(1).max(100).default(10),
+  capacity: z.coerce.number().int().min(1).max(3000),
   difficulty: z.string().trim().max(40).optional(),
   description: z.string().trim().min(10).max(5000),
   included: z.union([z.string(), z.array(z.string())]).optional(),
@@ -96,15 +96,52 @@ function parseDurationHours(raw: string): number {
   return /d[ií]a/i.test(raw) ? n * 24 : n;
 }
 
+// Etiquetas amigables (es) por campo del schema, para que el mensaje de error
+// nombre el campo que falló en vez de un genérico "Cuerpo inválido".
+const FIELD_LABELS: Record<string, string> = {
+  title: "Nombre",
+  location: "Ubicación",
+  price: "Precio",
+  duration: "Duración",
+  category: "Categoría",
+  capacity: "Capacidad",
+  difficulty: "Dificultad",
+  description: "Descripción",
+  included: "Qué incluye",
+  excluded: "Qué no incluye",
+  days: "Días",
+  excludedDates: "Fechas excluidas",
+  addedDates: "Fechas agregadas",
+  meetingPoint: "Punto de encuentro",
+  cancellation: "Política de cancelación",
+  photo: "Foto",
+  startTime: "Hora de salida",
+};
+
 // Valida el cuerpo del form y lo mapea a campos del modelo Tour. Devuelve un
 // resultado discriminado: en error trae { status, error } listo para responder.
 export function parseTourInput(rawBody: unknown): ParseTourInputResult {
   const parsed = tourInputSchema.safeParse(rawBody);
   if (!parsed.success) {
+    // Nombrar los campos que fallaron (de issues[].path) con etiquetas en es,
+    // sin duplicados y preservando el orden. La lógica de validación zod NO
+    // cambia: solo se mejora el mensaje. El array `details` sigue intacto.
+    const fields = [
+      ...new Set(
+        parsed.error.issues.map((i) => {
+          const key = typeof i.path[0] === "string" ? i.path[0] : "";
+          return FIELD_LABELS[key] ?? key;
+        })
+      ),
+    ].filter(Boolean);
+    const error =
+      fields.length > 0
+        ? `Revisa estos campos: ${fields.join(", ")}`
+        : "Cuerpo inválido";
     return {
       ok: false,
       status: 400,
-      error: "Cuerpo inválido",
+      error,
       details: parsed.error.issues,
     };
   }
