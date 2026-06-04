@@ -11,9 +11,11 @@ Production: deployed to **finde.pe** via Vercel (project `mrcancis-projects/find
 ## Estado del proyecto (junio 2026)
 
 - Proyecto **`tours-db-i18n` COMPLETADO**: tours migrados de array hardcoded a DB, **40 tours con embeddings Voyage**, 6 categorías UI sincronizadas con el enum DB, skeleton loading en grid y carruseles, dropdown AI_SUGGESTIONS funcional.
-- **M1 (Auth con Supabase Auth) COMPLETADO** (en la rama `feature/m1-auth`, **aún no mergeado a `main` ni desplegado a producción**): auth real email+password, sesión persistente en localStorage, logout real, reservas y onboarding de operador ligados a la identidad del token, `isOperator` derivado de la DB. Plan: [`docs/m1-auth-plan.md`](docs/m1-auth-plan.md).
-- **Próximo:** continuar el MVP end-to-end (M2+). Ver [`docs/roadmap-mvp.md`](docs/roadmap-mvp.md) (fases M1-M6).
-- **Antes de lanzar auth a usuarios reales:** reactivar "Confirm email" en Supabase (desactivado para pruebas) y cargar las 3 credenciales Supabase en Vercel (los 3 entornos).
+- **M1 (Auth con Supabase Auth) COMPLETADO y EN PRODUCCIÓN** (finde.pe, `main` @ `b214307`): auth real email+password, sesión persistente en localStorage, logout real, reservas y onboarding de operador ligados a la identidad del token, `isOperator` derivado de la DB. Plan: [`docs/m1-auth-plan.md`](docs/m1-auth-plan.md). **`main` tiene solo M1.**
+- **M2 (Tours del operador + medios) COMPLETO y validado, pero EN LA RAMA `feature/m2-operator-tours` — NO mergeado a `main`, NO en producción todavía**: CRUD real de tours del operador (crear/editar/borrar/pausar), upload de imágenes a Supabase Storage (signed URL, subida directa navegador→Storage), y las correcciones de la auditoría aplicadas (publicación honesta sin moderación falsa, onboarding sin datos mock, comisión 15% oculta en etapa piloto). `requireOperator` protege todos los endpoints de escritura; los tours pausados quedan invisibles en catálogo/búsqueda/detalle/booking pero visibles en el dashboard del operador. Todo lo de M2 descrito más abajo (endpoints, libs, Storage, columnas `active`/`startTime`) vive en esta rama, aún sin desplegar.
+- **Próximo:** continuar el MVP end-to-end (M4+). Ver [`docs/roadmap-mvp.md`](docs/roadmap-mvp.md) (fases M1-M6).
+- **Antes de lanzar auth a usuarios reales:** reactivar "Confirm email" en Supabase (desactivado para pruebas) y cargar las credenciales Supabase en Vercel (los 3 entornos).
+- **Etapa piloto:** sin comisión (link directo a WhatsApp); el 15% está oculto en la UI y se reactiva cuando se cobre.
 - Auditoría de estado: [`docs/audits/2026-05-20-mvp-readiness-audit.md`](docs/audits/2026-05-20-mvp-readiness-audit.md).
 
 ## Archivos protegidos
@@ -67,7 +69,7 @@ There is no test suite configured.
 
 ```
 /api/         Vercel Serverless Functions (TypeScript). One file = one route.
-              Subfolders: api/ai/, api/tours/
+              Subfolders: api/ai/, api/tours/, api/operators/, api/uploads/
 /lib/         Shared backend singletons (Prisma client, Anthropic, Voyage)
 /prisma/      schema.prisma + migrations/
 /scripts/     One-off scripts (seed, embeddings, prebuild de cache, etc.) run via `tsx`
@@ -104,9 +106,11 @@ La sesión es real (Supabase Auth). `src/main.jsx` envuelve `<App />` con `<Auth
 ### Datos REALES (del API / DB)
 
 - **Auth** — Supabase Auth (email+password) vía `src/contexts/AuthContext.jsx` (`useAuth`). Sesión persistente en localStorage; el backend valida el `Bearer` token con `lib/auth.ts`. `isOperator` se deriva de `GET /api/me`.
-- **Tours** — `fetch('/api/tours?limit=50')` en el mount de `AppDemo`. 40 tours en DB con embeddings Voyage.
-- **Búsqueda IA** — `POST /api/search` (Voyage embeddings + pgvector + Claude Sonnet 4.6, con cache `FeaturedSearch`).
-- **Bookings** — `POST /api/bookings` persiste en DB (status inicial `pending_payment`; no transiciona hasta que se implemente la pasarela). Requiere sesión (`requireAuth`); el `userEmail`/identidad sale del token, no del body.
+- **Tours (catálogo)** — `fetch('/api/tours?limit=50')` en el mount de `AppDemo`. 40 tours en DB con embeddings Voyage. El GET público filtra `active:true` (tours pausados no aparecen).
+- **Tours del operador (CRUD)** — crear/editar/borrar/pausar conectados a endpoints reales (`POST /api/tours`, `PUT/DELETE/PATCH /api/tours/[id]`). `opTours` se hidrata desde `GET /api/operators/me/tours` (ya no es mock); muestra activos e inactivos.
+- **Upload de imágenes** — `POST /api/uploads/tour-image` emite una signed upload URL (tras `requireOperator`); el navegador sube la foto **directo** a Supabase Storage (bucket `tour-images`), esquivando el límite ~4.5MB de Vercel. La `publicUrl` resultante se guarda en `Tour.imageUrl`.
+- **Búsqueda IA** — `POST /api/search` (Voyage embeddings + pgvector + Claude Sonnet 4.6, con cache `FeaturedSearch`). Filtra `active:true` en sus 3 queries (cache, pgvector, hidratación).
+- **Bookings** — `POST /api/bookings` persiste en DB (status inicial `pending_payment`; no transiciona hasta que se implemente la pasarela). Requiere sesión (`requireAuth`); el `userEmail`/identidad sale del token, no del body. Rechaza reservas de tours pausados (409).
 - **Operadores (onboarding)** — `POST /api/operators` requiere sesión; crea row con `verified: false`, ligado a `Operator.userId` del token, persiste `ruc`; responde 409 si el usuario ya es operador.
 - **Geo** — `GET /api/geo` resuelve ciudad desde headers `x-vercel-ip-*` con fallback Lima.
 - **AI B2B** — `POST /api/ai/generate-description` y `POST /api/ai/generate-quechua` están listos en backend (todavía no enchufados a la UI de `NewTourView`).
@@ -117,7 +121,6 @@ La sesión es real (Supabase Auth). `src/main.jsx` envuelve `<App />` con `<Auth
 - **`OP_BK`, `EARN`, `biz`** — datos del dashboard del operador (`DashView`): reservas, ingresos semanales, datos comerciales (RUC/MINCETUR/CCI).
 - **Reviews** — `generateMockReviews(tour)` produce 3-4 reseñas determinísticas por hash del tour. No existe modelo `Review` en DB.
 - **`MY_TRIPS`** — semi-mock: 2 trips fijos con CUIDs reales de DB (`data/track-b/tours-db-snapshot.json`).
-- **Creación/edición de tours en el dashboard** — `handleCreateTour` y `handleSaveTour` solo mutan estado local; no hay `POST/PUT /api/tours`.
 
 ## Backend Architecture
 
@@ -130,12 +133,28 @@ Shared clients are singletons in `/lib/` to avoid reconnecting on every invocati
 - `lib/voyage.ts` — Voyage embeddings client
 - `lib/rate-limit.ts` — rate limiter por IP + bucket
 - `lib/search-cache.ts` — normalización de queries para cache `FeaturedSearch`
-- `lib/tour-select.ts` — `LIST_SELECT` y `DETAIL_SELECT` reusables
+- `lib/tour-select.ts` — `LIST_SELECT` y `DETAIL_SELECT` reusables (`tourFields` incluye `days`, `meetingPoint`, `cancellation`, `excludedDates`, `addedDates`, `startTime`, `active`)
+- `lib/tour-input.ts` — mapeo compartido form→schema para crear/editar tours: `tourInputSchema` (zod), `parseTourInput`, `embedTourSafe` (embedding on-write Voyage, Opción A), `CANCEL_MAP`, `parseDurationHours` ("full day"→8h, "medio día"→4h). Semántica `undefined` para `imageUrl` y `startTime` (preserva el valor existente en update). Mensajes de error que nombran el campo (`FIELD_LABELS`). `capacity` int 1-3000 (requerido)
 - `lib/geo.ts` — mapeo de ciudad/región a ciudad soportada
-- `lib/supabase-admin.ts` — cliente Supabase con **service role** (stateless, cacheado en `globalThis`); valida tokens
-- `lib/auth.ts` — `requireAuth(req, res)` / `getAuthUser(req)`: extraen y validan el `Bearer` token vía `supabase-admin`
+- `lib/supabase-admin.ts` — cliente Supabase con **service role** (stateless, cacheado en `globalThis`); valida tokens y emite signed upload URLs de Storage
+- `lib/auth.ts` — `requireAuth(req, res)` / `getAuthUser(req)`: extraen y validan el `Bearer` token vía `supabase-admin`. `requireOperator(req, res)` se monta sobre `requireAuth`: resuelve el `Operator` por `userId`, responde 403 si la cuenta no es operador, y devuelve `{ user, operator: { id, name, verified } }` (lanza `AuthRequiredError` en 401 y 403 para que el `catch { return }` de los handlers funcione igual)
 
 Endpoints autenticados (vía `requireAuth`): `GET /api/me` (devuelve `{ user, operator | null }`), `POST /api/bookings`, `POST /api/operators`. La identidad (email/`userId`) se toma del token, nunca del body.
+
+Endpoints de operador (vía `requireOperator`; `operatorId` sale del token, nunca del body):
+
+- `POST /api/tours` — crear un tour (mapeo form→schema vía `lib/tour-input.ts`, embedding on-write). Devuelve 201.
+- `PUT /api/tours/[id]` — editar un tour propio (verificación de propiedad, re-embed; preserva `imageUrl`/`startTime` si no se mandan — semántica `undefined`; omite `language` para no clobbear tours multi-idioma).
+- `DELETE /api/tours/[id]` — borrar un tour propio (hard delete) + su foto en Storage. Borra la DB primero; solo toca Storage si la `imageUrl` vive en el bucket `tour-images` (las URLs externas del seed se dejan intactas); un fallo de Storage no rompe el borrado (foto huérfana, se loguea).
+- `PATCH /api/tours/[id]` — pausar/reactivar (body `{ active: boolean }`, verificación de propiedad).
+- `GET /api/operators/me/tours` — lista los tours del operador para el dashboard (NO filtra `active`: muestra activos e inactivos).
+- `POST /api/uploads/tour-image` — emite una signed upload URL para Supabase Storage (valida `contentType` jpeg/png; ruta `{operatorId}/{uuid}.{ext}`; devuelve `token`, `path`, `publicUrl`).
+
+`GET /api/tours` y `GET /api/tours/[id]` son públicos pero filtran `active:true` (un tour pausado no aparece en el catálogo y su detalle responde 404).
+
+### Almacenamiento de imágenes (Supabase Storage)
+
+Bucket **`tour-images`** (lectura pública, límite 5MB, MIME `image/jpeg`/`image/png`, **sin INSERT público** — las subidas van por signed URL). Flujo A: el backend (`requireOperator`) emite la signed upload URL en `POST /api/uploads/tour-image` y el navegador sube el archivo **directo** a Storage (nunca pasa por la función → esquiva el límite ~4.5MB de Vercel). La `publicUrl` se guarda en `Tour.imageUrl`.
 
 ### Data model (see `prisma/schema.prisma`)
 
@@ -143,7 +162,8 @@ Endpoints autenticados (vía `requireAuth`): `GET /api/me` (devuelve `{ user, op
 - **Tour** — listings con `embedding vector(1024)` para búsqueda semántica, más:
   - básicos: `title`, `description`, `category`, `difficulty`, `city`, `region`, `durationHours`, `priceSoles` (en céntimos), `capacity`, `language[]`, `included[]`, `excluded[]`, `imageUrl`, `rating`, `reviewsCount`
   - editoriales: `shortPitch`, `aiSummary`, `altTour` (Json), `tags` (String[]), `badge`, `cancellation` (enum), `meetingPoint`, `altitude`
-  - disponibilidad: `days` (Boolean[7] — patrón semanal), `excludedDates` (String[]), `addedDates` (String[])
+  - disponibilidad: `days` (Boolean[7] — patrón semanal), `excludedDates` (String[]), `addedDates` (String[]), `startTime` (String? — hora de salida "HH:MM" 24h, nullable; null = legacy/sin definir)
+  - estado: `active` (Boolean `@default(true)` — el operador pausa/reanuda; el catálogo público filtra `active=true`)
 - **Booking** — reservas con `bookingCode` único, `status` (string), `scheduledAt`, datos del viajero (`userName`, `userEmail`, `userPhone`) y `userId` (nullable, FK lógica a `auth.users`).
 - **SearchLog** — log de queries en lenguaje natural (`query`, `resultIds[]`, `reasoning`).
 - **FeaturedSearch** — cache de queries famosas pre-procesadas (Voyage + Claude). Salta el flujo completo y responde en <100ms para queries normalizadas presentes en cache.
@@ -199,3 +219,7 @@ Config in `eslint.config.js`. Capitalized unused variables are intentionally ign
 - Validate all request bodies with `zod` before touching the DB.
 - Use the `/lib/` singletons — never instantiate Prisma/Anthropic/Voyage clients ad-hoc inside endpoints.
 - Cambios de schema: `prisma db push` (no `migrate dev`) + documentar en `docs/migrations/`.
+- Endpoints de escritura del operador: proteger con `requireOperator` y verificar **propiedad** (`tour.operatorId === operator.id`) antes de mutar; el `operatorId`/identidad sale del token, nunca del body.
+- **Tours pausados** (`active:false`): invisibles en catálogo, búsqueda, detalle y booking; visibles solo para su dueño en el dashboard (`GET /api/operators/me/tours`).
+- **Etapa piloto: sin comisión** — el 15% está oculto en la UI (link directo a WhatsApp). Reactivar cuando se cobre.
+- Publicación de tours honesta: sin moderación falsa ni datos mock en el onboarding del operador.
