@@ -259,6 +259,9 @@ function mapTourFromApi(t) {
     days: Array.isArray(t.days) ? DAY_CODES.filter((_, i) => t.days[i]) : undefined,
     excludedDates: t.excludedDates ?? undefined,
     addedDates: t.addedDates ?? undefined,
+    // Hora de salida real del API (M3.2). undefined para tours legacy (null);
+    // el fallback "08:00" se aplica donde se consume (hidratación / voucher).
+    startTime: t.startTime ?? undefined,
   });
 }
 
@@ -288,6 +291,9 @@ function tourFormToApiBody(f) {
     addedDates: f.addedDates || [],
     meetingPoint: f.meetingPoint || undefined,
     cancellation: f.cancellation || "flexible",
+    // Hora de salida "HH:MM" — el backend la persiste (M3.2). undefined si el
+    // form no la tiene (el backend preserva la existente en el PUT).
+    startTime: f.startTime || undefined,
     ...(f.photo && /^https?:\/\//i.test(f.photo) ? { photo: f.photo } : {}),
   };
 }
@@ -4054,7 +4060,9 @@ export default function AppDemo() {
           excludedDates: t.excludedDates || [],
           addedDates: t.addedDates || [],
           meetingPoint: t.meetingPoint || "",
-          startTime: "08:00",
+          // Hora real del API (M3.3); "08:00" solo como fallback para tours
+          // legacy sin hora (startTime null).
+          startTime: t.startTime || "08:00",
           cancellation: t.cancellation || "flexible",
           photo: null,
         })));
