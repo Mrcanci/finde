@@ -2885,11 +2885,12 @@ function ProfileView({ go }) {
   const avatarInitials = (user?.email || "?").slice(0, 2).toUpperCase();
   const [showOpForm, setShowOpForm] = useState(false);
   const [opForm, setOpForm] = useState({
-    name: USER.name,
+    // Campos vacíos: el operador ingresa SUS datos reales (no sembrar con mocks).
+    name: "",
     // Email del usuario logueado (el backend lo toma del token; el body lo ignora).
     email: user?.email || "",
-    phone: (USER.phone || "").replace(/\D/g, ""),
-    city: USER.city,
+    phone: "",
+    city: "",
     ruc: "",
   });
   const [opLoading, setOpLoading] = useState(false);
@@ -3216,9 +3217,8 @@ function DashView({ go, opTours, setOpTours, onEditTour, onDeleteTour, initialTa
 
         <div className="earn-chart">
           <div style={{ fontSize: 14, fontWeight: 700 }}>Ingresos semanales</div>
-          <div style={{ fontSize: 11, color: "var(--gy)" }}>Comisión Finde: 15%</div>
           <div className="earn-bars">{EARN.map((w, i) => (<div key={i} className="earn-bg"><div className="earn-bc"><div className="earn-b" style={{ height: `${(w.n / maxE) * 100}%`, background: "var(--f)" }} /><div className="earn-b" style={{ height: `${(w.f / maxE) * 100}%`, background: "var(--tr)", opacity: .6 }} /></div><div className="earn-bl">{w.w}</div></div>))}</div>
-          <div className="earn-leg"><div className="earn-li"><div className="earn-dt" style={{ background: "var(--f)" }} />Neto</div><div className="earn-li"><div className="earn-dt" style={{ background: "var(--tr)", opacity: .6 }} />Comisión 15%</div></div>
+          <div className="earn-leg"><div className="earn-li"><div className="earn-dt" style={{ background: "var(--f)" }} />Neto</div></div>
         </div>
         <div className="earn-rows">{EARN.map((w, i) => (<div key={i} className="earn-row"><div><div style={{ fontWeight: 600, fontSize: 13 }}>{w.w}</div><div style={{ fontSize: 13, color: "var(--gy)" }}>Bruto: S/ {w.g.toLocaleString()}</div></div><div style={{ textAlign: "right" }}><div style={{ fontSize: 15, fontWeight: 700, color: "var(--f)" }}>S/ {w.n.toLocaleString()}</div><div style={{ fontSize: 13, color: "var(--gy)" }}>-S/ {w.f.toLocaleString()}</div></div></div>))}</div>
       </div>}
@@ -3271,7 +3271,7 @@ function DashView({ go, opTours, setOpTours, onEditTour, onDeleteTour, initialTa
           </>)}
           <button className="mbtn" onClick={() => { setPaySaved(true); setTimeout(() => setPaySaved(false), 3000); }}>Guardar cuenta</button>
           {paySaved && <div className="biz-saved"><Check size={12} strokeWidth={2} /> Cuenta guardada</div>}
-          <div className="biz-note">Los pagos se procesan en 1-2 días hábiles después de cada experiencia completada. La comisión de Finde es del 15%.</div>
+          <div className="biz-note">Los pagos se procesan en 1-2 días hábiles después de cada experiencia completada.</div>
         </div>
 
         {/* Documentos */}
@@ -3935,7 +3935,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         )}
 
         <div style={{ padding: 12, background: "rgba(45,90,61,.05)", borderRadius: 12, marginBottom: 16, fontSize: 12, color: "var(--gy)", lineHeight: 1.5 }}>
-          Al publicar, tu tour será revisado por el equipo de Finde y estará visible en un máximo de 24 horas. Comisión por reserva: 15%.
+          Al publicar, tu tour quedará visible de inmediato en Finde.
         </div>
         {submitError && (
           <div className="field-err" style={{ marginBottom: 10, textAlign: "center" }}>{submitError}</div>
