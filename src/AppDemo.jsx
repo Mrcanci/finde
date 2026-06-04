@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, CreditCard, Banknote, Smartphone, MessageCircle, Camera, MountainSnow, Hand, CircleDollarSign, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff, Info } from "lucide-react";
+import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, CreditCard, Banknote, Smartphone, MessageCircle, Camera, MountainSnow, Hand, CircleDollarSign, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff, Info, Trash2 } from "lucide-react";
 import { useAuth } from "./contexts/AuthContext.jsx";
 import { authFetch } from "./lib/authFetch.js";
+import { supabase } from "./lib/supabase.js";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // FINDE v3 — AI-Native Marketplace
@@ -211,6 +212,14 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
 
 const CAT_API_TO_UI = { cultural: "culture", gastronomy: "gastro" };
 const CAT_UI_TO_API = { culture: "cultural", gastro: "gastronomy" };
+// Enum del API (CancellationPolicy) → clave lowercase que usa el front
+// (CANCEL_POLICIES). Inverso del CANCEL_MAP del backend (lib/tour-input.ts).
+const CANCEL_API_TO_UI = {
+  Flexible: "flexible",
+  Moderada: "moderada",
+  Estricta: "estricta",
+  NoReembolsable: "no_reembolsable",
+};
 
 function mapTourFromApi(t) {
   return ensureAvailabilityFields({
@@ -239,9 +248,83 @@ function mapTourFromApi(t) {
     aiSummary: t.shortPitch || "",
     altTour: null,
     tags: [],
-    cancellation: t.cancellation || "flexible",
-    meetingPoint: t.meetingPoint || "",
+    // cancellation: enum API → key del front; undefined si el API no lo trae
+    // (getCancelPolicy ya defaultea a flexible al renderizar).
+    cancellation: t.cancellation ? (CANCEL_API_TO_UI[t.cancellation] || "flexible") : undefined,
+    meetingPoint: t.meetingPoint ?? "",
+    // days: Boolean[7] → day-codes, ESPEJO de la conversión de envío de
+    // handleCreateTour (DAY_CODES.map(c => form.days.includes(c))). undefined
+    // si el API no trae el campo → ensureAvailabilityFields aplica el default
+    // legacy (DEFAULT_DAYS) sin romper tours viejos.
+    days: Array.isArray(t.days) ? DAY_CODES.filter((_, i) => t.days[i]) : undefined,
+    excludedDates: t.excludedDates ?? undefined,
+    addedDates: t.addedDates ?? undefined,
+    // Hora de salida real del API (M3.2). undefined para tours legacy (null);
+    // el fallback "08:00" se aplica donde se consume (hidratación / voucher).
+    startTime: t.startTime ?? undefined,
+    // Estado activo/inactivo real del API (M2.3); default true si no viene.
+    active: t.active ?? true,
   });
+}
+
+// Mapeo inverso form (UI) → body que esperan POST/PUT /api/tours. Compartido
+// por crear (2.5) y editar (2.6) para no duplicar la conversión:
+// - category UI (culture/gastro) → enum API (el backend también lo tolera).
+// - days: day-codes (["lun",...]) → Boolean[7] indexado por DAY_CODES
+//   (índice i = DAY_CODES[i], misma convención getUTCDay() del front).
+// - included/excluded: el form ya los tiene como string coma-sep; el backend
+//   acepta string o array, así que se envían tal cual.
+// - price: soles tal cual (el backend hace el ×100).
+// - photo: solo si es URL http(s); el backend ignora lo demás.
+function tourFormToApiBody(f) {
+  return {
+    title: f.title,
+    location: f.location,
+    price: f.price,
+    duration: f.duration,
+    category: CAT_UI_TO_API[f.category] || f.category,
+    capacity: f.capacity,
+    difficulty: f.difficulty || undefined,
+    description: f.description,
+    included: f.included || "",
+    excluded: f.excluded || "",
+    days: DAY_CODES.map((code) => (f.days || []).includes(code)),
+    excludedDates: f.excludedDates || [],
+    addedDates: f.addedDates || [],
+    meetingPoint: f.meetingPoint || undefined,
+    cancellation: f.cancellation || "flexible",
+    // Hora de salida "HH:MM" — el backend la persiste (M3.2). undefined si el
+    // form no la tiene (el backend preserva la existente en el PUT).
+    startTime: f.startTime || undefined,
+    ...(f.photo && /^https?:\/\//i.test(f.photo) ? { photo: f.photo } : {}),
+  };
+}
+
+// Etiquetas amigables por campo (mismo set que lib/tour-input.ts) para nombrar
+// el campo que falló a partir de `details` (zod issues) cuando POST/PUT /api/tours
+// responde 400. Evita el mensaje genérico que oculta la causa.
+const API_FIELD_LABELS = {
+  title: "Nombre", location: "Ubicación", price: "Precio", duration: "Duración",
+  category: "Categoría", capacity: "Cantidad de personas", difficulty: "Dificultad",
+  description: "Descripción", included: "Qué incluye", excluded: "Qué no incluye",
+  days: "Días", excludedDates: "Fechas excluidas", addedDates: "Fechas agregadas",
+  meetingPoint: "Punto de encuentro", cancellation: "Política de cancelación",
+  photo: "Foto", startTime: "Hora de salida",
+};
+
+// Construye un mensaje útil desde la respuesta de error del API de tours:
+// si trae `details` (zod issues), nombra los campos que fallaron; si no, usa
+// data.error (que el backend ya enriquece) o el fallback.
+function describeTourApiError(data, fallback) {
+  const issues = Array.isArray(data?.details) ? data.details : [];
+  const fields = [...new Set(issues.map((i) => {
+    const key = Array.isArray(i?.path) && typeof i.path[0] === "string" ? i.path[0] : "";
+    return API_FIELD_LABELS[key] || key;
+  }))].filter(Boolean);
+  if (fields.length > 0) {
+    return `Revisa ${fields.length > 1 ? "estos campos" : "el campo"}: ${fields.join(", ")}`;
+  }
+  return data?.error || fallback;
 }
 
 const AI_SUGGESTIONS = [
@@ -1114,16 +1197,16 @@ html{scrollbar-gutter:stable}
 .st-confirmed{background:rgba(45,90,61,.1);color:var(--m)}.st-pending{background:rgba(212,168,67,.15);color:#B8860B}.st-completed{background:rgba(107,143,113,.15);color:var(--sg)}.st-cancelled{background:rgba(199,97,58,.1);color:var(--tr)}
 
 /* AI Content Creator */
-.ai-cc{margin:0 0 16px 0;padding:20px;background:linear-gradient(135deg,rgba(14,165,233,.06),rgba(14,165,233,.02));border:1.5px solid rgba(14,165,233,.15);border-radius:16px}
+.ai-cc{margin:0 0 16px 0;padding:20px;background:linear-gradient(135deg,rgba(45,90,61,.06),rgba(45,90,61,.02));border:1.5px solid rgba(45,90,61,.15);border-radius:16px}
 .ai-cc-h{display:flex;align-items:center;gap:8px;margin-bottom:12px}
 .ai-cc-h span{font-size:18px}
-.ai-cc-h h3{font-size:15px;font-weight:700;color:var(--ai)}
+.ai-cc-h h3{font-size:15px;font-weight:700;color:var(--f)}
 .ai-cc-desc{font-size:12px;color:var(--gy);margin-bottom:14px;line-height:1.5}
-.ai-cc-input{width:100%;padding:11px;border:1.5px solid rgba(14,165,233,.2);border-radius:10px;font-size:16px;font-family:inherit;background:white;color:var(--ch);outline:none;resize:vertical;min-height:70px;transition:.2s}
-.ai-cc-input:focus{border-color:var(--ai)}
-.ai-cc-btn{margin-top:10px;padding:10px 20px;border-radius:100px;background:var(--ai);color:white;font-weight:700;font-size:12px;border:none;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px}
-.ai-cc-result{margin-top:14px;padding:14px;background:white;border-radius:10px;border:1px solid rgba(14,165,233,.1)}
-.ai-cc-result-h{font-size:10px;font-weight:700;color:var(--ai);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.ai-cc-input{width:100%;padding:11px;border:1.5px solid var(--sd);border-radius:10px;font-size:16px;font-family:inherit;background:white;color:var(--ch);outline:none;resize:vertical;min-height:70px;transition:.2s}
+.ai-cc-input:focus{border-color:var(--m)}
+.ai-cc-btn{margin-top:10px;padding:10px 20px;border-radius:100px;background:var(--gd);color:white;font-weight:700;font-size:12px;border:none;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px}
+.ai-cc-result{margin-top:14px;padding:14px;background:white;border-radius:10px;border:1px solid var(--sd)}
+.ai-cc-result-h{font-size:10px;font-weight:700;color:var(--f);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
 .ai-cc-result-t{font-size:13px;color:var(--ch);line-height:1.6}
 .ai-cc-langs{display:flex;gap:6px;margin-top:10px}
 .ai-cc-lang{padding:4px 10px;border-radius:100px;font-size:10px;font-weight:600;border:1px solid var(--sd);background:white;cursor:pointer;font-family:inherit}
@@ -2810,11 +2893,12 @@ function ProfileView({ go }) {
   const avatarInitials = (user?.email || "?").slice(0, 2).toUpperCase();
   const [showOpForm, setShowOpForm] = useState(false);
   const [opForm, setOpForm] = useState({
-    name: USER.name,
+    // Campos vacíos: el operador ingresa SUS datos reales (no sembrar con mocks).
+    name: "",
     // Email del usuario logueado (el backend lo toma del token; el body lo ignora).
     email: user?.email || "",
-    phone: (USER.phone || "").replace(/\D/g, ""),
-    city: USER.city,
+    phone: "",
+    city: "",
     ruc: "",
   });
   const [opLoading, setOpLoading] = useState(false);
@@ -2970,7 +3054,7 @@ function ProfileView({ go }) {
   );
 }
 
-function DashView({ go, opTours, setOpTours, onEditTour, initialTab = "bookings", onTabConsumed }) {
+function DashView({ go, opTours, onEditTour, onDeleteTour, onToggleActive, initialTab = "bookings", onTabConsumed }) {
   const [tab, setTab] = useState(initialTab);
   useEffect(() => { if (onTabConsumed) onTabConsumed(); }, []);
   const [bookings, setBookings] = useState(OP_BK);
@@ -2990,7 +3074,31 @@ function DashView({ go, opTours, setOpTours, onEditTour, initialTab = "bookings"
   const [paySaved, setPaySaved] = useState(false);
   const updateBiz = (k, v) => { setBiz(prev => ({ ...prev, [k]: v })); setBizSaved(false); };
   const updateStatus = (id, newStatus) => setBookings(prev => prev.map(b => b.id === id ? { ...b, status: newStatus } : b));
-  const toggleTour = (id) => setOpTours(prev => prev.map(t => t.id === id ? { ...t, active: !t.active } : t));
+  // M2.3: el toggle persiste vía PATCH (delegado a onToggleActive en AppDemo,
+  // que hace la actualización optimista + revert). Aquí solo surfaceamos el error.
+  const [toggleErr, setToggleErr] = useState("");
+  const handleToggle = async (t) => {
+    setToggleErr("");
+    const r = await onToggleActive(t);
+    if (!r?.ok) setToggleErr(r?.error || "No pudimos actualizar el estado del tour.");
+  };
+
+  // Sub-paso M2.6b: borrado de tour CON confirmación. `confirmDel` guarda el
+  // tour pendiente de confirmar; el borrado real solo ocurre al Confirmar.
+  const [confirmDel, setConfirmDel] = useState(null);
+  const [delBusy, setDelBusy] = useState(false);
+  const [delError, setDelError] = useState("");
+  const askDelete = (t) => { setDelError(""); setConfirmDel(t); };
+  const cancelDelete = () => { if (!delBusy) { setConfirmDel(null); setDelError(""); } };
+  const confirmDelete = async () => {
+    if (!confirmDel) return;
+    setDelBusy(true);
+    setDelError("");
+    const result = await onDeleteTour(confirmDel);
+    setDelBusy(false);
+    if (result?.ok) setConfirmDel(null);
+    else setDelError(result?.error || "No pudimos borrar el tour.");
+  };
 
 
 
@@ -3124,9 +3232,8 @@ function DashView({ go, opTours, setOpTours, onEditTour, initialTab = "bookings"
 
         <div className="earn-chart">
           <div style={{ fontSize: 14, fontWeight: 700 }}>Ingresos semanales</div>
-          <div style={{ fontSize: 11, color: "var(--gy)" }}>Comisión Finde: 15%</div>
           <div className="earn-bars">{EARN.map((w, i) => (<div key={i} className="earn-bg"><div className="earn-bc"><div className="earn-b" style={{ height: `${(w.n / maxE) * 100}%`, background: "var(--f)" }} /><div className="earn-b" style={{ height: `${(w.f / maxE) * 100}%`, background: "var(--tr)", opacity: .6 }} /></div><div className="earn-bl">{w.w}</div></div>))}</div>
-          <div className="earn-leg"><div className="earn-li"><div className="earn-dt" style={{ background: "var(--f)" }} />Neto</div><div className="earn-li"><div className="earn-dt" style={{ background: "var(--tr)", opacity: .6 }} />Comisión 15%</div></div>
+          <div className="earn-leg"><div className="earn-li"><div className="earn-dt" style={{ background: "var(--f)" }} />Neto</div></div>
         </div>
         <div className="earn-rows">{EARN.map((w, i) => (<div key={i} className="earn-row"><div><div style={{ fontWeight: 600, fontSize: 13 }}>{w.w}</div><div style={{ fontSize: 13, color: "var(--gy)" }}>Bruto: S/ {w.g.toLocaleString()}</div></div><div style={{ textAlign: "right" }}><div style={{ fontSize: 15, fontWeight: 700, color: "var(--f)" }}>S/ {w.n.toLocaleString()}</div><div style={{ fontSize: 13, color: "var(--gy)" }}>-S/ {w.f.toLocaleString()}</div></div></div>))}</div>
       </div>}
@@ -3179,7 +3286,7 @@ function DashView({ go, opTours, setOpTours, onEditTour, initialTab = "bookings"
           </>)}
           <button className="mbtn" onClick={() => { setPaySaved(true); setTimeout(() => setPaySaved(false), 3000); }}>Guardar cuenta</button>
           {paySaved && <div className="biz-saved"><Check size={12} strokeWidth={2} /> Cuenta guardada</div>}
-          <div className="biz-note">Los pagos se procesan en 1-2 días hábiles después de cada experiencia completada. La comisión de Finde es del 15%.</div>
+          <div className="biz-note">Los pagos se procesan en 1-2 días hábiles después de cada experiencia completada.</div>
         </div>
 
         {/* Documentos */}
@@ -3199,6 +3306,9 @@ function DashView({ go, opTours, setOpTours, onEditTour, initialTab = "bookings"
 
       {/* ── MIS TOURS ── */}
       {tab === "listings" && <div className="fu">
+        {toggleErr && (
+          <div className="field-err" style={{ margin: "0 0 12px", textAlign: "center" }}>{toggleErr}</div>
+        )}
         {opTours.map((t) => (
           <div key={t.id} className="dsh-ls" style={{ flexDirection: "column", gap: 0, padding: 0, overflow: "hidden" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: 12 }}>
@@ -3212,7 +3322,7 @@ function DashView({ go, opTours, setOpTours, onEditTour, initialTab = "bookings"
                   <div className="dsh-ls-st">S/ <span className="v">{t.price}</span></div>
                 </div>
               </div>
-              <button onClick={(e) => { e.stopPropagation(); toggleTour(t.id); }} style={{
+              <button onClick={(e) => { e.stopPropagation(); handleToggle(t); }} style={{
                 width: 44, height: 24, borderRadius: 12, flexShrink: 0, border: "none", padding: 0,
                 background: t.active ? "var(--f)" : "var(--lg)",
                 position: "relative", cursor: "pointer", transition: "background .2s"
@@ -3229,6 +3339,12 @@ function DashView({ go, opTours, setOpTours, onEditTour, initialTab = "bookings"
                 flex: 1, padding: "9px 0", background: "none", border: "none",
                 fontSize: 12, fontWeight: 600, color: "var(--f)", cursor: "pointer", fontFamily: "inherit"
               }} onClick={() => onEditTour(t)}><Pencil size={13} strokeWidth={1.5} /> Editar</button>
+              <div style={{ width: 1, background: "var(--cr)" }} />
+              <button style={{
+                flex: 1, padding: "9px 0", background: "none", border: "none",
+                fontSize: 12, fontWeight: 600, color: "#C0392B", cursor: "pointer", fontFamily: "inherit",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 4
+              }} onClick={() => askDelete(t)}><Trash2 size={13} strokeWidth={1.5} /> Borrar</button>
             </div>
           </div>
         ))}
@@ -3236,6 +3352,60 @@ function DashView({ go, opTours, setOpTours, onEditTour, initialTab = "bookings"
           <button className="mbtn" style={{ background: "var(--tr)" }} onClick={() => go("new-tour")}>+ Agregar nuevo tour</button>
         </div>
       </div>}
+
+      {/* Diálogo de confirmación de borrado (Sub-paso M2.6b). Borrado real solo
+          al Confirmar; Cancelar (o clic en el fondo) cierra sin borrar. */}
+      {confirmDel && (
+        <div
+          onClick={cancelDelete}
+          style={{
+            position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,.45)",
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+            animation: "fadeUp .2s ease-out"
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{
+            width: "100%", maxWidth: 340, background: "white", borderRadius: 18, padding: 20,
+            boxShadow: "0 12px 40px rgba(0,0,0,.25)"
+          }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: "50%", background: "rgba(192,57,43,.1)",
+              display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12
+            }}>
+              <Trash2 size={20} strokeWidth={1.75} style={{ color: "#C0392B" }} />
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--ch)", marginBottom: 6 }}>
+              ¿Borrar este tour?
+            </div>
+            <div style={{ fontSize: 13, color: "var(--gy)", lineHeight: 1.5, marginBottom: 16 }}>
+              "{confirmDel.title}" se eliminará de forma permanente. Esta acción no se puede deshacer.
+            </div>
+            {delError && <div className="field-err" style={{ marginBottom: 12 }}>{delError}</div>}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={cancelDelete}
+                disabled={delBusy}
+                style={{
+                  flex: 1, padding: "11px 0", borderRadius: 12, border: "1.5px solid var(--sd)",
+                  background: "white", color: "var(--ch)", fontSize: 13, fontWeight: 700,
+                  cursor: delBusy ? "default" : "pointer", fontFamily: "inherit", opacity: delBusy ? 0.6 : 1
+                }}
+              >Cancelar</button>
+              <button
+                onClick={confirmDelete}
+                disabled={delBusy}
+                style={{
+                  flex: 1, padding: "11px 0", borderRadius: 12, border: "none",
+                  background: "#C0392B", color: "white", fontSize: 13, fontWeight: 700,
+                  cursor: delBusy ? "default" : "pointer", fontFamily: "inherit", opacity: delBusy ? 0.7 : 1
+                }}
+              >{delBusy ? "Borrando…" : "Borrar"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3261,7 +3431,10 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
     addedDates: editingTour.addedDates || [],
     startTime: editingTour.startTime || "08:00",
     cancellation: editingTour.cancellation || "flexible",
-    photo: editingTour.photo || null,
+    // La imagen de un tour del API vive en `image` (URL); `photo` suele venir
+    // null. Cargarla aquí hace que el editor la muestre y la re-envíe (al ser
+    // URL http) para que el backend la preserve en vez de borrarla.
+    photo: editingTour.photo || editingTour.image || null,
   } : {
     title: "", location: "", meetingPoint: "", category: "adventure", duration: "", price: "",
     capacity: "", difficulty: "Moderada", description: "", included: "", excluded: "",
@@ -3271,7 +3444,61 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
   const [published, setPublished] = useState(false);
+  // Sub-paso 2.5: estado del submit de creación (POST /api/tours es async; el
+  // embedding agrega 1-2s). El modo edición (2.6) sigue siendo síncrono.
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  // Sub-paso 3.2: estado de la subida de foto (Flujo A — el archivo va directo
+  // a Supabase Storage con una signed URL que emite el backend en 3.1).
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const u = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
+
+  // Sube la foto real a Storage (Flujo A) y deja la URL pública en form.photo.
+  // Reemplaza el viejo readAsDataURL (que descartaba el archivo). Como photo
+  // queda como URL http(s), tourFormToApiBody la incluye y el backend la guarda
+  // en imageUrl — sin cambios en el submit.
+  const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png"];
+  const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5MB, alineado con el bucket.
+  const handlePhotoUpload = async (file) => {
+    if (!file) return;
+    setUploadError("");
+    // 1. Validación de front (UX): tipo y tamaño ANTES de pedir la URL firmada.
+    if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
+      setUploadError("Formato no válido. Sube una imagen JPG o PNG.");
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      setUploadError("La imagen supera los 5MB. Elige una más liviana.");
+      return;
+    }
+    setUploading(true);
+    try {
+      // 2. Pedir la signed upload URL (solo operadores; authFetch agrega Bearer).
+      const r = await authFetch("/api/uploads/tour-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentType: file.type }),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.error || `HTTP ${r.status}`);
+      }
+      const { token, path, publicUrl } = await r.json();
+      // 3. Subir el archivo DIRECTO a Storage con la URL firmada (no pasa por
+      //    la function → esquiva el límite ~4.5MB de Vercel).
+      const { error: upErr } = await supabase.storage
+        .from("tour-images")
+        .uploadToSignedUrl(path, token, file);
+      if (upErr) throw new Error(upErr.message || "No se pudo subir la imagen");
+      // 4. Éxito: la URL pública va a form.photo (el submit ya sabe usarla).
+      setForm(prev => ({ ...prev, photo: publicUrl }));
+    } catch (e) {
+      setUploadError(e.message || "No pudimos subir la imagen. Intenta de nuevo.");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const generateAiDesc = async () => {
     if (!form.title || !form.location) return;
@@ -3327,12 +3554,26 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           <div className="suc-row"><span className="l">Tour</span><span style={{ fontWeight: 700 }}>{form.title}</span></div>
           <div className="suc-row"><span className="l">Ubicación</span><span>{form.location}</span></div>
           <div className="suc-row"><span className="l">Precio</span><span style={{ fontWeight: 800, color: "var(--f)" }}>S/ {form.price || "0"}</span></div>
-          <div className="suc-row"><span className="l">Capacidad</span><span>{form.capacity || "10"} personas</span></div>
+          <div className="suc-row"><span className="l">Cantidad de personas</span><span>{form.capacity} personas</span></div>
         </div>
         <button className="mbtn" onClick={() => isEditing ? onSaveTour({ ...editingTour, ...form, price: Number(form.price) || editingTour.price, image: form.photo ? `url(${form.photo})` : editingTour.image }) : go("dashboard")}>Volver al panel</button>
       </div>
     );
   }
+
+  // Validez del paso 2, alineada con las reglas zod del backend (lib/tour-input.ts).
+  // Antes estos campos no se validaban en el front y fallaban recién al publicar
+  // con un "Cuerpo inválido" que no decía cuál.
+  const durationValid = (form.duration || "").trim().length >= 1; // requerido (min 1)
+  const priceNum = Number(form.price);
+  const priceValid = Number.isFinite(priceNum) && priceNum > 0 && priceNum <= 100000;
+  const capacityRaw = (form.capacity ?? "").toString().trim();
+  const capacityNum = Number(form.capacity);
+  // Tope superior (3000) es solo red de seguridad silenciosa, alineada con el
+  // backend; no se comunica al usuario porque en la práctica nadie lo alcanza.
+  const capacityInRange = Number.isInteger(capacityNum) && capacityNum >= 1 && capacityNum <= 3000;
+  // Requerido (sin default): vacío es inválido y bloquea el "Siguiente".
+  const capacityValid = capacityRaw !== "" && capacityInRange;
 
   return (
     <div className="bkf fu">
@@ -3347,7 +3588,15 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         <div className="bkf-sub">Paso 1 de 5 · Nombre, ubicación y categoría</div>
         <div className="fg">
           <label className="lbl">Nombre del tour <span style={{ color: "var(--tr)" }}>*</span></label>
-          <input className="inp" placeholder="Ej: Trekking al Nevado Pastoruri" value={form.title} onChange={(e) => u("title", e.target.value)} />
+          <input
+            className={`inp${(form.title || "").trim().length > 0 && (form.title || "").trim().length < 3 ? " inp-err" : ""}`}
+            placeholder="Ej: Trekking al Nevado Pastoruri"
+            value={form.title}
+            onChange={(e) => u("title", e.target.value)}
+          />
+          {(form.title || "").trim().length > 0 && (form.title || "").trim().length < 3 && (
+            <div className="field-err">El nombre debe tener al menos 3 caracteres</div>
+          )}
         </div>
         <div className="fg">
           <label className="lbl">Ubicación <span style={{ color: "var(--tr)" }}>*</span></label>
@@ -3390,13 +3639,23 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           </div>
         </div>
         <div className="fg">
-          <label className="lbl">Foto principal del tour <span style={{ color: "var(--tr)" }}>*</span></label>
+          <label className="lbl">Foto principal del tour <span style={{ color: "var(--gy)", fontWeight: 500 }}>(opcional)</span></label>
           {!form.photo && isEditing && editingTour.image && (
             <div style={{ borderRadius: 16, overflow: "hidden", height: 100, marginBottom: 8, ...imgBg(editingTour.image), display: "flex", alignItems: "center", justifyContent: "center" }}>
               <span style={{ fontSize: 11, color: "rgba(255,255,255,.7)", fontWeight: 600 }}>Imagen actual · Sube una foto para reemplazarla</span>
             </div>
           )}
-          {!form.photo ? (
+          {uploading ? (
+            <div style={{
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+              gap: 8, padding: 24, borderRadius: 16, border: "2px dashed var(--lg)",
+              background: "var(--cr)"
+            }}>
+              <Camera size={28} strokeWidth={1.5} style={{ color: "var(--f)", opacity: .5 }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--f)" }}>Subiendo…</span>
+              <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>Subiendo tu foto, no cierres esta pantalla.</span>
+            </div>
+          ) : !form.photo ? (
             <label style={{
               display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
               gap: 8, padding: 24, borderRadius: 16, border: "2px dashed var(--lg)",
@@ -3405,15 +3664,9 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
               <Camera size={28} strokeWidth={1.5} style={{ color: "var(--f)" }} />
               <span style={{ fontSize: 13, fontWeight: 600, color: "var(--f)" }}>{isEditing ? "Cambiar foto" : "Subir foto"}</span>
               <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>Recomendado: 1200×800px · JPG o PNG · máx 5MB</span>
-              <input type="file" accept="image/*" style={{ display: "none" }}
-                onChange={(e) => {
-                  const file = e.target.files[0];
-                  if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (ev) => setForm(prev => ({ ...prev, photo: ev.target.result }));
-                    reader.readAsDataURL(file);
-                  }
-                }} />
+              <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>Opcional por ahora — sin foto usamos un diseño por defecto.</span>
+              <input type="file" accept="image/jpeg,image/png" style={{ display: "none" }}
+                onChange={(e) => { handlePhotoUpload(e.target.files[0]); e.target.value = ""; }} />
             </label>
           ) : (
             <div style={{ position: "relative", borderRadius: 16, overflow: "hidden", height: 160 }}>
@@ -3425,9 +3678,12 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
               }}><X size={14} strokeWidth={2} /></button>
             </div>
           )}
+          {uploadError && (
+            <div style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: "var(--tr)" }}>{uploadError}</div>
+          )}
         </div>
         <button className="mbtn" style={{ marginTop: 8 }}
-          disabled={!form.title || !form.location || (form.meetingPoint || "").trim().length < 10 || (!form.photo && !(isEditing && editingTour.image))}
+          disabled={(form.title || "").trim().length < 3 || (form.location || "").trim().length < 2 || (form.meetingPoint || "").trim().length < 10}
           onClick={() => setStep(2)}>Siguiente</button>
       </div>}
 
@@ -3436,16 +3692,40 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         <div className="bkf-t">Detalles del tour</div>
         <div className="bkf-sub">Paso 2 de 5 · Duración, precio y capacidad</div>
         <div className="fg">
-          <label className="lbl">Duración</label>
-          <input className="inp" placeholder="Ej: 8 horas, Full day, 2 días" value={form.duration} onChange={(e) => u("duration", e.target.value)} />
+          <label className="lbl">Duración <span style={{ color: "var(--tr)" }}>*</span></label>
+          <input
+            className="inp"
+            placeholder="Ej: 8 horas, Full day, 2 días"
+            value={form.duration}
+            onChange={(e) => u("duration", e.target.value)}
+          />
+          <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 4 }}>Ej. "8 horas", "Full day" o "2 días". Obligatorio.</div>
         </div>
         <div className="fg">
           <label className="lbl">Precio por persona (S/) <span style={{ color: "var(--tr)" }}>*</span></label>
-          <input className="inp" placeholder="150" type="number" value={form.price} onChange={(e) => u("price", e.target.value)} />
+          <input
+            className={`inp${form.price !== "" && form.price != null && !priceValid ? " inp-err" : ""}`}
+            placeholder="150"
+            type="number"
+            value={form.price}
+            onChange={(e) => u("price", e.target.value)}
+          />
+          {form.price !== "" && form.price != null && !priceValid
+            ? <div className="field-err">El precio debe estar entre S/ 1 y S/ 100,000</div>
+            : <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 4 }}>Entre S/ 1 y S/ 100,000</div>}
         </div>
         <div className="fg">
-          <label className="lbl">Capacidad máxima</label>
-          <input className="inp" placeholder="12" type="number" value={form.capacity} onChange={(e) => u("capacity", e.target.value)} />
+          <label className="lbl">Cantidad de personas <span style={{ color: "var(--tr)" }}>*</span></label>
+          <input
+            className={`inp${capacityRaw !== "" && !capacityInRange ? " inp-err" : ""}`}
+            placeholder="12"
+            type="number"
+            value={form.capacity}
+            onChange={(e) => u("capacity", e.target.value)}
+          />
+          {capacityRaw !== "" && !capacityInRange
+            ? <div className="field-err">Ingresa un número entero válido (mínimo 1)</div>
+            : <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 4 }}>Personas por salida. Obligatorio.</div>}
         </div>
         <div className="fg">
           <label className="lbl">Qué incluye (separado por comas)</label>
@@ -3455,7 +3735,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           <label className="lbl">Qué no incluye (separado por comas)</label>
           <input className="inp" placeholder="Propinas, snacks, seguro" value={form.excluded} onChange={(e) => u("excluded", e.target.value)} />
         </div>
-        <button className="mbtn" style={{ marginTop: 8 }} disabled={!form.price} onClick={() => setStep(3)}>Siguiente</button>
+        <button className="mbtn" style={{ marginTop: 8 }} disabled={!durationValid || !priceValid || !capacityValid} onClick={() => setStep(3)}>Siguiente</button>
       </div>}
 
       {/* Step 3: Disponibilidad */}
@@ -3581,6 +3861,14 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           <label className="lbl">Descripción del tour <span style={{ color: "var(--tr)" }}>*</span></label>
           <textarea className="ai-cc-input" style={{ minHeight: 100 }} placeholder="Describe tu experiencia con detalle: qué verán los viajeros, qué hace especial este tour, qué pueden esperar..."
             value={form.description} onChange={(e) => u("description", e.target.value)} />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+            {(form.description || "").trim().length > 0 && (form.description || "").trim().length < 10
+              ? <span className="field-err">Mínimo 10 caracteres</span>
+              : <span style={{ fontSize: 11, color: "var(--gy)", fontWeight: 600 }}>Mínimo 10 caracteres</span>}
+            <span style={{ fontSize: 11, fontWeight: 600, color: (form.description || "").trim().length >= 10 ? "var(--m)" : "var(--gy)" }}>
+              {(form.description || "").trim().length}/10
+            </span>
+          </div>
         </div>
         <div style={{ padding: 14, background: "var(--cr)", borderRadius: 12, marginBottom: 16 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--f)", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}><Sparkles size={12} strokeWidth={1.5} /> Generador IA</div>
@@ -3601,7 +3889,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
             </div>
           )}
         </div>
-        <button className="mbtn" disabled={!form.description} onClick={() => setStep(5)}>Siguiente</button>
+        <button className="mbtn" disabled={(form.description || "").trim().length < 10} onClick={() => setStep(5)}>Siguiente</button>
       </div>}
 
       {/* Step 5: Revisión y publicar */}
@@ -3624,7 +3912,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           <div className="sum-r"><span style={{ color: "var(--gy)" }}>Categoría</span><span>{CATS.find((c) => c.id === form.category)?.n}</span></div>
           <div className="sum-r"><span style={{ color: "var(--gy)" }}>Dificultad</span><span>{form.difficulty}</span></div>
           <div className="sum-r"><span style={{ color: "var(--gy)" }}>Duración</span><span>{form.duration}</span></div>
-          <div className="sum-r"><span style={{ color: "var(--gy)" }}>Capacidad</span><span>{form.capacity} personas</span></div>
+          <div className="sum-r"><span style={{ color: "var(--gy)" }}>Cantidad de personas</span><span>{form.capacity} personas</span></div>
           <div className="sum-r"><span style={{ color: "var(--gy)" }}>Días recurrentes</span><span>{form.days.length > 0 ? form.days.map(d => DAY_LABEL[d] || d).join(", ") : "—"}</span></div>
           {(form.excludedDates.length > 0 || form.addedDates.length > 0) && (
             <div className="sum-r">
@@ -3665,16 +3953,30 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         )}
 
         <div style={{ padding: 12, background: "rgba(45,90,61,.05)", borderRadius: 12, marginBottom: 16, fontSize: 12, color: "var(--gy)", lineHeight: 1.5 }}>
-          Al publicar, tu tour será revisado por el equipo de Finde y estará visible en un máximo de 24 horas. Comisión por reserva: 15%.
+          Al publicar, tu tour quedará visible de inmediato en Finde.
         </div>
-        <button className="mbtn" onClick={() => {
+        {submitError && (
+          <div className="field-err" style={{ marginBottom: 10, textAlign: "center" }}>{submitError}</div>
+        )}
+        <button className="mbtn" disabled={submitting} onClick={async () => {
+          setSubmitError("");
+          setSubmitting(true);
           if (isEditing) {
-            onSaveTour({ ...editingTour, ...form, price: Number(form.price) || editingTour.price, image: form.photo ? `url(${form.photo})` : editingTour.image });
-          } else {
-            onCreateTour(form);
-            setPublished(true);
+            const result = await onSaveTour({ ...editingTour, ...form, price: Number(form.price) || editingTour.price, image: form.photo ? `url(${form.photo})` : editingTour.image });
+            setSubmitting(false);
+            if (!result?.ok) {
+              setSubmitError(result?.error || "No pudimos guardar los cambios. Intenta de nuevo.");
+            }
+            return;
           }
-        }}>{isEditing ? "Guardar cambios" : "Publicar tour"}</button>
+          const result = await onCreateTour(form);
+          setSubmitting(false);
+          if (result?.ok) {
+            setPublished(true);
+          } else {
+            setSubmitError(result?.error || "No pudimos publicar el tour. Intenta de nuevo.");
+          }
+        }}>{submitting ? "Guardando…" : (isEditing ? "Guardar cambios" : "Publicar tour")}</button>
       </div>}
     </div>
   );
@@ -3702,58 +4004,95 @@ export default function AppDemo() {
     setGeoSource("manual");
   }, []);
 
-  // Fase 3.1: opTours se inicializa vacío. Se hidrata desde el fetch de
-  // /api/tours en el useEffect de abajo (antes leía de TOURS hardcoded).
+  // opTours (dashboard del operador) se hidrata aparte, desde
+  // /api/operators/me/tours (ver efecto más abajo). Arranca vacío.
   const [opTours, setOpTours] = useState([]);
 
+  // Carga (y recarga) el catálogo público. Reusable: montaje inicial y refetch
+  // tras pausar/reanudar un tour (M2.3), para que el catálogo refleje el filtro
+  // active del backend sin recargar la página.
+  const loadPublicTours = useCallback(async () => {
+    try {
+      const r = await fetch("/api/tours?limit=50");
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      setTours((data.tours || []).map(mapTourFromApi).map(ensureAvailabilityFields));
+    } catch (err) {
+      console.error("Error cargando tours:", err);
+    }
+  }, []);
+
+  // Catálogo público: alimenta `tours` (NO opTours). Una sola vez al montar.
   useEffect(() => {
     let cancel = false;
-    fetch("/api/tours?limit=50")
-      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
-      .then(data => {
-        if (cancel) return;
-        const apiMapped = (data.tours || []).map(mapTourFromApi).map(ensureAvailabilityFields);
-        setTours(apiMapped);
-        // Fase 3.1: opTours antes se seedea desde TOURS hardcoded. Ahora se
-        // hidrata desde el mismo fetch del API. Tomamos los primeros 4 tours
-        // como "tours del operador demo" (primeros 3 activos, 4to inactivo)
-        // y preservamos la misma forma que esperaba el dashboard del operador.
-        setOpTours(prev => {
-          if (prev.length > 0) return prev;
-          return apiMapped.slice(0, 4).map((t, i) => ({
-            id: i + 1,
-            tourId: t.id,
-            active: true,
-            image: t.image,
-            title: t.title || "",
-            location: t.location || "",
-            duration: t.duration || "",
-            price: t.price || 0,
-            rating: t.rating || 0,
-            reviews: t.reviews || 0,
-            category: t.category || "adventure",
-            capacity: String(t.capacity || ""),
-            difficulty: t.difficulty || "Moderada",
-            description: t.desc || "",
-            included: Array.isArray(t.included) ? t.included.join(", ") : (t.included || ""),
-            excluded: Array.isArray(t.excluded) ? t.excluded.join(", ") : (t.excluded || ""),
-            days: DEFAULT_DAYS,
-            excludedDates: [],
-            addedDates: [],
-            startTime: "08:00",
-            cancellation: "flexible",
-            photo: null,
-          }));
-        });
-      })
-      .catch(err => {
-        console.error("Error cargando tours:", err);
-      })
-      .finally(() => {
-        if (!cancel) setToursLoading(false);
-      });
+    const run = async () => {
+      await loadPublicTours();
+      if (!cancel) setToursLoading(false);
+    };
+    run();
     return () => { cancel = true; };
-  }, []);
+  }, [loadPublicTours]);
+
+  // Sub-paso 2.7: opTours = los tours REALES del operador autenticado
+  // (GET /api/operators/me/tours, filtrado por operatorId del token). Reemplaza
+  // el mock previo de "primeros 4 del catálogo" (tours ajenos → editar daba 403).
+  // - Espera a que useAuth resuelva (loading) antes de decidir.
+  // - No operador → opTours vacío (no dashboard de tours).
+  // - tourId conserva el CUID real → handleSaveTour (2.6) edita el tour correcto
+  //   y, al ser propio, el PUT responde 200.
+  useEffect(() => {
+    if (loading) return;
+    let cancel = false;
+    // setState solo dentro de este callback async (no síncrono en el efecto).
+    const hydrateOpTours = async () => {
+      if (!isOperator) {
+        if (!cancel) setOpTours([]);
+        return;
+      }
+      try {
+        const r = await authFetch("/api/operators/me/tours");
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        if (cancel) return;
+        // mapTourFromApi ya normaliza (incl. days/cancellation reales vía
+        // LIST_SELECT ampliado); de ahí a la forma que espera el dashboard.
+        const mine = (data.tours || []).map(mapTourFromApi);
+        setOpTours(mine.map((t, i) => ({
+          id: i + 1,
+          tourId: t.id,
+          // Estado real del API (M2.3); me/tours devuelve activos e inactivos.
+          active: t.active ?? true,
+          image: t.image,
+          title: t.title || "",
+          location: t.location || "",
+          duration: t.duration || "",
+          price: t.price || 0,
+          rating: t.rating || 0,
+          reviews: t.reviews || 0,
+          category: t.category || "adventure",
+          capacity: String(t.capacity || ""),
+          difficulty: t.difficulty || "Moderada",
+          description: t.desc || "",
+          included: Array.isArray(t.included) ? t.included.join(", ") : (t.included || ""),
+          excluded: Array.isArray(t.excluded) ? t.excluded.join(", ") : (t.excluded || ""),
+          days: t.days || DEFAULT_DAYS,
+          excludedDates: t.excludedDates || [],
+          addedDates: t.addedDates || [],
+          meetingPoint: t.meetingPoint || "",
+          // Hora real del API (M3.3); "08:00" solo como fallback para tours
+          // legacy sin hora (startTime null).
+          startTime: t.startTime || "08:00",
+          cancellation: t.cancellation || "flexible",
+          photo: null,
+        })));
+      } catch (err) {
+        console.error("Error cargando tours del operador:", err);
+        if (!cancel) setOpTours([]);
+      }
+    };
+    hydrateOpTours();
+    return () => { cancel = true; };
+  }, [isOperator, loading]);
 
   // Resolución de ciudad vía /api/geo. Si el usuario ya cambió manualmente
   // (geoSource === "manual") cuando llega la respuesta, la ignoramos
@@ -3831,17 +4170,81 @@ export default function AppDemo() {
   const navGo = (id) => { setNav(id); if (id === "explore") go("home"); else if (id === "search") go("catalog"); else if (id === "trips") go("trips"); else if (id === "profile") go("profile"); };
 
   const handleEditTour = (t) => { setEditingTour(t); go("new-tour"); };
-  const handleSaveTour = (updated) => {
+  // Sub-paso M2.6b: borra el tour propio (hard delete) vía DELETE /api/tours/:id
+  // y lo quita de las listas al instante. Usa el CUID real (tourId), igual que
+  // editar. Devuelve { ok } / { ok:false, error } para que el diálogo de
+  // confirmación en DashView muestre "Borrando…" y maneje el error.
+  const handleDeleteTour = async (tour) => {
+    const cuid = tour.tourId;
+    // Sin CUID real (tour local no persistido en DB) → solo quitar de la lista.
+    const isPersisted = typeof cuid === "string" && !/^\d+$/.test(cuid);
+    if (!isPersisted) {
+      setOpTours(prev => prev.filter(t => t.id !== tour.id));
+      return { ok: true };
+    }
+    let res;
+    try {
+      res = await authFetch(`/api/tours/${cuid}`, { method: "DELETE" });
+    } catch {
+      return { ok: false, error: "No pudimos conectar. Revisa tu conexión e intenta de nuevo." };
+    }
+    // 404 = el tour ya no existe → lo tratamos como borrado (quitarlo igual).
+    if (res.ok || res.status === 404) {
+      setOpTours(prev => prev.filter(t => t.id !== tour.id));
+      setTours(prev => prev.filter(t => t.id !== cuid));
+      return { ok: true };
+    }
+    if (res.status === 403) return { ok: false, error: "No puedes borrar este tour." };
+    const data = await res.json().catch(() => ({}));
+    return { ok: false, error: data?.error || "No pudimos borrar el tour. Intenta de nuevo." };
+  };
+  // Sub-paso M2.3: pausar/reanudar un tour propio (PATCH /api/tours/:id con
+  // { active }). Optimista en opTours (el switch refleja al instante); revierte
+  // si el PATCH falla. Tras éxito, recarga el catálogo público para que el tour
+  // pausado desaparezca (o reaparezca) sin recargar. Usa el CUID real (tourId),
+  // guard isPersisted como editar/borrar. Devuelve { ok } / { ok:false, error }.
+  const handleToggleTourActive = async (tour) => {
+    const cuid = tour.tourId;
+    const next = !tour.active;
+    // Optimista en el dashboard.
+    setOpTours(prev => prev.map(t => t.id === tour.id ? { ...t, active: next } : t));
+    const isPersisted = typeof cuid === "string" && !/^\d+$/.test(cuid);
+    if (!isPersisted) return { ok: true }; // tour local no persistido: solo estado local
+    const revert = () =>
+      setOpTours(prev => prev.map(t => t.id === tour.id ? { ...t, active: tour.active } : t));
+    let res;
+    try {
+      res = await authFetch(`/api/tours/${cuid}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: next }),
+      });
+    } catch {
+      revert();
+      return { ok: false, error: "No pudimos conectar. Revisa tu conexión e intenta de nuevo." };
+    }
+    if (!res.ok) {
+      revert();
+      if (res.status === 403) return { ok: false, error: "No puedes modificar este tour." };
+      return { ok: false, error: "No pudimos actualizar el estado del tour. Intenta de nuevo." };
+    }
+    // Sincroniza el catálogo público con el estado real (el backend filtra active).
+    await loadPublicTours();
+    return { ok: true };
+  };
+  // Normaliza included/excluded SIEMPRE a array (incluso vacío) para que
+  // DetailView no crashee con `"".map is not a function` si el operador deja
+  // el campo en blanco.
+  const toArr = (v) => Array.isArray(v)
+    ? v
+    : (typeof v === "string" && v.trim()
+        ? v.split(",").map(s => s.trim()).filter(Boolean)
+        : []);
+  // Update solo-local (sin API). Fallback para tours sin CUID en DB (id local
+  // numérico) — comportamiento previo a 2.6.
+  const applyLocalSave = (updated) => {
     setOpTours(prev => prev.map(t => t.id === updated.id ? updated : t));
     if (updated.tourId) {
-      // Normalizamos included/excluded SIEMPRE a array (incluso vacío),
-      // evita que DetailView crashee con `"".map is not a function`
-      // si el operador deja el campo en blanco al editar.
-      const toArr = (v) => Array.isArray(v)
-        ? v
-        : (typeof v === "string" && v.trim()
-            ? v.split(",").map(s => s.trim()).filter(Boolean)
-            : []);
       setTours(prev => prev.map(t => t.id === updated.tourId ? {
         ...t,
         title: updated.title,
@@ -3862,59 +4265,170 @@ export default function AppDemo() {
         addedDates: updated.addedDates || [],
       } : t));
     }
+  };
+  // Sub-paso 2.6: edita el tour en el backend real (PUT /api/tours/:id) con
+  // verificación de propiedad. Reusa el mismo mapeo form→body que crear (2.5)
+  // vía tourFormToApiBody. Devuelve { ok } / { ok:false, error } para que
+  // NewTourView muestre "Guardando…" y maneje el error sin navegar.
+  const handleSaveTour = async (updated) => {
+    // El CUID real vive en tourId (editingTour es un item de opTours, cuyo `id`
+    // es solo la clave local de lista). Tours sin CUID (id local numérico) no
+    // existen en DB → update solo local, sin pegarle al API.
+    const cuid = updated.tourId;
+    const isPersisted = typeof cuid === "string" && !/^\d+$/.test(cuid);
+
+    if (!isPersisted) {
+      applyLocalSave(updated);
+      setEditingTour(null);
+      setDashTab("listings");
+      go("dashboard");
+      return { ok: true };
+    }
+
+    const body = tourFormToApiBody(updated);
+    let res;
+    try {
+      res = await authFetch(`/api/tours/${cuid}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } catch {
+      return { ok: false, error: "No pudimos conectar. Revisa tu conexión e intenta de nuevo." };
+    }
+
+    if (res.status === 403) return { ok: false, error: "No puedes editar este tour." };
+    if (res.status === 404) return { ok: false, error: "El tour ya no existe." };
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { ok: false, error: describeTourApiError(data, "No pudimos guardar los cambios. Revisa los datos.") };
+    }
+
+    // Éxito. mapTourFromApi normaliza el tour real (DETAIL_SELECT ya expone
+    // days/meetingPoint/cancellation/fechas, así que viene completo).
+    const apiTour = ensureAvailabilityFields(mapTourFromApi(data.tour));
+
+    // tours: reemplazar la entrada (keyed por CUID) por la versión del API,
+    // preservando los day-codes/fechas que el operador dejó en el form.
+    setTours(prev => prev.map(t => t.id === cuid ? {
+      ...t,
+      ...apiTour,
+      days: Array.isArray(updated.days) ? updated.days : apiTour.days,
+      excludedDates: updated.excludedDates || apiTour.excludedDates || [],
+      addedDates: updated.addedDates || apiTour.addedDates || [],
+    } : t));
+
+    // opTours: misma forma de siempre (included/excluded string, image css,
+    // capacity string); se mantiene el id/active locales y se actualiza el resto.
+    const cssImage = updated.photo
+      ? `url(${updated.photo})`
+      : apiTour.image || "linear-gradient(135deg,#1B3A2D 0%,#2D5A3D 100%)";
+    setOpTours(prev => prev.map(t => t.id === updated.id ? {
+      ...t,
+      tourId: apiTour.id,
+      image: cssImage,
+      title: apiTour.title,
+      location: apiTour.location,
+      duration: apiTour.duration,
+      price: apiTour.price,
+      category: apiTour.category,
+      capacity: String(updated.capacity || apiTour.capacity || ""),
+      difficulty: apiTour.difficulty,
+      description: updated.description,
+      included: updated.included || "",
+      excluded: updated.excluded || "",
+      days: Array.isArray(updated.days) ? updated.days : DEFAULT_DAYS,
+      excludedDates: updated.excludedDates || [],
+      addedDates: updated.addedDates || [],
+      meetingPoint: apiTour.meetingPoint || updated.meetingPoint || "",
+      cancellation: apiTour.cancellation || updated.cancellation || "flexible",
+      startTime: updated.startTime || "08:00",
+      photo: updated.photo || null,
+    } : t));
+
     setEditingTour(null);
     setDashTab("listings");
     go("dashboard");
+    return { ok: true };
   };
-  const handleCreateTour = (formData) => {
-    const newTourId = Date.now();
-    const cssImage = formData.photo ? `url(${formData.photo})` : "linear-gradient(135deg,#1B3A2D 0%,#2D5A3D 100%)";
-    const newOpTour = {
-      id: newTourId, tourId: newTourId,
-      title: formData.title, location: formData.location, duration: formData.duration,
-      meetingPoint: formData.meetingPoint || "",
-      price: Number(formData.price) || 0, rating: 0, reviews: 0, active: true,
-      image: cssImage, category: formData.category, capacity: formData.capacity,
-      difficulty: formData.difficulty, description: formData.description,
-      included: formData.included, excluded: formData.excluded,
-      days: formData.days,
+  // Sub-paso 2.5: crea el tour en el backend real (POST /api/tours) en vez de
+  // un tour local con id numérico. Devuelve { ok } / { ok:false, error } para
+  // que NewTourView muestre "Guardando…" y maneje el error sin navegar.
+  const handleCreateTour = async (formData) => {
+    // Mapeo form→body compartido con editar (2.6) — ver tourFormToApiBody.
+    const body = tourFormToApiBody(formData);
+
+    let res;
+    try {
+      res = await authFetch("/api/tours", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } catch {
+      return { ok: false, error: "No pudimos conectar. Revisa tu conexión e intenta de nuevo." };
+    }
+
+    if (res.status === 403) {
+      return { ok: false, error: "Necesitas un perfil de operador para publicar tours." };
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { ok: false, error: describeTourApiError(data, "No pudimos publicar el tour. Revisa los datos.") };
+    }
+
+    // Éxito (201). mapTourFromApi normaliza el tour real (CUID, no numérico).
+    // El API (DETAIL_SELECT) no devuelve days/meetingPoint/cancellation/fechas,
+    // así que preservamos lo que el operador ingresó en el form para el display
+    // optimista (limitación conocida: al recargar caen a defaults hasta ampliar
+    // tour-select.ts).
+    const apiTour = ensureAvailabilityFields(mapTourFromApi(data.tour));
+    // Respeta una selección vacía deliberada (form.days = [] → solo fechas
+    // específicas); no la confundas con "sin valor".
+    const formDays = Array.isArray(formData.days) ? formData.days : DEFAULT_DAYS;
+    const merged = {
+      ...apiTour,
+      meetingPoint: formData.meetingPoint || apiTour.meetingPoint || "",
+      cancellation: formData.cancellation || apiTour.cancellation || "flexible",
+      days: formDays,
       excludedDates: formData.excludedDates || [],
       addedDates: formData.addedDates || [],
-      startTime: formData.startTime, cancellation: formData.cancellation,
-      photo: formData.photo,
     };
-    setOpTours(prev => [...prev, newOpTour]);
-    setTours(prev => [...prev, {
-      id: newTourId,
-      title: formData.title,
-      titleQu: "",
-      location: formData.location,
-      meetingPoint: formData.meetingPoint || "",
-      price: Number(formData.price) || 0,
+    setTours(prev => [...prev, merged]);
+
+    // opTours usa otra forma: included/excluded como string, image css, capacity
+    // string, tourId = CUID real (el id local es solo clave de lista).
+    const cssImage = formData.photo
+      ? `url(${formData.photo})`
+      : apiTour.image || "linear-gradient(135deg,#1B3A2D 0%,#2D5A3D 100%)";
+    setOpTours(prev => [...prev, {
+      id: prev.reduce((m, t) => Math.max(m, Number(t.id) || 0), 0) + 1,
+      tourId: merged.id,
+      active: true,
+      image: cssImage,
+      title: merged.title,
+      location: merged.location,
+      duration: merged.duration,
+      meetingPoint: merged.meetingPoint,
+      price: merged.price,
       rating: 0,
       reviews: 0,
-      duration: formData.duration,
-      image: cssImage,
-      badge: "Nuevo",
-      category: formData.category,
-      operator: "Andes Trek Perú",
-      verified: false,
-      capacity: Number(formData.capacity) || 10,
-      altitude: "",
-      difficulty: formData.difficulty,
-      included: formData.included ? formData.included.split(",").map(s => s.trim()).filter(Boolean) : [],
-      excluded: formData.excluded ? formData.excluded.split(",").map(s => s.trim()).filter(Boolean) : [],
-      desc: formData.description,
-      descQu: "",
-      aiSummary: "",
-      altTour: null,
-      tags: [],
-      cancellation: formData.cancellation,
-      days: formData.days || [],
+      category: merged.category,
+      capacity: String(formData.capacity || merged.capacity || ""),
+      difficulty: merged.difficulty,
+      description: formData.description,
+      included: formData.included || "",
+      excluded: formData.excluded || "",
+      days: Array.isArray(formData.days) ? formData.days : DEFAULT_DAYS,
       excludedDates: formData.excludedDates || [],
       addedDates: formData.addedDates || [],
+      startTime: formData.startTime || "08:00",
+      cancellation: formData.cancellation || "flexible",
+      photo: formData.photo || null,
     }]);
+
     setDashTab("listings");
+    return { ok: true };
   };
   const handleCancelTour = () => { setEditingTour(null); setDashTab("bookings"); go("dashboard"); };
 
@@ -3960,7 +4474,10 @@ export default function AppDemo() {
   const showHeader = isAuth && !["booking", "new-tour"].includes(effectiveView);
   const showFooter = isAuth && !["booking", "detail", "new-tour", "dashboard", "trip-detail"].includes(effectiveView);
   const currentTour = tour ? tours.find(t => t.id === tour.id) || tour : null;
-  const activeTours = tours.filter(t => { const op = opTours.find(o => o.tourId === t.id); return !op || op.active; });
+  // M2.3: el catálogo se filtra en el BACKEND (GET /api/tours solo devuelve
+  // active:true). Ya no hay filtro local por el flag de opTours (que solo servía
+  // para el propio operador y no para otros usuarios). `tours` ya viene filtrado;
+  // tras pausar/reanudar, handleToggleTourActive recarga el catálogo.
 
   if (loading) {
     return (
@@ -3982,15 +4499,15 @@ export default function AppDemo() {
         {showHeader && <TopNav onHome={() => go("home")} onDash={() => go(view === "dashboard" ? "home" : "dashboard")} onNotif={() => go("notifications")} view={view} unread={unread} isOperator={isOperator} navActive={nav} onNavClick={navGo} />}
         {effectiveView === "login" && <LoginView go={go} loginMsg={loginMsg} />}
         {effectiveView === "welcome" && <WelcomeView go={go} />}
-        {effectiveView === "home" && <HomeView go={go} pick={setTour} cat={cat} setCat={setCat} tours={activeTours} toursLoading={toursLoading} selectedCity={selectedCity} setSelectedCity={pickCity} geoSource={geoSource} />}
-        {effectiveView === "catalog" && <CatalogView go={go} pick={setTour} cat={cat} setCat={setCat} tours={activeTours} toursLoading={toursLoading} />}
+        {effectiveView === "home" && <HomeView go={go} pick={setTour} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} selectedCity={selectedCity} setSelectedCity={pickCity} geoSource={geoSource} />}
+        {effectiveView === "catalog" && <CatalogView go={go} pick={setTour} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} />}
         {effectiveView === "detail" && <DetailView tour={currentTour} go={go} pick={setTour} onBook={handleBook} reviews={reviews} />}
         {effectiveView === "booking" && <BookingView tour={currentTour} go={go} onLocalBookingSuccess={handleAddLocalTrip} />}
         {effectiveView === "notifications" && <NotifsView notifs={notifs} setNotifs={setNotifs} />}
         {effectiveView === "trips" && <TripsView go={go} onSelectTrip={setCurrentTrip} trips={trips} />}
         {effectiveView === "trip-detail" && <TripDetailView trip={currentTrip} go={go} onReview={handleReview} />}
         {effectiveView === "profile" && <ProfileView go={go} />}
-        {effectiveView === "dashboard" && <DashView go={go} opTours={opTours} setOpTours={setOpTours} onEditTour={handleEditTour} initialTab={dashTab} onTabConsumed={() => setDashTab("bookings")} />}
+        {effectiveView === "dashboard" && <DashView go={go} opTours={opTours} onEditTour={handleEditTour} onDeleteTour={handleDeleteTour} onToggleActive={handleToggleTourActive} initialTab={dashTab} onTabConsumed={() => setDashTab("bookings")} />}
         {effectiveView === "new-tour" && <NewTourView go={go} editingTour={editingTour} onSaveTour={handleSaveTour} onCreateTour={handleCreateTour} onCancel={handleCancelTour} />}
         {showFooter && <Footer go={go} />}
         {showNav && <BNav active={nav} go={navGo} />}

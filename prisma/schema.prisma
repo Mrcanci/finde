@@ -83,6 +83,8 @@ model Tour {
   cancellation  CancellationPolicy @default(Moderada)
   meetingPoint  String?
   altitude      Int?
+  startTime     String?            // hora de salida "HH:MM" (24h); null = sin definir (legacy)
+  active        Boolean            @default(true) // operador pausa/reanuda; el catálogo público filtra active=true
   days          Boolean[]          @default([true, true, true, true, true, true, true])
   excludedDates String[]           @default([])
   addedDates    String[]           @default([])
