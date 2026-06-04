@@ -45,8 +45,12 @@ export const tourInputSchema = z.object({
     .default("flexible"),
   // Solo aceptamos URL http(s); base64/data URL se ignora (upload real: futuro).
   photo: z.string().optional(),
-  // startTime se acepta pero se ignora: no existe columna en Tour.
-  startTime: z.string().optional(),
+  // Hora de salida "HH:MM" (24h), opcional. La columna existe desde M3.1; se
+  // persiste (ver más abajo). El <input type="time"> ya garantiza el formato.
+  startTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "startTime debe tener formato HH:MM (24h)")
+    .optional(),
 });
 
 export type TourInput = z.infer<typeof tourInputSchema>;
@@ -74,6 +78,10 @@ export type TourData = {
   // undefined en update → el PUT PRESERVA la imagen existente; en create cae a
   // null (columna nullable). null borraría la imagen, por eso se evita.
   imageUrl?: string;
+  // Misma semántica undefined que imageUrl: si no llega startTime → undefined,
+  // el PUT preserva la hora existente (editar sin tocarla no la borra); en
+  // create cae a null (columna nullable).
+  startTime?: string;
 };
 
 export type ParseTourInputResult =
@@ -171,6 +179,9 @@ export function parseTourInput(rawBody: unknown): ParseTourInputResult {
   // "no tocar la imagen"; photo con URL = "reemplazar".
   const imageUrl =
     typeof b.photo === "string" && /^https?:\/\//i.test(b.photo) ? b.photo : undefined;
+  // undefined si no llega → el PUT preserva la hora existente; el POST cae a
+  // null (columna nullable). El form siempre manda una hora al crear.
+  const startTime = b.startTime ?? undefined;
 
   return {
     ok: true,
@@ -192,6 +203,7 @@ export function parseTourInput(rawBody: unknown): ParseTourInputResult {
       meetingPoint: b.meetingPoint ?? null,
       cancellation: CANCEL_MAP[b.cancellation],
       imageUrl,
+      startTime,
     },
     embeddingText: `${b.title}. ${b.description}. ${b.category}. ${city}, ${region}`,
   };

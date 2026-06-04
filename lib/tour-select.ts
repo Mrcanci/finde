@@ -36,6 +36,7 @@ const tourFields = {
   cancellation: true,
   excludedDates: true,
   addedDates: true,
+  startTime: true,
 } as const;
 
 // Para listados: solo nombre y verificación del operador (info mínima de card).
