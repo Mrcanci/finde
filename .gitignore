@@ -32,3 +32,7 @@ backups/
 
 # Configuración local de Claude Code (no commitear)
 .claude/
+
+# Backups de schema y scripts de prueba locales
+prisma/*.backup-*
+scripts/get-test-token.ts
