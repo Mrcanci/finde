@@ -46,6 +46,9 @@ export default async function handler(
   try {
     const tours = await db.tour.findMany({
       where: {
+        // Solo tours activos en el catálogo público (M-2). Los pausados
+        // (active:false) solo los ve su dueño en /api/operators/me/tours.
+        active: true,
         ...(category && { category }),
         ...(city && { city: { equals: city, mode: "insensitive" } }),
       },

@@ -153,11 +153,18 @@ export default async function handler(
 
   const tour = await db.tour.findUnique({
     where: { id: tourId },
-    select: { id: true, priceSoles: true, capacity: true },
+    select: { id: true, priceSoles: true, capacity: true, active: true },
   });
 
   if (!tour) {
     res.status(404).json({ error: "Tour no encontrado" });
+    return;
+  }
+
+  // Tour pausado (active:false) → no reservable (M-2). 409: existe pero no
+  // está disponible para reservar ahora.
+  if (!tour.active) {
+    res.status(409).json({ error: "Este tour no está disponible para reservar" });
     return;
   }
 

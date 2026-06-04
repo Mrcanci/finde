@@ -220,7 +220,7 @@ export default async function handler(
   if (cached && cached.results.length > 0) {
     console.log(`[cache HIT] query: ${query}`);
     const cachedTours = await db.tour.findMany({
-      where: { id: { in: cached.results } },
+      where: { id: { in: cached.results }, active: true },
       select: LIST_SELECT,
     });
     const byCachedId = new Map(cachedTours.map((t) => [t.id, t]));
@@ -267,7 +267,7 @@ export default async function handler(
       SELECT id, title, description, category::text AS category, city, region,
              "priceSoles", "imageUrl", rating
       FROM "Tour"
-      WHERE embedding IS NOT NULL
+      WHERE embedding IS NOT NULL AND active = true
       ORDER BY embedding <=> ${vectorLiteral}::vector
       LIMIT 8
     `;
@@ -307,7 +307,7 @@ export default async function handler(
 
   // Paso 4: hidratamos con LIST_SELECT (incluye operator name + verified)
   const tours = await db.tour.findMany({
-    where: { id: { in: chosenIds } },
+    where: { id: { in: chosenIds }, active: true },
     select: LIST_SELECT,
   });
 

@@ -43,8 +43,12 @@ export default async function handler(
     await handleDelete(req, res);
     return;
   }
+  if (req.method === "PATCH") {
+    await handlePatch(req, res);
+    return;
+  }
   if (req.method !== "GET") {
-    res.setHeader("Allow", "GET, PUT, DELETE");
+    res.setHeader("Allow", "GET, PUT, DELETE, PATCH");
     res.status(405).json({ error: "Método no permitido" });
     return;
   }
@@ -66,7 +70,9 @@ export default async function handler(
       select: DETAIL_SELECT,
     });
 
-    if (!tour) {
+    // Pausado (active:false) → 404 público: un link directo no debe mostrarlo
+    // (M-2). El dueño gestiona sus pausados vía GET /api/operators/me/tours.
+    if (!tour || !tour.active) {
       res.status(404).json({ error: "Tour no encontrado" });
       return;
     }
@@ -215,4 +221,65 @@ async function handleDelete(
   }
 
   res.status(200).json({ ok: true, id });
+}
+
+// ── PATCH /api/tours/:id — pausar/reanudar un tour propio (M-2) ──
+// Cambia solo el estado `active`. Mismo patrón de propiedad que PUT/DELETE.
+// Un body mínimo { active: boolean } evita re-validar/re-enviar todo el tour
+// solo para pausarlo. El filtro de active en el catálogo/búsqueda/detalle vive
+// en sus respectivos GET; aquí solo se persiste el flag.
+
+const patchBodySchema = z.object({ active: z.boolean() });
+
+async function handlePatch(
+  req: VercelRequest,
+  res: VercelResponse
+): Promise<void> {
+  let operator: { id: string; name: string; verified: boolean };
+  try {
+    ({ operator } = await requireOperator(req, res));
+  } catch {
+    return; // requireOperator ya respondió 401 (sin sesión) o 403 (no operador)
+  }
+
+  const id = typeof req.query.id === "string" ? req.query.id : "";
+  if (!id) {
+    res.status(400).json({ error: "id inválido" });
+    return;
+  }
+
+  const parsed = patchBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Cuerpo inválido", details: parsed.error.issues });
+    return;
+  }
+
+  // Verificación de PROPIEDAD: solo el dueño puede cambiar el estado.
+  const existing = await db.tour.findUnique({
+    where: { id },
+    select: { id: true, operatorId: true },
+  });
+  if (!existing) {
+    res.status(404).json({ error: "Tour no encontrado" });
+    return;
+  }
+  if (existing.operatorId !== operator.id) {
+    res.status(403).json({ error: "No puedes modificar este tour" });
+    return;
+  }
+
+  let tour: Prisma.TourGetPayload<{ select: typeof DETAIL_SELECT }>;
+  try {
+    tour = await db.tour.update({
+      where: { id },
+      data: { active: parsed.data.active },
+      select: DETAIL_SELECT,
+    });
+  } catch (error) {
+    console.error("Error actualizando estado del tour:", error);
+    res.status(500).json({ error: "Error actualizando el tour" });
+    return;
+  }
+
+  res.status(200).json({ tour });
 }
