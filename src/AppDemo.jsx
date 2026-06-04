@@ -262,6 +262,8 @@ function mapTourFromApi(t) {
     // Hora de salida real del API (M3.2). undefined para tours legacy (null);
     // el fallback "08:00" se aplica donde se consume (hidratación / voucher).
     startTime: t.startTime ?? undefined,
+    // Estado activo/inactivo real del API (M2.3); default true si no viene.
+    active: t.active ?? true,
   });
 }
 
@@ -3052,7 +3054,7 @@ function ProfileView({ go }) {
   );
 }
 
-function DashView({ go, opTours, setOpTours, onEditTour, onDeleteTour, initialTab = "bookings", onTabConsumed }) {
+function DashView({ go, opTours, onEditTour, onDeleteTour, onToggleActive, initialTab = "bookings", onTabConsumed }) {
   const [tab, setTab] = useState(initialTab);
   useEffect(() => { if (onTabConsumed) onTabConsumed(); }, []);
   const [bookings, setBookings] = useState(OP_BK);
@@ -3072,7 +3074,14 @@ function DashView({ go, opTours, setOpTours, onEditTour, onDeleteTour, initialTa
   const [paySaved, setPaySaved] = useState(false);
   const updateBiz = (k, v) => { setBiz(prev => ({ ...prev, [k]: v })); setBizSaved(false); };
   const updateStatus = (id, newStatus) => setBookings(prev => prev.map(b => b.id === id ? { ...b, status: newStatus } : b));
-  const toggleTour = (id) => setOpTours(prev => prev.map(t => t.id === id ? { ...t, active: !t.active } : t));
+  // M2.3: el toggle persiste vía PATCH (delegado a onToggleActive en AppDemo,
+  // que hace la actualización optimista + revert). Aquí solo surfaceamos el error.
+  const [toggleErr, setToggleErr] = useState("");
+  const handleToggle = async (t) => {
+    setToggleErr("");
+    const r = await onToggleActive(t);
+    if (!r?.ok) setToggleErr(r?.error || "No pudimos actualizar el estado del tour.");
+  };
 
   // Sub-paso M2.6b: borrado de tour CON confirmación. `confirmDel` guarda el
   // tour pendiente de confirmar; el borrado real solo ocurre al Confirmar.
@@ -3297,6 +3306,9 @@ function DashView({ go, opTours, setOpTours, onEditTour, onDeleteTour, initialTa
 
       {/* ── MIS TOURS ── */}
       {tab === "listings" && <div className="fu">
+        {toggleErr && (
+          <div className="field-err" style={{ margin: "0 0 12px", textAlign: "center" }}>{toggleErr}</div>
+        )}
         {opTours.map((t) => (
           <div key={t.id} className="dsh-ls" style={{ flexDirection: "column", gap: 0, padding: 0, overflow: "hidden" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: 12 }}>
@@ -3310,7 +3322,7 @@ function DashView({ go, opTours, setOpTours, onEditTour, onDeleteTour, initialTa
                   <div className="dsh-ls-st">S/ <span className="v">{t.price}</span></div>
                 </div>
               </div>
-              <button onClick={(e) => { e.stopPropagation(); toggleTour(t.id); }} style={{
+              <button onClick={(e) => { e.stopPropagation(); handleToggle(t); }} style={{
                 width: 44, height: 24, borderRadius: 12, flexShrink: 0, border: "none", padding: 0,
                 background: t.active ? "var(--f)" : "var(--lg)",
                 position: "relative", cursor: "pointer", transition: "background .2s"
@@ -3996,24 +4008,30 @@ export default function AppDemo() {
   // /api/operators/me/tours (ver efecto más abajo). Arranca vacío.
   const [opTours, setOpTours] = useState([]);
 
+  // Carga (y recarga) el catálogo público. Reusable: montaje inicial y refetch
+  // tras pausar/reanudar un tour (M2.3), para que el catálogo refleje el filtro
+  // active del backend sin recargar la página.
+  const loadPublicTours = useCallback(async () => {
+    try {
+      const r = await fetch("/api/tours?limit=50");
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      setTours((data.tours || []).map(mapTourFromApi).map(ensureAvailabilityFields));
+    } catch (err) {
+      console.error("Error cargando tours:", err);
+    }
+  }, []);
+
   // Catálogo público: alimenta `tours` (NO opTours). Una sola vez al montar.
   useEffect(() => {
     let cancel = false;
-    fetch("/api/tours?limit=50")
-      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
-      .then(data => {
-        if (cancel) return;
-        const apiMapped = (data.tours || []).map(mapTourFromApi).map(ensureAvailabilityFields);
-        setTours(apiMapped);
-      })
-      .catch(err => {
-        console.error("Error cargando tours:", err);
-      })
-      .finally(() => {
-        if (!cancel) setToursLoading(false);
-      });
+    const run = async () => {
+      await loadPublicTours();
+      if (!cancel) setToursLoading(false);
+    };
+    run();
     return () => { cancel = true; };
-  }, []);
+  }, [loadPublicTours]);
 
   // Sub-paso 2.7: opTours = los tours REALES del operador autenticado
   // (GET /api/operators/me/tours, filtrado por operatorId del token). Reemplaza
@@ -4042,7 +4060,8 @@ export default function AppDemo() {
         setOpTours(mine.map((t, i) => ({
           id: i + 1,
           tourId: t.id,
-          active: true,
+          // Estado real del API (M2.3); me/tours devuelve activos e inactivos.
+          active: t.active ?? true,
           image: t.image,
           title: t.title || "",
           location: t.location || "",
@@ -4178,6 +4197,40 @@ export default function AppDemo() {
     if (res.status === 403) return { ok: false, error: "No puedes borrar este tour." };
     const data = await res.json().catch(() => ({}));
     return { ok: false, error: data?.error || "No pudimos borrar el tour. Intenta de nuevo." };
+  };
+  // Sub-paso M2.3: pausar/reanudar un tour propio (PATCH /api/tours/:id con
+  // { active }). Optimista en opTours (el switch refleja al instante); revierte
+  // si el PATCH falla. Tras éxito, recarga el catálogo público para que el tour
+  // pausado desaparezca (o reaparezca) sin recargar. Usa el CUID real (tourId),
+  // guard isPersisted como editar/borrar. Devuelve { ok } / { ok:false, error }.
+  const handleToggleTourActive = async (tour) => {
+    const cuid = tour.tourId;
+    const next = !tour.active;
+    // Optimista en el dashboard.
+    setOpTours(prev => prev.map(t => t.id === tour.id ? { ...t, active: next } : t));
+    const isPersisted = typeof cuid === "string" && !/^\d+$/.test(cuid);
+    if (!isPersisted) return { ok: true }; // tour local no persistido: solo estado local
+    const revert = () =>
+      setOpTours(prev => prev.map(t => t.id === tour.id ? { ...t, active: tour.active } : t));
+    let res;
+    try {
+      res = await authFetch(`/api/tours/${cuid}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: next }),
+      });
+    } catch {
+      revert();
+      return { ok: false, error: "No pudimos conectar. Revisa tu conexión e intenta de nuevo." };
+    }
+    if (!res.ok) {
+      revert();
+      if (res.status === 403) return { ok: false, error: "No puedes modificar este tour." };
+      return { ok: false, error: "No pudimos actualizar el estado del tour. Intenta de nuevo." };
+    }
+    // Sincroniza el catálogo público con el estado real (el backend filtra active).
+    await loadPublicTours();
+    return { ok: true };
   };
   // Normaliza included/excluded SIEMPRE a array (incluso vacío) para que
   // DetailView no crashee con `"".map is not a function` si el operador deja
@@ -4421,7 +4474,10 @@ export default function AppDemo() {
   const showHeader = isAuth && !["booking", "new-tour"].includes(effectiveView);
   const showFooter = isAuth && !["booking", "detail", "new-tour", "dashboard", "trip-detail"].includes(effectiveView);
   const currentTour = tour ? tours.find(t => t.id === tour.id) || tour : null;
-  const activeTours = tours.filter(t => { const op = opTours.find(o => o.tourId === t.id); return !op || op.active; });
+  // M2.3: el catálogo se filtra en el BACKEND (GET /api/tours solo devuelve
+  // active:true). Ya no hay filtro local por el flag de opTours (que solo servía
+  // para el propio operador y no para otros usuarios). `tours` ya viene filtrado;
+  // tras pausar/reanudar, handleToggleTourActive recarga el catálogo.
 
   if (loading) {
     return (
@@ -4443,15 +4499,15 @@ export default function AppDemo() {
         {showHeader && <TopNav onHome={() => go("home")} onDash={() => go(view === "dashboard" ? "home" : "dashboard")} onNotif={() => go("notifications")} view={view} unread={unread} isOperator={isOperator} navActive={nav} onNavClick={navGo} />}
         {effectiveView === "login" && <LoginView go={go} loginMsg={loginMsg} />}
         {effectiveView === "welcome" && <WelcomeView go={go} />}
-        {effectiveView === "home" && <HomeView go={go} pick={setTour} cat={cat} setCat={setCat} tours={activeTours} toursLoading={toursLoading} selectedCity={selectedCity} setSelectedCity={pickCity} geoSource={geoSource} />}
-        {effectiveView === "catalog" && <CatalogView go={go} pick={setTour} cat={cat} setCat={setCat} tours={activeTours} toursLoading={toursLoading} />}
+        {effectiveView === "home" && <HomeView go={go} pick={setTour} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} selectedCity={selectedCity} setSelectedCity={pickCity} geoSource={geoSource} />}
+        {effectiveView === "catalog" && <CatalogView go={go} pick={setTour} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} />}
         {effectiveView === "detail" && <DetailView tour={currentTour} go={go} pick={setTour} onBook={handleBook} reviews={reviews} />}
         {effectiveView === "booking" && <BookingView tour={currentTour} go={go} onLocalBookingSuccess={handleAddLocalTrip} />}
         {effectiveView === "notifications" && <NotifsView notifs={notifs} setNotifs={setNotifs} />}
         {effectiveView === "trips" && <TripsView go={go} onSelectTrip={setCurrentTrip} trips={trips} />}
         {effectiveView === "trip-detail" && <TripDetailView trip={currentTrip} go={go} onReview={handleReview} />}
         {effectiveView === "profile" && <ProfileView go={go} />}
-        {effectiveView === "dashboard" && <DashView go={go} opTours={opTours} setOpTours={setOpTours} onEditTour={handleEditTour} onDeleteTour={handleDeleteTour} initialTab={dashTab} onTabConsumed={() => setDashTab("bookings")} />}
+        {effectiveView === "dashboard" && <DashView go={go} opTours={opTours} onEditTour={handleEditTour} onDeleteTour={handleDeleteTour} onToggleActive={handleToggleTourActive} initialTab={dashTab} onTabConsumed={() => setDashTab("bookings")} />}
         {effectiveView === "new-tour" && <NewTourView go={go} editingTour={editingTour} onSaveTour={handleSaveTour} onCreateTour={handleCreateTour} onCancel={handleCancelTour} />}
         {showFooter && <Footer go={go} />}
         {showNav && <BNav active={nav} go={navGo} />}
