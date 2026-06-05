@@ -3049,6 +3049,11 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
   // Reservas reales del operador (GET /api/operators/me/bookings), hidratadas en
   // AppDemo y pasadas como prop. Etapa piloto: solo lectura (sin cambio de estado).
   const bookings = opBookings;
+  // Nombre real del operador logueado (de GET /api/me vía AuthContext), en vez
+  // del mock "Andes Trek Perú". DashView solo se renderiza para operadores, así
+  // que operator suele estar presente; fallback defensivo por si aún no hidrata.
+  const { operator } = useAuth();
+  const operatorName = operator?.name || "Mi negocio";
   const initials = (name) => (name || "?").trim().split(/\s+/).map((n) => n[0]).slice(0, 2).join("").toUpperCase();
   const [selectedBooking, setSelectedBooking] = useState(null);
 
@@ -3093,7 +3098,7 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
     <div className="dsh">
       <div className="dsh-h fu">
         <div className="dsh-gr">Panel de operador <Hand size={18} strokeWidth={1.5} style={{display:"inline",verticalAlign:"middle"}} /></div>
-        <div className="dsh-nm">Andes Trek Perú</div>
+        <div className="dsh-nm">{operatorName}</div>
         <div className="dsh-sts">
           <div className="dsh-s"><div className="dsh-s-v">{opTours.filter((t) => t.active).length}</div><div className="dsh-s-l">Tours activos</div></div>
           <div className="dsh-s"><div className="dsh-s-v">{bookings.length}</div><div className="dsh-s-l">Reservas</div></div>
