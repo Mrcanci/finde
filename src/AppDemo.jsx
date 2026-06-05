@@ -238,6 +238,9 @@ function mapTourFromApi(t) {
     category: CAT_API_TO_UI[t.category] || t.category,
     operator: t.operator?.name || "Operador Finde",
     verified: !!t.operator?.verified,
+    // Teléfono del operador para el link wa.me de coordinación (M4). null si no
+    // tiene → el botón de WhatsApp no se muestra. NO se renderiza como texto.
+    operatorPhone: t.operator?.phone ?? null,
     capacity: t.capacity,
     altitude: "",
     difficulty: t.difficulty || "Moderada",
@@ -2268,11 +2271,9 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
                 ? <><ShieldCheck size={14} strokeWidth={1.5} /> Finde Verificado</>
                 : "Operador Finde Basic"}
             </div>
-            {tour.verified && (
-              <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 4, lineHeight: 1.4 }}>
-                RUC: 20612345678 · MINCETUR: VER-2024-00891
-              </div>
-            )}
+            {/* RUC/MINCETUR hardcodeados (falsos) eliminados: misma credencial
+                inventada que se mostraba en el voucher. La confianza real es el
+                badge "Finde Verificado" (solo si operator.verified). */}
           </div>
         </div>
         <div className="det-st">{isQu ? "Imapas chaypi kan" : "Incluye"}</div>
@@ -2349,10 +2350,25 @@ function tripDateISO(trip) {
   return `${year}-${String(mon).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
 }
 
-// Construye link wa.me para coordinar con la agencia. Hardcoded por ahora;
-// Fase 2 traer el número real del operador.
+// Normaliza un teléfono a formato internacional para wa.me (solo dígitos, sin
+// '+'). Asume Perú: un móvil de 9 dígitos se prefija con 51; un número que ya
+// viene en internacional (empieza con 51 y largo 11+) se usa tal cual. Devuelve
+// null si no hay un teléfono utilizable (→ el botón de WhatsApp no se muestra).
+function toIntlPhone(raw) {
+  if (!raw) return null;
+  const digits = String(raw).replace(/\D/g, "");
+  if (digits.startsWith("51") && digits.length >= 11) return digits;
+  if (digits.length === 9) return `51${digits}`;
+  return digits.length >= 11 ? digits : null;
+}
+
+// Construye el link wa.me para coordinar con la agencia (M4): teléfono REAL del
+// operador (threaded en mapTourFromApi como tour.operatorPhone), normalizado a
+// internacional. Devuelve null si el operador no tiene teléfono utilizable, para
+// que el caller oculte el botón en vez de generar un link roto.
 function buildWhatsAppLink(trip) {
-  const phone = "51987654321";
+  const phone = toIntlPhone(trip?.tour?.operatorPhone);
+  if (!phone) return null;
   const tourTitle = trip?.tour?.title || "mi tour";
   const dateLabel = (() => {
     const iso = tripDateISO(trip);
@@ -2360,11 +2376,13 @@ function buildWhatsAppLink(trip) {
   })();
   const code = trip?.code || "";
   const customer = trip?.customerName || USER.name;
+  const guests = Number(trip?.guests) || 0;
+  const guestsLabel = guests > 0 ? ` para ${guests} ${guests === 1 ? "persona" : "personas"}` : "";
   const lines = [
     `Hola, soy ${customer}.`,
-    `Reservé ${tourTitle} para el ${dateLabel}.`,
-    code ? `Mi código es ${code}.` : "",
-    "Tengo una consulta.",
+    `Reservé ${tourTitle}${guestsLabel} para el ${dateLabel}.`,
+    code ? `Mi código de reserva es ${code}.` : "",
+    "Quisiera coordinar los detalles y el pago.",
   ].filter(Boolean);
   return `https://wa.me/${phone}?text=${encodeURIComponent(lines.join(" "))}`;
 }
@@ -2397,8 +2415,6 @@ function VoucherDetail({ trip }) {
       ];
   const pol = getCancelPolicy(tour.cancellation);
   const totalSoles = Number(trip.total) || 0;
-  const payKey = trip.paymentMethod || "yape";
-  const payLabel = PAYMENT_LABELS[payKey] || payKey;
   const code = trip.code || "—";
   const meetingPoint = (tour.meetingPoint || "").trim();
   const hasMeetingPoint = meetingPoint.length > 0;
@@ -2454,9 +2470,11 @@ function VoucherDetail({ trip }) {
             <span className="voucher-verified"><ShieldCheck size={11} strokeWidth={1.5} /> Finde Verificado</span>
           )}
         </div>
-        {tour.verified && (
-          <div className="voucher-agency-d">RUC: 20612345678 · MINCETUR: VER-2024-00891</div>
-        )}
+        {/* RUC/MINCETUR hardcodeados (falsos) eliminados: eran credenciales de
+            confianza inventadas mostradas al viajero. El RUC real (operator.ruc)
+            no llega hoy al voucher (no está en LIST_SELECT del catálogo); se
+            mostrará cuando se decida cómo exponerlo. La verificación real es el
+            badge "Finde Verificado" de arriba (solo si operator.verified). */}
       </div>
 
       {/* 4 — Qué incluye */}
@@ -2497,21 +2515,20 @@ function VoucherDetail({ trip }) {
         </div>
       </div>
 
-      {/* 7 — Resumen de pago */}
+      {/* 7 — Resumen. Etapa piloto: sin gateway de pago. El pago se coordina con
+          la agencia por WhatsApp, así que NO se muestra método ni "total pagado"
+          (sería falso); solo código y total de la reserva, más la nota. */}
       <div className="voucher-sec">
-        <div className="voucher-sec-l">Resumen de pago</div>
-        <div className="voucher-pay-row">
-          <span className="l">Método</span>
-          <span style={{ fontWeight: 600 }}>{payLabel}</span>
-        </div>
+        <div className="voucher-sec-l">Resumen</div>
         <div className="voucher-pay-row">
           <span className="l">Código de reserva</span>
           <span className="voucher-code">{code}</span>
         </div>
         <div className="voucher-pay-row total">
-          <span className="l">Total pagado</span>
+          <span className="l">Total</span>
           <span>S/ {totalSoles.toFixed(2)}</span>
         </div>
+        <div className="voucher-note">El pago se coordina directamente con la agencia por WhatsApp.</div>
       </div>
     </div>
   );
@@ -2661,9 +2678,18 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
         <button className="tdet-act-prim" onClick={() => go("trips")}>
           <Ticket size={16} strokeWidth={1.5} /> Ver en Mis Viajes
         </button>
-        <a className="voucher-wa" href={buildWhatsAppLink(successTrip)} target="_blank" rel="noopener noreferrer">
-          <Smartphone size={14} strokeWidth={1.5} /> ¿Necesitas algo? Coordinar con la agencia por WhatsApp <ArrowRight size={12} strokeWidth={1.5} />
-        </a>
+        {(() => {
+          const wa = buildWhatsAppLink(successTrip);
+          return wa ? (
+            <a className="voucher-wa" href={wa} target="_blank" rel="noopener noreferrer">
+              <Smartphone size={14} strokeWidth={1.5} /> Coordinar con la agencia por WhatsApp <ArrowRight size={12} strokeWidth={1.5} />
+            </a>
+          ) : (
+            <div className="voucher-wa" style={{ opacity: .6, cursor: "default", pointerEvents: "none" }}>
+              <Smartphone size={14} strokeWidth={1.5} /> Coordinación por WhatsApp no disponible
+            </div>
+          );
+        })()}
       </div>
     );
   }
@@ -2865,9 +2891,18 @@ function TripDetailView({ trip, go, onReview }) {
           </button>
         )}
       </div>
-      <a className="voucher-wa" href={buildWhatsAppLink(trip)} target="_blank" rel="noopener noreferrer" style={{ marginTop: 12 }}>
-        <Smartphone size={14} strokeWidth={1.5} /> Coordinar con la agencia por WhatsApp <ArrowRight size={12} strokeWidth={1.5} />
-      </a>
+      {(() => {
+        const wa = buildWhatsAppLink(trip);
+        return wa ? (
+          <a className="voucher-wa" href={wa} target="_blank" rel="noopener noreferrer" style={{ marginTop: 12 }}>
+            <Smartphone size={14} strokeWidth={1.5} /> Coordinar con la agencia por WhatsApp <ArrowRight size={12} strokeWidth={1.5} />
+          </a>
+        ) : (
+          <div className="voucher-wa" style={{ marginTop: 12, opacity: .6, cursor: "default", pointerEvents: "none" }}>
+            <Smartphone size={14} strokeWidth={1.5} /> Coordinación por WhatsApp no disponible
+          </div>
+        );
+      })()}
     </div>
   );
 }
