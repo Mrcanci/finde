@@ -1170,7 +1170,7 @@ html{scrollbar-gutter:stable}
 .dsh{padding-bottom:100px}
 .dsh-h{padding:20px;background:linear-gradient(135deg,var(--f) 0%,#1a4a35 100%);color:white}
 .dsh-gr{font-size:14px;opacity:.8}.dsh-nm{font-family:'DM Serif Display',Georgia,serif;font-size:24px;margin:4px 0 6px}
-.dsh-sts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.dsh-sts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .dsh-s{background:rgba(255,255,255,.12);border-radius:14px;padding:12px;text-align:center}
 .dsh-s-v{font-size:22px;font-weight:800}.dsh-s-l{font-size:10px;opacity:.7;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
 .dsh-tabs{display:flex;border-bottom:2px solid var(--sd);padding:0 20px;margin-bottom:16px;overflow-x:auto;scrollbar-width:none}
@@ -3052,20 +3052,13 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
   // Nombre real del operador logueado (de GET /api/me vía AuthContext), en vez
   // del mock "Andes Trek Perú". DashView solo se renderiza para operadores, así
   // que operator suele estar presente; fallback defensivo por si aún no hidrata.
-  const { operator } = useAuth();
+  const { user, operator } = useAuth();
   const operatorName = operator?.name || "Mi negocio";
   const initials = (name) => (name || "?").trim().split(/\s+/).map((n) => n[0]).slice(0, 2).join("").toUpperCase();
   const [selectedBooking, setSelectedBooking] = useState(null);
 
-  const [biz, setBiz] = useState({
-    ruc: "20612345678", phone: "943 567 890", email: "contacto@andestrekperu.com",
-    mincetur: "VER-2024-00891", mincetDate: "2024-03-15", mincetStatus: "verified",
-    payMethod: "yape", payPhone: "943 567 890",
-    bank: "BCP", accountType: "Ahorros", accountNum: "19112345678901", cci: "00219112345678901234",
-  });
-  const [bizSaved, setBizSaved] = useState(false);
-  const [paySaved, setPaySaved] = useState(false);
-  const updateBiz = (k, v) => { setBiz(prev => ({ ...prev, [k]: v })); setBizSaved(false); };
+  // Estado mock `biz` (RUC/MINCETUR/CCI/pago) eliminado: la tab "Mi Negocio" es
+  // informativa de solo lectura y muestra datos reales del operador (useAuth).
   // M2.3: el toggle persiste vía PATCH (delegado a onToggleActive en AppDemo,
   // que hace la actualización optimista + revert). Aquí solo surfaceamos el error.
   const [toggleErr, setToggleErr] = useState("");
@@ -3102,7 +3095,8 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
         <div className="dsh-sts">
           <div className="dsh-s"><div className="dsh-s-v">{opTours.filter((t) => t.active).length}</div><div className="dsh-s-l">Tours activos</div></div>
           <div className="dsh-s"><div className="dsh-s-v">{bookings.length}</div><div className="dsh-s-l">Reservas</div></div>
-          <div className="dsh-s"><div className="dsh-s-v"><Star size={13} strokeWidth={1.5} fill="currentColor" style={{display:"inline",verticalAlign:"middle"}} /> 4.8</div><div className="dsh-s-l">Rating</div></div>
+          {/* Stat "Rating" oculto en la etapa piloto: no hay modelo Review ni ratings
+              reales (los del seed son siembra). Reactivar cuando exista reseñas reales. */}
         </div>
       </div>
 
@@ -3171,68 +3165,64 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
 
       {/* ── INGRESOS ── (oculta en la etapa piloto; ver tabs arriba) */}
 
-      {/* ── MI NEGOCIO ── */}
+      {/* ── MI NEGOCIO ── (solo lectura; datos reales del operador vía useAuth).
+          Solo presentación: identidad + lista de datos reales + estado real de
+          verificación. Sin formularios ni edición (milestone futuro). Sin datos
+          mock: campos vacíos muestran texto neutro. */}
       {tab === "business" && <div className="fu">
-        {/* Datos del negocio */}
         <div className="biz-sec">
-          <div className="biz-sec-t"><Building2 size={16} strokeWidth={1.5} /> Datos del negocio</div>
-          <div className="fg"><label className="lbl">RUC</label><input className="inp" value={biz.ruc} onChange={e => updateBiz("ruc", e.target.value)} inputMode="numeric" maxLength={11} /></div>
-          <div className="fg"><label className="lbl">Teléfono</label><input className="inp" value={biz.phone} onChange={e => updateBiz("phone", e.target.value)} type="tel" inputMode="numeric" /></div>
-          <div className="fg"><label className="lbl">Email de contacto</label><input className="inp" value={biz.email} onChange={e => updateBiz("email", e.target.value)} type="email" inputMode="email" /></div>
-          <button className="mbtn" onClick={() => { setBizSaved(true); setTimeout(() => setBizSaved(false), 3000); }}>Guardar cambios</button>
-          {bizSaved && <div className="biz-saved"><Check size={12} strokeWidth={2} /> Cambios guardados</div>}
-        </div>
-
-        {/* Verificación MINCETUR */}
-        <div className="biz-sec">
-          <div className="biz-sec-t"><ShieldCheck size={16} strokeWidth={1.5} /> Verificación MINCETUR</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-            <span className="biz-badge ok"><Check size={12} strokeWidth={2} /> Verificado</span>
-          </div>
-          <div className="fg"><label className="lbl">N° de registro</label><input className="inp" value={biz.mincetur} readOnly style={{ opacity: .7 }} /></div>
-          <div className="fg"><label className="lbl">Fecha de verificación</label><input className="inp" value={biz.mincetDate} readOnly style={{ opacity: .7 }} /></div>
-          <div className="biz-note">Tu negocio está verificado por MINCETUR. Este estado se actualiza automáticamente con el registro nacional de prestadores de servicios turísticos.</div>
-        </div>
-
-        {/* Cuenta de pago */}
-        <div className="biz-sec">
-          <div className="biz-sec-t"><CreditCard size={16} strokeWidth={1.5} /> Cuenta de pago</div>
-          <div className="biz-radio">
-            <label className={biz.payMethod === "yape" ? "on" : ""} onClick={() => updateBiz("payMethod", "yape")}>
-              <input type="radio" name="pay" checked={biz.payMethod === "yape"} readOnly style={{ display: "none" }} />Yape
-            </label>
-            <label className={biz.payMethod === "plin" ? "on" : ""} onClick={() => updateBiz("payMethod", "plin")}>
-              <input type="radio" name="pay" checked={biz.payMethod === "plin"} readOnly style={{ display: "none" }} />Plin
-            </label>
-            <label className={biz.payMethod === "bank" ? "on" : ""} onClick={() => updateBiz("payMethod", "bank")}>
-              <input type="radio" name="pay" checked={biz.payMethod === "bank"} readOnly style={{ display: "none" }} />Cuenta bancaria
-            </label>
-          </div>
-          {(biz.payMethod === "yape" || biz.payMethod === "plin") && (
-            <div className="fg"><label className="lbl">Número de celular</label><input className="inp" value={biz.payPhone} onChange={e => updateBiz("payPhone", e.target.value)} type="tel" inputMode="numeric" /></div>
-          )}
-          {biz.payMethod === "bank" && (<>
-            <div className="fg"><label className="lbl">Banco</label><input className="inp" value={biz.bank} onChange={e => updateBiz("bank", e.target.value)} /></div>
-            <div className="fg"><label className="lbl">Tipo de cuenta</label><input className="inp" value={biz.accountType} onChange={e => updateBiz("accountType", e.target.value)} /></div>
-            <div className="fg"><label className="lbl">N° de cuenta</label><input className="inp" value={biz.accountNum} onChange={e => updateBiz("accountNum", e.target.value)} inputMode="numeric" /></div>
-            <div className="fg"><label className="lbl">CCI</label><input className="inp" value={biz.cci} onChange={e => updateBiz("cci", e.target.value)} inputMode="numeric" /></div>
-          </>)}
-          <button className="mbtn" onClick={() => { setPaySaved(true); setTimeout(() => setPaySaved(false), 3000); }}>Guardar cuenta</button>
-          {paySaved && <div className="biz-saved"><Check size={12} strokeWidth={2} /> Cuenta guardada</div>}
-          <div className="biz-note">Los pagos se procesan en 1-2 días hábiles después de cada experiencia completada.</div>
-        </div>
-
-        {/* Documentos */}
-        <div className="biz-sec">
-          <div className="biz-sec-t"><FileText size={16} strokeWidth={1.5} /> Documentos</div>
-          <div className="biz-doc">
-            <div>
-              <div className="biz-doc-name">Póliza de seguro</div>
-              <span className="biz-badge pending" style={{ marginTop: 4 }}>Opcional</span>
+          {/* Identidad del negocio: avatar + nombre real */}
+          <div style={{ display: "flex", alignItems: "center", gap: 13, marginBottom: 18, paddingBottom: 18, borderBottom: "1px solid var(--sd)" }}>
+            <div className="dsh-bk-av" style={{ width: 52, height: 52, fontSize: 18, background: "var(--m)" }}>{initials(operator?.name)}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: "'DM Serif Display',Georgia,serif", fontSize: 20, color: "var(--ch)", lineHeight: 1.15 }}>{operator?.name || "Mi negocio"}</div>
+              <div style={{ fontSize: 12.5, color: "var(--gy)", marginTop: 3, display: "flex", alignItems: "center", gap: 4 }}><MapPin size={12} strokeWidth={1.5} /> {operator?.city || "Ciudad no registrada"}</div>
             </div>
-            <div className="biz-doc-r">
-              <button className="biz-doc-btn">Subir documento</button>
+          </div>
+
+          {/* Datos reales del registro (label → valor) */}
+          <div className="biz-sec-t" style={{ marginBottom: 12 }}><Building2 size={16} strokeWidth={1.5} /> Datos del negocio</div>
+          <div className="sum" style={{ marginBottom: 0 }}>
+            {[
+              ["RUC", operator?.ruc || "No registrado"],
+              ["Email de contacto", user?.email || operator?.email || "—"],
+              ["Teléfono", operator?.phone || "No registrado"],
+            ].map(([l, v]) => {
+              const empty = v === "—" || v.startsWith("No ");
+              return (
+                <div key={l} className="sum-r">
+                  <span style={{ color: "var(--gy)" }}>{l}</span>
+                  <span style={{ fontWeight: 600, color: empty ? "var(--lg)" : "var(--ch)" }}>{v}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="biz-note" style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+            <Info size={14} strokeWidth={1.5} style={{ flexShrink: 0, marginTop: 1 }} />
+            <span>Estos datos vienen de tu registro como operador. Para actualizarlos, escríbenos — la edición desde el panel llegará pronto.</span>
+          </div>
+        </div>
+
+        {/* Estado REAL de verificación (operator.verified); nunca "Verificado" fijo */}
+        <div className="biz-sec">
+          <div className="biz-sec-t"><ShieldCheck size={16} strokeWidth={1.5} /> Estado de verificación</div>
+          <div style={{
+            padding: 14, borderRadius: 12,
+            background: operator?.verified ? "rgba(45,90,61,.06)" : "rgba(212,168,67,.08)",
+            borderLeft: `3px solid ${operator?.verified ? "var(--m)" : "var(--gd)"}`,
+          }}>
+            {/* Titular del estado: icono + badge en una sola fila alineada */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+              {operator?.verified
+                ? <ShieldCheck size={18} strokeWidth={1.5} style={{ color: "var(--m)", flexShrink: 0 }} />
+                : <Clock size={18} strokeWidth={1.5} style={{ color: "var(--gd)", flexShrink: 0 }} />}
+              {operator?.verified
+                ? <span className="biz-badge ok"><Check size={12} strokeWidth={2} /> Verificado</span>
+                : <span className="biz-badge pending"><Clock size={12} strokeWidth={1.5} /> En revisión</span>}
             </div>
+            <div style={{ fontSize: 13, color: "var(--ch)", lineHeight: 1.5 }}>{operator?.verified
+              ? "Tu negocio está verificado. Tus tours pueden recibir reservas con normalidad."
+              : "Estamos revisando tu cuenta. Tus tours ya pueden publicarse; te avisaremos cuando la verificación esté lista."}</div>
           </div>
         </div>
       </div>}
