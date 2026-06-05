@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, CreditCard, Banknote, Smartphone, MessageCircle, Camera, MountainSnow, Hand, CircleDollarSign, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff, Info, Trash2 } from "lucide-react";
+import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, CreditCard, Banknote, Smartphone, MessageCircle, Camera, MountainSnow, Hand, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff, Info, Trash2 } from "lucide-react";
 import { useAuth } from "./contexts/AuthContext.jsx";
 import { authFetch } from "./lib/authFetch.js";
 import { supabase } from "./lib/supabase.js";
@@ -659,21 +659,10 @@ function generateMockReviews(tour) {
 
 const USER = { name:"Alejandra Quispe", phone:"+51 987 654 321", email:"ale.quispe@gmail.com", dni:"72345678", city:"Lima", joinDate:"Enero 2026", trips:4, favorites:6, reviews:2, avatar:"AQ" };
 
-const OP_BK = [
-  { id:"F-001", customer:"María García", phone:"+51 987 123 456", date:"15 Abr", guests:3, amount:567, status:"confirmed", tour:"Trekking al Nevado Pastoruri", pay:"Yape", note:"" },
-  { id:"F-002", customer:"Carlos Mendoza", phone:"+51 991 234 567", date:"15 Abr", guests:2, amount:378, status:"pending", tour:"Trekking al Nevado Pastoruri", pay:"Plin", note:"Somos pareja, ¿hay descuento?" },
-  { id:"F-003", customer:"Ana Quispe", phone:"+51 976 345 678", date:"16 Abr", guests:4, amount:756, status:"confirmed", tour:"Trekking al Nevado Pastoruri", pay:"Yape", note:"Un niño de 10 años en el grupo" },
-  { id:"F-004", customer:"José Rivera", phone:"+51 982 456 789", date:"17 Abr", guests:1, amount:189, status:"completed", tour:"Trekking al Nevado Pastoruri", pay:"Tarjeta", note:"" },
-  { id:"F-005", customer:"Lucia Fernández", phone:"+51 965 567 890", date:"18 Abr", guests:5, amount:945, status:"cancelled", tour:"Trekking al Nevado Pastoruri", pay:"Yape", note:"Canceló por clima" },
-  { id:"F-006", customer:"Pedro Huamán", phone:"+51 944 678 901", date:"19 Abr", guests:2, amount:378, status:"confirmed", tour:"Trekking al Nevado Pastoruri", pay:"PagoEfectivo", note:"" },
-];
-
-const EARN = [
-  { w:"Sem 1", g:4200, f:630, n:3570 },
-  { w:"Sem 2", g:5800, f:870, n:4930 },
-  { w:"Sem 3", g:3900, f:585, n:3315 },
-  { w:"Sem 4", g:7200, f:1080, n:6120 },
-];
+// OP_BK (mock de reservas del operador) eliminado en M3 Sub-paso B: la tab
+// "Reservas" ahora hidrata datos reales desde GET /api/operators/me/bookings.
+// EARN (mock de ingresos semanales) eliminado al ocultar la tab "Ingresos":
+// sin gateway de pago en la etapa piloto no hay ingresos reales que mostrar.
 
 // Returns a style object for background images that works for both CSS gradients and uploaded photos.
 const imgBg = (image) => {
@@ -1181,7 +1170,7 @@ html{scrollbar-gutter:stable}
 .dsh{padding-bottom:100px}
 .dsh-h{padding:20px;background:linear-gradient(135deg,var(--f) 0%,#1a4a35 100%);color:white}
 .dsh-gr{font-size:14px;opacity:.8}.dsh-nm{font-family:'DM Serif Display',Georgia,serif;font-size:24px;margin:4px 0 6px}
-.dsh-sts{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.dsh-sts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .dsh-s{background:rgba(255,255,255,.12);border-radius:14px;padding:12px;text-align:center}
 .dsh-s-v{font-size:22px;font-weight:800}.dsh-s-l{font-size:10px;opacity:.7;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
 .dsh-tabs{display:flex;border-bottom:2px solid var(--sd);padding:0 20px;margin-bottom:16px;overflow-x:auto;scrollbar-width:none}
@@ -3054,26 +3043,22 @@ function ProfileView({ go }) {
   );
 }
 
-function DashView({ go, opTours, onEditTour, onDeleteTour, onToggleActive, initialTab = "bookings", onTabConsumed }) {
+function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleActive, initialTab = "bookings", onTabConsumed }) {
   const [tab, setTab] = useState(initialTab);
   useEffect(() => { if (onTabConsumed) onTabConsumed(); }, []);
-  const [bookings, setBookings] = useState(OP_BK);
+  // Reservas reales del operador (GET /api/operators/me/bookings), hidratadas en
+  // AppDemo y pasadas como prop. Etapa piloto: solo lectura (sin cambio de estado).
+  const bookings = opBookings;
+  // Nombre real del operador logueado (de GET /api/me vía AuthContext), en vez
+  // del mock "Andes Trek Perú". DashView solo se renderiza para operadores, así
+  // que operator suele estar presente; fallback defensivo por si aún no hidrata.
+  const { user, operator } = useAuth();
+  const operatorName = operator?.name || "Mi negocio";
+  const initials = (name) => (name || "?").trim().split(/\s+/).map((n) => n[0]).slice(0, 2).join("").toUpperCase();
   const [selectedBooking, setSelectedBooking] = useState(null);
-  const totR = EARN.reduce((s, w) => s + w.n, 0);
-  const maxE = Math.max(...EARN.map((w) => w.g));
-  const stC = { confirmed: "var(--f)", pending: "#D4A843", completed: "var(--sg)", cancelled: "var(--tr)" };
-  const stL = { confirmed: "Confirmado", pending: "Pendiente", completed: "Completado", cancelled: "Cancelado" };
 
-  const [biz, setBiz] = useState({
-    ruc: "20612345678", phone: "943 567 890", email: "contacto@andestrekperu.com",
-    mincetur: "VER-2024-00891", mincetDate: "2024-03-15", mincetStatus: "verified",
-    payMethod: "yape", payPhone: "943 567 890",
-    bank: "BCP", accountType: "Ahorros", accountNum: "19112345678901", cci: "00219112345678901234",
-  });
-  const [bizSaved, setBizSaved] = useState(false);
-  const [paySaved, setPaySaved] = useState(false);
-  const updateBiz = (k, v) => { setBiz(prev => ({ ...prev, [k]: v })); setBizSaved(false); };
-  const updateStatus = (id, newStatus) => setBookings(prev => prev.map(b => b.id === id ? { ...b, status: newStatus } : b));
+  // Estado mock `biz` (RUC/MINCETUR/CCI/pago) eliminado: la tab "Mi Negocio" es
+  // informativa de solo lectura y muestra datos reales del operador (useAuth).
   // M2.3: el toggle persiste vía PATCH (delegado a onToggleActive en AppDemo,
   // que hace la actualización optimista + revert). Aquí solo surfaceamos el error.
   const [toggleErr, setToggleErr] = useState("");
@@ -3106,45 +3091,37 @@ function DashView({ go, opTours, onEditTour, onDeleteTour, onToggleActive, initi
     <div className="dsh">
       <div className="dsh-h fu">
         <div className="dsh-gr">Panel de operador <Hand size={18} strokeWidth={1.5} style={{display:"inline",verticalAlign:"middle"}} /></div>
-        <div className="dsh-nm">Andes Trek Perú</div>
+        <div className="dsh-nm">{operatorName}</div>
         <div className="dsh-sts">
-          <div className="dsh-s"><div className="dsh-s-v">S/{(totR / 1000).toFixed(1)}k</div><div className="dsh-s-l">Neto mes</div></div>
+          <div className="dsh-s"><div className="dsh-s-v">{opTours.filter((t) => t.active).length}</div><div className="dsh-s-l">Tours activos</div></div>
           <div className="dsh-s"><div className="dsh-s-v">{bookings.length}</div><div className="dsh-s-l">Reservas</div></div>
-          <div className="dsh-s"><div className="dsh-s-v"><Star size={13} strokeWidth={1.5} fill="currentColor" style={{display:"inline",verticalAlign:"middle"}} /> 4.8</div><div className="dsh-s-l">Rating</div></div>
+          {/* Stat "Rating" oculto en la etapa piloto: no hay modelo Review ni ratings
+              reales (los del seed son siembra). Reactivar cuando exista reseñas reales. */}
         </div>
       </div>
 
       <div className="dsh-tabs fd1">
-        {[{ id: "bookings", l: "Reservas" }, { id: "earnings", l: "Ingresos" }, { id: "business", l: "Mi Negocio" }, { id: "listings", l: "Mis Tours" }].map((t) => (
+        {/* Tab "Ingresos" oculta en la etapa piloto: sin gateway de pago no hay
+            ingresos reales que mostrar (los datos eran mock). Reactivar cuando se cobre. */}
+        {[{ id: "bookings", l: "Reservas" }, { id: "business", l: "Mi Negocio" }, { id: "listings", l: "Mis Tours" }].map((t) => (
           <button key={t.id} className={`dsh-tab ${tab === t.id ? "on" : ""}`} onClick={() => { setTab(t.id); setSelectedBooking(null); }}>{t.l}</button>
         ))}
       </div>
 
       {/* ── RESERVAS ── */}
       {tab === "bookings" && !selectedBooking && <div className="fu">
-        {bookings.map((b) => (
-          <div key={b.id} className="dsh-bk" style={{ flexDirection: "column", alignItems: "stretch", gap: 0, cursor: "pointer" }}
+        {bookings.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "48px 24px", color: "var(--gy)" }}>
+            <Smartphone size={28} strokeWidth={1.5} style={{ color: "var(--lg)", marginBottom: 12 }} />
+            <div style={{ fontWeight: 700, fontSize: 15, color: "var(--ch)", marginBottom: 6 }}>Aún no tienes reservas</div>
+            <div style={{ fontSize: 13, lineHeight: 1.5 }}>Cuando un viajero reserve uno de tus tours, aparecerá aquí y podrás coordinar con él por WhatsApp.</div>
+          </div>
+        ) : bookings.map((b) => (
+          <div key={b.id} className="dsh-bk" style={{ alignItems: "center", gap: 10, cursor: "pointer" }}
             onClick={() => setSelectedBooking(b)}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div className="dsh-bk-av" style={{ background: stC[b.status] }}>{b.customer.split(" ").map((n) => n[0]).join("")}</div>
-              <div className="dsh-bk-i"><div className="dsh-bk-n">{b.customer}</div><div className="dsh-bk-d">{b.date} · {b.guests} pers</div></div>
-              <div className="dsh-bk-r"><div className="dsh-bk-a">S/ {b.amount}</div><div className={`dsh-bk-s st-${b.status}`}>{stL[b.status]}</div></div>
-            </div>
-            {b.status === "pending" && (
-              <div style={{ display: "flex", gap: 8, marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--cr)" }}
-                onClick={(e) => e.stopPropagation()}>
-                <button onClick={() => updateStatus(b.id, "confirmed")} style={{
-                  flex: 1, padding: "8px 0", borderRadius: 10, border: "none",
-                  background: "var(--f)", color: "white", fontWeight: 700,
-                  fontSize: 12, cursor: "pointer", fontFamily: "inherit"
-                }}><Check size={12} strokeWidth={2} /> Confirmar</button>
-                <button onClick={() => updateStatus(b.id, "cancelled")} style={{
-                  flex: 1, padding: "8px 0", borderRadius: 10, border: "2px solid var(--lg)",
-                  background: "transparent", color: "var(--gy)", fontWeight: 700,
-                  fontSize: 12, cursor: "pointer", fontFamily: "inherit"
-                }}><X size={12} strokeWidth={2} /> Rechazar</button>
-              </div>
-            )}
+            <div className="dsh-bk-av" style={{ background: "var(--m)" }}>{initials(b.customer)}</div>
+            <div className="dsh-bk-i"><div className="dsh-bk-n">{b.customer}</div><div className="dsh-bk-d">{b.tour} · {b.date} · {b.guests} pers</div></div>
+            <div className="dsh-bk-r"><div className="dsh-bk-a">S/ {b.amount.toLocaleString("es-PE")}</div><div className="dsh-bk-s" style={{ color: "var(--gy)" }}>Solicitud recibida</div></div>
           </div>
         ))}
       </div>}
@@ -3157,42 +3134,28 @@ function DashView({ go, opTours, onEditTour, onDeleteTour, onToggleActive, initi
             <button onClick={() => setSelectedBooking(null)}
               style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", padding: "12px 0", display: "block", color: "var(--ch)" }}><ArrowLeft size={20} strokeWidth={1.5} /></button>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, marginBottom: 24 }}>
-              <div className="dsh-bk-av" style={{ width: 64, height: 64, fontSize: 22, background: stC[b.status] }}>
-                {b.customer.split(" ").map(n => n[0]).join("")}
+              <div className="dsh-bk-av" style={{ width: 64, height: 64, fontSize: 22, background: "var(--m)" }}>
+                {initials(b.customer)}
               </div>
               <div style={{ fontWeight: 800, fontSize: 18 }}>{b.customer}</div>
-              <div className={`dsh-bk-s st-${b.status}`}>{stL[b.status]}</div>
+              <div className="dsh-bk-s" style={{ color: "var(--gy)" }}>Solicitud recibida</div>
             </div>
             <div className="sum">
-              {[["Código", b.id], ["Tour", b.tour], ["Fecha", b.date], ["Personas", `${b.guests} personas`], ["Pago", b.pay]].map(([l, v]) => (
+              {[["Código", b.id], ["Tour", b.tour], ["Fecha", b.date], ["Personas", `${b.guests} personas`]].map(([l, v]) => (
                 <div key={l} className="sum-r"><span style={{ color: "var(--gy)" }}>{l}</span><span style={{ fontWeight: 600 }}>{v}</span></div>
               ))}
-              <div className="sum-t"><span>Total</span><span>S/ {b.amount}</span></div>
+              <div className="sum-t"><span>Total</span><span>S/ {b.amount.toLocaleString("es-PE")}</span></div>
             </div>
-            {b.note && (
-              <div style={{ padding: 14, background: "rgba(212,168,67,.1)", borderRadius: 12, marginBottom: 16, borderLeft: "3px solid var(--gd)" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gd)", marginBottom: 4 }}><MessageCircle size={12} strokeWidth={1.5} style={{display:"inline",verticalAlign:"middle",marginRight:4}} />Nota del cliente</div>
-                <div style={{ fontSize: 13, color: "var(--ch)", lineHeight: 1.5 }}>{b.note}</div>
-              </div>
-            )}
-            <a href={`https://wa.me/${b.phone.replace(/\s/g,"")}`}
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                padding: "13px 0", borderRadius: 14, background: "#25D366", color: "white",
-                fontWeight: 700, fontSize: 14, textDecoration: "none", marginBottom: 10 }}>
-              <Smartphone size={16} strokeWidth={1.5} /> Contactar por WhatsApp
-            </a>
-            {b.status === "pending" && (
-              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                <button onClick={() => { updateStatus(b.id, "confirmed"); setSelectedBooking(null); }} style={{
-                  flex: 1, padding: "13px 0", borderRadius: 14, border: "none",
-                  background: "var(--f)", color: "white", fontWeight: 700,
-                  fontSize: 14, cursor: "pointer", fontFamily: "inherit"
-                }}><Check size={14} strokeWidth={2} /> Confirmar</button>
-                <button onClick={() => { updateStatus(b.id, "cancelled"); setSelectedBooking(null); }} style={{
-                  flex: 1, padding: "13px 0", borderRadius: 14, border: "2px solid var(--lg)",
-                  background: "transparent", color: "var(--gy)", fontWeight: 700,
-                  fontSize: 14, cursor: "pointer", fontFamily: "inherit"
-                }}><X size={14} strokeWidth={2} /> Rechazar</button>
+            {b.phone ? (
+              <a href={`https://wa.me/${b.phone.replace(/\D/g,"")}`}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  padding: "13px 0", borderRadius: 14, background: "#25D366", color: "white",
+                  fontWeight: 700, fontSize: 14, textDecoration: "none", marginBottom: 10 }}>
+                <Smartphone size={16} strokeWidth={1.5} /> Contactar por WhatsApp
+              </a>
+            ) : (
+              <div style={{ textAlign: "center", padding: "12px 0", color: "var(--gy)", fontSize: 13 }}>
+                El viajero no dejó un teléfono de contacto.
               </div>
             )}
           </div>
@@ -3200,106 +3163,66 @@ function DashView({ go, opTours, onEditTour, onDeleteTour, onToggleActive, initi
       })()}
 
 
-      {/* ── INGRESOS ── */}
-      {tab === "earnings" && <div className="fu">
-        <div className="earn-tot">
-          <div>
-            <div style={{ fontSize: 13, opacity: .8 }}>Ingreso neto</div>
-            <div style={{ fontSize: 28, fontWeight: 800 }}>S/ {totR.toLocaleString()}</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 12, opacity: .6 }}>Abril 2026</div>
-            <div style={{ fontSize: 13, color: "rgba(255,255,255,.8)", marginTop: 4 }}>↑ 24%</div>
-          </div>
-        </div>
+      {/* ── INGRESOS ── (oculta en la etapa piloto; ver tabs arriba) */}
 
-        {/* Próximo payout automático quincenal — Reglas v1.2 §5.1 */}
-        <div style={{ margin: "0 0 16px 0", padding: 16, background: "var(--cr)", borderRadius: 16, border: "1px solid var(--lg)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-            <CircleDollarSign size={14} strokeWidth={1.5} style={{ color: "var(--f)" }} />
-            <div style={{ fontSize: 12, color: "var(--gy)", fontWeight: 600 }}>Próximo payout automático</div>
-          </div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: "var(--f)", marginBottom: 4 }}>
-            S/ {totR.toLocaleString()}
-          </div>
-          <div style={{ fontSize: 13, color: "var(--ch)", fontWeight: 600, marginBottom: 10 }}>
-            Lunes 19 de mayo · a tu CCI 0021 ····2847
-          </div>
-          <div style={{ fontSize: 11, color: "var(--gy)", lineHeight: 1.5, paddingTop: 10, borderTop: "1px solid var(--sd)" }}>
-            Pagamos <strong>los días 4 y 19</strong> de cada mes a tu cuenta bancaria. Sin acción requerida — Finde absorbe el costo de transferencia.
-          </div>
-        </div>
-
-        <div className="earn-chart">
-          <div style={{ fontSize: 14, fontWeight: 700 }}>Ingresos semanales</div>
-          <div className="earn-bars">{EARN.map((w, i) => (<div key={i} className="earn-bg"><div className="earn-bc"><div className="earn-b" style={{ height: `${(w.n / maxE) * 100}%`, background: "var(--f)" }} /><div className="earn-b" style={{ height: `${(w.f / maxE) * 100}%`, background: "var(--tr)", opacity: .6 }} /></div><div className="earn-bl">{w.w}</div></div>))}</div>
-          <div className="earn-leg"><div className="earn-li"><div className="earn-dt" style={{ background: "var(--f)" }} />Neto</div></div>
-        </div>
-        <div className="earn-rows">{EARN.map((w, i) => (<div key={i} className="earn-row"><div><div style={{ fontWeight: 600, fontSize: 13 }}>{w.w}</div><div style={{ fontSize: 13, color: "var(--gy)" }}>Bruto: S/ {w.g.toLocaleString()}</div></div><div style={{ textAlign: "right" }}><div style={{ fontSize: 15, fontWeight: 700, color: "var(--f)" }}>S/ {w.n.toLocaleString()}</div><div style={{ fontSize: 13, color: "var(--gy)" }}>-S/ {w.f.toLocaleString()}</div></div></div>))}</div>
-      </div>}
-
-      {/* ── MI NEGOCIO ── */}
+      {/* ── MI NEGOCIO ── (solo lectura; datos reales del operador vía useAuth).
+          Solo presentación: identidad + lista de datos reales + estado real de
+          verificación. Sin formularios ni edición (milestone futuro). Sin datos
+          mock: campos vacíos muestran texto neutro. */}
       {tab === "business" && <div className="fu">
-        {/* Datos del negocio */}
         <div className="biz-sec">
-          <div className="biz-sec-t"><Building2 size={16} strokeWidth={1.5} /> Datos del negocio</div>
-          <div className="fg"><label className="lbl">RUC</label><input className="inp" value={biz.ruc} onChange={e => updateBiz("ruc", e.target.value)} inputMode="numeric" maxLength={11} /></div>
-          <div className="fg"><label className="lbl">Teléfono</label><input className="inp" value={biz.phone} onChange={e => updateBiz("phone", e.target.value)} type="tel" inputMode="numeric" /></div>
-          <div className="fg"><label className="lbl">Email de contacto</label><input className="inp" value={biz.email} onChange={e => updateBiz("email", e.target.value)} type="email" inputMode="email" /></div>
-          <button className="mbtn" onClick={() => { setBizSaved(true); setTimeout(() => setBizSaved(false), 3000); }}>Guardar cambios</button>
-          {bizSaved && <div className="biz-saved"><Check size={12} strokeWidth={2} /> Cambios guardados</div>}
-        </div>
-
-        {/* Verificación MINCETUR */}
-        <div className="biz-sec">
-          <div className="biz-sec-t"><ShieldCheck size={16} strokeWidth={1.5} /> Verificación MINCETUR</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-            <span className="biz-badge ok"><Check size={12} strokeWidth={2} /> Verificado</span>
-          </div>
-          <div className="fg"><label className="lbl">N° de registro</label><input className="inp" value={biz.mincetur} readOnly style={{ opacity: .7 }} /></div>
-          <div className="fg"><label className="lbl">Fecha de verificación</label><input className="inp" value={biz.mincetDate} readOnly style={{ opacity: .7 }} /></div>
-          <div className="biz-note">Tu negocio está verificado por MINCETUR. Este estado se actualiza automáticamente con el registro nacional de prestadores de servicios turísticos.</div>
-        </div>
-
-        {/* Cuenta de pago */}
-        <div className="biz-sec">
-          <div className="biz-sec-t"><CreditCard size={16} strokeWidth={1.5} /> Cuenta de pago</div>
-          <div className="biz-radio">
-            <label className={biz.payMethod === "yape" ? "on" : ""} onClick={() => updateBiz("payMethod", "yape")}>
-              <input type="radio" name="pay" checked={biz.payMethod === "yape"} readOnly style={{ display: "none" }} />Yape
-            </label>
-            <label className={biz.payMethod === "plin" ? "on" : ""} onClick={() => updateBiz("payMethod", "plin")}>
-              <input type="radio" name="pay" checked={biz.payMethod === "plin"} readOnly style={{ display: "none" }} />Plin
-            </label>
-            <label className={biz.payMethod === "bank" ? "on" : ""} onClick={() => updateBiz("payMethod", "bank")}>
-              <input type="radio" name="pay" checked={biz.payMethod === "bank"} readOnly style={{ display: "none" }} />Cuenta bancaria
-            </label>
-          </div>
-          {(biz.payMethod === "yape" || biz.payMethod === "plin") && (
-            <div className="fg"><label className="lbl">Número de celular</label><input className="inp" value={biz.payPhone} onChange={e => updateBiz("payPhone", e.target.value)} type="tel" inputMode="numeric" /></div>
-          )}
-          {biz.payMethod === "bank" && (<>
-            <div className="fg"><label className="lbl">Banco</label><input className="inp" value={biz.bank} onChange={e => updateBiz("bank", e.target.value)} /></div>
-            <div className="fg"><label className="lbl">Tipo de cuenta</label><input className="inp" value={biz.accountType} onChange={e => updateBiz("accountType", e.target.value)} /></div>
-            <div className="fg"><label className="lbl">N° de cuenta</label><input className="inp" value={biz.accountNum} onChange={e => updateBiz("accountNum", e.target.value)} inputMode="numeric" /></div>
-            <div className="fg"><label className="lbl">CCI</label><input className="inp" value={biz.cci} onChange={e => updateBiz("cci", e.target.value)} inputMode="numeric" /></div>
-          </>)}
-          <button className="mbtn" onClick={() => { setPaySaved(true); setTimeout(() => setPaySaved(false), 3000); }}>Guardar cuenta</button>
-          {paySaved && <div className="biz-saved"><Check size={12} strokeWidth={2} /> Cuenta guardada</div>}
-          <div className="biz-note">Los pagos se procesan en 1-2 días hábiles después de cada experiencia completada.</div>
-        </div>
-
-        {/* Documentos */}
-        <div className="biz-sec">
-          <div className="biz-sec-t"><FileText size={16} strokeWidth={1.5} /> Documentos</div>
-          <div className="biz-doc">
-            <div>
-              <div className="biz-doc-name">Póliza de seguro</div>
-              <span className="biz-badge pending" style={{ marginTop: 4 }}>Opcional</span>
+          {/* Identidad del negocio: avatar + nombre real */}
+          <div style={{ display: "flex", alignItems: "center", gap: 13, marginBottom: 18, paddingBottom: 18, borderBottom: "1px solid var(--sd)" }}>
+            <div className="dsh-bk-av" style={{ width: 52, height: 52, fontSize: 18, background: "var(--m)" }}>{initials(operator?.name)}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: "'DM Serif Display',Georgia,serif", fontSize: 20, color: "var(--ch)", lineHeight: 1.15 }}>{operator?.name || "Mi negocio"}</div>
+              <div style={{ fontSize: 12.5, color: "var(--gy)", marginTop: 3, display: "flex", alignItems: "center", gap: 4 }}><MapPin size={12} strokeWidth={1.5} /> {operator?.city || "Ciudad no registrada"}</div>
             </div>
-            <div className="biz-doc-r">
-              <button className="biz-doc-btn">Subir documento</button>
+          </div>
+
+          {/* Datos reales del registro (label → valor) */}
+          <div className="biz-sec-t" style={{ marginBottom: 12 }}><Building2 size={16} strokeWidth={1.5} /> Datos del negocio</div>
+          <div className="sum" style={{ marginBottom: 0 }}>
+            {[
+              ["RUC", operator?.ruc || "No registrado"],
+              ["Email de contacto", user?.email || operator?.email || "—"],
+              ["Teléfono", operator?.phone || "No registrado"],
+            ].map(([l, v]) => {
+              const empty = v === "—" || v.startsWith("No ");
+              return (
+                <div key={l} className="sum-r">
+                  <span style={{ color: "var(--gy)" }}>{l}</span>
+                  <span style={{ fontWeight: 600, color: empty ? "var(--lg)" : "var(--ch)" }}>{v}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="biz-note" style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+            <Info size={14} strokeWidth={1.5} style={{ flexShrink: 0, marginTop: 1 }} />
+            <span>Estos datos vienen de tu registro como operador. Para actualizarlos, escríbenos — la edición desde el panel llegará pronto.</span>
+          </div>
+        </div>
+
+        {/* Estado REAL de verificación (operator.verified); nunca "Verificado" fijo */}
+        <div className="biz-sec">
+          <div className="biz-sec-t"><ShieldCheck size={16} strokeWidth={1.5} /> Estado de verificación</div>
+          <div style={{
+            padding: 14, borderRadius: 12,
+            background: operator?.verified ? "rgba(45,90,61,.06)" : "rgba(212,168,67,.08)",
+            borderLeft: `3px solid ${operator?.verified ? "var(--m)" : "var(--gd)"}`,
+          }}>
+            {/* Titular del estado: icono + badge en una sola fila alineada */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+              {operator?.verified
+                ? <ShieldCheck size={18} strokeWidth={1.5} style={{ color: "var(--m)", flexShrink: 0 }} />
+                : <Clock size={18} strokeWidth={1.5} style={{ color: "var(--gd)", flexShrink: 0 }} />}
+              {operator?.verified
+                ? <span className="biz-badge ok"><Check size={12} strokeWidth={2} /> Verificado</span>
+                : <span className="biz-badge pending"><Clock size={12} strokeWidth={1.5} /> En revisión</span>}
             </div>
+            <div style={{ fontSize: 13, color: "var(--ch)", lineHeight: 1.5 }}>{operator?.verified
+              ? "Tu negocio está verificado. Tus tours pueden recibir reservas con normalidad."
+              : "Estamos revisando tu cuenta. Tus tours ya pueden publicarse; te avisaremos cuando la verificación esté lista."}</div>
           </div>
         </div>
       </div>}
@@ -4008,6 +3931,10 @@ export default function AppDemo() {
   // /api/operators/me/tours (ver efecto más abajo). Arranca vacío.
   const [opTours, setOpTours] = useState([]);
 
+  // M3 Sub-paso B: reservas reales del operador, desde /api/operators/me/bookings
+  // (filtrado por operatorId del token). Reemplaza el mock OP_BK. Arranca vacío.
+  const [opBookings, setOpBookings] = useState([]);
+
   // Carga (y recarga) el catálogo público. Reusable: montaje inicial y refetch
   // tras pausar/reanudar un tour (M2.3), para que el catálogo refleje el filtro
   // active del backend sin recargar la página.
@@ -4091,6 +4018,50 @@ export default function AppDemo() {
       }
     };
     hydrateOpTours();
+    return () => { cancel = true; };
+  }, [isOperator, loading]);
+
+  // M3 Sub-paso B: hidrata las reservas del operador (GET /api/operators/me/bookings,
+  // filtrado por operatorId del token). Mismo patrón que opTours: espera a que
+  // useAuth resuelva, no operador → vacío, !r.ok → loguea y deja []. Adapta la
+  // forma del API a lo que renderiza la tab (amount = totalSoles/100 en soles).
+  useEffect(() => {
+    if (loading) return;
+    let cancel = false;
+    const monthsShort = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+    const fmtBookingDate = (iso) => {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return "";
+      return `${String(d.getDate()).padStart(2, "0")} ${monthsShort[d.getMonth()]} ${d.getFullYear()}`;
+    };
+    const hydrateOpBookings = async () => {
+      if (!isOperator) {
+        if (!cancel) setOpBookings([]);
+        return;
+      }
+      try {
+        const r = await authFetch("/api/operators/me/bookings");
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        if (cancel) return;
+        // Adaptador API → shape de la tab. El API da CÉNTIMOS: amount en soles.
+        // note y pay NO existen en el modelo real → no se mapean.
+        setOpBookings((data.bookings || []).map((b) => ({
+          id: b.bookingCode,
+          customer: b.userName,
+          phone: b.userPhone || null,
+          date: fmtBookingDate(b.scheduledAt),
+          guests: b.guests,
+          amount: (b.totalSoles || 0) / 100,
+          tour: b.tour?.title || "",
+          status: b.status,
+        })));
+      } catch (err) {
+        console.error("Error cargando reservas del operador:", err);
+        if (!cancel) setOpBookings([]);
+      }
+    };
+    hydrateOpBookings();
     return () => { cancel = true; };
   }, [isOperator, loading]);
 
@@ -4507,7 +4478,7 @@ export default function AppDemo() {
         {effectiveView === "trips" && <TripsView go={go} onSelectTrip={setCurrentTrip} trips={trips} />}
         {effectiveView === "trip-detail" && <TripDetailView trip={currentTrip} go={go} onReview={handleReview} />}
         {effectiveView === "profile" && <ProfileView go={go} />}
-        {effectiveView === "dashboard" && <DashView go={go} opTours={opTours} onEditTour={handleEditTour} onDeleteTour={handleDeleteTour} onToggleActive={handleToggleTourActive} initialTab={dashTab} onTabConsumed={() => setDashTab("bookings")} />}
+        {effectiveView === "dashboard" && <DashView go={go} opTours={opTours} opBookings={opBookings} onEditTour={handleEditTour} onDeleteTour={handleDeleteTour} onToggleActive={handleToggleTourActive} initialTab={dashTab} onTabConsumed={() => setDashTab("bookings")} />}
         {effectiveView === "new-tour" && <NewTourView go={go} editingTour={editingTour} onSaveTour={handleSaveTour} onCreateTour={handleCreateTour} onCancel={handleCancelTour} />}
         {showFooter && <Footer go={go} />}
         {showNav && <BNav active={nav} go={navGo} />}
