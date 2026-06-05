@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, CreditCard, Banknote, Smartphone, MessageCircle, Camera, MountainSnow, Hand, CircleDollarSign, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff, Info, Trash2 } from "lucide-react";
+import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, CreditCard, Banknote, Smartphone, MessageCircle, Camera, MountainSnow, Hand, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff, Info, Trash2 } from "lucide-react";
 import { useAuth } from "./contexts/AuthContext.jsx";
 import { authFetch } from "./lib/authFetch.js";
 import { supabase } from "./lib/supabase.js";
@@ -661,13 +661,8 @@ const USER = { name:"Alejandra Quispe", phone:"+51 987 654 321", email:"ale.quis
 
 // OP_BK (mock de reservas del operador) eliminado en M3 Sub-paso B: la tab
 // "Reservas" ahora hidrata datos reales desde GET /api/operators/me/bookings.
-
-const EARN = [
-  { w:"Sem 1", g:4200, f:630, n:3570 },
-  { w:"Sem 2", g:5800, f:870, n:4930 },
-  { w:"Sem 3", g:3900, f:585, n:3315 },
-  { w:"Sem 4", g:7200, f:1080, n:6120 },
-];
+// EARN (mock de ingresos semanales) eliminado al ocultar la tab "Ingresos":
+// sin gateway de pago en la etapa piloto no hay ingresos reales que mostrar.
 
 // Returns a style object for background images that works for both CSS gradients and uploaded photos.
 const imgBg = (image) => {
@@ -3056,8 +3051,6 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
   const bookings = opBookings;
   const initials = (name) => (name || "?").trim().split(/\s+/).map((n) => n[0]).slice(0, 2).join("").toUpperCase();
   const [selectedBooking, setSelectedBooking] = useState(null);
-  const totR = EARN.reduce((s, w) => s + w.n, 0);
-  const maxE = Math.max(...EARN.map((w) => w.g));
 
   const [biz, setBiz] = useState({
     ruc: "20612345678", phone: "943 567 890", email: "contacto@andestrekperu.com",
@@ -3102,14 +3095,16 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
         <div className="dsh-gr">Panel de operador <Hand size={18} strokeWidth={1.5} style={{display:"inline",verticalAlign:"middle"}} /></div>
         <div className="dsh-nm">Andes Trek Perú</div>
         <div className="dsh-sts">
-          <div className="dsh-s"><div className="dsh-s-v">S/{(totR / 1000).toFixed(1)}k</div><div className="dsh-s-l">Neto mes</div></div>
+          <div className="dsh-s"><div className="dsh-s-v">{opTours.filter((t) => t.active).length}</div><div className="dsh-s-l">Tours activos</div></div>
           <div className="dsh-s"><div className="dsh-s-v">{bookings.length}</div><div className="dsh-s-l">Reservas</div></div>
           <div className="dsh-s"><div className="dsh-s-v"><Star size={13} strokeWidth={1.5} fill="currentColor" style={{display:"inline",verticalAlign:"middle"}} /> 4.8</div><div className="dsh-s-l">Rating</div></div>
         </div>
       </div>
 
       <div className="dsh-tabs fd1">
-        {[{ id: "bookings", l: "Reservas" }, { id: "earnings", l: "Ingresos" }, { id: "business", l: "Mi Negocio" }, { id: "listings", l: "Mis Tours" }].map((t) => (
+        {/* Tab "Ingresos" oculta en la etapa piloto: sin gateway de pago no hay
+            ingresos reales que mostrar (los datos eran mock). Reactivar cuando se cobre. */}
+        {[{ id: "bookings", l: "Reservas" }, { id: "business", l: "Mi Negocio" }, { id: "listings", l: "Mis Tours" }].map((t) => (
           <button key={t.id} className={`dsh-tab ${tab === t.id ? "on" : ""}`} onClick={() => { setTab(t.id); setSelectedBooking(null); }}>{t.l}</button>
         ))}
       </div>
@@ -3169,43 +3164,7 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
       })()}
 
 
-      {/* ── INGRESOS ── */}
-      {tab === "earnings" && <div className="fu">
-        <div className="earn-tot">
-          <div>
-            <div style={{ fontSize: 13, opacity: .8 }}>Ingreso neto</div>
-            <div style={{ fontSize: 28, fontWeight: 800 }}>S/ {totR.toLocaleString()}</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 12, opacity: .6 }}>Abril 2026</div>
-            <div style={{ fontSize: 13, color: "rgba(255,255,255,.8)", marginTop: 4 }}>↑ 24%</div>
-          </div>
-        </div>
-
-        {/* Próximo payout automático quincenal — Reglas v1.2 §5.1 */}
-        <div style={{ margin: "0 0 16px 0", padding: 16, background: "var(--cr)", borderRadius: 16, border: "1px solid var(--lg)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-            <CircleDollarSign size={14} strokeWidth={1.5} style={{ color: "var(--f)" }} />
-            <div style={{ fontSize: 12, color: "var(--gy)", fontWeight: 600 }}>Próximo payout automático</div>
-          </div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: "var(--f)", marginBottom: 4 }}>
-            S/ {totR.toLocaleString()}
-          </div>
-          <div style={{ fontSize: 13, color: "var(--ch)", fontWeight: 600, marginBottom: 10 }}>
-            Lunes 19 de mayo · a tu CCI 0021 ····2847
-          </div>
-          <div style={{ fontSize: 11, color: "var(--gy)", lineHeight: 1.5, paddingTop: 10, borderTop: "1px solid var(--sd)" }}>
-            Pagamos <strong>los días 4 y 19</strong> de cada mes a tu cuenta bancaria. Sin acción requerida — Finde absorbe el costo de transferencia.
-          </div>
-        </div>
-
-        <div className="earn-chart">
-          <div style={{ fontSize: 14, fontWeight: 700 }}>Ingresos semanales</div>
-          <div className="earn-bars">{EARN.map((w, i) => (<div key={i} className="earn-bg"><div className="earn-bc"><div className="earn-b" style={{ height: `${(w.n / maxE) * 100}%`, background: "var(--f)" }} /><div className="earn-b" style={{ height: `${(w.f / maxE) * 100}%`, background: "var(--tr)", opacity: .6 }} /></div><div className="earn-bl">{w.w}</div></div>))}</div>
-          <div className="earn-leg"><div className="earn-li"><div className="earn-dt" style={{ background: "var(--f)" }} />Neto</div></div>
-        </div>
-        <div className="earn-rows">{EARN.map((w, i) => (<div key={i} className="earn-row"><div><div style={{ fontWeight: 600, fontSize: 13 }}>{w.w}</div><div style={{ fontSize: 13, color: "var(--gy)" }}>Bruto: S/ {w.g.toLocaleString()}</div></div><div style={{ textAlign: "right" }}><div style={{ fontSize: 15, fontWeight: 700, color: "var(--f)" }}>S/ {w.n.toLocaleString()}</div><div style={{ fontSize: 13, color: "var(--gy)" }}>-S/ {w.f.toLocaleString()}</div></div></div>))}</div>
-      </div>}
+      {/* ── INGRESOS ── (oculta en la etapa piloto; ver tabs arriba) */}
 
       {/* ── MI NEGOCIO ── */}
       {tab === "business" && <div className="fu">
