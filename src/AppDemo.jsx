@@ -659,14 +659,8 @@ function generateMockReviews(tour) {
 
 const USER = { name:"Alejandra Quispe", phone:"+51 987 654 321", email:"ale.quispe@gmail.com", dni:"72345678", city:"Lima", joinDate:"Enero 2026", trips:4, favorites:6, reviews:2, avatar:"AQ" };
 
-const OP_BK = [
-  { id:"F-001", customer:"María García", phone:"+51 987 123 456", date:"15 Abr", guests:3, amount:567, status:"confirmed", tour:"Trekking al Nevado Pastoruri", pay:"Yape", note:"" },
-  { id:"F-002", customer:"Carlos Mendoza", phone:"+51 991 234 567", date:"15 Abr", guests:2, amount:378, status:"pending", tour:"Trekking al Nevado Pastoruri", pay:"Plin", note:"Somos pareja, ¿hay descuento?" },
-  { id:"F-003", customer:"Ana Quispe", phone:"+51 976 345 678", date:"16 Abr", guests:4, amount:756, status:"confirmed", tour:"Trekking al Nevado Pastoruri", pay:"Yape", note:"Un niño de 10 años en el grupo" },
-  { id:"F-004", customer:"José Rivera", phone:"+51 982 456 789", date:"17 Abr", guests:1, amount:189, status:"completed", tour:"Trekking al Nevado Pastoruri", pay:"Tarjeta", note:"" },
-  { id:"F-005", customer:"Lucia Fernández", phone:"+51 965 567 890", date:"18 Abr", guests:5, amount:945, status:"cancelled", tour:"Trekking al Nevado Pastoruri", pay:"Yape", note:"Canceló por clima" },
-  { id:"F-006", customer:"Pedro Huamán", phone:"+51 944 678 901", date:"19 Abr", guests:2, amount:378, status:"confirmed", tour:"Trekking al Nevado Pastoruri", pay:"PagoEfectivo", note:"" },
-];
+// OP_BK (mock de reservas del operador) eliminado en M3 Sub-paso B: la tab
+// "Reservas" ahora hidrata datos reales desde GET /api/operators/me/bookings.
 
 const EARN = [
   { w:"Sem 1", g:4200, f:630, n:3570 },
@@ -3054,15 +3048,16 @@ function ProfileView({ go }) {
   );
 }
 
-function DashView({ go, opTours, onEditTour, onDeleteTour, onToggleActive, initialTab = "bookings", onTabConsumed }) {
+function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleActive, initialTab = "bookings", onTabConsumed }) {
   const [tab, setTab] = useState(initialTab);
   useEffect(() => { if (onTabConsumed) onTabConsumed(); }, []);
-  const [bookings, setBookings] = useState(OP_BK);
+  // Reservas reales del operador (GET /api/operators/me/bookings), hidratadas en
+  // AppDemo y pasadas como prop. Etapa piloto: solo lectura (sin cambio de estado).
+  const bookings = opBookings;
+  const initials = (name) => (name || "?").trim().split(/\s+/).map((n) => n[0]).slice(0, 2).join("").toUpperCase();
   const [selectedBooking, setSelectedBooking] = useState(null);
   const totR = EARN.reduce((s, w) => s + w.n, 0);
   const maxE = Math.max(...EARN.map((w) => w.g));
-  const stC = { confirmed: "var(--f)", pending: "#D4A843", completed: "var(--sg)", cancelled: "var(--tr)" };
-  const stL = { confirmed: "Confirmado", pending: "Pendiente", completed: "Completado", cancelled: "Cancelado" };
 
   const [biz, setBiz] = useState({
     ruc: "20612345678", phone: "943 567 890", email: "contacto@andestrekperu.com",
@@ -3073,7 +3068,6 @@ function DashView({ go, opTours, onEditTour, onDeleteTour, onToggleActive, initi
   const [bizSaved, setBizSaved] = useState(false);
   const [paySaved, setPaySaved] = useState(false);
   const updateBiz = (k, v) => { setBiz(prev => ({ ...prev, [k]: v })); setBizSaved(false); };
-  const updateStatus = (id, newStatus) => setBookings(prev => prev.map(b => b.id === id ? { ...b, status: newStatus } : b));
   // M2.3: el toggle persiste vía PATCH (delegado a onToggleActive en AppDemo,
   // que hace la actualización optimista + revert). Aquí solo surfaceamos el error.
   const [toggleErr, setToggleErr] = useState("");
@@ -3122,29 +3116,18 @@ function DashView({ go, opTours, onEditTour, onDeleteTour, onToggleActive, initi
 
       {/* ── RESERVAS ── */}
       {tab === "bookings" && !selectedBooking && <div className="fu">
-        {bookings.map((b) => (
-          <div key={b.id} className="dsh-bk" style={{ flexDirection: "column", alignItems: "stretch", gap: 0, cursor: "pointer" }}
+        {bookings.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "48px 24px", color: "var(--gy)" }}>
+            <Smartphone size={28} strokeWidth={1.5} style={{ color: "var(--lg)", marginBottom: 12 }} />
+            <div style={{ fontWeight: 700, fontSize: 15, color: "var(--ch)", marginBottom: 6 }}>Aún no tienes reservas</div>
+            <div style={{ fontSize: 13, lineHeight: 1.5 }}>Cuando un viajero reserve uno de tus tours, aparecerá aquí y podrás coordinar con él por WhatsApp.</div>
+          </div>
+        ) : bookings.map((b) => (
+          <div key={b.id} className="dsh-bk" style={{ alignItems: "center", gap: 10, cursor: "pointer" }}
             onClick={() => setSelectedBooking(b)}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div className="dsh-bk-av" style={{ background: stC[b.status] }}>{b.customer.split(" ").map((n) => n[0]).join("")}</div>
-              <div className="dsh-bk-i"><div className="dsh-bk-n">{b.customer}</div><div className="dsh-bk-d">{b.date} · {b.guests} pers</div></div>
-              <div className="dsh-bk-r"><div className="dsh-bk-a">S/ {b.amount}</div><div className={`dsh-bk-s st-${b.status}`}>{stL[b.status]}</div></div>
-            </div>
-            {b.status === "pending" && (
-              <div style={{ display: "flex", gap: 8, marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--cr)" }}
-                onClick={(e) => e.stopPropagation()}>
-                <button onClick={() => updateStatus(b.id, "confirmed")} style={{
-                  flex: 1, padding: "8px 0", borderRadius: 10, border: "none",
-                  background: "var(--f)", color: "white", fontWeight: 700,
-                  fontSize: 12, cursor: "pointer", fontFamily: "inherit"
-                }}><Check size={12} strokeWidth={2} /> Confirmar</button>
-                <button onClick={() => updateStatus(b.id, "cancelled")} style={{
-                  flex: 1, padding: "8px 0", borderRadius: 10, border: "2px solid var(--lg)",
-                  background: "transparent", color: "var(--gy)", fontWeight: 700,
-                  fontSize: 12, cursor: "pointer", fontFamily: "inherit"
-                }}><X size={12} strokeWidth={2} /> Rechazar</button>
-              </div>
-            )}
+            <div className="dsh-bk-av" style={{ background: "var(--m)" }}>{initials(b.customer)}</div>
+            <div className="dsh-bk-i"><div className="dsh-bk-n">{b.customer}</div><div className="dsh-bk-d">{b.tour} · {b.date} · {b.guests} pers</div></div>
+            <div className="dsh-bk-r"><div className="dsh-bk-a">S/ {b.amount.toLocaleString("es-PE")}</div><div className="dsh-bk-s" style={{ color: "var(--gy)" }}>Solicitud recibida</div></div>
           </div>
         ))}
       </div>}
@@ -3157,42 +3140,28 @@ function DashView({ go, opTours, onEditTour, onDeleteTour, onToggleActive, initi
             <button onClick={() => setSelectedBooking(null)}
               style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", padding: "12px 0", display: "block", color: "var(--ch)" }}><ArrowLeft size={20} strokeWidth={1.5} /></button>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, marginBottom: 24 }}>
-              <div className="dsh-bk-av" style={{ width: 64, height: 64, fontSize: 22, background: stC[b.status] }}>
-                {b.customer.split(" ").map(n => n[0]).join("")}
+              <div className="dsh-bk-av" style={{ width: 64, height: 64, fontSize: 22, background: "var(--m)" }}>
+                {initials(b.customer)}
               </div>
               <div style={{ fontWeight: 800, fontSize: 18 }}>{b.customer}</div>
-              <div className={`dsh-bk-s st-${b.status}`}>{stL[b.status]}</div>
+              <div className="dsh-bk-s" style={{ color: "var(--gy)" }}>Solicitud recibida</div>
             </div>
             <div className="sum">
-              {[["Código", b.id], ["Tour", b.tour], ["Fecha", b.date], ["Personas", `${b.guests} personas`], ["Pago", b.pay]].map(([l, v]) => (
+              {[["Código", b.id], ["Tour", b.tour], ["Fecha", b.date], ["Personas", `${b.guests} personas`]].map(([l, v]) => (
                 <div key={l} className="sum-r"><span style={{ color: "var(--gy)" }}>{l}</span><span style={{ fontWeight: 600 }}>{v}</span></div>
               ))}
-              <div className="sum-t"><span>Total</span><span>S/ {b.amount}</span></div>
+              <div className="sum-t"><span>Total</span><span>S/ {b.amount.toLocaleString("es-PE")}</span></div>
             </div>
-            {b.note && (
-              <div style={{ padding: 14, background: "rgba(212,168,67,.1)", borderRadius: 12, marginBottom: 16, borderLeft: "3px solid var(--gd)" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gd)", marginBottom: 4 }}><MessageCircle size={12} strokeWidth={1.5} style={{display:"inline",verticalAlign:"middle",marginRight:4}} />Nota del cliente</div>
-                <div style={{ fontSize: 13, color: "var(--ch)", lineHeight: 1.5 }}>{b.note}</div>
-              </div>
-            )}
-            <a href={`https://wa.me/${b.phone.replace(/\s/g,"")}`}
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                padding: "13px 0", borderRadius: 14, background: "#25D366", color: "white",
-                fontWeight: 700, fontSize: 14, textDecoration: "none", marginBottom: 10 }}>
-              <Smartphone size={16} strokeWidth={1.5} /> Contactar por WhatsApp
-            </a>
-            {b.status === "pending" && (
-              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                <button onClick={() => { updateStatus(b.id, "confirmed"); setSelectedBooking(null); }} style={{
-                  flex: 1, padding: "13px 0", borderRadius: 14, border: "none",
-                  background: "var(--f)", color: "white", fontWeight: 700,
-                  fontSize: 14, cursor: "pointer", fontFamily: "inherit"
-                }}><Check size={14} strokeWidth={2} /> Confirmar</button>
-                <button onClick={() => { updateStatus(b.id, "cancelled"); setSelectedBooking(null); }} style={{
-                  flex: 1, padding: "13px 0", borderRadius: 14, border: "2px solid var(--lg)",
-                  background: "transparent", color: "var(--gy)", fontWeight: 700,
-                  fontSize: 14, cursor: "pointer", fontFamily: "inherit"
-                }}><X size={14} strokeWidth={2} /> Rechazar</button>
+            {b.phone ? (
+              <a href={`https://wa.me/${b.phone.replace(/\D/g,"")}`}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  padding: "13px 0", borderRadius: 14, background: "#25D366", color: "white",
+                  fontWeight: 700, fontSize: 14, textDecoration: "none", marginBottom: 10 }}>
+                <Smartphone size={16} strokeWidth={1.5} /> Contactar por WhatsApp
+              </a>
+            ) : (
+              <div style={{ textAlign: "center", padding: "12px 0", color: "var(--gy)", fontSize: 13 }}>
+                El viajero no dejó un teléfono de contacto.
               </div>
             )}
           </div>
@@ -4008,6 +3977,10 @@ export default function AppDemo() {
   // /api/operators/me/tours (ver efecto más abajo). Arranca vacío.
   const [opTours, setOpTours] = useState([]);
 
+  // M3 Sub-paso B: reservas reales del operador, desde /api/operators/me/bookings
+  // (filtrado por operatorId del token). Reemplaza el mock OP_BK. Arranca vacío.
+  const [opBookings, setOpBookings] = useState([]);
+
   // Carga (y recarga) el catálogo público. Reusable: montaje inicial y refetch
   // tras pausar/reanudar un tour (M2.3), para que el catálogo refleje el filtro
   // active del backend sin recargar la página.
@@ -4091,6 +4064,50 @@ export default function AppDemo() {
       }
     };
     hydrateOpTours();
+    return () => { cancel = true; };
+  }, [isOperator, loading]);
+
+  // M3 Sub-paso B: hidrata las reservas del operador (GET /api/operators/me/bookings,
+  // filtrado por operatorId del token). Mismo patrón que opTours: espera a que
+  // useAuth resuelva, no operador → vacío, !r.ok → loguea y deja []. Adapta la
+  // forma del API a lo que renderiza la tab (amount = totalSoles/100 en soles).
+  useEffect(() => {
+    if (loading) return;
+    let cancel = false;
+    const monthsShort = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+    const fmtBookingDate = (iso) => {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return "";
+      return `${String(d.getDate()).padStart(2, "0")} ${monthsShort[d.getMonth()]} ${d.getFullYear()}`;
+    };
+    const hydrateOpBookings = async () => {
+      if (!isOperator) {
+        if (!cancel) setOpBookings([]);
+        return;
+      }
+      try {
+        const r = await authFetch("/api/operators/me/bookings");
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        if (cancel) return;
+        // Adaptador API → shape de la tab. El API da CÉNTIMOS: amount en soles.
+        // note y pay NO existen en el modelo real → no se mapean.
+        setOpBookings((data.bookings || []).map((b) => ({
+          id: b.bookingCode,
+          customer: b.userName,
+          phone: b.userPhone || null,
+          date: fmtBookingDate(b.scheduledAt),
+          guests: b.guests,
+          amount: (b.totalSoles || 0) / 100,
+          tour: b.tour?.title || "",
+          status: b.status,
+        })));
+      } catch (err) {
+        console.error("Error cargando reservas del operador:", err);
+        if (!cancel) setOpBookings([]);
+      }
+    };
+    hydrateOpBookings();
     return () => { cancel = true; };
   }, [isOperator, loading]);
 
@@ -4507,7 +4524,7 @@ export default function AppDemo() {
         {effectiveView === "trips" && <TripsView go={go} onSelectTrip={setCurrentTrip} trips={trips} />}
         {effectiveView === "trip-detail" && <TripDetailView trip={currentTrip} go={go} onReview={handleReview} />}
         {effectiveView === "profile" && <ProfileView go={go} />}
-        {effectiveView === "dashboard" && <DashView go={go} opTours={opTours} onEditTour={handleEditTour} onDeleteTour={handleDeleteTour} onToggleActive={handleToggleTourActive} initialTab={dashTab} onTabConsumed={() => setDashTab("bookings")} />}
+        {effectiveView === "dashboard" && <DashView go={go} opTours={opTours} opBookings={opBookings} onEditTour={handleEditTour} onDeleteTour={handleDeleteTour} onToggleActive={handleToggleTourActive} initialTab={dashTab} onTabConsumed={() => setDashTab("bookings")} />}
         {effectiveView === "new-tour" && <NewTourView go={go} editingTour={editingTour} onSaveTour={handleSaveTour} onCreateTour={handleCreateTour} onCancel={handleCancelTour} />}
         {showFooter && <Footer go={go} />}
         {showNav && <BNav active={nav} go={navGo} />}
