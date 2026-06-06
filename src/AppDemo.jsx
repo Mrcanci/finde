@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, CreditCard, Banknote, Smartphone, MessageCircle, Camera, MountainSnow, Hand, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff, Info, Trash2 } from "lucide-react";
+import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, Smartphone, MessageCircle, Camera, MountainSnow, Hand, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff, Info, Trash2 } from "lucide-react";
 import { useAuth } from "./contexts/AuthContext.jsx";
 import { authFetch } from "./lib/authFetch.js";
 import { supabase } from "./lib/supabase.js";
@@ -38,6 +38,12 @@ const CANCEL_POLICIES = {
   },
 };
 const getCancelPolicy = (id) => CANCEL_POLICIES[id] || CANCEL_POLICIES.flexible;
+
+// Etapa piloto: sin gateway de pago, Finde no gestiona reembolsos, así que NO
+// mostramos política de cancelación en la UI. Flag reversible: poner en true
+// reactiva todos los bloques (detalle, flujo de reserva, voucher, formulario del
+// operador) cuando haya pagos. Los datos/helpers de cancelación se conservan.
+const SHOW_CANCELLATION_POLICY = false;
 
 // ─── Disponibilidad de tours ──────────────────────────
 // Trabajamos con strings YYYY-MM-DD para evitar bugs de zona horaria peruana.
@@ -238,6 +244,9 @@ function mapTourFromApi(t) {
     category: CAT_API_TO_UI[t.category] || t.category,
     operator: t.operator?.name || "Operador Finde",
     verified: !!t.operator?.verified,
+    // Teléfono del operador para el link wa.me de coordinación (M4). null si no
+    // tiene → el botón de WhatsApp no se muestra. NO se renderiza como texto.
+    operatorPhone: t.operator?.phone ?? null,
     capacity: t.capacity,
     altitude: "",
     difficulty: t.difficulty || "Moderada",
@@ -1742,7 +1751,7 @@ function WelcomeView({ go }) {
       <div className="welcome-sub">Tu cuenta está lista. Esto es lo que puedes hacer en Finde:</div>
       <div className="welcome-features">
         <div className="welcome-feat"><div className="welcome-feat-ic" style={{ background: "rgba(45,90,61,.1)" }}><Search size={20} strokeWidth={1.5} /></div><div className="welcome-feat-txt">Buscar experiencias con inteligencia artificial</div></div>
-        <div className="welcome-feat"><div className="welcome-feat-ic" style={{ background: "rgba(107,42,160,.1)" }}><Heart size={20} strokeWidth={1.5} /></div><div className="welcome-feat-txt">Pagar con Yape, Plin o tarjeta</div></div>
+        <div className="welcome-feat"><div className="welcome-feat-ic" style={{ background: "rgba(107,42,160,.1)" }}><Heart size={20} strokeWidth={1.5} /></div><div className="welcome-feat-txt">Coordina y paga con la agencia por WhatsApp</div></div>
         <div className="welcome-feat"><div className="welcome-feat-ic" style={{ background: "rgba(37,211,102,.1)" }}><MessageCircle size={20} strokeWidth={1.5} /></div><div className="welcome-feat-txt">Recibir confirmaciones por WhatsApp</div></div>
         <div className="welcome-feat"><div className="welcome-feat-ic" style={{ background: "rgba(212,168,67,.1)" }}><Languages size={20} strokeWidth={1.5} /></div><div className="welcome-feat-txt">Tours disponibles en quechua</div></div>
       </div>
@@ -2268,11 +2277,9 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
                 ? <><ShieldCheck size={14} strokeWidth={1.5} /> Finde Verificado</>
                 : "Operador Finde Basic"}
             </div>
-            {tour.verified && (
-              <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 4, lineHeight: 1.4 }}>
-                RUC: 20612345678 · MINCETUR: VER-2024-00891
-              </div>
-            )}
+            {/* RUC/MINCETUR hardcodeados (falsos) eliminados: misma credencial
+                inventada que se mostraba en el voucher. La confianza real es el
+                badge "Finde Verificado" (solo si operator.verified). */}
           </div>
         </div>
         <div className="det-st">{isQu ? "Imapas chaypi kan" : "Incluye"}</div>
@@ -2280,7 +2287,7 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
           {(Array.isArray(tour.included) ? tour.included : []).map((x, i) => <div key={i} className="det-inc"><div className="det-ic iy"><Check size={14} strokeWidth={2} /></div>{x}</div>)}
           {(Array.isArray(tour.excluded) ? tour.excluded : []).map((x, i) => <div key={i} className="det-inc"><div className="det-ic in"><X size={14} strokeWidth={2} /></div>{x}</div>)}
         </div>
-        {(() => {
+        {SHOW_CANCELLATION_POLICY && (() => {
           const pol = getCancelPolicy(tour.cancellation);
           return (
             <div style={{ padding: 14, background: "var(--cr)", borderRadius: 12, marginBottom: 20, borderLeft: "3px solid var(--f)" }}>
@@ -2349,10 +2356,25 @@ function tripDateISO(trip) {
   return `${year}-${String(mon).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
 }
 
-// Construye link wa.me para coordinar con la agencia. Hardcoded por ahora;
-// Fase 2 traer el número real del operador.
+// Normaliza un teléfono a formato internacional para wa.me (solo dígitos, sin
+// '+'). Asume Perú: un móvil de 9 dígitos se prefija con 51; un número que ya
+// viene en internacional (empieza con 51 y largo 11+) se usa tal cual. Devuelve
+// null si no hay un teléfono utilizable (→ el botón de WhatsApp no se muestra).
+function toIntlPhone(raw) {
+  if (!raw) return null;
+  const digits = String(raw).replace(/\D/g, "");
+  if (digits.startsWith("51") && digits.length >= 11) return digits;
+  if (digits.length === 9) return `51${digits}`;
+  return digits.length >= 11 ? digits : null;
+}
+
+// Construye el link wa.me para coordinar con la agencia (M4): teléfono REAL del
+// operador (threaded en mapTourFromApi como tour.operatorPhone), normalizado a
+// internacional. Devuelve null si el operador no tiene teléfono utilizable, para
+// que el caller oculte el botón en vez de generar un link roto.
 function buildWhatsAppLink(trip) {
-  const phone = "51987654321";
+  const phone = toIntlPhone(trip?.tour?.operatorPhone);
+  if (!phone) return null;
   const tourTitle = trip?.tour?.title || "mi tour";
   const dateLabel = (() => {
     const iso = tripDateISO(trip);
@@ -2360,11 +2382,13 @@ function buildWhatsAppLink(trip) {
   })();
   const code = trip?.code || "";
   const customer = trip?.customerName || USER.name;
+  const guests = Number(trip?.guests) || 0;
+  const guestsLabel = guests > 0 ? ` para ${guests} ${guests === 1 ? "persona" : "personas"}` : "";
   const lines = [
-    `Hola, soy ${customer}.`,
-    `Reservé ${tourTitle} para el ${dateLabel}.`,
-    code ? `Mi código es ${code}.` : "",
-    "Tengo una consulta.",
+    `Hola, soy ${customer}. Hice una reserva por finde.pe.`,
+    `Reservé ${tourTitle}${guestsLabel} para el ${dateLabel}.`,
+    code ? `Mi código de reserva es ${code}.` : "",
+    "Quisiera coordinar los detalles y el pago.",
   ].filter(Boolean);
   return `https://wa.me/${phone}?text=${encodeURIComponent(lines.join(" "))}`;
 }
@@ -2395,10 +2419,7 @@ function VoucherDetail({ trip }) {
         "Protector solar y agua",
         "Efectivo extra para gastos personales",
       ];
-  const pol = getCancelPolicy(tour.cancellation);
   const totalSoles = Number(trip.total) || 0;
-  const payKey = trip.paymentMethod || "yape";
-  const payLabel = PAYMENT_LABELS[payKey] || payKey;
   const code = trip.code || "—";
   const meetingPoint = (tour.meetingPoint || "").trim();
   const hasMeetingPoint = meetingPoint.length > 0;
@@ -2454,9 +2475,11 @@ function VoucherDetail({ trip }) {
             <span className="voucher-verified"><ShieldCheck size={11} strokeWidth={1.5} /> Finde Verificado</span>
           )}
         </div>
-        {tour.verified && (
-          <div className="voucher-agency-d">RUC: 20612345678 · MINCETUR: VER-2024-00891</div>
-        )}
+        {/* RUC/MINCETUR hardcodeados (falsos) eliminados: eran credenciales de
+            confianza inventadas mostradas al viajero. El RUC real (operator.ruc)
+            no llega hoy al voucher (no está en LIST_SELECT del catálogo); se
+            mostrará cuando se decida cómo exponerlo. La verificación real es el
+            badge "Finde Verificado" de arriba (solo si operator.verified). */}
       </div>
 
       {/* 4 — Qué incluye */}
@@ -2475,9 +2498,11 @@ function VoucherDetail({ trip }) {
         </div>
       )}
 
-      {/* 5 — Qué llevar */}
+      {/* 5 — Recomendaciones generales. NO es dato específico del tour
+          (no existe tour.whatToBring); es una lista genérica re-rotulada para
+          no presentarse como del tour. */}
       <div className="voucher-sec">
-        <div className="voucher-sec-l">Qué llevar</div>
+        <div className="voucher-sec-l">Recomendaciones generales</div>
         <div className="voucher-list">
           {whatToBring.map((x, i) => (
             <div key={i} className="voucher-item">
@@ -2488,30 +2513,34 @@ function VoucherDetail({ trip }) {
         </div>
       </div>
 
-      {/* 6 — Política de cancelación */}
-      <div className="voucher-sec">
-        <div className="voucher-sec-l">Política de cancelación</div>
-        <div className="voucher-cancel">
-          <div className="voucher-cancel-t"><ShieldCheck size={13} strokeWidth={1.5} /> {pol.label}</div>
-          <div className="voucher-cancel-d">{pol.short}</div>
-        </div>
-      </div>
+      {/* 6 — Política de cancelación (oculta en el piloto vía flag) */}
+      {SHOW_CANCELLATION_POLICY && (() => {
+        const pol = getCancelPolicy(tour.cancellation);
+        return (
+          <div className="voucher-sec">
+            <div className="voucher-sec-l">Política de cancelación</div>
+            <div className="voucher-cancel">
+              <div className="voucher-cancel-t"><ShieldCheck size={13} strokeWidth={1.5} /> {pol.label}</div>
+              <div className="voucher-cancel-d">{pol.short}</div>
+            </div>
+          </div>
+        );
+      })()}
 
-      {/* 7 — Resumen de pago */}
+      {/* 7 — Resumen. Etapa piloto: sin gateway de pago. El pago se coordina con
+          la agencia por WhatsApp, así que NO se muestra método ni "total pagado"
+          (sería falso); solo código y total de la reserva, más la nota. */}
       <div className="voucher-sec">
-        <div className="voucher-sec-l">Resumen de pago</div>
-        <div className="voucher-pay-row">
-          <span className="l">Método</span>
-          <span style={{ fontWeight: 600 }}>{payLabel}</span>
-        </div>
+        <div className="voucher-sec-l">Resumen</div>
         <div className="voucher-pay-row">
           <span className="l">Código de reserva</span>
           <span className="voucher-code">{code}</span>
         </div>
         <div className="voucher-pay-row total">
-          <span className="l">Total pagado</span>
+          <span className="l">Total</span>
           <span>S/ {totalSoles.toFixed(2)}</span>
         </div>
+        <div className="voucher-note">El pago se coordina directamente con la agencia por WhatsApp.</div>
       </div>
     </div>
   );
@@ -2533,7 +2562,6 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
   // y usa el del token; lo mostramos sólo para que el usuario vea su identidad.
   const [email, setEmail] = useState(user?.email || "");
   const [docId, setDocId] = useState("");
-  const [pay, setPay] = useState("yape");
   const [touched, setTouched] = useState(false);
   const [bookingCode] = useState(() => Math.random().toString(36).substring(2, 8).toUpperCase());
   const [submitting, setSubmitting] = useState(false);
@@ -2567,13 +2595,12 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
           guests,
           total: tour.price * guests,
           code: localCode,
-          paymentMethod: pay,
           customerName: name,
           customerPhone: phone.replace(/\D/g, ""),
           customerEmail: email,
         });
       }
-      setStep(4);
+      setStep(3);
       setSubmitting(false);
       return;
     }
@@ -2612,13 +2639,12 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
           guests,
           total: apiTotal,
           code: apiCode,
-          paymentMethod: pay,
           customerName: name,
           customerPhone: phone.replace(/\D/g, ""),
           customerEmail: email,
         });
       }
-      setStep(4);
+      setStep(3);
     } catch (e) {
       setSubmitError(e.message || "Error creando la reserva");
     } finally {
@@ -2628,26 +2654,24 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
 
   if (!tour) return null;
   const total = tour.price * guests;
-  // Validación de formato (no sólo trim) para evitar que el botón pase a step 3
-  // con datos que el backend rechazará (api/bookings.ts: email format, phone /^\d{8,15}$/).
+  // Validación de formato (no sólo trim) para evitar confirmar con datos que el
+  // backend rechazará (api/bookings.ts: email format, phone /^\d{8,15}$/).
   const nameValid = name.trim().length >= 3;
   const phoneValid = /^\d{8,15}$/.test(phone.replace(/\s/g, ""));
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const docIdValid = docId.trim().length >= 6;
   const step2Valid = nameValid && phoneValid && emailValid && docIdValid;
-  const payLabels = { yape: "Yape", plin: "Plin", card: "Tarjeta", cash: "PagoEfectivo" };
 
-  if (step === 4) {
+  if (step === 3) {
     // Construimos el trip equivalente al que terminó en TripsView para que el
-    // voucher post-pago muestre exactamente la misma información que verá el
-    // viajero en el detalle de su viaje.
+    // voucher muestre exactamente la misma información que verá el viajero en el
+    // detalle de su viaje.
     const successTrip = {
       tour,
       date,
       guests: serverBooking?.guests ?? guests,
       total: serverBooking?.totalSoles != null ? serverBooking.totalSoles / 100 : total,
       code: serverBooking?.bookingCode || `FND-${bookingCode}`,
-      paymentMethod: pay,
       customerName: name,
     };
     return (
@@ -2657,13 +2681,36 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
           <div className="suc-t">¡Reserva confirmada!</div>
           <div className="suc-sub">Tu voucher está listo. Toda la información que necesitas está aquí abajo.</div>
         </div>
+        {/* CTA primario ARRIBA del voucher: coordinar/pagar con la agencia por
+            WhatsApp (sin gateway en el piloto) es la acción principal. El número
+            real va en el href, nunca visible como texto. Fallback honesto si el
+            operador no tiene teléfono → sin link roto. */}
+        {(() => {
+          const wa = buildWhatsAppLink(successTrip);
+          return wa ? (
+            <a
+              href={wa}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mbtn"
+              style={{ background: "#25D366", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, textDecoration: "none", marginBottom: 16 }}
+            >
+              <Smartphone size={18} strokeWidth={2} /> Coordinar con la agencia por WhatsApp
+            </a>
+          ) : (
+            <div className="mbtn" style={{ background: "var(--lg)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "default", pointerEvents: "none", marginBottom: 16 }}>
+              <Smartphone size={18} strokeWidth={2} /> Coordinación por WhatsApp no disponible
+            </div>
+          );
+        })()}
         <VoucherDetail trip={successTrip} />
-        <button className="tdet-act-prim" onClick={() => go("trips")}>
+        <button
+          className="bk-btn"
+          onClick={() => go("trips")}
+          style={{ position: "relative", width: "100%", marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "none", border: "none", color: "var(--f)", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}
+        >
           <Ticket size={16} strokeWidth={1.5} /> Ver en Mis Viajes
         </button>
-        <a className="voucher-wa" href={buildWhatsAppLink(successTrip)} target="_blank" rel="noopener noreferrer">
-          <Smartphone size={14} strokeWidth={1.5} /> ¿Necesitas algo? Coordinar con la agencia por WhatsApp <ArrowRight size={12} strokeWidth={1.5} />
-        </a>
       </div>
     );
   }
@@ -2671,7 +2718,9 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
   return (
     <div className="bkf fu">
       <button className="bk-btn" onClick={() => step === 1 ? go("detail") : setStep(step - 1)} style={{ position: "relative", marginBottom: 16 }} aria-label={step === 1 ? "Volver al tour" : "Paso anterior"} type="button"><ArrowLeft size={20} strokeWidth={1.5} /></button>
-      <div className="bkf-st"><div className={`bkf-s ${step >= 1 ? "on" : ""}`} /><div className={`bkf-s ${step >= 2 ? "on" : ""}`} /><div className={`bkf-s ${step >= 3 ? "on" : ""}`} /><div className="bkf-s" /></div>
+      {/* 3 etapas: Fecha/Viajeros → Datos → Reserva lista (la final es step 3,
+          que se renderiza arriba; aquí solo se ven las etapas 1 y 2). */}
+      <div className="bkf-st"><div className={`bkf-s ${step >= 1 ? "on" : ""}`} /><div className={`bkf-s ${step >= 2 ? "on" : ""}`} /><div className={`bkf-s ${step >= 3 ? "on" : ""}`} /></div>
 
       <div className="bkf-steps">
       {step === 1 && <div className="fu">
@@ -2702,7 +2751,7 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
         </div>
         <div className="fg"><label className="lbl">Personas</label><div className="gctr" role="group" aria-label="Cantidad de personas"><button type="button" className="gbtn" onClick={() => setGuests(Math.max(1, guests - 1))} disabled={guests <= 1} aria-label="Disminuir número de personas">−</button><div className="gcnt" aria-live="polite">{guests}</div><button type="button" className="gbtn" onClick={() => setGuests(Math.min(tour.capacity, guests + 1))} disabled={guests >= tour.capacity} aria-label="Aumentar número de personas">+</button></div></div>
         <div className="sum"><div className="sum-r"><span>S/ {tour.price} × {guests}</span><span>S/ {total.toFixed(2)}</span></div><div className="sum-t"><span>Total</span><span>S/ {total.toFixed(2)}</span></div></div>
-        {(() => {
+        {SHOW_CANCELLATION_POLICY && (() => {
           const pol = getCancelPolicy(tour.cancellation);
           return (
             <div style={{ padding: 12, background: "var(--cr)", borderRadius: 12, marginBottom: 16, borderLeft: "3px solid var(--f)" }}>
@@ -2738,21 +2787,18 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
           <input className={`inp${touched && !docIdValid ? " inp-err" : ""}`} placeholder="DNI, pasaporte o carnet de extranjería" value={docId} onChange={(e) => setDocId(e.target.value)} maxLength={20} inputMode="numeric" />
           {touched && !docIdValid && <div className="field-err">Documento inválido (mínimo 6 caracteres)</div>}
         </div>
-        <button className="mbtn" onClick={() => { if (!step2Valid) { setTouched(true); return; } setStep(3); }}>Continuar al pago</button>
-      </div>}
-
-      {step === 3 && <div className="fu">
-        <div className="bkf-t">Método de pago</div><div className="bkf-sub">Revisa tu reserva y elige cómo pagar</div>
-        <div className="sum" style={{ marginBottom: 16 }}>
+        {/* Resumen + política movidos aquí desde el ex-step de pago: el viajero
+            confirma con contexto completo y crea la reserva directamente. */}
+        <div className="sum" style={{ marginTop: 8, marginBottom: 16 }}>
           <div className="bk-sum-tour">{tour.title}</div>
           <div className="bk-sum-meta"><Calendar size={14} strokeWidth={1.5} /> {formatLongDate(date) || date} · <Users size={14} strokeWidth={1.5} /> {guests} persona{guests > 1 ? "s" : ""}</div>
           <div className="sum-r"><span>S/ {tour.price} × {guests}</span><span>S/ {total.toFixed(2)}</span></div>
           <div className="sum-t"><span>Total</span><span>S/ {total.toFixed(2)}</span></div>
         </div>
-        {(() => {
+        {SHOW_CANCELLATION_POLICY && (() => {
           const pol = getCancelPolicy(tour.cancellation);
           return (
-            <div style={{ padding: 12, background: "var(--cr)", borderRadius: 12, marginBottom: 24, borderLeft: "3px solid var(--f)" }}>
+            <div style={{ padding: 12, background: "var(--cr)", borderRadius: 12, marginBottom: 16, borderLeft: "3px solid var(--f)" }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: "var(--f)", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
                 <ShieldCheck size={14} strokeWidth={1.5} /> Política de cancelación: {pol.label}
               </div>
@@ -2760,19 +2806,12 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
             </div>
           );
         })()}
-        <label className="lbl" style={{ marginBottom: 12 }}>Método de pago</label>
-        <div className="pms">
-          {[{ id: "yape", n: "Yape", c: "var(--yp)", tg: "Popular" }, { id: "plin", n: "Plin", c: "var(--pl)" }, { id: "card", n: "Tarjeta", c: "var(--ch)", ic: CreditCard }, { id: "cash", n: "PagoEfectivo", c: "#FF6B00", ic: Banknote }].map((m) => (
-            <div key={m.id} className={`pm ${pay === m.id ? "sel" : ""}`} onClick={() => setPay(m.id)}>
-              <div className="pm-rd" /><div className="pm-ic" style={{ background: m.c }}>{m.ic ? <m.ic size={16} strokeWidth={1.5} /> : m.n[0]}</div><div className="pm-n">{m.n}</div>{m.tg && <div className="pm-tg">{m.tg}</div>}
-            </div>
-          ))}
+        <div style={{ fontSize: 12, color: "var(--gy)", lineHeight: 1.5, marginBottom: 14, textAlign: "center" }}>
+          Al confirmar, coordinarás el pago y los detalles directamente con la agencia por WhatsApp.
         </div>
         {submitError && <div className="field-err" style={{ marginBottom: 12 }}>{submitError}</div>}
-        <button className={`mbtn ${pay === "yape" ? "yp" : ""}`} disabled={submitting} onClick={submitBooking}>
-          {submitting
-            ? "Procesando reserva…"
-            : pay === "cash" ? "Generar código PagoEfectivo" : `Pagar S/ ${total.toFixed(2)} con ${payLabels[pay]}`}
+        <button className="mbtn" disabled={submitting} onClick={() => { if (!step2Valid) { setTouched(true); return; } submitBooking(); }}>
+          {submitting ? "Procesando reserva…" : "Confirmar reserva"}
         </button>
       </div>}
       </div>
@@ -2865,9 +2904,18 @@ function TripDetailView({ trip, go, onReview }) {
           </button>
         )}
       </div>
-      <a className="voucher-wa" href={buildWhatsAppLink(trip)} target="_blank" rel="noopener noreferrer" style={{ marginTop: 12 }}>
-        <Smartphone size={14} strokeWidth={1.5} /> Coordinar con la agencia por WhatsApp <ArrowRight size={12} strokeWidth={1.5} />
-      </a>
+      {(() => {
+        const wa = buildWhatsAppLink(trip);
+        return wa ? (
+          <a className="voucher-wa" href={wa} target="_blank" rel="noopener noreferrer" style={{ marginTop: 12 }}>
+            <Smartphone size={14} strokeWidth={1.5} /> Coordinar con la agencia por WhatsApp <ArrowRight size={12} strokeWidth={1.5} />
+          </a>
+        ) : (
+          <div className="voucher-wa" style={{ marginTop: 12, opacity: .6, cursor: "default", pointerEvents: "none" }}>
+            <Smartphone size={14} strokeWidth={1.5} /> Coordinación por WhatsApp no disponible
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -3664,7 +3712,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
       {/* Step 3: Disponibilidad */}
       {step === 3 && <div className="fu">
         <div className="bkf-t">Disponibilidad</div>
-        <div className="bkf-sub">Paso 3 de 5 · Días, horario y cancelación</div>
+        <div className="bkf-sub">Paso 3 de 5 · Días y horario{SHOW_CANCELLATION_POLICY ? " y cancelación" : ""}</div>
         <div className="fg">
           <label className="lbl">Días que operas</label>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -3736,6 +3784,10 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           <label className="lbl">Hora de salida</label>
           <input className="inp" type="time" value={form.startTime} onChange={(e) => u("startTime", e.target.value)} />
         </div>
+        {/* Campo de política de cancelación oculto en el piloto vía flag. El
+            estado form.cancellation conserva su default ("flexible") aunque el
+            input no se muestre → el submit sigue mandando un valor válido. */}
+        {SHOW_CANCELLATION_POLICY && (
         <div className="fg">
           <label className="lbl">Política de cancelación</label>
           <div style={{ fontSize: 11, color: "var(--gy)", marginBottom: 8, lineHeight: 1.5 }}>
@@ -3768,6 +3820,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
             ))}
           </div>
         </div>
+        )}
         {form.days.length === 0 && form.addedDates.length === 0 && (
           <div style={{ padding: 10, background: "rgba(199,97,58,.08)", borderRadius: 10, fontSize: 12, color: "var(--tr)", lineHeight: 1.5, marginTop: 8, marginBottom: 8 }}>
             Configura al menos un día recurrente o agrega fechas específicas en el calendario
@@ -3848,7 +3901,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
             </div>
           )}
           <div className="sum-r"><span style={{ color: "var(--gy)" }}>Hora salida</span><span>{form.startTime}</span></div>
-          <div className="sum-r"><span style={{ color: "var(--gy)" }}>Cancelación</span><span>{getCancelPolicy(form.cancellation).label}</span></div>
+          {SHOW_CANCELLATION_POLICY && <div className="sum-r"><span style={{ color: "var(--gy)" }}>Cancelación</span><span>{getCancelPolicy(form.cancellation).label}</span></div>}
           <div className="sum-t"><span>Precio por persona</span><span>S/ {form.price}</span></div>
         </div>
 
@@ -4407,7 +4460,7 @@ export default function AppDemo() {
   // el backend rechaza el POST por validación CUID. Aquí registramos el viaje
   // localmente para que aparezca en TripsView. Fase 2: seedear los 14 mocks
   // en DB para tener CUIDs reales y consolidar el flujo.
-  const handleAddLocalTrip = ({ tour: bookedTour, date, guests, total, code, paymentMethod, customerName, customerPhone, customerEmail }) => {
+  const handleAddLocalTrip = ({ tour: bookedTour, date, guests, total, code, customerName, customerPhone, customerEmail }) => {
     const months = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
     const isoDate = date || todayISO();
     const [y, m, d] = isoDate.split("-").map(Number);
@@ -4421,7 +4474,6 @@ export default function AppDemo() {
       total,
       status: "upcoming",
       code,
-      paymentMethod: paymentMethod || "yape",
       customerName: customerName || USER.name,
       customerPhone: customerPhone || "",
       customerEmail: customerEmail || "",

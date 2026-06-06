@@ -40,13 +40,17 @@ const tourFields = {
   active: true,
 } as const;
 
-// Para listados: solo nombre y verificación del operador (info mínima de card).
+// Para listados: nombre, verificación y teléfono del operador. El phone se
+// incluye aquí (no solo en detalle) porque el front reserva con la data del
+// catálogo (no hay re-fetch del detalle), y M4 arma el link wa.me de
+// coordinación viajero→operador con ese teléfono. Es un contacto de negocio.
 export const LIST_SELECT = Prisma.validator<Prisma.TourSelect>()({
   ...tourFields,
   operator: {
     select: {
       name: true,
       verified: true,
+      phone: true,
     },
   },
 });
@@ -60,6 +64,7 @@ export const DETAIL_SELECT = Prisma.validator<Prisma.TourSelect>()({
       verified: true,
       city: true,
       email: true,
+      phone: true,
     },
   },
 });
