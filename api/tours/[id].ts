@@ -6,7 +6,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { db } from "../../lib/db.js";
-import { DETAIL_SELECT } from "../../lib/tour-select.js";
+import { DETAIL_SELECT, gateOperatorMincetur } from "../../lib/tour-select.js";
 import { requireOperator } from "../../lib/auth.js";
 import { parseTourInput, embedTourSafe } from "../../lib/tour-input.js";
 import { supabaseAdmin } from "../../lib/supabase-admin.js";
@@ -77,6 +77,8 @@ export default async function handler(
       return;
     }
 
+    // Gateo: el mincetur de un operador no verificado nunca sale en el payload.
+    gateOperatorMincetur(tour);
     res.status(200).json({ tour });
   } catch (error) {
     console.error(`Error en GET /api/tours/${id}:`, error);

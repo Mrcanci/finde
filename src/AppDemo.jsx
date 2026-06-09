@@ -247,6 +247,9 @@ function mapTourFromApi(t) {
     // Teléfono del operador para el link wa.me de coordinación (M4). null si no
     // tiene → el botón de WhatsApp no se muestra. NO se renderiza como texto.
     operatorPhone: t.operator?.phone ?? null,
+    // N° MINCETUR del operador. El backend ya lo anula si no está verificado, así
+    // que solo llega de operadores verificados; se muestra junto al badge.
+    operatorMincetur: t.operator?.mincetur ?? null,
     capacity: t.capacity,
     altitude: "",
     difficulty: t.difficulty || "Moderada",
@@ -2277,9 +2280,12 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
                 ? <><ShieldCheck size={14} strokeWidth={1.5} /> Finde Verificado</>
                 : "Operador Finde Basic"}
             </div>
-            {/* RUC/MINCETUR hardcodeados (falsos) eliminados: misma credencial
-                inventada que se mostraba en el voucher. La confianza real es el
-                badge "Finde Verificado" (solo si operator.verified). */}
+            {/* N° MINCETUR real, solo si verificado (el backend ya lo anula para
+                no verificados). Credencial pública consultable. El RUC sigue fuera
+                de los selects públicos (dato privado). */}
+            {tour.verified && tour.operatorMincetur && (
+              <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 4 }}>Registro MINCETUR · {tour.operatorMincetur}</div>
+            )}
           </div>
         </div>
         <div className="det-st">{isQu ? "Imapas chaypi kan" : "Incluye"}</div>
@@ -2475,11 +2481,11 @@ function VoucherDetail({ trip }) {
             <span className="voucher-verified"><ShieldCheck size={11} strokeWidth={1.5} /> Finde Verificado</span>
           )}
         </div>
-        {/* RUC/MINCETUR hardcodeados (falsos) eliminados: eran credenciales de
-            confianza inventadas mostradas al viajero. El RUC real (operator.ruc)
-            no llega hoy al voucher (no está en LIST_SELECT del catálogo); se
-            mostrará cuando se decida cómo exponerlo. La verificación real es el
-            badge "Finde Verificado" de arriba (solo si operator.verified). */}
+        {/* N° MINCETUR real, solo si verificado (backend ya lo anula para no
+            verificados). El RUC sigue fuera de los selects públicos (privado). */}
+        {tour.verified && tour.operatorMincetur && (
+          <div className="voucher-agency-d">Registro MINCETUR · {tour.operatorMincetur}</div>
+        )}
       </div>
 
       {/* 4 — Qué incluye */}
