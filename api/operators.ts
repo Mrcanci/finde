@@ -138,13 +138,7 @@ export default async function handler(
   try {
     operador = await db.operator.create({
       data: { name, email, phone, city, ruc, userId: user.id, verified: false },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        city: true,
-        verified: true,
-      },
+      select: OPERATOR_SELECT,
     });
   } catch (error) {
     if (
