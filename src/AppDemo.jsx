@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, Smartphone, MessageCircle, Camera, MountainSnow, Hand, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff, Info, Trash2 } from "lucide-react";
+import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, Smartphone, MessageCircle, Camera, MountainSnow, Hand, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff, Info, Trash2, Lock } from "lucide-react";
 import { useAuth } from "./contexts/AuthContext.jsx";
 import { authFetch } from "./lib/authFetch.js";
 import { supabase } from "./lib/supabase.js";
@@ -3100,10 +3100,66 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
   // Nombre real del operador logueado (de GET /api/me vía AuthContext), en vez
   // del mock "Andes Trek Perú". DashView solo se renderiza para operadores, así
   // que operator suele estar presente; fallback defensivo por si aún no hidrata.
-  const { user, operator } = useAuth();
+  const { user, operator, refreshOperator } = useAuth();
   const operatorName = operator?.name || "Mi negocio";
   const initials = (name) => (name || "?").trim().split(/\s+/).map((n) => n[0]).slice(0, 2).join("").toUpperCase();
   const [selectedBooking, setSelectedBooking] = useState(null);
+
+  // Edición del perfil de operador (PATCH /api/operators). Solo los 4 campos
+  // editables (name/phone/city/ruc); email y verificación son solo lectura.
+  const [editingBiz, setEditingBiz] = useState(false);
+  const [bizForm, setBizForm] = useState({ name: "", phone: "", city: "", ruc: "" });
+  const [bizBusy, setBizBusy] = useState(false);
+  const [bizError, setBizError] = useState("");
+  const [bizSaved, setBizSaved] = useState(false);
+  const setBizField = (k, v) => setBizForm((prev) => ({ ...prev, [k]: v }));
+  const startEditBiz = () => {
+    setBizForm({
+      name: operator?.name || "",
+      phone: operator?.phone || "",
+      city: operator?.city || "",
+      ruc: operator?.ruc || "",
+    });
+    setBizError("");
+    setEditingBiz(true);
+  };
+  // Mismas validaciones que el alta (api/operators.ts bodySchema).
+  const bizNameValid = bizForm.name.trim().length >= 3 && bizForm.name.trim().length <= 100;
+  const bizCityValid = bizForm.city.trim().length >= 2 && bizForm.city.trim().length <= 50;
+  const bizPhoneValid = /^\d{8,15}$/.test(bizForm.phone.trim());
+  const bizRucValid = /^\d{11}$/.test(bizForm.ruc.trim());
+  const bizFormValid = bizNameValid && bizCityValid && bizPhoneValid && bizRucValid;
+  const saveBiz = async () => {
+    if (!bizFormValid || bizBusy) return;
+    setBizBusy(true);
+    setBizError("");
+    try {
+      const r = await authFetch("/api/operators", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: bizForm.name.trim(),
+          phone: bizForm.phone.trim(),
+          city: bizForm.city.trim(),
+          ruc: bizForm.ruc.trim(),
+        }),
+      });
+      if (!r.ok) {
+        if (r.status === 404) throw new Error("No encontramos tu perfil de operador.");
+        if (r.status === 429) throw new Error("Demasiados intentos. Espera un momento.");
+        if (r.status === 400) throw new Error("Revisa los datos: RUC de 11 dígitos y teléfono de 8 a 15.");
+        throw new Error("No pudimos guardar los cambios. Intenta de nuevo.");
+      }
+      await refreshOperator();
+      setEditingBiz(false);
+      setBizSaved(true);
+      setTimeout(() => setBizSaved(false), 3000);
+    } catch (e) {
+      setBizError(e.message || "No pudimos guardar los cambios.");
+    } finally {
+      setBizBusy(false);
+    }
+  };
 
   // Estado mock `biz` (RUC/MINCETUR/CCI/pago) eliminado: la tab "Mi Negocio" es
   // informativa de solo lectura y muestra datos reales del operador (useAuth).
@@ -3228,27 +3284,81 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
             </div>
           </div>
 
-          {/* Datos reales del registro (label → valor) */}
-          <div className="biz-sec-t" style={{ marginBottom: 12 }}><Building2 size={16} strokeWidth={1.5} /> Datos del negocio</div>
-          <div className="sum" style={{ marginBottom: 0 }}>
-            {[
-              ["RUC", operator?.ruc || "No registrado"],
-              ["Email de contacto", user?.email || operator?.email || "—"],
-              ["Teléfono", operator?.phone || "No registrado"],
-            ].map(([l, v]) => {
-              const empty = v === "—" || v.startsWith("No ");
-              return (
-                <div key={l} className="sum-r">
-                  <span style={{ color: "var(--gy)" }}>{l}</span>
-                  <span style={{ fontWeight: 600, color: empty ? "var(--lg)" : "var(--ch)" }}>{v}</span>
+          {/* Datos del registro: solo lectura con botón Editar, o formulario de
+              edición (PATCH). Email y verificación NO son editables. */}
+          <div className="biz-sec-t" style={{ marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}><Building2 size={16} strokeWidth={1.5} /> Datos del negocio</span>
+            {!editingBiz && (
+              <button onClick={startEditBiz} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", color: "var(--f)", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+                <Pencil size={13} strokeWidth={1.5} /> Editar
+              </button>
+            )}
+          </div>
+
+          {!editingBiz ? (
+            <>
+              <div className="sum" style={{ marginBottom: 0 }}>
+                {[
+                  ["Nombre", operator?.name || "—"],
+                  ["RUC", operator?.ruc || "No registrado"],
+                  ["Email de contacto", user?.email || operator?.email || "—"],
+                  ["Teléfono", operator?.phone || "No registrado"],
+                  ["Ciudad", operator?.city || "No registrada"],
+                ].map(([l, v]) => {
+                  const empty = v === "—" || v.startsWith("No ");
+                  return (
+                    <div key={l} className="sum-r">
+                      <span style={{ color: "var(--gy)" }}>{l}</span>
+                      <span style={{ fontWeight: 600, color: empty ? "var(--lg)" : "var(--ch)" }}>{v}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              {bizSaved && <div className="biz-saved"><Check size={12} strokeWidth={2} /> Cambios guardados</div>}
+              <div className="biz-note" style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                <Info size={14} strokeWidth={1.5} style={{ flexShrink: 0, marginTop: 1 }} />
+                <span>El email de contacto y el estado de verificación no se editan aquí (el email es el de tu cuenta).</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="fg">
+                <label className="lbl">Nombre del negocio</label>
+                <input className="inp" value={bizForm.name} onChange={(e) => setBizField("name", e.target.value)} maxLength={100} />
+              </div>
+              <div className="fg">
+                <label className="lbl">RUC</label>
+                <input className={`inp${bizForm.ruc && !bizRucValid ? " inp-err" : ""}`} value={bizForm.ruc} onChange={(e) => setBizField("ruc", e.target.value.replace(/\D/g, ""))} maxLength={11} inputMode="numeric" placeholder="20612345678" />
+                {bizForm.ruc && !bizRucValid && <div className="field-err">El RUC debe tener 11 dígitos</div>}
+              </div>
+              <div className="fg">
+                <label className="lbl">Teléfono</label>
+                <input className={`inp${bizForm.phone && !bizPhoneValid ? " inp-err" : ""}`} value={bizForm.phone} onChange={(e) => setBizField("phone", e.target.value.replace(/\D/g, ""))} maxLength={15} type="tel" inputMode="numeric" placeholder="984000111" />
+                {bizForm.phone && !bizPhoneValid && <div className="field-err">Teléfono de 8 a 15 dígitos</div>}
+              </div>
+              <div className="fg">
+                <label className="lbl">Ciudad</label>
+                <input className="inp" value={bizForm.city} onChange={(e) => setBizField("city", e.target.value)} maxLength={50} />
+              </div>
+              {/* Email NO editable: solo-lectura (fondo atenuado, candado),
+                  claramente distinto de los inputs. Sale del token. La
+                  verificación NO va aquí: tiene su propia sección aparte. */}
+              <div className="fg">
+                <label className="lbl">Email de contacto</label>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 14px", borderRadius: 12, background: "var(--cr)", border: "1px solid var(--sd)", color: "var(--gy)" }}>
+                  <Lock size={14} strokeWidth={1.5} style={{ flexShrink: 0 }} />
+                  <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user?.email || operator?.email || "—"}</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, flexShrink: 0 }}>No editable</span>
                 </div>
-              );
-            })}
-          </div>
-          <div className="biz-note" style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-            <Info size={14} strokeWidth={1.5} style={{ flexShrink: 0, marginTop: 1 }} />
-            <span>Estos datos vienen de tu registro como operador. Para actualizarlos, escríbenos — la edición desde el panel llegará pronto.</span>
-          </div>
+                <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 4, lineHeight: 1.5 }}>Email de tu cuenta · no editable.</div>
+              </div>
+              {bizError && <div className="field-err" style={{ marginBottom: 10 }}>{bizError}</div>}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="mbtn" style={{ flex: 1, marginTop: 0 }} disabled={!bizFormValid || bizBusy} onClick={saveBiz}>{bizBusy ? "Guardando…" : "Guardar cambios"}</button>
+                <button className="rv-cancel" style={{ flex: 1 }} disabled={bizBusy} onClick={() => { setEditingBiz(false); setBizError(""); }}>Cancelar</button>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Estado REAL de verificación (operator.verified); nunca "Verificado" fijo */}
