@@ -46,6 +46,8 @@ model Operator {
   userId    String?  @unique
   // RUC del operador (persistido desde el onboarding; antes solo se validaba).
   ruc       String?
+  // N° de registro MINCETUR enviado por el operador; null = no enviado.
+  mincetur  String?
 
   tours     Tour[]
 }

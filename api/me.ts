@@ -22,7 +22,7 @@ export default async function handler(
   // Resolver si el usuario tiene un perfil de operador asociado.
   const operator = await db.operator.findUnique({
     where: { userId: user.id },
-    select: { id: true, name: true, verified: true, city: true, ruc: true, phone: true, email: true },
+    select: { id: true, name: true, verified: true, city: true, ruc: true, phone: true, email: true, mincetur: true },
   });
 
   res.status(200).json({

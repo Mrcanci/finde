@@ -9,7 +9,7 @@ import { z } from "zod";
 import { db } from "../lib/db.js";
 import { voyage, MODEL_EMBED, DIM } from "../lib/voyage.js";
 import { anthropic, MODEL } from "../lib/anthropic.js";
-import { LIST_SELECT } from "../lib/tour-select.js";
+import { LIST_SELECT, gateOperatorMincetur } from "../lib/tour-select.js";
 import { rateLimit, ipFromRequest } from "../lib/rate-limit.js";
 import { normalizeQuery } from "../lib/search-cache.js";
 
@@ -223,6 +223,8 @@ export default async function handler(
       where: { id: { in: cached.results }, active: true },
       select: LIST_SELECT,
     });
+    // Gateo: mincetur de operador no verificado nunca sale en el payload.
+    cachedTours.forEach(gateOperatorMincetur);
     const byCachedId = new Map(cachedTours.map((t) => [t.id, t]));
     const cachedResults = cached.results
       .map((id) => byCachedId.get(id))
@@ -310,6 +312,8 @@ export default async function handler(
     where: { id: { in: chosenIds }, active: true },
     select: LIST_SELECT,
   });
+  // Gateo: mincetur de operador no verificado nunca sale en el payload.
+  tours.forEach(gateOperatorMincetur);
 
   // Reordenar según el orden elegido (findMany no respeta el orden de in:)
   const byId = new Map(tours.map((t) => [t.id, t]));

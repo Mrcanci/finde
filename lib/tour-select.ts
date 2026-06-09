@@ -51,6 +51,10 @@ export const LIST_SELECT = Prisma.validator<Prisma.TourSelect>()({
       name: true,
       verified: true,
       phone: true,
+      // N° MINCETUR: credencial pública. SOLO debe llegar al viajero si el
+      // operador está verificado → gatear con gateOperatorMincetur antes de
+      // responder en endpoints públicos (catálogo/búsqueda/detalle).
+      mincetur: true,
     },
   },
 });
@@ -65,6 +69,22 @@ export const DETAIL_SELECT = Prisma.validator<Prisma.TourSelect>()({
       city: true,
       email: true,
       phone: true,
+      mincetur: true,
     },
   },
 });
+
+// Gatea el N° MINCETUR de un tour: lo anula (null) si el operador NO está
+// verificado, para que el número de un operador en revisión nunca salga en el
+// payload público. Null-safe (operator puede ser null). Devuelve el MISMO tour
+// mutado (in-place) y también lo retorna para encadenar/map. Aplicar en las
+// lecturas que ve el viajero (GET /api/tours, /api/search, GET /api/tours/[id]);
+// NO en el dashboard del operador (ve su propio mincetur sin importar verified).
+export function gateOperatorMincetur<T extends { operator?: { verified?: boolean; mincetur?: string | null } | null }>(
+  tour: T
+): T {
+  if (tour?.operator && tour.operator.verified !== true) {
+    tour.operator.mincetur = null;
+  }
+  return tour;
+}
