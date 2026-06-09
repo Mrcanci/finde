@@ -3161,6 +3161,44 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
     }
   };
 
+  // Verificación MINCETUR: el operador envía/edita su N° de registro (PATCH con
+  // solo { mincetur }). verified lo marca Finde a mano tras validar — el front
+  // nunca lo toca. Estado separado del de edición de perfil.
+  const [showMincInput, setShowMincInput] = useState(false);
+  const [mincForm, setMincForm] = useState("");
+  const [mincBusy, setMincBusy] = useState(false);
+  const [mincError, setMincError] = useState("");
+  const minceturValid = /^[A-Za-z0-9-]{3,30}$/.test(mincForm.trim());
+  const startMincInput = () => {
+    setMincForm(operator?.mincetur || "");
+    setMincError("");
+    setShowMincInput(true);
+  };
+  const submitMincetur = async () => {
+    if (!minceturValid || mincBusy) return;
+    setMincBusy(true);
+    setMincError("");
+    try {
+      const r = await authFetch("/api/operators", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mincetur: mincForm.trim() }),
+      });
+      if (!r.ok) {
+        if (r.status === 404) throw new Error("No encontramos tu perfil de operador.");
+        if (r.status === 429) throw new Error("Demasiados intentos. Espera un momento.");
+        if (r.status === 400) throw new Error("N° MINCETUR inválido (3 a 30 caracteres alfanuméricos o guiones).");
+        throw new Error("No pudimos enviar tu N° MINCETUR. Intenta de nuevo.");
+      }
+      await refreshOperator();
+      setShowMincInput(false);
+    } catch (e) {
+      setMincError(e.message || "No pudimos enviar tu N° MINCETUR.");
+    } finally {
+      setMincBusy(false);
+    }
+  };
+
   // Estado mock `biz` (RUC/MINCETUR/CCI/pago) eliminado: la tab "Mi Negocio" es
   // informativa de solo lectura y muestra datos reales del operador (useAuth).
   // M2.3: el toggle persiste vía PATCH (delegado a onToggleActive en AppDemo,
@@ -3361,27 +3399,54 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
           )}
         </div>
 
-        {/* Estado REAL de verificación (operator.verified); nunca "Verificado" fijo */}
+        {/* Estado de verificación — 3 estados según operator.verified + mincetur.
+            verified SOLO lo marca Finde a mano tras validar; el operador solo
+            envía/edita su N° MINCETUR. El badge del viajero depende solo de verified. */}
         <div className="biz-sec">
           <div className="biz-sec-t"><ShieldCheck size={16} strokeWidth={1.5} /> Estado de verificación</div>
-          <div style={{
-            padding: 14, borderRadius: 12,
-            background: operator?.verified ? "rgba(45,90,61,.06)" : "rgba(212,168,67,.08)",
-            borderLeft: `3px solid ${operator?.verified ? "var(--m)" : "var(--gd)"}`,
-          }}>
-            {/* Titular del estado: icono + badge en una sola fila alineada */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-              {operator?.verified
-                ? <ShieldCheck size={18} strokeWidth={1.5} style={{ color: "var(--m)", flexShrink: 0 }} />
-                : <Clock size={18} strokeWidth={1.5} style={{ color: "var(--gd)", flexShrink: 0 }} />}
-              {operator?.verified
-                ? <span className="biz-badge ok"><Check size={12} strokeWidth={2} /> Verificado</span>
-                : <span className="biz-badge pending"><Clock size={12} strokeWidth={1.5} /> En revisión</span>}
+
+          {operator?.verified ? (
+            // ── Verificado ──
+            <div style={{ padding: 14, borderRadius: 12, background: "rgba(45,90,61,.06)", borderLeft: "3px solid var(--m)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <ShieldCheck size={18} strokeWidth={1.5} style={{ color: "var(--m)", flexShrink: 0 }} />
+                <span className="biz-badge ok"><Check size={12} strokeWidth={2} /> Verificado</span>
+              </div>
+              <div style={{ fontSize: 13, color: "var(--ch)", lineHeight: 1.5 }}>Tu negocio está verificado. Tus tours muestran el sello “Finde Verificado”.</div>
+              {operator?.mincetur && (
+                <div style={{ fontSize: 12, color: "var(--gy)", marginTop: 8 }}>N° MINCETUR: <strong style={{ color: "var(--ch)" }}>{operator.mincetur}</strong></div>
+              )}
             </div>
-            <div style={{ fontSize: 13, color: "var(--ch)", lineHeight: 1.5 }}>{operator?.verified
-              ? "Tu negocio está verificado. Tus tours pueden recibir reservas con normalidad."
-              : "Estamos revisando tu cuenta. Tus tours ya pueden publicarse; te avisaremos cuando la verificación esté lista."}</div>
-          </div>
+          ) : operator?.mincetur && !showMincInput ? (
+            // ── En revisión (ya envió su N° MINCETUR) ──
+            <div style={{ padding: 14, borderRadius: 12, background: "rgba(212,168,67,.08)", borderLeft: "3px solid var(--gd)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <Clock size={18} strokeWidth={1.5} style={{ color: "var(--gd)", flexShrink: 0 }} />
+                <span className="biz-badge pending"><Clock size={12} strokeWidth={1.5} /> En revisión</span>
+              </div>
+              <div style={{ fontSize: 13, color: "var(--ch)", lineHeight: 1.5 }}>Recibimos tu N° MINCETUR y lo estamos validando. Te avisaremos cuando la verificación esté lista; mientras tanto tus tours ya pueden publicarse.</div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--sd)" }}>
+                <div style={{ fontSize: 12, color: "var(--gy)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>N° MINCETUR: <strong style={{ color: "var(--ch)" }}>{operator.mincetur}</strong></div>
+                <button onClick={startMincInput} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", color: "var(--f)", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}><Pencil size={13} strokeWidth={1.5} /> Editar</button>
+              </div>
+            </div>
+          ) : (
+            // ── Sin enviar (o editando): CTA + input ──
+            <div style={{ padding: 14, borderRadius: 12, background: "rgba(212,168,67,.08)", borderLeft: "3px solid var(--gd)" }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ch)", marginBottom: 6 }}>Verifica tu agencia</div>
+              <div style={{ fontSize: 13, color: "var(--ch)", lineHeight: 1.5, marginBottom: 12 }}>Envía tu N° de registro MINCETUR para que Finde verifique tu agencia. Al verificarte, tus tours muestran el sello “Finde Verificado”.</div>
+              <div className="fg" style={{ marginBottom: 10 }}>
+                <label className="lbl">N° de registro MINCETUR</label>
+                <input className={`inp${mincForm && !minceturValid ? " inp-err" : ""}`} value={mincForm} onChange={(e) => setMincForm(e.target.value)} maxLength={30} placeholder="Ej. CAL-12345" />
+                {mincForm && !minceturValid && <div className="field-err">3 a 30 caracteres alfanuméricos o guiones.</div>}
+              </div>
+              {mincError && <div className="field-err" style={{ marginBottom: 10 }}>{mincError}</div>}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="mbtn" style={{ flex: 1, marginTop: 0 }} disabled={!minceturValid || mincBusy} onClick={submitMincetur}>{mincBusy ? "Enviando…" : operator?.mincetur ? "Guardar" : "Enviar para verificación"}</button>
+                {operator?.mincetur && <button className="rv-cancel" style={{ flex: 1 }} disabled={mincBusy} onClick={() => { setShowMincInput(false); setMincError(""); }}>Cancelar</button>}
+              </div>
+            </div>
+          )}
         </div>
       </div>}
 

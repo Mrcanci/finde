@@ -15,19 +15,50 @@ import { requireAuth } from "../lib/auth.js";
 
 // email NO va en el schema: la identidad sale del token (requireAuth →
 // user.email), no del body. Consistente con POST /api/bookings.
+// Validadores por campo, reusados por el alta (todos requeridos) y la edición
+// (todos opcionales).
+const nameField = z.string().trim().min(3).max(100);
+const phoneField = z
+  .string()
+  .trim()
+  .regex(/^\d{8,15}$/, "phone debe tener entre 8 y 15 dígitos numéricos");
+const cityField = z.string().trim().min(2).max(50);
+// Reglas v1.2 §6.3: solo agencias con RUC pueden vender en Finde.
+const rucField = z
+  .string()
+  .trim()
+  .regex(/^\d{11}$/, "ruc debe tener exactamente 11 dígitos numéricos");
+// Validación LAXA del N° MINCETUR: no hay un formato único público; aceptamos
+// 3-30 caracteres alfanuméricos o guiones. Finde valida el número a mano.
+const minceturField = z
+  .string()
+  .trim()
+  .regex(
+    /^[A-Za-z0-9-]{3,30}$/,
+    "mincetur debe tener entre 3 y 30 caracteres alfanuméricos o guiones"
+  );
+
+// Alta (POST): los 4 campos del onboarding son obligatorios.
 const bodySchema = z.object({
-  name: z.string().trim().min(3).max(100),
-  phone: z
-    .string()
-    .trim()
-    .regex(/^\d{8,15}$/, "phone debe tener entre 8 y 15 dígitos numéricos"),
-  city: z.string().trim().min(2).max(50),
-  // Reglas v1.2 §6.3: solo agencias con RUC pueden vender en Finde.
-  ruc: z
-    .string()
-    .trim()
-    .regex(/^\d{11}$/, "ruc debe tener exactamente 11 dígitos numéricos"),
+  name: nameField,
+  phone: phoneField,
+  city: cityField,
+  ruc: rucField,
 });
+
+// Edición (PATCH): todos los campos son opcionales (parcial); se exige al menos
+// uno presente. Permite editar el perfil o enviar solo el N° MINCETUR.
+const patchSchema = z
+  .object({
+    name: nameField.optional(),
+    phone: phoneField.optional(),
+    city: cityField.optional(),
+    ruc: rucField.optional(),
+    mincetur: minceturField.optional(),
+  })
+  .refine((obj) => Object.keys(obj).length > 0, {
+    message: "Debes enviar al menos un campo para actualizar",
+  });
 
 // Select del operador devuelto al cliente: MISMO shape que GET /api/me para que
 // refreshOperator() refleje el cambio sin discrepancias.
@@ -39,6 +70,7 @@ const OPERATOR_SELECT = {
   ruc: true,
   phone: true,
   email: true,
+  mincetur: true,
 } as const;
 
 export default async function handler(
@@ -157,7 +189,7 @@ async function handlePatch(
     return;
   }
 
-  const parsed = bodySchema.safeParse(req.body);
+  const parsed = patchSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({
       error: "Cuerpo inválido",
@@ -165,8 +197,6 @@ async function handlePatch(
     });
     return;
   }
-
-  const { name, phone, city, ruc } = parsed.data;
 
   // Resolver el operador SOLO por el userId del token (nunca por un id del
   // cliente): un operador solo puede editar su propio perfil.
@@ -179,13 +209,21 @@ async function handlePatch(
     return;
   }
 
+  // Actualizar SOLO los campos presentes en el body (parcial). email/verified/
+  // userId NUNCA se tocan: identidad y verificación las controla la cuenta/Finde.
+  // El mincetur lo envía el operador; verified lo marca Finde a mano tras validar.
+  const updates: Prisma.OperatorUpdateInput = {};
+  if (parsed.data.name !== undefined) updates.name = parsed.data.name;
+  if (parsed.data.phone !== undefined) updates.phone = parsed.data.phone;
+  if (parsed.data.city !== undefined) updates.city = parsed.data.city;
+  if (parsed.data.ruc !== undefined) updates.ruc = parsed.data.ruc;
+  if (parsed.data.mincetur !== undefined) updates.mincetur = parsed.data.mincetur;
+
   let operador;
   try {
     operador = await db.operator.update({
       where: { userId: user.id },
-      // email/verified/userId NO se tocan: identidad y verificación las controla
-      // la cuenta/Finde, no el cliente.
-      data: { name, phone, city, ruc },
+      data: updates,
       select: OPERATOR_SELECT,
     });
   } catch (error) {
