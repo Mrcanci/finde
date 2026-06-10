@@ -64,6 +64,42 @@ type TourSeed = {
   reviewsCount: number;
 };
 
+// Hora de salida realista por tour (HH:MM), por título del seed. Misma fuente que
+// scripts/backfill-starttime.ts (allí keyado por los títulos reales de la DB, que
+// para 2 tours están truncados). Si un tour no figura aquí, se siembra null.
+const SEED_STARTTIME_BY_TITLE: Record<string, string> = {
+  "Machu Picchu Full Day desde Cusco": "05:00",
+  "Valle Sagrado: Pisac, Ollantaytambo y Chinchero": "08:00",
+  "Vinicunca Montaña de 7 Colores": "05:00",
+  "Laguna Humantay full day": "05:00",
+  "Trek a Choquequirao 4 días": "06:00",
+  "Sacsayhuamán y Cusco Imperial": "09:00",
+  "Maras, Moray y Salineras": "08:00",
+  "Pisac: ruinas y mercado tradicional": "08:00",
+  "Ollantaytambo: fortaleza inca habitada": "08:00",
+  "Tambomachay: baño ritual del Inca": "09:00",
+  "Lima Colonial: Centro Histórico patrimonio UNESCO": "09:00",
+  "Tour gastronómico Miraflores y Barranco": "11:00",
+  "Caral: civilización más antigua de América": "08:00",
+  "Pachacamac: santuario costeño pre-inca": "09:00",
+  "Lomas de Lúcumo: bosque de neblina costero": "08:00",
+  "Clase de surf en Costa Verde": "09:00",
+  "Cañón del Colca 2 días con vuelo del cóndor": "06:00",
+  "Ruta del Sillar: la cantera blanca de Arequipa": "09:00",
+  "Ascenso al volcán Misti 2 días": "05:00",
+  "Mirador de Yanahuara y centro de Arequipa": "09:00",
+  "Reserva Salinas y Aguada Blanca": "08:00",
+  "Clase de surf en Máncora": "09:00",
+  "Chan Chan: ciudadela de barro más grande de América": "09:00",
+  "Huanchaco: caballitos de totora y cebiche del muelle": "09:00",
+  "Kuélap: fortaleza de los chachapoyas 2 días": "06:00",
+  "Iquitos Amazonas 3 días en lodge selvático": "06:00",
+  "Tambopata 3 días: collpa de guacamayos": "06:00",
+  "Manu: parque nacional virgen 4 días": "06:00",
+  "Comunidad Q'eros: vivencial 2 días": "06:00",
+  "Ceremonia de ayahuasca regulada en Tarapoto": "19:00",
+};
+
 const OPERATORS: OperatorSeed[] = [
   {
     name: "Andes Auténticos",
@@ -1105,6 +1141,8 @@ async function createMigratedTours(): Promise<void> {
         city: t.city,
         region: t.region,
         durationHours: t.durationHours,
+        // Hora de salida realista por título; null si el tour no figura en el map.
+        startTime: SEED_STARTTIME_BY_TITLE[t.title] ?? null,
         priceSoles: t.priceSoles,
         capacity: t.capacity,
         language: t.language,
