@@ -60,8 +60,8 @@ type TourSeed = {
   included: string[];
   excluded: string[];
   imageUrl: string;
-  rating: number;
-  reviewsCount: number;
+  // rating/reviewsCount eliminados del seed: un tour nace en 0/0 (default del
+  // schema) y solo sube con reseñas reales. No se siembran ratings fabricados.
 };
 
 // Hora de salida realista por tour (HH:MM), por título del seed. Misma fuente que
@@ -184,8 +184,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Almuerzo en Aguas Calientes", "Subida a Huayna Picchu (S/200 extra)", "Propinas"],
     imageUrl: "https://source.unsplash.com/800x600/?machu-picchu",
-    rating: 4.9,
-    reviewsCount: 187,
   },
   {
     operatorName: "Andes Auténticos",
@@ -209,8 +207,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Boleto turístico parcial del Valle (S/70)", "Bebidas durante el almuerzo", "Propinas"],
     imageUrl: "https://source.unsplash.com/800x600/?sacred-valley-peru",
-    rating: 4.8,
-    reviewsCount: 142,
   },
   {
     operatorName: "Inka Trail Co",
@@ -234,8 +230,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Caballo opcional (S/80)", "Alquiler de bastones (S/15)", "Propinas"],
     imageUrl: "https://source.unsplash.com/800x600/?rainbow-mountain-peru",
-    rating: 4.6,
-    reviewsCount: 198,
   },
   {
     operatorName: "Andes Auténticos",
@@ -260,8 +254,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Alquiler de bastones (S/10)", "Caballo opcional", "Propinas"],
     imageUrl: "https://source.unsplash.com/800x600/?humantay-lake",
-    rating: 4.7,
-    reviewsCount: 156,
   },
   {
     operatorName: "Inka Trail Co",
@@ -287,8 +279,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Seguro de evacuación", "Bolsa de dormir personal -5°C", "Propinas para arrieros y cocinero"],
     imageUrl: "https://source.unsplash.com/800x600/?choquequirao",
-    rating: 4.9,
-    reviewsCount: 47,
   },
   {
     operatorName: "Andes Auténticos",
@@ -311,8 +301,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Boleto turístico general del Cusco (S/130)", "Propinas"],
     imageUrl: "https://source.unsplash.com/800x600/?sacsayhuaman",
-    rating: 4.5,
-    reviewsCount: 112,
   },
   {
     operatorName: "Andes Auténticos",
@@ -335,8 +323,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Almuerzo", "Propinas", "Compras en el sitio"],
     imageUrl: "https://source.unsplash.com/800x600/?maras-salt-mines",
-    rating: 4.7,
-    reviewsCount: 89,
   },
   {
     operatorName: "Pachamama Sagrada",
@@ -360,8 +346,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Almuerzo en Mullu (~S/45)", "Compras en el mercado", "Extensión a Chinchero (S/40)"],
     imageUrl: "https://source.unsplash.com/800x600/?pisac-peru",
-    rating: 4.6,
-    reviewsCount: 103,
   },
   {
     operatorName: "Andes Auténticos",
@@ -384,8 +368,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Boleto turístico parcial del Valle (S/70)", "Bebidas", "Propinas"],
     imageUrl: "https://source.unsplash.com/800x600/?ollantaytambo",
-    rating: 4.7,
-    reviewsCount: 78,
   },
   {
     operatorName: "Pachamama Sagrada",
@@ -409,8 +391,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Boleto turístico general del Cusco (S/130)", "Toalla y ropa de baño", "Propinas"],
     imageUrl: "https://source.unsplash.com/800x600/?tambomachay-cusco",
-    rating: 4.8,
-    reviewsCount: 41,
   },
 
   // ============ LIMA (6) ============
@@ -435,8 +415,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Almuerzo", "Transporte hasta el punto de encuentro", "Propinas"],
     imageUrl: "https://source.unsplash.com/800x600/?lima-cathedral",
-    rating: 4.7,
-    reviewsCount: 164,
   },
   {
     operatorName: "Lima Cultural Tours",
@@ -460,8 +438,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Comidas adicionales fuera del recorrido", "Propinas"],
     imageUrl: "https://source.unsplash.com/800x600/?ceviche-peruvian-food",
-    rating: 4.9,
-    reviewsCount: 221,
   },
   {
     operatorName: "Lima Cultural Tours",
@@ -486,8 +462,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Propinas", "Compras en el sitio"],
     imageUrl: "https://source.unsplash.com/800x600/?caral-pyramids",
-    rating: 4.7,
-    reviewsCount: 67,
   },
   {
     operatorName: "Lima Cultural Tours",
@@ -510,8 +484,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Almuerzo", "Propinas"],
     imageUrl: "https://source.unsplash.com/800x600/?pachacamac",
-    rating: 4.5,
-    reviewsCount: 54,
   },
   {
     operatorName: "Perú Total Tours",
@@ -535,8 +507,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Bastones de trekking", "Propinas", "Linterna frontal"],
     imageUrl: "https://source.unsplash.com/800x600/?lomas-lucumo",
-    rating: 4.6,
-    reviewsCount: 38,
   },
   {
     operatorName: "Perú Total Tours",
@@ -562,8 +532,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Transporte hasta la escuela", "Cámara de fotos en agua (S/40 extra)", "Propinas"],
     imageUrl: "https://source.unsplash.com/800x600/?lima-surf",
-    rating: 4.7,
-    reviewsCount: 92,
   },
 
   // ============ AREQUIPA-COLCA (5) ============
@@ -590,8 +558,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Boleto turístico Colca (S/70)", "Bebidas en almuerzos", "Propinas"],
     imageUrl: "https://source.unsplash.com/800x600/?colca-canyon",
-    rating: 4.8,
-    reviewsCount: 134,
   },
   {
     operatorName: "Colca Adventures",
@@ -615,8 +581,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Bebidas y snacks", "Propinas"],
     imageUrl: "https://source.unsplash.com/800x600/?arequipa-sillar",
-    rating: 4.5,
-    reviewsCount: 42,
   },
   {
     operatorName: "Colca Adventures",
@@ -641,8 +605,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Equipo personal (alquiler S/120/día)", "Seguro de evacuación", "Propinas"],
     imageUrl: "https://source.unsplash.com/800x600/?misti-volcano",
-    rating: 4.6,
-    reviewsCount: 28,
   },
   {
     operatorName: "Colca Adventures",
@@ -665,8 +627,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Almuerzo en picantería", "Bebidas", "Propinas"],
     imageUrl: "https://source.unsplash.com/800x600/?yanahuara-arequipa",
-    rating: 4.6,
-    reviewsCount: 71,
   },
   {
     operatorName: "Colca Adventures",
@@ -690,8 +650,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Binoculares (alquiler S/15)", "Propinas", "Boleto turístico Colca si extiende ruta"],
     imageUrl: "https://source.unsplash.com/800x600/?vicuna-peru",
-    rating: 4.7,
-    reviewsCount: 49,
   },
 
   // ============ COSTA NORTE (4) ============
@@ -717,8 +675,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Transporte hasta la escuela", "Foto en agua (S/40)", "Propinas"],
     imageUrl: "https://source.unsplash.com/800x600/?mancora-surf",
-    rating: 4.8,
-    reviewsCount: 116,
   },
   {
     operatorName: "Norte Salvaje",
@@ -742,8 +698,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Almuerzo", "Propinas"],
     imageUrl: "https://source.unsplash.com/800x600/?chan-chan-peru",
-    rating: 4.6,
-    reviewsCount: 73,
   },
   {
     operatorName: "Norte Salvaje",
@@ -767,8 +721,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Paseo en caballito de totora (S/30)", "Bebidas adicionales", "Propinas"],
     imageUrl: "https://source.unsplash.com/800x600/?huanchaco-totora",
-    rating: 4.7,
-    reviewsCount: 88,
   },
   {
     operatorName: "Norte Salvaje",
@@ -795,8 +747,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Propinas", "Bebidas en almuerzos", "Seguro de viaje"],
     imageUrl: "https://source.unsplash.com/800x600/?kuelap-fortress",
-    rating: 4.8,
-    reviewsCount: 36,
   },
 
   // ============ SELVA (3) ============
@@ -824,8 +774,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Vuelos a Iquitos", "Repelente con DEET", "Botas (alquiler S/15)", "Propinas"],
     imageUrl: "https://source.unsplash.com/800x600/?amazon-river-peru",
-    rating: 4.7,
-    reviewsCount: 58,
   },
   {
     operatorName: "Amazonía Viva",
@@ -852,8 +800,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Botas y linterna (alquiler S/25)", "Repelente con DEET", "Bebidas alcohólicas", "Propinas"],
     imageUrl: "https://source.unsplash.com/800x600/?macaw-amazon",
-    rating: 4.9,
-    reviewsCount: 74,
   },
   {
     operatorName: "Amazonía Viva",
@@ -879,8 +825,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Repelente y botas", "Bebidas alcohólicas", "Seguro de evacuación", "Propinas"],
     imageUrl: "https://source.unsplash.com/800x600/?manu-rainforest",
-    rating: 4.9,
-    reviewsCount: 31,
   },
 
   // ============ MYSTIC (2) ============
@@ -908,8 +852,6 @@ const TOURS: TourSeed[] = [
     ],
     excluded: ["Sleeping bag personal recomendado", "Snacks adicionales", "Propinas voluntarias"],
     imageUrl: "https://source.unsplash.com/800x600/?qeros-andean",
-    rating: 5.0,
-    reviewsCount: 19,
   },
   {
     operatorName: "Pachamama Sagrada",
@@ -939,8 +881,6 @@ const TOURS: TourSeed[] = [
       "Sesiones extendidas o adicionales",
     ],
     imageUrl: "https://source.unsplash.com/800x600/?ayahuasca-amazon",
-    rating: 4.8,
-    reviewsCount: 22,
   },
 ];
 
@@ -1149,8 +1089,8 @@ async function createMigratedTours(): Promise<void> {
         included: t.included,
         excluded: t.excluded,
         imageUrl,
-        rating: t.rating,
-        reviewsCount: t.reviewsCount,
+        // rating/reviewsCount NO se siembran: el tour migrado nace en 0/0
+        // (default del schema). El JSON aún los trae pero se ignoran.
         aiSummary: t.aiSummary,
         altTour:
           t.altTour === null

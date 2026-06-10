@@ -53,7 +53,9 @@ export default async function handler(
         ...(city && { city: { equals: city, mode: "insensitive" } }),
       },
       select: LIST_SELECT,
-      orderBy: [{ rating: "desc" }, { reviewsCount: "desc" }],
+      // Sin ratings fabricados, ordenar por rating queda plano (todos en 0).
+      // Orden por recencia hasta tener señal real (reseñas/popularidad).
+      orderBy: [{ createdAt: "desc" }],
       take: limit,
     });
 
