@@ -25,6 +25,7 @@ const tourFields = {
   included: true,
   excluded: true,
   imageUrl: true,
+  images: true,
   rating: true,
   reviewsCount: true,
   createdAt: true,

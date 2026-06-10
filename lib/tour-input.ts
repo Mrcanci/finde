@@ -45,6 +45,9 @@ export const tourInputSchema = z.object({
     .default("flexible"),
   // Solo aceptamos URL http(s); base64/data URL se ignora (upload real: futuro).
   photo: z.string().optional(),
+  // Galería multi-foto (Opción A). Array de URLs; se filtra a http(s) abajo.
+  // imageUrl (portada) sigue saliendo de `photo`, sin cambios.
+  images: z.array(z.string()).optional(),
   // Hora de salida "HH:MM" (24h), opcional. La columna existe desde M3.1; se
   // persiste (ver más abajo). El <input type="time"> ya garantiza el formato.
   startTime: z
@@ -78,6 +81,11 @@ export type TourData = {
   // undefined en update → el PUT PRESERVA la imagen existente; en create cae a
   // null (columna nullable). null borraría la imagen, por eso se evita.
   imageUrl?: string;
+  // Galería (Opción A). Misma semántica undefined que imageUrl: si no llega el
+  // campo `images` → undefined, el PUT PRESERVA la galería existente y el POST
+  // cae al @default([]) de la columna. Si llega un array → REEMPLAZA (filtrado
+  // a URLs http(s); puede quedar []).
+  images?: string[];
   // Misma semántica undefined que imageUrl: si no llega startTime → undefined,
   // el PUT preserva la hora existente (editar sin tocarla no la borra); en
   // create cae a null (columna nullable).
@@ -123,6 +131,7 @@ const FIELD_LABELS: Record<string, string> = {
   meetingPoint: "Punto de encuentro",
   cancellation: "Política de cancelación",
   photo: "Foto",
+  images: "Galería",
   startTime: "Hora de salida",
 };
 
@@ -179,6 +188,12 @@ export function parseTourInput(rawBody: unknown): ParseTourInputResult {
   // "no tocar la imagen"; photo con URL = "reemplazar".
   const imageUrl =
     typeof b.photo === "string" && /^https?:\/\//i.test(b.photo) ? b.photo : undefined;
+  // Galería: si el campo `images` llega, se REEMPLAZA por las URLs http(s)
+  // válidas (puede quedar []). Si no llega → undefined: el PUT preserva la
+  // galería actual y el POST cae al @default([]). Mismo filtro que la portada.
+  const images = Array.isArray(b.images)
+    ? b.images.filter((u) => typeof u === "string" && /^https?:\/\//i.test(u))
+    : undefined;
   // undefined si no llega → el PUT preserva la hora existente; el POST cae a
   // null (columna nullable). El form siempre manda una hora al crear.
   const startTime = b.startTime ?? undefined;
@@ -203,6 +218,7 @@ export function parseTourInput(rawBody: unknown): ParseTourInputResult {
       meetingPoint: b.meetingPoint ?? null,
       cancellation: CANCEL_MAP[b.cancellation],
       imageUrl,
+      images,
       startTime,
     },
     embeddingText: `${b.title}. ${b.description}. ${b.category}. ${city}, ${region}`,

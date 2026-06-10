@@ -240,6 +240,9 @@ function mapTourFromApi(t) {
       ? `${Math.round(t.durationHours / 24)} días`
       : `${t.durationHours} horas`,
     image: t.imageUrl,
+    // Galería multi-foto (Opción A). `image` (portada) sigue siendo imageUrl;
+    // `images` es la galería para el carrusel del detalle (sub-paso 2).
+    images: Array.isArray(t.images) ? t.images : [],
     badge: "",
     category: CAT_API_TO_UI[t.category] || t.category,
     operator: t.operator?.name || "Operador Finde",
