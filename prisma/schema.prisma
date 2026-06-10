@@ -104,7 +104,11 @@ model Tour {
 model Booking {
   id           String   @id @default(cuid())
   tourId       String
-  tour         Tour     @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  // Restrict (no Cascade): borrar un tour con reservas debe FALLAR a nivel DB,
+  // no evaporar las reservas en silencio. El handler DELETE /api/tours/[id]
+  // valida antes y responde 409 invitando a pausar; este FK es la red de
+  // seguridad si algo intenta el borrado por otra vía.
+  tour         Tour     @relation(fields: [tourId], references: [id], onDelete: Restrict)
 
   userEmail    String
   userName     String

@@ -27,6 +27,13 @@ function storagePathFromImageUrl(imageUrl: string | null): string | null {
   return path.length > 0 ? path : null;
 }
 
+// Mensaje 409 al intentar borrar un tour que tiene reservas: invita a PAUSAR
+// (active:false) en su lugar, que lo oculta del catálogo conservando tour y
+// reservas. Mismo texto para el chequeo previo y la red de seguridad P2003.
+function bookingsBlockedMessage(n: number): string {
+  return `Este tour tiene ${n} reserva${n === 1 ? "" : "s"}. Púsalo en pausa en lugar de borrarlo.`;
+}
+
 const paramsSchema = z.object({
   id: z.string().min(1),
 });
@@ -189,10 +196,32 @@ async function handleDelete(
     return;
   }
 
+  // Protección de reservas: borrar un tour con reservas las destruiría. Si tiene
+  // CUALQUIER reserva (futura o pasada), se rechaza con 409 e invita a PAUSAR el
+  // tour (active:false), que lo oculta del catálogo conservando tour y reservas.
+  const bookingsCount = await db.booking.count({ where: { tourId: id } });
+  if (bookingsCount > 0) {
+    res
+      .status(409)
+      .json({ error: bookingsBlockedMessage(bookingsCount), bookingsCount });
+    return;
+  }
+
   // (a) Borrar el tour de la DB PRIMERO. Si falla, no tocamos Storage.
   try {
     await db.tour.delete({ where: { id } });
   } catch (error) {
+    // Red de seguridad: si una reserva entró entre el count y el delete, el FK
+    // Restrict (Booking.tour) hace fallar el delete con P2003. Lo traducimos al
+    // MISMO 409 limpio en vez de un 500 (re-contamos para el conteo actual).
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2003"
+    ) {
+      const n = await db.booking.count({ where: { tourId: id } });
+      res.status(409).json({ error: bookingsBlockedMessage(n), bookingsCount: n });
+      return;
+    }
     console.error("Error borrando tour:", error);
     res.status(500).json({ error: "Error borrando el tour" });
     return;

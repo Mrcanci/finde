@@ -3446,6 +3446,7 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
             </div>
             <div style={{ fontSize: 13, color: "var(--gy)", lineHeight: 1.5, marginBottom: 16 }}>
               "{confirmDel.title}" se eliminará de forma permanente. Esta acción no se puede deshacer.
+              {" "}Si el tour tiene reservas no se podrá borrar: en ese caso, pausalo para ocultarlo del catálogo sin perder las reservas.
             </div>
             {delError && <div className="field-err" style={{ marginBottom: 12 }}>{delError}</div>}
             <div style={{ display: "flex", gap: 10 }}>
@@ -4311,6 +4312,12 @@ export default function AppDemo() {
       setOpTours(prev => prev.filter(t => t.id !== tour.id));
       setTours(prev => prev.filter(t => t.id !== cuid));
       return { ok: true };
+    }
+    // 409 = el tour tiene reservas → el backend rechaza el borrado. NO quitamos
+    // el tour de la lista; surfaceamos el mensaje (invita a pausar) en el diálogo.
+    if (res.status === 409) {
+      const data = await res.json().catch(() => ({}));
+      return { ok: false, error: data?.error || "Este tour tiene reservas. Púsalo en pausa en lugar de borrarlo." };
     }
     if (res.status === 403) return { ok: false, error: "No puedes borrar este tour." };
     const data = await res.json().catch(() => ({}));
