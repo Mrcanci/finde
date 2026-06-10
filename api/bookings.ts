@@ -29,7 +29,10 @@ const bodySchema = z.object({
     .string()
     .trim()
     .regex(/^\d{8,15}$/, "userPhone debe tener entre 8 y 15 dígitos numéricos"),
-  guests: z.number().int().min(1).max(20),
+  // Techo alineado con el máximo de capacidad de un tour (lib/tour-input.ts:
+  // capacity max 3000). El límite real por reserva lo impone guests <=
+  // tour.capacity (validado abajo, 400 si excede), no este tope del schema.
+  guests: z.number().int().min(1).max(3000),
   scheduledAt: z
     .string()
     .datetime({ message: "scheduledAt debe ser ISO 8601" }),

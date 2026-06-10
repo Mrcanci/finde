@@ -2256,6 +2256,9 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
             <div className="det-mb">
               <div className="det-mi"><span className="mic"><MapPin size={14} strokeWidth={1.5} /></span>{tour.location}</div>
               <div className="det-mi"><span className="mic"><Timer size={14} strokeWidth={1.5} /></span>{tour.duration}</div>
+              {tour.startTime && (
+                <div className="det-mi"><span className="mic"><Clock size={14} strokeWidth={1.5} /></span>Salida {tour.startTime}</div>
+              )}
               <div className="det-mi"><span className="mic"><Star size={14} strokeWidth={1.5} fill="currentColor" /></span>{tour.rating} ({tour.reviews})</div>
               {hasAltitude && (
                 <div className="det-mi"><span className="mic"><ArrowUp size={14} strokeWidth={1.5} /></span>{tour.altitude} m</div>
@@ -2410,10 +2413,8 @@ function VoucherDetail({ trip }) {
   const iso = tripDateISO(trip);
   const dateLabel = iso ? formatLongDate(iso) : (trip.date || "");
   const startTime = tour.startTime || "08:00";
-  const endTime = tour.endTime || null;
-  const timeRange = endTime
-    ? `${startTime} → ${endTime}${tour.returnsNextDay ? " (regresa al día siguiente)" : ""}`
-    : (tour.duration ? `${startTime} · ${tour.duration}` : startTime);
+  // No hay hora de fin en el modelo/select; mostramos la salida + duración.
+  const timeRange = tour.duration ? `${startTime} · ${tour.duration}` : startTime;
   const included = Array.isArray(tour.included) ? tour.included : [];
   const includedShown = included.slice(0, 5);
   const includedExtra = Math.max(0, included.length - 5);
@@ -2617,9 +2618,10 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          // El backend ignora el email del body y usa el del token (requireAuth);
+          // por eso no se envía userEmail.
           tourId: tour.id,
           userName: name,
-          userEmail: email,
           userPhone: phoneClean,
           guests,
           scheduledAt,
@@ -2733,7 +2735,7 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
         <div className="bkf-t">Elige fecha y viajeros</div>
         <div className="bkf-sub" style={{ marginBottom: 10 }}>{tour.title}</div>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 12px", background: "var(--cr)", borderRadius: 100, fontSize: 12, color: "var(--gy)", fontWeight: 600, marginBottom: 24 }}>
-          <Clock size={13} strokeWidth={1.5} /> Duración: {tour.duration}
+          <Clock size={13} strokeWidth={1.5} /> Duración: {tour.duration}{tour.startTime ? ` · Salida ${tour.startTime}` : ""}
         </div>
         <div className="fg">
           <label className="lbl">Fecha</label>
@@ -2949,8 +2951,15 @@ function ProfileView({ go }) {
   const [opAcceptTerms, setOpAcceptTerms] = useState(false);
 
   const updOp = (k, v) => setOpForm(prev => ({ ...prev, [k]: v }));
+  // Mismas reglas que el backend (api/operators.ts bodySchema): name 3-100,
+  // phone /^\d{8,15}$/, city 2-50, ruc 11 dígitos. Evita que el front mande un
+  // alta que el server rechazará con 400 genérico.
+  const opNameValid = opForm.name.trim().length >= 3 && opForm.name.trim().length <= 100;
+  const opEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(opForm.email.trim());
+  const opPhoneValid = /^\d{8,15}$/.test(opForm.phone.trim());
+  const opCityValid = opForm.city.trim().length >= 2 && opForm.city.trim().length <= 50;
   const opRucValid = /^\d{11}$/.test(opForm.ruc);
-  const opFormValid = opForm.name && opForm.email && opForm.phone && opForm.city && opRucValid && opAcceptTerms;
+  const opFormValid = opNameValid && opEmailValid && opPhoneValid && opCityValid && opRucValid && opAcceptTerms;
 
   const submitOperator = async () => {
     if (!opRucValid) { setOpError("El RUC debe tener exactamente 11 dígitos"); return; }
@@ -2978,7 +2987,9 @@ function ProfileView({ go }) {
           setShowOpForm(false);
           return;
         }
-        throw new Error(err.error || `HTTP ${r.status}`);
+        if (r.status === 400) throw new Error("Revisa los datos: nombre, teléfono (8-15 dígitos), ciudad y RUC (11 dígitos).");
+        if (r.status === 429) throw new Error("Demasiados intentos. Espera un momento.");
+        throw new Error(err.error || "No pudimos registrar tu agencia. Intenta de nuevo.");
       }
       // Re-consulta /api/me para actualizar isOperator global (en vez de
       // setear estado local, que ya no existe).
