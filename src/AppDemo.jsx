@@ -2255,7 +2255,7 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
           return (
             <div className="det-mb">
               <div className="det-mi"><span className="mic"><MapPin size={14} strokeWidth={1.5} /></span>{tour.location}</div>
-              <div className="det-mi"><span className="mic"><Timer size={14} strokeWidth={1.5} /></span>{tour.duration}</div>
+              <div className="det-mi"><span className="mic"><Timer size={14} strokeWidth={1.5} /></span>Duración {tour.duration}</div>
               {tour.startTime && (
                 <div className="det-mi"><span className="mic"><Clock size={14} strokeWidth={1.5} /></span>Salida {tour.startTime}</div>
               )}
@@ -2412,9 +2412,12 @@ function VoucherDetail({ trip }) {
   const tour = trip.tour;
   const iso = tripDateISO(trip);
   const dateLabel = iso ? formatLongDate(iso) : (trip.date || "");
-  const startTime = tour.startTime || "08:00";
-  // No hay hora de fin en el modelo/select; mostramos la salida + duración.
-  const timeRange = tour.duration ? `${startTime} · ${tour.duration}` : startTime;
+  // Hora/duración etiquetadas, sin inventar default. La fila no se muestra si no
+  // hay ni startTime ni duración (ver render de timeRange más abajo).
+  const timeRange = [
+    tour.startTime ? `Salida ${tour.startTime}` : "",
+    tour.duration ? `Duración ${tour.duration}` : "",
+  ].filter(Boolean).join(" · ");
   const included = Array.isArray(tour.included) ? tour.included : [];
   const includedShown = included.slice(0, 5);
   const includedExtra = Math.max(0, included.length - 5);
@@ -2441,10 +2444,12 @@ function VoucherDetail({ trip }) {
           <span className="ic"><Calendar size={14} strokeWidth={1.5} /></span>
           <span style={{ textTransform: "capitalize" }}>{dateLabel}</span>
         </div>
-        <div className="voucher-row">
-          <span className="ic"><Clock size={14} strokeWidth={1.5} /></span>
-          <span>{timeRange}</span>
-        </div>
+        {timeRange && (
+          <div className="voucher-row">
+            <span className="ic"><Clock size={14} strokeWidth={1.5} /></span>
+            <span>{timeRange}</span>
+          </div>
+        )}
         <div className="voucher-row">
           <span className="ic"><Users size={14} strokeWidth={1.5} /></span>
           <span>{trip.guests} {trip.guests === 1 ? "persona" : "personas"}</span>
