@@ -276,6 +276,9 @@ function mapTourFromApi(t) {
     startTime: t.startTime ?? undefined,
     // Estado activo/inactivo real del API (M2.3); default true si no viene.
     active: t.active ?? true,
+    // Fecha de creación (ISO). Se usa para ordenar el catálogo por recencia
+    // ahora que no hay ratings que ordenar (ver reset de ratings 2026-06-09).
+    createdAt: t.createdAt ?? null,
   });
 }
 
@@ -543,131 +546,12 @@ const MY_TRIPS = [
   },
 ];
 
-// Fase 3.1: eliminado el diccionario REVIEWS (claves 1-14 ya no aplican
-// porque los tours ahora usan CUIDs del API). reviews[cuid] retorna
-// undefined y cae al fallback determinístico generateMockReviews.
-
-// Pools determinísticos para reseñas mock de tours del API (CUIDs).
-const REVIEW_AUTHORS = [
-  { author: "María García", avatar: "MG" },
-  { author: "Carlos Mendoza", avatar: "CM" },
-  { author: "Andrea Vargas", avatar: "AV" },
-  { author: "Diego Salazar", avatar: "DS" },
-  { author: "Lucía Ramos", avatar: "LR" },
-  { author: "Sebastián Castro", avatar: "SC" },
-  { author: "Camila Torres", avatar: "CT" },
-  { author: "Yanet Quispe", avatar: "YQ" },
-  { author: "Edgar Mamani", avatar: "EM" },
-  { author: "Rocío Huamán", avatar: "RH" },
-  { author: "Ana Rodríguez", avatar: "AR" },
-  { author: "James Wilson", avatar: "JW" },
-  { author: "Sofia Müller", avatar: "SM" },
-];
-
-const REVIEW_TEXTS_BY_CATEGORY = {
-  adventure: [
-    "Adrenalina pura y bien organizado. El equipo de seguridad estaba impecable y los instructores muy claros con las indicaciones.",
-    "Día intenso de principio a fin. Los breaks fueron en el momento justo y el almuerzo súper bien servido.",
-    "Si vienes a Perú a desconectarte y conectar con la naturaleza, este tour cumple. Las fotos del operador con drone son un plus.",
-    "Llevé buen calzado y ropa cómoda como recomendaron por WhatsApp y todo perfecto. Súper recomendado para grupos jóvenes.",
-  ],
-  gastro: [
-    "Probamos cebiche, anticuchos, picarones... todo de primera. El guía conoce muy bien la historia detrás de cada plato.",
-    "Mucho más que solo comer. Aprendimos sobre la fusión peruana, las influencias chinas y japonesas. Excelente experiencia.",
-    "Las paradas estuvieron bien escogidas. Mi favorita fue la cevichería en Barranco. Volvería sin dudarlo.",
-    "Cantidad y calidad. No vinimos con hambre y aún así no abasteció. La causa rellena fue la estrella del recorrido.",
-  ],
-  culture: [
-    "El guía habla con pasión de la historia. Te das cuenta que ama lo que hace. Aprendí muchísimo del contexto pre-inca y colonial.",
-    "Sitio impresionante. Llegamos temprano y evitamos las hordas de turistas, gran consejo del operador.",
-    "Recomendado para quienes quieren entender el contexto, no sólo tomarse fotos. La narrativa conecta los puntos muy bien.",
-    "Volvería con mis hijos cuando estén un poco más grandes. Hay historia para tres tours en uno.",
-  ],
-  nature: [
-    "Vimos guacamayos, monos y hasta una nutria gigante. La selva peruana es mágica y el guía sabía identificar todo lo que se movía.",
-    "Tour bien organizado, los lodges cómodos. Los guías locales saben hasta de qué especie son las huellas en el barro.",
-    "Si te gusta la fauna, este tour es imperdible. Llevé buenos binoculares y valió la pena cada gramo.",
-    "El silencio del amanecer escuchando aves es algo que no se olvida. Excelente para fotógrafos amateur.",
-  ],
-  mystic: [
-    "Una ceremonia con mucho respeto a la tradición. El maestro andino explicó cada paso y se sintió genuino.",
-    "No esperaba que me moviera tanto. La energía del lugar combinada con la guía hizo de este día algo especial.",
-    "Para venir con mente abierta. La conexión con la cosmovisión andina vale el viaje.",
-  ],
-  generic: [
-    "Comunicación impecable desde la reserva. Llegaron puntuales al hotel y todo el día fue muy fluido.",
-    "Muy buena relación calidad-precio. Lo único que cambiaría es empezar un poco más tarde.",
-    "Excelente experiencia con Finde. La agencia respondió rápido por WhatsApp y todo salió como lo prometieron.",
-    "Equipo súper amable. Hablaron español, inglés y un poquito de quechua con la gente del pueblo. Auténtico.",
-  ],
-};
-
-function hashTourId(id) {
-  const s = String(id);
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return h;
-}
-
-// Distribuye un total de reseñas en buckets de 5/4/3/2/1 estrellas según el
-// rating promedio. Para ratings altos (4.8+) la distribución se concentra
-// fuertemente en 5★; para ratings medios se reparte. Usado sólo para la viz
-// de barras cuando tour.reviews > tourRevs.length (caso tours del API).
-function distributeStars(rating, total) {
-  if (!total || total <= 0) return [5,4,3,2,1].map(s => ({ star: s, count: 0 }));
-  const r = Math.max(0, Math.min(5, Number(rating) || 0));
-  let pct;
-  if (r >= 4.8) pct = [0.88, 0.09, 0.02, 0.005, 0.005];
-  else if (r >= 4.5) pct = [0.70, 0.20, 0.07, 0.02, 0.01];
-  else if (r >= 4.2) pct = [0.55, 0.28, 0.10, 0.04, 0.03];
-  else if (r >= 4.0) pct = [0.45, 0.32, 0.15, 0.05, 0.03];
-  else if (r >= 3.5) pct = [0.30, 0.32, 0.22, 0.10, 0.06];
-  else pct = [0.20, 0.25, 0.30, 0.15, 0.10];
-  const exact = pct.map(p => p * total);
-  const counts = exact.map(Math.round);
-  let diff = total - counts.reduce((a, b) => a + b, 0);
-  let safety = 0;
-  while (diff !== 0 && safety++ < 100) {
-    let idx = 0;
-    for (let i = 1; i < counts.length; i++) if (counts[i] > counts[idx]) idx = i;
-    counts[idx] += diff > 0 ? 1 : -1;
-    diff += diff > 0 ? -1 : 1;
-  }
-  return [5,4,3,2,1].map((s, i) => ({ star: s, count: Math.max(0, counts[i]) }));
-}
-
-function generateMockReviews(tour) {
-  if (!tour) return [];
-  const seed = hashTourId(tour.id);
-  const count = 3 + (seed % 2); // 3 ó 4 reseñas
-  const catKey = tour.category && REVIEW_TEXTS_BY_CATEGORY[tour.category] ? tour.category : "generic";
-  const catPool = REVIEW_TEXTS_BY_CATEGORY[catKey];
-  const monthsShort = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-  const today = new Date();
-  const out = [];
-  for (let i = 0; i < count; i++) {
-    const author = REVIEW_AUTHORS[(seed + i * 7) % REVIEW_AUTHORS.length];
-    // Mezcla: ~70% comentarios de la categoría, ~30% genéricos.
-    const useGeneric = ((seed + i) % 10) >= 7;
-    const pool = useGeneric ? REVIEW_TEXTS_BY_CATEGORY.generic : catPool;
-    const text = pool[(seed + i * 3) % pool.length];
-    // ~25% de reseñas con 4 estrellas, resto 5.
-    const rating = ((seed + i) % 4) === 0 ? 4 : 5;
-    // Fechas espaciadas: 60-360 días atrás.
-    const daysBack = 60 + ((seed + i * 47) % 300);
-    const d = new Date(today.getTime() - daysBack * 86400000);
-    const date = `${String(d.getDate()).padStart(2, "0")} ${monthsShort[d.getMonth()]} ${d.getFullYear()}`;
-    out.push({
-      id: `mock-${tour.id}-${i}`,
-      author: author.author,
-      avatar: author.avatar,
-      rating,
-      text,
-      date,
-    });
-  }
-  return out;
-}
+// Reseñas: solo reales. Eliminado todo el andamiaje de reseñas/ratings
+// fabricados (REVIEW_AUTHORS, REVIEW_TEXTS_BY_CATEGORY, hashTourId,
+// distributeStars, generateMockReviews). Un tour solo muestra rating/reseñas
+// cuando existen reseñas reales: hoy, las que deja el viajero en sesión vía
+// handleReview (estado `reviews`); a futuro, un modelo Review en DB. Sin
+// reseñas → "Nuevo" en cards y sin bloque de rating en detalle/búsqueda.
 
 const USER = { name:"Alejandra Quispe", phone:"+51 987 654 321", email:"ale.quispe@gmail.com", dni:"72345678", city:"Lima", joinDate:"Enero 2026", trips:4, favorites:6, reviews:2, avatar:"AQ" };
 
@@ -1551,6 +1435,7 @@ function GCardSkeleton() {
 }
 
 function TCard({ t, onClick }) {
+  const hasReviews = t.reviews > 0;
   return (
     <div className="tc" onClick={onClick}>
       <div className="tc-img" style={imgBg(t.image)}>
@@ -1559,7 +1444,14 @@ function TCard({ t, onClick }) {
       <div className="tc-b">
         <div className="tc-loc">{t.location}</div>
         <div className="tc-tl">{t.title}</div>
-        <div className="tc-m"><span className="rt"><Star size={12} strokeWidth={1.5} fill="currentColor" /> {t.rating}</span><span>({t.reviews})</span><span>·</span><span>{t.duration}</span></div>
+        <div className="tc-m">
+          {hasReviews ? (
+            <><span className="rt"><Star size={12} strokeWidth={1.5} fill="currentColor" /> {t.rating}</span><span>({t.reviews})</span></>
+          ) : (
+            <span className="rt">Nuevo</span>
+          )}
+          {t.duration && <><span>·</span><span>{t.duration}</span></>}
+        </div>
         <div className="tc-ft"><div className="tc-pr">S/ {t.price} <span>por persona</span></div></div>
       </div>
     </div>
@@ -1832,14 +1724,16 @@ function CitySelector({ selectedCity, onPick }) {
 function HomeView({ go, pick, cat, setCat, tours, toursLoading, selectedCity, setSelectedCity, geoSource }) {
   const [cityExpanded, setCityExpanded] = useState(false);
   const filt = cat === "all" ? tours : tours.filter((t) => t.category === cat);
-  const feat = [...filt].sort((a, b) => b.rating - a.rating || b.reviews - a.reviews).slice(0, 4);
-  // Todos los tours de la ciudad ordenados por rating desc (sin rating al final).
+  // Destacados: los 4 más recientes (createdAt desc). Antes ordenaba por rating,
+  // pero sin ratings fabricados eso queda plano (todos en 0).
+  const feat = [...filt].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")).slice(0, 4);
+  // Todos los tours de la ciudad ordenados por recencia (createdAt desc).
   // Renderizamos siempre todos: en mobile el .tscr es carrusel horizontal y
   // muestra todos por swipe natural. En ≥640px el CSS oculta las cards 5+
   // cuando .city-tscr no tiene la clase .expanded.
   const allCityTours = toursByCity(filt, selectedCity)
     .slice()
-    .sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
   // Cambiar de ciudad colapsa la sección para que el usuario no aterrice
   // expandido en una ciudad nueva. Aplica tanto al CitySelector como al
   // botón "Ver tours en Lima" del empty state.
@@ -2067,7 +1961,7 @@ function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
                 <div key={t.id} className="sr-item" onMouseDown={(e) => { e.preventDefault(); pick(t); go("detail"); }}>
                   <div className="sr-thumb" style={imgBg(t.image)} />
                   <div className="sr-info"><div className="sr-name">{t.title}</div><div className="sr-loc">{t.location}</div></div>
-                  <div className="sr-meta"><div className="sr-price">S/ {t.price}</div><div className="sr-rating">{Array.from({length: Math.round(t.rating)}, (_,i) => <Star key={i} size={10} strokeWidth={1.5} fill="currentColor" />)} {t.rating}</div></div>
+                  <div className="sr-meta"><div className="sr-price">S/ {t.price}</div><div className="sr-rating">{t.reviews > 0 ? (<>{Array.from({length: Math.round(t.rating)}, (_,i) => <Star key={i} size={10} strokeWidth={1.5} fill="currentColor" />)} {t.rating}</>) : "Nuevo"}</div></div>
                 </div>
               )) : !isPopular && !geminiLoading && (
                 <>
@@ -2198,22 +2092,15 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
   const isQu = lang === "qu";
   const langLabels = { es: "Español", qu: "Quechua", en: "English" };
   const langFlags = { es: "PE", qu: "QU", en: "EN" };
-  // Tours locales (id 1-14) usan REVIEWS curadas. Para tours del API (CUIDs)
-  // generamos reseñas determinísticas para no romper la coherencia con el
-  // contador del header (rating "4.9 (221)" no debe quedar sin reseñas).
-  const realRevs = reviews[tour.id];
-  const tourRevs = (realRevs && realRevs.length > 0)
-    ? realRevs
-    : (tour.reviews > 0 ? generateMockReviews(tour) : []);
+  // Solo reseñas REALES: las que deja el viajero en sesión (estado `reviews`,
+  // vía handleReview). Sin mock: si no hay reseñas, no se renderiza el bloque.
+  const tourRevs = reviews[tour.id] || [];
   const visibleRevs = showAllRevs ? tourRevs : tourRevs.slice(0, 3);
-  // Conteo total visible y distribución se calculan sobre tour.reviews (dato real),
-  // no sobre tourRevs.length (que son sólo las muestras renderizadas: 3-4). Así el
-  // header "(221)" coincide con la sección y las barras se ven proporcionales.
-  const totalReviews = Number(tour.reviews) || 0;
-  const useRealCounts = totalReviews > 0 && totalReviews === tourRevs.length;
-  const starCounts = useRealCounts
-    ? [5, 4, 3, 2, 1].map(s => ({ star: s, count: tourRevs.filter(r => r.rating === s).length }))
-    : distributeStars(tour.rating, totalReviews);
+  // Todo se calcula sobre las reseñas reales presentes (no sobre tour.reviews):
+  // el conteo, la distribución de estrellas y el promedio coinciden con lo que
+  // realmente se muestra.
+  const totalReviews = tourRevs.length;
+  const starCounts = [5, 4, 3, 2, 1].map(s => ({ star: s, count: tourRevs.filter(r => r.rating === s).length }));
   const maxCount = Math.max(...starCounts.map(s => s.count), 1);
   return (
     <div className="det">
@@ -2241,10 +2128,12 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
             )}
           </div>
         </div>
-        <div className="ai-sum">
-          <div className="ai-sum-h"><Sparkles size={14} strokeWidth={1.5} /> Resumen de {tour.reviews} reseñas</div>
-          <div className="ai-sum-t">{tour.aiSummary}</div>
-        </div>
+        {totalReviews > 0 && (
+          <div className="ai-sum">
+            <div className="ai-sum-h"><Sparkles size={14} strokeWidth={1.5} /> Resumen de {totalReviews} reseña{totalReviews === 1 ? "" : "s"}</div>
+            <div className="ai-sum-t">{tour.aiSummary}</div>
+          </div>
+        )}
         {(() => {
           // Sólo mostramos la altitud cuando el dato es significativo. Tours
           // costeños/citadinos vienen con "" o "0" y el bloque "↑ m" suelto
@@ -2259,7 +2148,9 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
               {tour.startTime && (
                 <div className="det-mi"><span className="mic"><Clock size={14} strokeWidth={1.5} /></span>Salida {tour.startTime}</div>
               )}
-              <div className="det-mi"><span className="mic"><Star size={14} strokeWidth={1.5} fill="currentColor" /></span>{tour.rating} ({tour.reviews})</div>
+              {totalReviews > 0 && (
+                <div className="det-mi"><span className="mic"><Star size={14} strokeWidth={1.5} fill="currentColor" /></span>{tour.rating} ({totalReviews})</div>
+              )}
               {hasAltitude && (
                 <div className="det-mi"><span className="mic"><ArrowUp size={14} strokeWidth={1.5} /></span>{tour.altitude} m</div>
               )}
@@ -3485,8 +3376,14 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
                 <div className="dsh-ls-t" style={{ opacity: t.active ? 1 : 0.45 }}>{t.title}</div>
                 <div className="dsh-ls-m">{t.location} · {t.duration}</div>
                 <div className="dsh-ls-sts">
-                  <div className="dsh-ls-st"><Star size={13} strokeWidth={1.5} fill="currentColor" /> <span className="v">{t.rating}</span></div>
-                  <div className="dsh-ls-st"><MessageCircle size={13} strokeWidth={1.5} /> <span className="v">{t.reviews}</span></div>
+                  {t.reviews > 0 ? (
+                    <>
+                      <div className="dsh-ls-st"><Star size={13} strokeWidth={1.5} fill="currentColor" /> <span className="v">{t.rating}</span></div>
+                      <div className="dsh-ls-st"><MessageCircle size={13} strokeWidth={1.5} /> <span className="v">{t.reviews}</span></div>
+                    </>
+                  ) : (
+                    <div className="dsh-ls-st"><span className="v">Nuevo</span></div>
+                  )}
                   <div className="dsh-ls-st">S/ <span className="v">{t.price}</span></div>
                 </div>
               </div>
