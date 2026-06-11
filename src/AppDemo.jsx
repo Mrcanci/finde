@@ -826,7 +826,20 @@ html{scrollbar-gutter:stable}
 .det-hero{height:280px;position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:16px}
 /* Gradient con bottom reforzado para garantizar legibilidad del título blanco
    sobre cualquier imagen — incluso playas, mar, platos claros, cielos. */
-.det-ov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.25) 0%,rgba(0,0,0,0) 30%,rgba(0,0,0,0) 50%,rgba(0,0,0,.7) 100%)}
+.det-ov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.25) 0%,rgba(0,0,0,0) 30%,rgba(0,0,0,0) 50%,rgba(0,0,0,.7) 100%);pointer-events:none}
+/* Carrusel del hero (galería). Capa absoluta detrás del overlay/título: NO
+   cambia el flex del hero → el título no se mueve. scroll-snap = swipe nativo. */
+.det-gal{position:absolute;inset:0;z-index:0}
+.det-gal-track{position:absolute;inset:0;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.det-gal-track::-webkit-scrollbar{display:none}
+.det-gal-slide{flex:0 0 100%;width:100%;height:100%;scroll-snap-align:start}
+.det-gal-arr{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.85);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--ch);z-index:3;backdrop-filter:blur(8px)}
+.det-gal-arr:disabled{opacity:.35;cursor:default}
+.det-gal-arr-l{left:12px}
+.det-gal-arr-r{right:12px}
+.det-gal-dots{position:absolute;top:16px;left:0;right:0;display:flex;gap:6px;justify-content:center;z-index:3;pointer-events:none}
+.det-gal-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.55);transition:.2s}
+.det-gal-dot.on{background:white;width:18px;border-radius:3px}
 .bk-btn{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.9);border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;z-index:2;position:relative;backdrop-filter:blur(10px);color:var(--ch)}
 .det-nfo{position:relative;z-index:2}
 .det-bdg{display:inline-block;padding:4px 12px;border-radius:100px;font-size:10px;font-weight:700;background:rgba(255,255,255,.95);color:var(--ch);margin-bottom:8px}
@@ -2051,6 +2064,56 @@ function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
   );
 }
 
+// Carrusel del hero del detalle (sub-paso 2 galería). Capa absoluta DENTRO del
+// .det-hero: NO altera el flex del hero, así el título y el botón de volver
+// quedan EXACTAMENTE donde estaban. Swipe nativo (scroll-snap) en móvil +
+// flechas/puntos en desktop. Solo se monta con 2+ fotos (el caso 0/1 conserva
+// el hero de hoy con background inline). Reusa imgBg() por slide.
+function DetHeroGallery({ images }) {
+  const [idx, setIdx] = useState(0);
+  const trackRef = useRef(null);
+  const onScroll = () => {
+    const el = trackRef.current;
+    if (!el || el.clientWidth === 0) return;
+    const i = Math.round(el.scrollLeft / el.clientWidth);
+    if (i !== idx) setIdx(i);
+  };
+  const goTo = (i) => {
+    const el = trackRef.current;
+    if (!el) return;
+    const clamped = Math.max(0, Math.min(images.length - 1, i));
+    el.scrollTo({ left: clamped * el.clientWidth, behavior: "smooth" });
+  };
+  return (
+    <div className="det-gal">
+      <div className="det-gal-track" ref={trackRef} onScroll={onScroll}>
+        {images.map((src, i) => (
+          <div key={i} className="det-gal-slide" style={imgBg(src)} />
+        ))}
+      </div>
+      <button
+        className="det-gal-arr det-gal-arr-l"
+        onClick={() => goTo(idx - 1)}
+        disabled={idx === 0}
+        aria-label="Foto anterior"
+        type="button"
+      ><ChevronLeft size={18} strokeWidth={2} /></button>
+      <button
+        className="det-gal-arr det-gal-arr-r"
+        onClick={() => goTo(idx + 1)}
+        disabled={idx === images.length - 1}
+        aria-label="Foto siguiente"
+        type="button"
+      ><ChevronRight size={18} strokeWidth={2} /></button>
+      <div className="det-gal-dots">
+        {images.map((_, i) => (
+          <span key={i} className={`det-gal-dot ${i === idx ? "on" : ""}`} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function DetailView({ tour, go, pick, onBook, reviews }) {
   const [lang, setLang] = useState("es");
   const [langOpen, setLangOpen] = useState(false);
@@ -2095,6 +2158,13 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
   const isQu = lang === "qu";
   const langLabels = { es: "Español", qu: "Quechua", en: "English" };
   const langFlags = { es: "PE", qu: "QU", en: "EN" };
+  // Galería del hero (sub-paso 2). images[] incluye la portada; si está vacío,
+  // cae a la portada suelta (tour.image). 0 fotos → gradiente de imgBg (como
+  // hoy); 1 → hero estático sin chrome (idéntico a hoy); 2+ → carrusel.
+  const gallery = (tour.images && tour.images.length)
+    ? tour.images
+    : (tour.image ? [tour.image] : []);
+  const isCarousel = gallery.length >= 2;
   // Solo reseñas REALES: las que deja el viajero en sesión (estado `reviews`,
   // vía handleReview). Sin mock: si no hay reseñas, no se renderiza el bloque.
   const tourRevs = reviews[tour.id] || [];
@@ -2107,7 +2177,9 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
   const maxCount = Math.max(...starCounts.map(s => s.count), 1);
   return (
     <div className="det">
-      <div className="det-hero" style={imgBg(tour.image)}><div className="det-ov" />
+      <div className="det-hero" style={isCarousel ? undefined : imgBg(gallery[0] || tour.image)}>
+        {isCarousel && <DetHeroGallery images={gallery} />}
+        <div className="det-ov" />
         <button className="bk-btn" onClick={() => go("home")} aria-label="Volver al inicio" type="button"><ArrowLeft size={20} strokeWidth={1.5} /></button>
         <div className="det-nfo">
           <div className="det-tl">{isQu ? tour.titleQu : tour.title}</div>
