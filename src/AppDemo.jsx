@@ -3625,6 +3625,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [uploadProgress, setUploadProgress] = useState(null); // { done, total } | null
+  const [dragOver, setDragOver] = useState(false); // feedback visual del drag-and-drop
   const u = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
 
   const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png"];
@@ -3903,14 +3904,24 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
               <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>No cierres esta pantalla.</span>
             </div>
           ) : form.images.length < MAX_GALLERY ? (
-            <label style={{
-              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-              gap: 8, padding: 24, borderRadius: 16, border: "2px dashed var(--lg)",
-              cursor: "pointer", background: "var(--cr)"
-            }}>
+            // Zona de drop + click. El drag-and-drop es ADITIVO: reusa el mismo
+            // handlePhotoUpload (valida tipo/tamaño/tope y sube en loop) que el
+            // input. dragOver solo controla el feedback visual.
+            <label
+              onDragEnter={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
+              onDrop={(e) => { e.preventDefault(); setDragOver(false); handlePhotoUpload(e.dataTransfer.files); }}
+              style={{
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                gap: 8, padding: 24, borderRadius: 16,
+                border: dragOver ? "2px dashed var(--f)" : "2px dashed var(--lg)",
+                cursor: "pointer", background: dragOver ? "rgba(27,58,45,.06)" : "var(--cr)",
+                transition: "background .15s, border-color .15s"
+              }}>
               <Camera size={28} strokeWidth={1.5} style={{ color: "var(--f)" }} />
               <span style={{ fontSize: 13, fontWeight: 600, color: "var(--f)" }}>{form.images.length ? "Agregar más fotos" : "Subir fotos"}</span>
-              <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>JPG o PNG · máx 5MB c/u · hasta {MAX_GALLERY} fotos</span>
+              <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>Arrastra fotos aquí o haz click para elegir · hasta {MAX_GALLERY} · JPG o PNG · máx 5MB c/u</span>
               {form.images.length === 0 && (
                 <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>Opcional por ahora — sin foto usamos un diseño por defecto.</span>
               )}
