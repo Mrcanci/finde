@@ -2556,8 +2556,11 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
     const available = getAvailableDatesInRange(tour, t0, addDaysISO(t0, 90));
     return available[0] || "";
   });
-  const [name, setName] = useState(USER.name || "");
-  const [phone, setPhone] = useState(USER.phone ? USER.phone.replace(/^\+51\s*/, "") : "");
+  // Sin prefill del mock USER: el viajero escribe su identidad real, así cada
+  // reserva guarda su userName/userPhone reales (antes todas salían iguales).
+  // El email sí se prefilla del token (real) más abajo.
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   // Prellenar con el email del usuario logueado. El backend ignora este valor
   // y usa el del token; lo mostramos sólo para que el usuario vea su identidad.
   const [email, setEmail] = useState(user?.email || "");
@@ -3305,8 +3308,8 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
               ))}
               <div className="sum-t"><span>Total</span><span>S/ {b.amount.toLocaleString("es-PE")}</span></div>
             </div>
-            {b.phone ? (
-              <a href={`https://wa.me/${b.phone.replace(/\D/g,"")}`}
+            {toIntlPhone(b.phone) ? (
+              <a href={`https://wa.me/${toIntlPhone(b.phone)}`}
                 style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                   padding: "13px 0", borderRadius: 14, background: "#25D366", color: "white",
                   fontWeight: 700, fontSize: 14, textDecoration: "none", marginBottom: 10 }}>
