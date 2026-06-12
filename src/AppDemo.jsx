@@ -72,6 +72,21 @@ function formatLongDate(iso) {
   const [y, m, d] = iso.split("-").map(Number);
   return `${DAY_LABEL_LONG[dayCodeFromISO(iso)]} ${d} de ${MONTH_LABELS_LOWER[m - 1]} de ${y}`;
 }
+// Fecha + hora en zona Lima a partir de un ISO timestamp, ej. "20 Jun 2026, 14:32".
+// Usado para Booking.createdAt en el panel del operador. Devuelve "" si el ISO no parsea.
+function fmtDateTime(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleString("es-PE", {
+    timeZone: "America/Lima",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 function isDateAvailable(dateStr, tour) {
   if (!dateStr || !tour) return false;
   if (dateStr < todayISO()) return false;
@@ -3257,7 +3272,7 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
           <div key={b.id} className="dsh-bk" style={{ alignItems: "center", gap: 10, cursor: "pointer" }}
             onClick={() => setSelectedBooking(b)}>
             <div className="dsh-bk-av" style={{ background: "var(--m)" }}>{initials(b.customer)}</div>
-            <div className="dsh-bk-i"><div className="dsh-bk-n">{b.customer}</div><div className="dsh-bk-d">{b.tour} · {b.date} · {b.guests} pers</div></div>
+            <div className="dsh-bk-i"><div className="dsh-bk-n">{b.customer}</div><div className="dsh-bk-d">{b.tour} · {b.date}{b.startTime ? ` · Salida ${b.startTime}` : ""} · {b.guests} pers</div></div>
             <div className="dsh-bk-r"><div className="dsh-bk-a">S/ {b.amount.toLocaleString("es-PE")}</div><div className="dsh-bk-s" style={{ color: "var(--gy)" }}>Solicitud recibida</div></div>
           </div>
         ))}
@@ -3278,7 +3293,14 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
               <div className="dsh-bk-s" style={{ color: "var(--gy)" }}>Solicitud recibida</div>
             </div>
             <div className="sum">
-              {[["Código", b.id], ["Tour", b.tour], ["Fecha", b.date], ["Personas", `${b.guests} personas`]].map(([l, v]) => (
+              {[
+                ["Código", b.id],
+                ["Tour", b.tour],
+                ["Fecha", b.date],
+                ...(b.startTime ? [["Hora de salida", b.startTime]] : []),
+                ["Personas", `${b.guests} personas`],
+                ...(b.createdAt ? [["Reservado el", fmtDateTime(b.createdAt)]] : []),
+              ].map(([l, v]) => (
                 <div key={l} className="sum-r"><span style={{ color: "var(--gy)" }}>{l}</span><span style={{ fontWeight: 600 }}>{v}</span></div>
               ))}
               <div className="sum-t"><span>Total</span><span>S/ {b.amount.toLocaleString("es-PE")}</span></div>
@@ -4391,6 +4413,8 @@ export default function AppDemo() {
           customer: b.userName,
           phone: b.userPhone || null,
           date: fmtBookingDate(b.scheduledAt),
+          startTime: b.tour?.startTime ?? null,
+          createdAt: b.createdAt ?? null,
           guests: b.guests,
           amount: (b.totalSoles || 0) / 100,
           tour: b.tour?.title || "",
