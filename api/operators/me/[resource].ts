@@ -62,7 +62,7 @@ export default async function handler(
           status: true,
           scheduledAt: true,
           createdAt: true,
-          tour: { select: { id: true, title: true } },
+          tour: { select: { id: true, title: true, startTime: true } },
         },
         orderBy: { createdAt: "desc" },
       });
