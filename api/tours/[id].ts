@@ -185,7 +185,7 @@ async function handleDelete(
   // Verificación de PROPIEDAD: solo el dueño puede borrar su tour.
   const existing = await db.tour.findUnique({
     where: { id },
-    select: { id: true, operatorId: true, imageUrl: true },
+    select: { id: true, operatorId: true, imageUrl: true, images: true },
   });
   if (!existing) {
     res.status(404).json({ error: "Tour no encontrado" });
@@ -227,25 +227,35 @@ async function handleDelete(
     return;
   }
 
-  // (b) Borrar la foto de Storage DESPUÉS, solo si vive en nuestro bucket.
+  // (b) Borrar las fotos de Storage DESPUÉS, solo las que viven en nuestro
+  // bucket. Con galería hay que limpiar portada (imageUrl) Y galería (images[]),
+  // o quedan huérfanas. La portada suele estar también en images[] → DEDUP.
   // Un fallo aquí se loguea pero NO rompe la request: el tour ya se borró.
-  const path = storagePathFromImageUrl(existing.imageUrl);
-  if (path) {
+  const paths = [
+    ...new Set(
+      [existing.imageUrl, ...(existing.images || [])]
+        .map(storagePathFromImageUrl)
+        .filter((p): p is string => p !== null)
+    ),
+  ];
+  if (paths.length > 0) {
     try {
       const { error } = await supabaseAdmin.storage
         .from(STORAGE_BUCKET)
-        .remove([path]);
+        .remove(paths);
       if (error) {
         console.error(
-          "Tour borrado, pero falló borrar la foto de Storage (huérfana):",
-          path,
+          "Tour borrado, pero falló borrar fotos de Storage (huérfanas):",
+          paths,
           error
         );
+      } else {
+        console.log(`Tour borrado: ${paths.length} foto(s) limpiada(s) de Storage`);
       }
     } catch (error) {
       console.error(
-        "Tour borrado, pero error inesperado borrando la foto de Storage:",
-        path,
+        "Tour borrado, pero error inesperado borrando fotos de Storage:",
+        paths,
         error
       );
     }

@@ -240,6 +240,9 @@ function mapTourFromApi(t) {
       ? `${Math.round(t.durationHours / 24)} días`
       : `${t.durationHours} horas`,
     image: t.imageUrl,
+    // Galería multi-foto (Opción A). `image` (portada) sigue siendo imageUrl;
+    // `images` es la galería para el carrusel del detalle (sub-paso 2).
+    images: Array.isArray(t.images) ? t.images : [],
     badge: "",
     category: CAT_API_TO_UI[t.category] || t.category,
     operator: t.operator?.name || "Operador Finde",
@@ -312,6 +315,10 @@ function tourFormToApiBody(f) {
     // form no la tiene (el backend preserva la existente en el PUT).
     startTime: f.startTime || undefined,
     ...(f.photo && /^https?:\/\//i.test(f.photo) ? { photo: f.photo } : {}),
+    // Galería (sub-paso 3): array de URLs en orden. Siempre se envía (el backend
+    // lo filtra a http(s) y REEMPLAZA Tour.images). En edición se carga la
+    // galería existente en form.images, así que re-enviarla la preserva.
+    images: Array.isArray(f.images) ? f.images : [],
   };
 }
 
@@ -823,7 +830,20 @@ html{scrollbar-gutter:stable}
 .det-hero{height:280px;position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:16px}
 /* Gradient con bottom reforzado para garantizar legibilidad del título blanco
    sobre cualquier imagen — incluso playas, mar, platos claros, cielos. */
-.det-ov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.25) 0%,rgba(0,0,0,0) 30%,rgba(0,0,0,0) 50%,rgba(0,0,0,.7) 100%)}
+.det-ov{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.25) 0%,rgba(0,0,0,0) 30%,rgba(0,0,0,0) 50%,rgba(0,0,0,.7) 100%);pointer-events:none}
+/* Carrusel del hero (galería). Capa absoluta detrás del overlay/título: NO
+   cambia el flex del hero → el título no se mueve. scroll-snap = swipe nativo. */
+.det-gal{position:absolute;inset:0;z-index:0}
+.det-gal-track{position:absolute;inset:0;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.det-gal-track::-webkit-scrollbar{display:none}
+.det-gal-slide{flex:0 0 100%;width:100%;height:100%;scroll-snap-align:start}
+.det-gal-arr{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.85);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--ch);z-index:3;backdrop-filter:blur(8px)}
+.det-gal-arr:disabled{opacity:.35;cursor:default}
+.det-gal-arr-l{left:12px}
+.det-gal-arr-r{right:12px}
+.det-gal-dots{position:absolute;top:16px;left:0;right:0;display:flex;gap:6px;justify-content:center;z-index:3;pointer-events:none}
+.det-gal-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.55);transition:.2s}
+.det-gal-dot.on{background:white;width:18px;border-radius:3px}
 .bk-btn{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.9);border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;z-index:2;position:relative;backdrop-filter:blur(10px);color:var(--ch)}
 .det-nfo{position:relative;z-index:2}
 .det-bdg{display:inline-block;padding:4px 12px;border-radius:100px;font-size:10px;font-weight:700;background:rgba(255,255,255,.95);color:var(--ch);margin-bottom:8px}
@@ -2048,6 +2068,56 @@ function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
   );
 }
 
+// Carrusel del hero del detalle (sub-paso 2 galería). Capa absoluta DENTRO del
+// .det-hero: NO altera el flex del hero, así el título y el botón de volver
+// quedan EXACTAMENTE donde estaban. Swipe nativo (scroll-snap) en móvil +
+// flechas/puntos en desktop. Solo se monta con 2+ fotos (el caso 0/1 conserva
+// el hero de hoy con background inline). Reusa imgBg() por slide.
+function DetHeroGallery({ images }) {
+  const [idx, setIdx] = useState(0);
+  const trackRef = useRef(null);
+  const onScroll = () => {
+    const el = trackRef.current;
+    if (!el || el.clientWidth === 0) return;
+    const i = Math.round(el.scrollLeft / el.clientWidth);
+    if (i !== idx) setIdx(i);
+  };
+  const goTo = (i) => {
+    const el = trackRef.current;
+    if (!el) return;
+    const clamped = Math.max(0, Math.min(images.length - 1, i));
+    el.scrollTo({ left: clamped * el.clientWidth, behavior: "smooth" });
+  };
+  return (
+    <div className="det-gal">
+      <div className="det-gal-track" ref={trackRef} onScroll={onScroll}>
+        {images.map((src, i) => (
+          <div key={i} className="det-gal-slide" style={imgBg(src)} />
+        ))}
+      </div>
+      <button
+        className="det-gal-arr det-gal-arr-l"
+        onClick={() => goTo(idx - 1)}
+        disabled={idx === 0}
+        aria-label="Foto anterior"
+        type="button"
+      ><ChevronLeft size={18} strokeWidth={2} /></button>
+      <button
+        className="det-gal-arr det-gal-arr-r"
+        onClick={() => goTo(idx + 1)}
+        disabled={idx === images.length - 1}
+        aria-label="Foto siguiente"
+        type="button"
+      ><ChevronRight size={18} strokeWidth={2} /></button>
+      <div className="det-gal-dots">
+        {images.map((_, i) => (
+          <span key={i} className={`det-gal-dot ${i === idx ? "on" : ""}`} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function DetailView({ tour, go, pick, onBook, reviews }) {
   const [lang, setLang] = useState("es");
   const [langOpen, setLangOpen] = useState(false);
@@ -2092,6 +2162,16 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
   const isQu = lang === "qu";
   const langLabels = { es: "Español", qu: "Quechua", en: "English" };
   const langFlags = { es: "PE", qu: "QU", en: "EN" };
+  // Galería del hero (sub-paso 2). La portada (tour.image = imageUrl) SIEMPRE
+  // lidera la slide 0, así coincide con el card; el resto de images[] sigue en
+  // orden de subida (sin la portada, ya posicionada al frente). Cubre el caso
+  // límite imageUrl ∉ images (la incluye igual). 0 fotos → gradiente de imgBg
+  // (como hoy); 1 → hero estático sin chrome; 2+ → carrusel.
+  const cover = tour.image;
+  const gallery = cover
+    ? [cover, ...(tour.images || []).filter(u => u && u !== cover)]
+    : (tour.images || []);
+  const isCarousel = gallery.length >= 2;
   // Solo reseñas REALES: las que deja el viajero en sesión (estado `reviews`,
   // vía handleReview). Sin mock: si no hay reseñas, no se renderiza el bloque.
   const tourRevs = reviews[tour.id] || [];
@@ -2104,7 +2184,9 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
   const maxCount = Math.max(...starCounts.map(s => s.count), 1);
   return (
     <div className="det">
-      <div className="det-hero" style={imgBg(tour.image)}><div className="det-ov" />
+      <div className="det-hero" style={isCarousel ? undefined : imgBg(gallery[0] || tour.image)}>
+        {isCarousel && <DetHeroGallery images={gallery} />}
+        <div className="det-ov" />
         <button className="bk-btn" onClick={() => go("home")} aria-label="Volver al inicio" type="button"><ArrowLeft size={20} strokeWidth={1.5} /></button>
         <div className="det-nfo">
           <div className="det-tl">{isQu ? tour.titleQu : tour.title}</div>
@@ -3480,6 +3562,27 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
 function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
   const isEditing = !!editingTour;
   const [step, setStep] = useState(1);
+  // Galería (sub-paso 3). Coerciona un valor de imagen (URL cruda o "url(...)"
+  // del display) a URL http(s); null si no es válida.
+  const rawImageUrl = (s) => {
+    if (typeof s !== "string") return null;
+    const m = s.match(/^url\((.*)\)$/);
+    const v = (m ? m[1] : s).trim();
+    return /^https?:\/\//i.test(v) ? v : null;
+  };
+  // Galería inicial: si el tour ya trae images[], se usan; si no, su portada
+  // suelta (tours legacy con una sola foto). Portada inicial = imageUrl del
+  // tour, garantizada dentro de la galería; por defecto, la primera.
+  const initCover = isEditing
+    ? (rawImageUrl(editingTour.photo) || rawImageUrl(editingTour.image))
+    : null;
+  const initImages = isEditing
+    ? (Array.isArray(editingTour.images) && editingTour.images.length
+        ? editingTour.images.filter((url) => /^https?:\/\//i.test(url))
+        : (initCover ? [initCover] : []))
+    : [];
+  const initPhoto =
+    initCover && initImages.includes(initCover) ? initCover : (initImages[0] ?? null);
   const [form, setForm] = useState(isEditing ? {
     title: editingTour.title || "",
     location: editingTour.location || "",
@@ -3497,14 +3600,16 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
     addedDates: editingTour.addedDates || [],
     startTime: editingTour.startTime || "08:00",
     cancellation: editingTour.cancellation || "flexible",
-    // La imagen de un tour del API vive en `image` (URL); `photo` suele venir
-    // null. Cargarla aquí hace que el editor la muestre y la re-envíe (al ser
-    // URL http) para que el backend la preserve en vez de borrarla.
-    photo: editingTour.photo || editingTour.image || null,
+    // Galería (sub-paso 3): images[] = fotos en orden; photo = portada (una de
+    // ellas). Se cargan del tour existente para que el editor muestre la galería
+    // actual con su portada marcada y, si no se toca, el backend la preserve.
+    images: initImages,
+    photo: initPhoto,
   } : {
     title: "", location: "", meetingPoint: "", category: "adventure", duration: "", price: "",
     capacity: "", difficulty: "Moderada", description: "", included: "", excluded: "",
-    days: [], excludedDates: [], addedDates: [], startTime: "08:00", cancellation: "flexible", photo: null
+    days: [], excludedDates: [], addedDates: [], startTime: "08:00", cancellation: "flexible",
+    images: [], photo: null
   });
   const [aiDesc, setAiDesc] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -3514,57 +3619,99 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
   // embedding agrega 1-2s). El modo edición (2.6) sigue siendo síncrono.
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
-  // Sub-paso 3.2: estado de la subida de foto (Flujo A — el archivo va directo
-  // a Supabase Storage con una signed URL que emite el backend en 3.1).
+  // Sub-paso 3: subida MÚLTIPLE de fotos (Flujo A — cada archivo va directo a
+  // Supabase Storage con su propia signed URL que emite el backend). `progress`
+  // surfacea "Subiendo X/Y…".
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(null); // { done, total } | null
+  const [dragOver, setDragOver] = useState(false); // feedback visual del drag-and-drop
   const u = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
 
-  // Sube la foto real a Storage (Flujo A) y deja la URL pública en form.photo.
-  // Reemplaza el viejo readAsDataURL (que descartaba el archivo). Como photo
-  // queda como URL http(s), tourFormToApiBody la incluye y el backend la guarda
-  // en imageUrl — sin cambios en el submit.
   const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png"];
   const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5MB, alineado con el bucket.
-  const handlePhotoUpload = async (file) => {
-    if (!file) return;
+  const MAX_GALLERY = 8; // tope de fotos por tour.
+
+  // Sube una sola foto y devuelve su URL pública (reusa el endpoint de signed
+  // URL; el archivo nunca pasa por la function → esquiva el límite de Vercel).
+  const uploadOnePhoto = async (file) => {
+    const r = await authFetch("/api/uploads/tour-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contentType: file.type }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${r.status}`);
+    }
+    const { token, path, publicUrl } = await r.json();
+    const { error: upErr } = await supabase.storage
+      .from("tour-images")
+      .uploadToSignedUrl(path, token, file);
+    if (upErr) throw new Error(upErr.message || "No se pudo subir la imagen");
+    return publicUrl;
+  };
+
+  // Sube N archivos en LOOP y los acumula en form.images. Si no había portada,
+  // la primera foto subida queda como portada (form.photo). Respeta el tope
+  // MAX_GALLERY y valida tipo/tamaño de cada archivo ANTES de subir.
+  const handlePhotoUpload = async (fileList) => {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
     setUploadError("");
-    // 1. Validación de front (UX): tipo y tamaño ANTES de pedir la URL firmada.
-    if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
-      setUploadError("Formato no válido. Sube una imagen JPG o PNG.");
+    const remaining = MAX_GALLERY - form.images.length;
+    if (remaining <= 0) {
+      setUploadError(`Ya alcanzaste el máximo de ${MAX_GALLERY} fotos.`);
       return;
     }
-    if (file.size > MAX_PHOTO_BYTES) {
-      setUploadError("La imagen supera los 5MB. Elige una más liviana.");
-      return;
+    const toUpload = files.slice(0, remaining);
+    const overflow = files.length - toUpload.length;
+    // Validar TODO el lote antes de subir nada (UX: no subir a medias por uno malo).
+    for (const file of toUpload) {
+      if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
+        setUploadError("Formato no válido. Sube imágenes JPG o PNG.");
+        return;
+      }
+      if (file.size > MAX_PHOTO_BYTES) {
+        setUploadError("Una imagen supera los 5MB. Elige versiones más livianas.");
+        return;
+      }
     }
     setUploading(true);
+    const uploaded = [];
     try {
-      // 2. Pedir la signed upload URL (solo operadores; authFetch agrega Bearer).
-      const r = await authFetch("/api/uploads/tour-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contentType: file.type }),
-      });
-      if (!r.ok) {
-        const err = await r.json().catch(() => ({}));
-        throw new Error(err.error || `HTTP ${r.status}`);
+      for (let i = 0; i < toUpload.length; i++) {
+        setUploadProgress({ done: i, total: toUpload.length });
+        uploaded.push(await uploadOnePhoto(toUpload[i]));
       }
-      const { token, path, publicUrl } = await r.json();
-      // 3. Subir el archivo DIRECTO a Storage con la URL firmada (no pasa por
-      //    la function → esquiva el límite ~4.5MB de Vercel).
-      const { error: upErr } = await supabase.storage
-        .from("tour-images")
-        .uploadToSignedUrl(path, token, file);
-      if (upErr) throw new Error(upErr.message || "No se pudo subir la imagen");
-      // 4. Éxito: la URL pública va a form.photo (el submit ya sabe usarla).
-      setForm(prev => ({ ...prev, photo: publicUrl }));
     } catch (e) {
-      setUploadError(e.message || "No pudimos subir la imagen. Intenta de nuevo.");
+      setUploadError(e.message || "No pudimos subir algunas fotos. Intenta de nuevo.");
     } finally {
+      // Persistir lo que SÍ subió (subida parcial no se pierde).
+      if (uploaded.length) {
+        setForm(prev => {
+          const images = [...prev.images, ...uploaded];
+          return { ...prev, images, photo: prev.photo || images[0] || null };
+        });
+      }
+      if (overflow > 0) {
+        setUploadError(`Solo se subieron ${toUpload.length}: el máximo es ${MAX_GALLERY} fotos.`);
+      }
       setUploading(false);
+      setUploadProgress(null);
     }
   };
+
+  // Quita una foto de la galería. Si era la portada, la portada pasa a la
+  // primera restante (o null si no quedan).
+  const removePhoto = (url) => setForm(prev => {
+    const images = prev.images.filter((x) => x !== url);
+    const photo = prev.photo === url ? (images[0] || null) : prev.photo;
+    return { ...prev, images, photo };
+  });
+
+  // Marca una foto como portada (debe ser una de form.images).
+  const makeCover = (url) => setForm(prev => ({ ...prev, photo: url }));
 
   const generateAiDesc = async () => {
     if (!form.title || !form.location) return;
@@ -3705,43 +3852,85 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           </div>
         </div>
         <div className="fg">
-          <label className="lbl">Foto principal del tour <span style={{ color: "var(--gy)", fontWeight: 500 }}>(opcional)</span></label>
-          {!form.photo && isEditing && editingTour.image && (
-            <div style={{ borderRadius: 16, overflow: "hidden", height: 100, marginBottom: 8, ...imgBg(editingTour.image), display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ fontSize: 11, color: "rgba(255,255,255,.7)", fontWeight: 600 }}>Imagen actual · Sube una foto para reemplazarla</span>
+          <label className="lbl">Fotos del tour <span style={{ color: "var(--gy)", fontWeight: 500 }}>(opcional)</span></label>
+          <div style={{ fontSize: 11, color: "var(--gy)", marginBottom: 10, lineHeight: 1.5 }}>
+            La portada (marcada con <Star size={10} strokeWidth={2} fill="currentColor" style={{ display: "inline", verticalAlign: "middle", color: "var(--gd)" }} />) se muestra en el listado. Puedes subir hasta {MAX_GALLERY}; el orden de la galería es el de subida.
+          </div>
+          {/* Grilla de miniaturas: portada marcada, X para quitar, "Hacer portada". */}
+          {form.images.length > 0 && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 10 }}>
+              {form.images.map((url) => {
+                const isCover = url === form.photo;
+                return (
+                  <div key={url} style={{
+                    position: "relative", height: 90, borderRadius: 12, overflow: "hidden",
+                    ...imgBg(url), border: isCover ? "2px solid var(--gd)" : "2px solid transparent"
+                  }}>
+                    {isCover && (
+                      <span style={{
+                        position: "absolute", top: 6, left: 6, display: "inline-flex", alignItems: "center", gap: 3,
+                        padding: "2px 7px", borderRadius: 100, background: "var(--gd)", color: "white",
+                        fontSize: 9, fontWeight: 700
+                      }}><Star size={9} strokeWidth={2} fill="currentColor" /> Portada</span>
+                    )}
+                    <button onClick={(e) => { e.preventDefault(); removePhoto(url); }} aria-label="Quitar foto" type="button" style={{
+                      position: "absolute", top: 6, right: 6, width: 22, height: 22, borderRadius: "50%",
+                      background: "rgba(0,0,0,.55)", border: "none", color: "white", cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit"
+                    }}><X size={12} strokeWidth={2} /></button>
+                    {!isCover && (
+                      <button onClick={(e) => { e.preventDefault(); makeCover(url); }} type="button" style={{
+                        position: "absolute", left: 0, right: 0, bottom: 0, padding: "5px 0",
+                        background: "rgba(0,0,0,.55)", border: "none", color: "white", cursor: "pointer",
+                        fontSize: 10, fontWeight: 700, fontFamily: "inherit",
+                        display: "flex", alignItems: "center", justifyContent: "center", gap: 4
+                      }}><Star size={10} strokeWidth={2} /> Hacer portada</button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
+          {/* Subida múltiple / progreso / tope alcanzado. */}
           {uploading ? (
             <div style={{
               display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-              gap: 8, padding: 24, borderRadius: 16, border: "2px dashed var(--lg)",
-              background: "var(--cr)"
+              gap: 8, padding: 24, borderRadius: 16, border: "2px dashed var(--lg)", background: "var(--cr)"
             }}>
               <Camera size={28} strokeWidth={1.5} style={{ color: "var(--f)", opacity: .5 }} />
-              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--f)" }}>Subiendo…</span>
-              <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>Subiendo tu foto, no cierres esta pantalla.</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--f)" }}>
+                {uploadProgress ? `Subiendo ${uploadProgress.done + 1}/${uploadProgress.total}…` : "Subiendo…"}
+              </span>
+              <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>No cierres esta pantalla.</span>
             </div>
-          ) : !form.photo ? (
-            <label style={{
-              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-              gap: 8, padding: 24, borderRadius: 16, border: "2px dashed var(--lg)",
-              cursor: "pointer", background: "var(--cr)"
-            }}>
+          ) : form.images.length < MAX_GALLERY ? (
+            // Zona de drop + click. El drag-and-drop es ADITIVO: reusa el mismo
+            // handlePhotoUpload (valida tipo/tamaño/tope y sube en loop) que el
+            // input. dragOver solo controla el feedback visual.
+            <label
+              onDragEnter={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
+              onDrop={(e) => { e.preventDefault(); setDragOver(false); handlePhotoUpload(e.dataTransfer.files); }}
+              style={{
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                gap: 8, padding: 24, borderRadius: 16,
+                border: dragOver ? "2px dashed var(--f)" : "2px dashed var(--lg)",
+                cursor: "pointer", background: dragOver ? "rgba(27,58,45,.06)" : "var(--cr)",
+                transition: "background .15s, border-color .15s"
+              }}>
               <Camera size={28} strokeWidth={1.5} style={{ color: "var(--f)" }} />
-              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--f)" }}>{isEditing ? "Cambiar foto" : "Subir foto"}</span>
-              <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>Recomendado: 1200×800px · JPG o PNG · máx 5MB</span>
-              <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>Opcional por ahora — sin foto usamos un diseño por defecto.</span>
-              <input type="file" accept="image/jpeg,image/png" style={{ display: "none" }}
-                onChange={(e) => { handlePhotoUpload(e.target.files[0]); e.target.value = ""; }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--f)" }}>{form.images.length ? "Agregar más fotos" : "Subir fotos"}</span>
+              <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>Arrastra fotos aquí o haz click para elegir · hasta {MAX_GALLERY} · JPG o PNG · máx 5MB c/u</span>
+              {form.images.length === 0 && (
+                <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>Opcional por ahora — sin foto usamos un diseño por defecto.</span>
+              )}
+              <input type="file" accept="image/jpeg,image/png" multiple style={{ display: "none" }}
+                onChange={(e) => { handlePhotoUpload(e.target.files); e.target.value = ""; }} />
             </label>
           ) : (
-            <div style={{ position: "relative", borderRadius: 16, overflow: "hidden", height: 160 }}>
-              <img src={form.photo} alt="preview" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-              <button onClick={(e) => { e.preventDefault(); u("photo", null); }} style={{
-                position: "absolute", top: 8, right: 8, width: 28, height: 28,
-                borderRadius: "50%", background: "rgba(0,0,0,.55)", border: "none",
-                color: "white", fontSize: 14, cursor: "pointer", fontFamily: "inherit"
-              }}><X size={14} strokeWidth={2} /></button>
+            <div style={{ fontSize: 11, color: "var(--gy)", textAlign: "center", padding: "8px 0" }}>
+              Máximo de {MAX_GALLERY} fotos alcanzado. Quita alguna para subir otra.
             </div>
           )}
           {uploadError && (
@@ -4138,6 +4327,9 @@ export default function AppDemo() {
           // Estado real del API (M2.3); me/tours devuelve activos e inactivos.
           active: t.active ?? true,
           image: t.image,
+          // Galería real del API (sub-paso 3): el editor la carga para mostrar
+          // las fotos actuales y, si no se tocan, preservarlas al guardar.
+          images: Array.isArray(t.images) ? t.images : [],
           title: t.title || "",
           location: t.location || "",
           duration: t.duration || "",
@@ -4469,6 +4661,7 @@ export default function AppDemo() {
       cancellation: apiTour.cancellation || updated.cancellation || "flexible",
       startTime: updated.startTime || "08:00",
       photo: updated.photo || null,
+      images: Array.isArray(updated.images) ? updated.images : [],
     } : t));
 
     setEditingTour(null);
@@ -4550,6 +4743,7 @@ export default function AppDemo() {
       startTime: formData.startTime || "08:00",
       cancellation: formData.cancellation || "flexible",
       photo: formData.photo || null,
+      images: Array.isArray(formData.images) ? formData.images : [],
     }]);
 
     setDashTab("listings");
