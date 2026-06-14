@@ -439,10 +439,36 @@ function buildTravelerNotifs(trips) {
       time: relativeTimeLabel(t.createdAt),
       icon: CheckCircle,
       target: "trips",
+      // ts: orden por recencia en la lista combinada (viajero + operador).
+      ts: new Date(t.createdAt).getTime(),
     }));
 
   // Reminders (urgentes) primero, luego confirmadas por recencia.
   return [...reminders, ...confirmed];
+}
+
+// Deriva las notificaciones del OPERADOR desde las reservas RECIBIDAS en sus
+// tours (opBookings, de /api/operators/me/bookings): "Nueva reserva: {cliente}
+// reservó {tour}" por cada reserva creada en los últimos 7 días, más recientes
+// primero, máximo 5. Cada ítem navega a la pestaña Reservas (target
+// "dashboard"). Para un viajero puro opBookings=[] → lista vacía.
+function buildOperatorNotifs(opBookings) {
+  if (!Array.isArray(opBookings)) return [];
+  const now = Date.now();
+  return opBookings
+    .filter((b) => b.createdAt && now - new Date(b.createdAt).getTime() <= NOTIF_RECENT_MS)
+    .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))
+    .slice(0, 5)
+    .map((b) => ({
+      id: `opbooking-${b.id}`,
+      type: "booking",
+      title: "Nueva reserva",
+      body: `${b.customer || "Un cliente"} reservó ${b.tour || "tu tour"}`,
+      time: relativeTimeLabel(b.createdAt),
+      icon: Ticket,
+      target: "dashboard",
+      ts: new Date(b.createdAt).getTime(),
+    }));
 }
 
 // Mapeo inverso form (UI) → body que esperan POST/PUT /api/tours. Compartido
@@ -2920,10 +2946,11 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
   );
 }
 
-// Notificaciones derivadas (sin modelo en DB). `notifs` ya trae `read` calculado;
-// onItemClick(id) marca visto (persistente) y onMarkAll marca todas. Cada ítem
-// navega a su destino (n.target, ej. "trips") al tocarlo.
-function NotifsView({ notifs, go, onItemClick, onMarkAll }) {
+// Notificaciones derivadas (sin modelo en DB). `notifs` ya trae `read` calculado.
+// onSelect(n) (en App scope) marca la notif como vista y la navega a su destino
+// (n.target: "trips" → Mis Viajes; "dashboard" → pestaña Reservas). onMarkAll
+// marca todas como leídas.
+function NotifsView({ notifs, onSelect, onMarkAll }) {
   return (
     <div className="npage fu">
       <div className="npage-h"><h2>Notificaciones</h2><button onClick={onMarkAll}>Marcar leído</button></div>
@@ -2934,7 +2961,7 @@ function NotifsView({ notifs, go, onItemClick, onMarkAll }) {
         </div>
       )}
       {notifs.map((n) => (
-        <div key={n.id} className={`ni-item ${!n.read ? "unread" : ""}`} onClick={() => { onItemClick(n.id); if (n.target) go(n.target); }}>
+        <div key={n.id} className={`ni-item ${!n.read ? "unread" : ""}`} onClick={() => onSelect(n)}>
           <div className={`ni-ic ${n.type}`}>{(() => { const Ic = n.icon; return <Ic size={18} strokeWidth={1.5} color="#2D5A3D" />; })()}</div>
           <div className="ni-body"><div className="ni-title">{n.title}</div><div className="ni-text">{n.body}</div><div className="ni-time">{n.time}</div></div>
           {!n.read && <div className="ni-dot" />}
@@ -4615,9 +4642,18 @@ export default function AppDemo() {
   const [reviews, setReviews] = useState({});
   const [currentTrip, setCurrentTrip] = useState(null);
   const ref = useRef(null);
-  // Notificaciones del viajero derivadas de sus reservas reales (sub-paso 2). El
-  // sub-paso 3 sumará las del operador a esta misma lista combinada.
-  const derivedNotifs = useMemo(() => buildTravelerNotifs(trips), [trips]);
+  // Notificaciones combinadas: viajero (sub-paso 2) + operador (sub-paso 3). Un
+  // usuario puede ser ambos. Los reminders del viajero (urgentes: hoy/mañana) van
+  // arriba; el resto —confirmadas del viajero + reservas recibidas del operador—
+  // se intercala por recencia (createdAt, vía `ts`).
+  const derivedNotifs = useMemo(() => {
+    const traveler = buildTravelerNotifs(trips);
+    const operator = buildOperatorNotifs(opBookings);
+    const reminders = traveler.filter((n) => n.type === "reminder");
+    const activity = [...traveler.filter((n) => n.type !== "reminder"), ...operator]
+      .sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    return [...reminders, ...activity];
+  }, [trips, opBookings]);
   const notifs = useMemo(
     () => derivedNotifs.map((n) => ({ ...n, read: seenNotifs.has(n.id) })),
     [derivedNotifs, seenNotifs]
@@ -4676,6 +4712,15 @@ export default function AppDemo() {
     }));
   };
   const navGo = (id) => { setNav(id); if (id === "explore") go("home"); else if (id === "search") go("catalog"); else if (id === "trips") go("trips"); else if (id === "profile") go("profile"); };
+
+  // Tocar una notificación: marca vista (persistente) + navega a su destino. El
+  // target "dashboard" (notif del operador) abre la pestaña Reservas; el resto
+  // (ej. "trips") va por go normal (que ya sincroniza el tab del nav).
+  const handleNotifSelect = (n) => {
+    markNotifsSeen([n.id]);
+    if (n.target === "dashboard") { setDashTab("bookings"); go("dashboard"); }
+    else if (n.target) go(n.target);
+  };
 
   const handleEditTour = (t) => { setEditingTour(t); go("new-tour"); };
   // Sub-paso M2.6b: borra el tour propio (hard delete) vía DELETE /api/tours/:id
@@ -5018,7 +5063,7 @@ export default function AppDemo() {
         {effectiveView === "catalog" && <CatalogView go={go} pick={setTour} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} />}
         {effectiveView === "detail" && <DetailView tour={currentTour} go={go} pick={setTour} onBook={handleBook} reviews={reviews} />}
         {effectiveView === "booking" && <BookingView tour={currentTour} go={go} onLocalBookingSuccess={handleAddLocalTrip} />}
-        {effectiveView === "notifications" && <NotifsView notifs={notifs} go={go} onItemClick={(id) => markNotifsSeen([id])} onMarkAll={() => markNotifsSeen(notifs.map((n) => n.id))} />}
+        {effectiveView === "notifications" && <NotifsView notifs={notifs} onSelect={handleNotifSelect} onMarkAll={() => markNotifsSeen(notifs.map((n) => n.id))} />}
         {effectiveView === "trips" && <TripsView go={go} onSelectTrip={setCurrentTrip} trips={trips} />}
         {effectiveView === "trip-detail" && <TripDetailView trip={currentTrip} go={go} onReview={handleReview} />}
         {effectiveView === "profile" && <ProfileView go={go} />}
