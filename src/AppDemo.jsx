@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, Smartphone, MessageCircle, Camera, MountainSnow, Hand, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff, Info, Trash2, Lock } from "lucide-react";
 import { useAuth } from "./contexts/AuthContext.jsx";
 import { authFetch } from "./lib/authFetch.js";
@@ -341,10 +341,108 @@ function mapBookingToTrip(b) {
     code: b.bookingCode,
     customerName: b.userName || "",
     customerPhone: b.userPhone || "",
+    // createdAt (ISO) de la reserva: usado para derivar notificaciones de
+    // "Reserva confirmada" (recientes) y su etiqueta de tiempo relativa.
+    createdAt: b.createdAt ?? null,
     // Sin modelo Review en DB todavía: las reseñas viven en sesión (estado
     // `reviews`); el trip arranca como no reseñado.
     reviewed: false,
   };
+}
+
+// ── Notificaciones in-app (derivadas, sin modelo Notification en DB) ──────────
+// El estado "leído" se persiste como un set de IDs vistos en localStorage (no
+// hay backend). Cada notificación se DERIVA de datos reales (hoy, reservas del
+// viajero; en el sub-paso 3 se sumarán las del operador).
+const NOTIF_SEEN_KEY = "finde_notif_seen";
+function loadSeenNotifs() {
+  if (typeof localStorage === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(NOTIF_SEEN_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+function persistSeenNotifs(set) {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(NOTIF_SEEN_KEY, JSON.stringify([...set]));
+  } catch {
+    /* quota / serialización: el "leído" no es crítico, se ignora */
+  }
+}
+
+// Fecha de hoy (yyyy-mm-dd) en hora de Lima, para los reminders "hoy/mañana".
+function limaTodayISO() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Lima",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+// Etiqueta de tiempo relativa en español desde un ISO timestamp.
+function relativeTimeLabel(iso) {
+  const then = new Date(iso).getTime();
+  if (isNaN(then)) return "";
+  const diffMin = Math.floor((Date.now() - then) / 60000);
+  if (diffMin < 1) return "Hace un momento";
+  if (diffMin < 60) return `Hace ${diffMin} min`;
+  const h = Math.floor(diffMin / 60);
+  if (h < 24) return `Hace ${h} ${h === 1 ? "hora" : "horas"}`;
+  const d = Math.floor(h / 24);
+  return `Hace ${d} ${d === 1 ? "día" : "días"}`;
+}
+
+// Deriva las notificaciones del VIAJERO desde sus reservas reales (trips):
+// - "Tu tour es hoy/mañana" para reservas con fecha hoy/mañana (Lima). Arriba,
+//   por urgencia (hoy antes que mañana).
+// - "Reserva confirmada: {tour}" para reservas creadas en los últimos 7 días,
+//   más recientes primero, máximo 5.
+// Cada ítem navega a Mis Viajes (target "trips"). IDs estables por código.
+const NOTIF_RECENT_MS = 7 * 24 * 60 * 60 * 1000;
+function buildTravelerNotifs(trips) {
+  if (!Array.isArray(trips)) return [];
+  const today = limaTodayISO();
+  const tomorrow = addDaysISO(today, 1);
+  const now = Date.now();
+
+  const reminders = trips
+    .filter((t) => t.dateISO === today || t.dateISO === tomorrow)
+    .sort((a, b) => (a.dateISO || "").localeCompare(b.dateISO || ""))
+    .map((t) => {
+      const isToday = t.dateISO === today;
+      const title = t.tour?.title || "tu experiencia";
+      return {
+        id: `remind-${t.code}`,
+        type: "reminder",
+        title: isToday ? "Tu tour es hoy" : "Tu tour es mañana",
+        body: `${title}${t.tour?.startTime ? ` · Salida ${t.tour.startTime}` : ""}`,
+        time: isToday ? "Hoy" : "Mañana",
+        icon: Clock,
+        target: "trips",
+      };
+    });
+
+  const confirmed = trips
+    .filter((t) => t.createdAt && now - new Date(t.createdAt).getTime() <= NOTIF_RECENT_MS)
+    .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))
+    .slice(0, 5)
+    .map((t) => ({
+      id: `confirm-${t.code}`,
+      type: "booking",
+      title: "Reserva confirmada",
+      body: `${t.tour?.title || "Tu experiencia"} · ${t.date}`,
+      time: relativeTimeLabel(t.createdAt),
+      icon: CheckCircle,
+      target: "trips",
+    }));
+
+  // Reminders (urgentes) primero, luego confirmadas por recencia.
+  return [...reminders, ...confirmed];
 }
 
 // Mapeo inverso form (UI) → body que esperan POST/PUT /api/tours. Compartido
@@ -545,11 +643,9 @@ function searchTours(tours, query, categoryFilter) {
   return { results: results.map(s => s.tour), hasKeywordMatch, sort: matchedFilters.sort || null };
 }
 
-// Sin notificaciones mock: arrancan vacías hasta que existan notificaciones
-// reales (backend pendiente en el roadmap). La estructura de NotifsView y la
-// campana se conservan; cada item futuro tendrá la forma
-// { id, type, title, body, time, read, icon }.
-const NOTIFS = [];
+// Las notificaciones in-app ya no son un array mock: se DERIVAN de datos reales
+// (ver buildTravelerNotifs y la derivación en AppDemo). El estado "leído" vive en
+// localStorage (NOTIF_SEEN_KEY), no hay modelo Notification en DB.
 
 // "Mis Viajes" ya no usa seed mock: se hidrata con las reservas REALES del
 // viajero desde GET /api/me (bookings filtradas por userEmail del token),
@@ -2824,10 +2920,13 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
   );
 }
 
-function NotifsView({ notifs, setNotifs }) {
+// Notificaciones derivadas (sin modelo en DB). `notifs` ya trae `read` calculado;
+// onItemClick(id) marca visto (persistente) y onMarkAll marca todas. Cada ítem
+// navega a su destino (n.target, ej. "trips") al tocarlo.
+function NotifsView({ notifs, go, onItemClick, onMarkAll }) {
   return (
     <div className="npage fu">
-      <div className="npage-h"><h2>Notificaciones</h2><button onClick={() => setNotifs(notifs.map((n) => ({ ...n, read: true })))}>Marcar leído</button></div>
+      <div className="npage-h"><h2>Notificaciones</h2><button onClick={onMarkAll}>Marcar leído</button></div>
       {notifs.length === 0 && (
         <div style={{ textAlign: "center", padding: "48px 24px", color: "var(--gy)" }}>
           <Bell size={32} strokeWidth={1.5} color="var(--lg)" />
@@ -2835,7 +2934,7 @@ function NotifsView({ notifs, setNotifs }) {
         </div>
       )}
       {notifs.map((n) => (
-        <div key={n.id} className={`ni-item ${!n.read ? "unread" : ""}`} onClick={() => setNotifs(notifs.map((x) => x.id === n.id ? { ...x, read: true } : x))}>
+        <div key={n.id} className={`ni-item ${!n.read ? "unread" : ""}`} onClick={() => { onItemClick(n.id); if (n.target) go(n.target); }}>
           <div className={`ni-ic ${n.type}`}>{(() => { const Ic = n.icon; return <Ic size={18} strokeWidth={1.5} color="#2D5A3D" />; })()}</div>
           <div className="ni-body"><div className="ni-title">{n.title}</div><div className="ni-text">{n.body}</div><div className="ni-time">{n.time}</div></div>
           {!n.read && <div className="ni-dot" />}
@@ -4290,7 +4389,9 @@ export default function AppDemo() {
   const [tour, setTour] = useState(null);
   const [nav, setNav] = useState("explore");
   const [cat, setCat] = useState("all");
-  const [notifs, setNotifs] = useState(NOTIFS);
+  // IDs de notificaciones ya vistas (persisten en localStorage). El read de cada
+  // notificación derivada se calcula contra este set (no hay modelo Notification).
+  const [seenNotifs, setSeenNotifs] = useState(() => loadSeenNotifs());
   const [tours, setTours] = useState([]);
   const [toursLoading, setToursLoading] = useState(true);
   // Feature "Tours en [ciudad]": ciudad mostrada en la sección. Arranca en
@@ -4312,6 +4413,10 @@ export default function AppDemo() {
   // M3 Sub-paso B: reservas reales del operador, desde /api/operators/me/bookings
   // (filtrado por operatorId del token). Reemplaza el mock OP_BK. Arranca vacío.
   const [opBookings, setOpBookings] = useState([]);
+
+  // "Mis Viajes": reservas reales del viajero (hidratadas desde /api/me más
+  // abajo). Declarado antes del efecto de hidratación que usa setTrips.
+  const [trips, setTrips] = useState([]);
 
   // Carga (y recarga) el catálogo público. Reusable: montaje inicial y refetch
   // tras pausar/reanudar un tour (M2.3), para que el catálogo refleje el filtro
@@ -4508,10 +4613,27 @@ export default function AppDemo() {
   const [dashTab, setDashTab] = useState("bookings");
   const [loginMsg, setLoginMsg] = useState("");
   const [reviews, setReviews] = useState({});
-  const [trips, setTrips] = useState([]);
   const [currentTrip, setCurrentTrip] = useState(null);
   const ref = useRef(null);
+  // Notificaciones del viajero derivadas de sus reservas reales (sub-paso 2). El
+  // sub-paso 3 sumará las del operador a esta misma lista combinada.
+  const derivedNotifs = useMemo(() => buildTravelerNotifs(trips), [trips]);
+  const notifs = useMemo(
+    () => derivedNotifs.map((n) => ({ ...n, read: seenNotifs.has(n.id) })),
+    [derivedNotifs, seenNotifs]
+  );
   const unread = notifs.filter((n) => !n.read).length;
+  // Marca como vistos (persistente) uno o varios IDs de notificación.
+  const markNotifsSeen = useCallback((ids) => {
+    setSeenNotifs((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      ids.forEach((id) => { if (!next.has(id)) { next.add(id); changed = true; } });
+      if (!changed) return prev;
+      persistSeenNotifs(next);
+      return next;
+    });
+  }, []);
 
   // SPA fix: cambiar de vista no es navegación real, así que reseteamos
   // manualmente el scroll de window y del contenedor principal en cada
@@ -4894,7 +5016,7 @@ export default function AppDemo() {
         {effectiveView === "catalog" && <CatalogView go={go} pick={setTour} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} />}
         {effectiveView === "detail" && <DetailView tour={currentTour} go={go} pick={setTour} onBook={handleBook} reviews={reviews} />}
         {effectiveView === "booking" && <BookingView tour={currentTour} go={go} onLocalBookingSuccess={handleAddLocalTrip} />}
-        {effectiveView === "notifications" && <NotifsView notifs={notifs} setNotifs={setNotifs} />}
+        {effectiveView === "notifications" && <NotifsView notifs={notifs} go={go} onItemClick={(id) => markNotifsSeen([id])} onMarkAll={() => markNotifsSeen(notifs.map((n) => n.id))} />}
         {effectiveView === "trips" && <TripsView go={go} onSelectTrip={setCurrentTrip} trips={trips} />}
         {effectiveView === "trip-detail" && <TripDetailView trip={currentTrip} go={go} onReview={handleReview} />}
         {effectiveView === "profile" && <ProfileView go={go} />}
