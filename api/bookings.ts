@@ -12,8 +12,10 @@ import { db } from "../lib/db.js";
 import { rateLimit, ipFromRequest } from "../lib/rate-limit.js";
 import { requireAuth } from "../lib/auth.js";
 
-// Tolerancia para zona horaria del cliente: aceptamos hasta 1 hora en el pasado.
-const PAST_TOLERANCE_MS = 60 * 60 * 1000;
+// Anticipación mínima para reservar (en días). MANTENER EN SYNC con
+// src/AppDemo.jsx (MIN_BOOKING_LEAD_DAYS): el frontend bloquea el calendario y
+// aquí lo validamos en hora de Lima (fuente de verdad).
+const MIN_BOOKING_LEAD_DAYS = 1;
 
 const YAPE_DEMO_PHONE = "999-111-222";
 const PAYMENT_NOTE =
@@ -45,6 +47,25 @@ function generateBookingCode(): string {
 
 function formatSoles(centimos: number): string {
   return `S/ ${(centimos / 100).toFixed(2)}`;
+}
+
+// yyyy-mm-dd de un instante expresado en hora de Lima (America/Lima, UTC-5 sin
+// DST). El server corre en UTC, así que NO se puede usar el Date local: se
+// fuerza la zona vía Intl (en-CA produce el formato yyyy-mm-dd).
+function limaDateISO(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Lima",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+// Suma días a una fecha yyyy-mm-dd (aritmética en UTC para evitar saltos de DST).
+function addDaysISO(iso: string, days: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
 }
 
 interface BookingCreated {
@@ -149,8 +170,14 @@ export default async function handler(
   }
 
   const scheduledDate = new Date(scheduledAt);
-  if (scheduledDate.getTime() < Date.now() - PAST_TOLERANCE_MS) {
-    res.status(400).json({ error: "scheduledAt debe ser una fecha futura" });
+  // Anticipación mínima en hora de Lima: la fecha del tour debe ser >= hoy(Lima)
+  // + MIN_BOOKING_LEAD_DAYS. Subsume el viejo chequeo de "fecha futura": hoy y
+  // pasado quedan rechazados, mañana en adelante permitido.
+  const minBookingLima = addDaysISO(limaDateISO(new Date()), MIN_BOOKING_LEAD_DAYS);
+  if (limaDateISO(scheduledDate) < minBookingLima) {
+    res.status(400).json({
+      error: `Las reservas requieren al menos ${MIN_BOOKING_LEAD_DAYS} día${MIN_BOOKING_LEAD_DAYS > 1 ? "s" : ""} de anticipación.`,
+    });
     return;
   }
 
