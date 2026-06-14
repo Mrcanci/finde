@@ -516,14 +516,11 @@ function searchTours(tours, query, categoryFilter) {
   return { results: results.map(s => s.tour), hasKeywordMatch, sort: matchedFilters.sort || null };
 }
 
-const NOTIFS = [
-  { id:1, type:"ai", title:"Finde IA encontró algo para ti", body:"Basado en tu búsqueda de 'aventura sin altitud', te recomendamos Sandboarding en Huacachina.", time:"Hace 1 hora", read:false, icon:Bot },
-  { id:2, type:"booking", title:"Reserva confirmada", body:"Tu Trekking al Nevado Pastoruri del 19 May está confirmado.", time:"Hace 3 horas", read:false, icon:CheckCircle },
-  { id:3, type:"reminder", title:"Recordatorio: mañana sales", body:"Tour Gastronómico por Lima mañana 10:00 AM. Parque Kennedy.", time:"Hace 5 horas", read:false, icon:Clock },
-  { id:4, type:"promo", title:"Feriado largo de mayo", body:"Nuevos tours añadidos para el feriado largo. Reserva con anticipación.", time:"Hace 1 día", read:true, icon:Tag },
-  { id:5, type:"review", title:"¿Cómo estuvo tu experiencia?", body:"Cuéntanos sobre tu Sandboarding en Huacachina.", time:"Hace 3 días", read:true, icon:Star },
-  { id:6, type:"quechua", title:"Nuevo: tours en quechua", body:"3 operadores ahora tienen descripciones en runasimi.", time:"Hace 5 días", read:true, icon:Languages },
-];
+// Sin notificaciones mock: arrancan vacías hasta que existan notificaciones
+// reales (backend pendiente en el roadmap). La estructura de NotifsView y la
+// campana se conservan; cada item futuro tendrá la forma
+// { id, type, title, body, time, read, icon }.
+const NOTIFS = [];
 
 // Fase 3.2: 2 trips fijos con CUIDs reales de DB (tour objects inline
 // replicados desde data/track-b/tours-db-snapshot.json). El shape
@@ -2859,6 +2856,12 @@ function NotifsView({ notifs, setNotifs }) {
   return (
     <div className="npage fu">
       <div className="npage-h"><h2>Notificaciones</h2><button onClick={() => setNotifs(notifs.map((n) => ({ ...n, read: true })))}>Marcar leído</button></div>
+      {notifs.length === 0 && (
+        <div style={{ textAlign: "center", padding: "48px 24px", color: "var(--gy)" }}>
+          <Bell size={32} strokeWidth={1.5} color="var(--lg)" />
+          <div style={{ marginTop: 12, fontSize: 14 }}>No tienes notificaciones por ahora.</div>
+        </div>
+      )}
       {notifs.map((n) => (
         <div key={n.id} className={`ni-item ${!n.read ? "unread" : ""}`} onClick={() => setNotifs(notifs.map((x) => x.id === n.id ? { ...x, read: true } : x))}>
           <div className={`ni-ic ${n.type}`}>{(() => { const Ic = n.icon; return <Ic size={18} strokeWidth={1.5} color="#2D5A3D" />; })()}</div>
