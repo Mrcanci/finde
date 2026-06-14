@@ -318,6 +318,35 @@ function mapTourFromApi(t) {
   });
 }
 
+// Mapea una reserva real (GET /api/me → bookings) a la forma de "trip" que
+// consumen TripsView / TripDetailView / VoucherDetail / buildWhatsAppLink. El
+// tour se mapea con mapTourFromApi (mismo shape que el catálogo). La fecha sale
+// del scheduledAt: como el booking se crea a las 13:00 UTC sobre la fecha
+// elegida, los primeros 10 chars del ISO recuperan ese yyyy-mm-dd sin drift de
+// zona. status se deriva (futuro/hoy → "upcoming", pasado → "completed").
+const TRIP_MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+function mapBookingToTrip(b) {
+  if (!b || !b.tour) return null;
+  const isoDate = typeof b.scheduledAt === "string" ? b.scheduledAt.slice(0, 10) : todayISO();
+  const [y, m, d] = isoDate.split("-").map(Number);
+  const dateLabel = `${String(d).padStart(2, "0")} ${TRIP_MONTHS[m - 1]} ${y}`;
+  return {
+    id: b.bookingCode || b.id,
+    tour: mapTourFromApi(b.tour),
+    date: dateLabel,
+    dateISO: isoDate,
+    guests: b.guests,
+    total: (b.totalSoles || 0) / 100,
+    status: isoDate >= todayISO() ? "upcoming" : "completed",
+    code: b.bookingCode,
+    customerName: b.userName || "",
+    customerPhone: b.userPhone || "",
+    // Sin modelo Review en DB todavía: las reseñas viven en sesión (estado
+    // `reviews`); el trip arranca como no reseñado.
+    reviewed: false,
+  };
+}
+
 // Mapeo inverso form (UI) → body que esperan POST/PUT /api/tours. Compartido
 // por crear (2.5) y editar (2.6) para no duplicar la conversión:
 // - category UI (culture/gastro) → enum API (el backend también lo tolera).
@@ -522,66 +551,9 @@ function searchTours(tours, query, categoryFilter) {
 // { id, type, title, body, time, read, icon }.
 const NOTIFS = [];
 
-// Fase 3.2: 2 trips fijos con CUIDs reales de DB (tour objects inline
-// replicados desde data/track-b/tours-db-snapshot.json). El shape
-// anidado { id, tour: {...}, date, total, ... } coincide con el
-// consumido por TripsView, VoucherDetail y buildWhatsAppLink.
-const MY_TRIPS = [
-  {
-    id: 101,
-    tour: {
-      id: "cmoh8rbzp0009vpn26ju9npzp",
-      title: "Machu Picchu Full Day desde Cusco",
-      location: "Cusco",
-      price: 475,
-      duration: "17 horas",
-      image: "https://images.unsplash.com/photo-1526392060635-9d6019884377?w=1200&q=80",
-      operator: "Inka Trail Co",
-      verified: true,
-      included: [
-        "Transporte privado Cusco-Ollantaytambo y retorno",
-        "Tren PeruRail Expedition ida y vuelta",
-        "Bus Consettur subida y bajada",
-        "Boleto de ingreso Machu Picchu circuito 2",
-        "Guía oficial Mincetur español/inglés",
-      ],
-      cancellation: "flexible",
-      meetingPoint: "",
-    },
-    date: "2025-08-15",
-    guests: 2,
-    total: 950,
-    status: "completed",
-    code: "FINDE-MP-001",
-    reviewed: false,
-  },
-  {
-    id: 102,
-    tour: {
-      id: "cmoh8rcvc000tvpn23butdi5i",
-      title: "Lima Colonial: Centro Histórico patrimonio UNESCO",
-      location: "Lima",
-      price: 75,
-      duration: "4 horas",
-      image: "https://images.unsplash.com/photo-1687835071853-b72ebad325d1?w=1200&q=80",
-      operator: "Lima Cultural Tours",
-      verified: true,
-      included: [
-        "Guía oficial Mincetur bilingüe",
-        "Entrada al Convento de San Francisco y catacumbas",
-        "Entrada a Casa de Aliaga",
-      ],
-      cancellation: "flexible",
-      meetingPoint: "",
-    },
-    date: "2025-11-22",
-    guests: 1,
-    total: 75,
-    status: "completed",
-    code: "FINDE-LC-002",
-    reviewed: false,
-  },
-];
+// "Mis Viajes" ya no usa seed mock: se hidrata con las reservas REALES del
+// viajero desde GET /api/me (bookings filtradas por userEmail del token),
+// mapeadas con mapBookingToTrip. Ver el useEffect de hidratación en AppDemo.
 
 // Reseñas: solo reales. Eliminado todo el andamiaje de reseñas/ratings
 // fabricados (REVIEW_AUTHORS, REVIEW_TEXTS_BY_CATEGORY, hashTourId,
@@ -4467,6 +4439,36 @@ export default function AppDemo() {
     return () => { cancel = true; };
   }, [isOperator, loading]);
 
+  // M3 Sub-paso 1: hidrata "Mis Viajes" con las reservas REALES del viajero
+  // (GET /api/me → bookings, filtradas por userEmail del token). Reemplaza el
+  // seed mock MY_TRIPS. Espera a que useAuth resuelva (loading); sin sesión → [].
+  // Siembra solo al montar / cambiar de usuario, así los appends optimistas de
+  // handleAddLocalTrip (reserva recién hecha) no se pisan; al recargar, esa
+  // reserva ya vendrá de /api/me. (AuthContext ya llama /api/me para isOperator,
+  // pero no expone bookings y no podemos tocarlo aquí → segunda llamada GET.)
+  useEffect(() => {
+    if (loading) return;
+    let cancel = false;
+    const hydrateTrips = async () => {
+      if (!user) {
+        if (!cancel) setTrips([]);
+        return;
+      }
+      try {
+        const r = await authFetch("/api/me");
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        if (cancel) return;
+        setTrips((data.bookings || []).map(mapBookingToTrip).filter(Boolean));
+      } catch (err) {
+        console.error("Error cargando los viajes del usuario:", err);
+        if (!cancel) setTrips([]);
+      }
+    };
+    hydrateTrips();
+    return () => { cancel = true; };
+  }, [user, loading]);
+
   // Resolución de ciudad vía /api/geo. Si el usuario ya cambió manualmente
   // (geoSource === "manual") cuando llega la respuesta, la ignoramos
   // (race condition R2). En localhost el dev override aplicado en el
@@ -4497,7 +4499,7 @@ export default function AppDemo() {
   const [dashTab, setDashTab] = useState("bookings");
   const [loginMsg, setLoginMsg] = useState("");
   const [reviews, setReviews] = useState({});
-  const [trips, setTrips] = useState(MY_TRIPS);
+  const [trips, setTrips] = useState([]);
   const [currentTrip, setCurrentTrip] = useState(null);
   const ref = useRef(null);
   const unread = notifs.filter((n) => !n.read).length;
