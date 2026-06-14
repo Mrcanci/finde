@@ -63,6 +63,16 @@ function addDaysISO(iso, days) {
   const dt = new Date(Date.UTC(y, m - 1, d + days));
   return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
 }
+// Anticipación mínima para reservar (en días). MANTENER EN SYNC con
+// api/bookings.ts (MIN_BOOKING_LEAD_DAYS): el calendario de reserva no deja
+// elegir antes de hoy + estos días y el backend valida lo mismo en hora de Lima.
+const MIN_BOOKING_LEAD_DAYS = 1;
+// Fecha mínima reservable (yyyy-mm-dd) = hoy (hora local del dispositivo) +
+// anticipación mínima. En el piloto Perú el dispositivo está en hora de Lima;
+// el gate Lima-correcto definitivo vive en el backend.
+function minBookingISO() {
+  return addDaysISO(todayISO(), MIN_BOOKING_LEAD_DAYS);
+}
 function dayCodeFromISO(iso) {
   const [y, m, d] = iso.split("-").map(Number);
   return DAY_CODES[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
@@ -121,7 +131,7 @@ function ensureAvailabilityFields(t) {
 }
 
 // Calendario reusable. mode="edit" (wizard) o mode="select" (booking).
-function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excludedDates = [], addedDates = [], onToggleException }) {
+function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excludedDates = [], addedDates = [], onToggleException, minDate }) {
   const todayStr = todayISO();
   const [todayY, todayM] = todayStr.split("-").map(Number);
   const [view, setView] = useState({ y: todayY, m: todayM });
@@ -177,6 +187,10 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
           if (d === null) return <div key={i} style={{ minHeight: 36 }} />;
           const iso = `${view.y}-${String(view.m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
           const isPast = iso < todayStr;
+          // Piso de anticipación: solo en booking (mode="select"). Los días
+          // anteriores a minDate quedan no seleccionables aunque el operador
+          // opere ese día. No aplica al wizard del operador (mode="edit").
+          const belowMin = mode === "select" && minDate ? iso < minDate : false;
           const code = dayCodeFromISO(iso);
           const inPattern = days.includes(code);
           const inExcluded = excludedDates.includes(iso);
@@ -192,7 +206,7 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
           let cursor = "pointer", opacity = 1, isClickable = true;
           let border = "1.5px solid transparent";
           if (mode === "select") {
-            const available = state === "added" || state === "pattern";
+            const available = !belowMin && (state === "added" || state === "pattern");
             if (isSelected) { bg = "var(--f)"; color = "white"; border = "1.5px solid var(--f)"; }
             else if (available) { bg = "var(--cr)"; color = "var(--f)"; }
             else { color = "var(--lg)"; opacity = 0.5; cursor = "not-allowed"; isClickable = false; }
@@ -203,7 +217,11 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
             else if (state === "pattern") { bg = "var(--cr)"; color = "var(--f)"; }
             else { color = "var(--gy)"; }
           }
-          const titleAttr = (mode === "select" && !isClickable && !isPast) ? "El operador no opera este día" : undefined;
+          const titleAttr = (mode === "select" && !isClickable && !isPast)
+            ? (belowMin
+                ? `Requiere al menos ${MIN_BOOKING_LEAD_DAYS} día${MIN_BOOKING_LEAD_DAYS > 1 ? "s" : ""} de anticipación`
+                : "El operador no opera este día")
+            : undefined;
           return (
             <button
               key={i}
@@ -2552,7 +2570,9 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
   const [guests, setGuests] = useState(2);
   const [date, setDate] = useState(() => {
     if (!tour) return "";
-    const t0 = todayISO();
+    // El prefill arranca en la fecha mínima reservable (hoy + anticipación), no
+    // en hoy, para no preseleccionar una fecha que el calendario ya bloquea.
+    const t0 = minBookingISO();
     const available = getAvailableDatesInRange(tour, t0, addDaysISO(t0, 90));
     return available[0] || "";
   });
@@ -2753,6 +2773,7 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
             days={tour.days || DEFAULT_DAYS}
             excludedDates={tour.excludedDates || []}
             addedDates={tour.addedDates || []}
+            minDate={minBookingISO()}
           />
           {date ? (
             <div style={{ marginTop: 10, fontSize: 12, color: "var(--gy)" }}>
