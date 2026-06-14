@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, Smartphone, MessageCircle, Camera, MountainSnow, Hand, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff, Info, Trash2, Lock } from "lucide-react";
 import { useAuth } from "./contexts/AuthContext.jsx";
 import { authFetch } from "./lib/authFetch.js";
@@ -318,6 +318,159 @@ function mapTourFromApi(t) {
   });
 }
 
+// Mapea una reserva real (GET /api/me → bookings) a la forma de "trip" que
+// consumen TripsView / TripDetailView / VoucherDetail / buildWhatsAppLink. El
+// tour se mapea con mapTourFromApi (mismo shape que el catálogo). La fecha sale
+// del scheduledAt: como el booking se crea a las 13:00 UTC sobre la fecha
+// elegida, los primeros 10 chars del ISO recuperan ese yyyy-mm-dd sin drift de
+// zona. status se deriva (futuro/hoy → "upcoming", pasado → "completed").
+const TRIP_MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+function mapBookingToTrip(b) {
+  if (!b || !b.tour) return null;
+  const isoDate = typeof b.scheduledAt === "string" ? b.scheduledAt.slice(0, 10) : todayISO();
+  const [y, m, d] = isoDate.split("-").map(Number);
+  const dateLabel = `${String(d).padStart(2, "0")} ${TRIP_MONTHS[m - 1]} ${y}`;
+  return {
+    id: b.bookingCode || b.id,
+    tour: mapTourFromApi(b.tour),
+    date: dateLabel,
+    dateISO: isoDate,
+    guests: b.guests,
+    total: (b.totalSoles || 0) / 100,
+    status: isoDate >= todayISO() ? "upcoming" : "completed",
+    code: b.bookingCode,
+    customerName: b.userName || "",
+    customerPhone: b.userPhone || "",
+    // createdAt (ISO) de la reserva: usado para derivar notificaciones de
+    // "Reserva confirmada" (recientes) y su etiqueta de tiempo relativa.
+    createdAt: b.createdAt ?? null,
+    // Sin modelo Review en DB todavía: las reseñas viven en sesión (estado
+    // `reviews`); el trip arranca como no reseñado.
+    reviewed: false,
+  };
+}
+
+// ── Notificaciones in-app (derivadas, sin modelo Notification en DB) ──────────
+// El estado "leído" se persiste como un set de IDs vistos en localStorage (no
+// hay backend). Cada notificación se DERIVA de datos reales (hoy, reservas del
+// viajero; en el sub-paso 3 se sumarán las del operador).
+const NOTIF_SEEN_KEY = "finde_notif_seen";
+function loadSeenNotifs() {
+  if (typeof localStorage === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(NOTIF_SEEN_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+function persistSeenNotifs(set) {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(NOTIF_SEEN_KEY, JSON.stringify([...set]));
+  } catch {
+    /* quota / serialización: el "leído" no es crítico, se ignora */
+  }
+}
+
+// Fecha de hoy (yyyy-mm-dd) en hora de Lima, para los reminders "hoy/mañana".
+function limaTodayISO() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Lima",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+// Etiqueta de tiempo relativa en español desde un ISO timestamp.
+function relativeTimeLabel(iso) {
+  const then = new Date(iso).getTime();
+  if (isNaN(then)) return "";
+  const diffMin = Math.floor((Date.now() - then) / 60000);
+  if (diffMin < 1) return "Hace un momento";
+  if (diffMin < 60) return `Hace ${diffMin} min`;
+  const h = Math.floor(diffMin / 60);
+  if (h < 24) return `Hace ${h} ${h === 1 ? "hora" : "horas"}`;
+  const d = Math.floor(h / 24);
+  return `Hace ${d} ${d === 1 ? "día" : "días"}`;
+}
+
+// Deriva las notificaciones del VIAJERO desde sus reservas reales (trips):
+// - "Tu tour es hoy/mañana" para reservas con fecha hoy/mañana (Lima). Arriba,
+//   por urgencia (hoy antes que mañana).
+// - "Reserva confirmada: {tour}" para reservas creadas en los últimos 7 días,
+//   más recientes primero, máximo 5.
+// Cada ítem navega a Mis Viajes (target "trips"). IDs estables por código.
+const NOTIF_RECENT_MS = 7 * 24 * 60 * 60 * 1000;
+function buildTravelerNotifs(trips) {
+  if (!Array.isArray(trips)) return [];
+  const today = limaTodayISO();
+  const tomorrow = addDaysISO(today, 1);
+  const now = Date.now();
+
+  const reminders = trips
+    .filter((t) => t.dateISO === today || t.dateISO === tomorrow)
+    .sort((a, b) => (a.dateISO || "").localeCompare(b.dateISO || ""))
+    .map((t) => {
+      const isToday = t.dateISO === today;
+      const title = t.tour?.title || "tu experiencia";
+      return {
+        id: `remind-${t.code}`,
+        type: "reminder",
+        title: isToday ? "Tu tour es hoy" : "Tu tour es mañana",
+        body: `${title}${t.tour?.startTime ? ` · Salida ${t.tour.startTime}` : ""}`,
+        time: isToday ? "Hoy" : "Mañana",
+        icon: Clock,
+        target: "trips",
+      };
+    });
+
+  const confirmed = trips
+    .filter((t) => t.createdAt && now - new Date(t.createdAt).getTime() <= NOTIF_RECENT_MS)
+    .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))
+    .slice(0, 5)
+    .map((t) => ({
+      id: `confirm-${t.code}`,
+      type: "booking",
+      title: "Reserva confirmada",
+      body: `${t.tour?.title || "Tu experiencia"} · ${t.date}`,
+      time: relativeTimeLabel(t.createdAt),
+      icon: CheckCircle,
+      target: "trips",
+      // ts: orden por recencia en la lista combinada (viajero + operador).
+      ts: new Date(t.createdAt).getTime(),
+    }));
+
+  // Reminders (urgentes) primero, luego confirmadas por recencia.
+  return [...reminders, ...confirmed];
+}
+
+// Deriva las notificaciones del OPERADOR desde las reservas RECIBIDAS en sus
+// tours (opBookings, de /api/operators/me/bookings): "Nueva reserva: {cliente}
+// reservó {tour}" por cada reserva creada en los últimos 7 días, más recientes
+// primero, máximo 5. Cada ítem navega a la pestaña Reservas (target
+// "dashboard"). Para un viajero puro opBookings=[] → lista vacía.
+function buildOperatorNotifs(opBookings) {
+  if (!Array.isArray(opBookings)) return [];
+  const now = Date.now();
+  return opBookings
+    .filter((b) => b.createdAt && now - new Date(b.createdAt).getTime() <= NOTIF_RECENT_MS)
+    .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))
+    .slice(0, 5)
+    .map((b) => ({
+      id: `opbooking-${b.id}`,
+      type: "booking",
+      title: "Nueva reserva",
+      body: `${b.customer || "Un cliente"} reservó ${b.tour || "tu tour"}`,
+      time: relativeTimeLabel(b.createdAt),
+      icon: Ticket,
+      target: "dashboard",
+      ts: new Date(b.createdAt).getTime(),
+    }));
+}
+
 // Mapeo inverso form (UI) → body que esperan POST/PUT /api/tours. Compartido
 // por crear (2.5) y editar (2.6) para no duplicar la conversión:
 // - category UI (culture/gastro) → enum API (el backend también lo tolera).
@@ -516,72 +669,13 @@ function searchTours(tours, query, categoryFilter) {
   return { results: results.map(s => s.tour), hasKeywordMatch, sort: matchedFilters.sort || null };
 }
 
-// Sin notificaciones mock: arrancan vacías hasta que existan notificaciones
-// reales (backend pendiente en el roadmap). La estructura de NotifsView y la
-// campana se conservan; cada item futuro tendrá la forma
-// { id, type, title, body, time, read, icon }.
-const NOTIFS = [];
+// Las notificaciones in-app ya no son un array mock: se DERIVAN de datos reales
+// (ver buildTravelerNotifs y la derivación en AppDemo). El estado "leído" vive en
+// localStorage (NOTIF_SEEN_KEY), no hay modelo Notification en DB.
 
-// Fase 3.2: 2 trips fijos con CUIDs reales de DB (tour objects inline
-// replicados desde data/track-b/tours-db-snapshot.json). El shape
-// anidado { id, tour: {...}, date, total, ... } coincide con el
-// consumido por TripsView, VoucherDetail y buildWhatsAppLink.
-const MY_TRIPS = [
-  {
-    id: 101,
-    tour: {
-      id: "cmoh8rbzp0009vpn26ju9npzp",
-      title: "Machu Picchu Full Day desde Cusco",
-      location: "Cusco",
-      price: 475,
-      duration: "17 horas",
-      image: "https://images.unsplash.com/photo-1526392060635-9d6019884377?w=1200&q=80",
-      operator: "Inka Trail Co",
-      verified: true,
-      included: [
-        "Transporte privado Cusco-Ollantaytambo y retorno",
-        "Tren PeruRail Expedition ida y vuelta",
-        "Bus Consettur subida y bajada",
-        "Boleto de ingreso Machu Picchu circuito 2",
-        "Guía oficial Mincetur español/inglés",
-      ],
-      cancellation: "flexible",
-      meetingPoint: "",
-    },
-    date: "2025-08-15",
-    guests: 2,
-    total: 950,
-    status: "completed",
-    code: "FINDE-MP-001",
-    reviewed: false,
-  },
-  {
-    id: 102,
-    tour: {
-      id: "cmoh8rcvc000tvpn23butdi5i",
-      title: "Lima Colonial: Centro Histórico patrimonio UNESCO",
-      location: "Lima",
-      price: 75,
-      duration: "4 horas",
-      image: "https://images.unsplash.com/photo-1687835071853-b72ebad325d1?w=1200&q=80",
-      operator: "Lima Cultural Tours",
-      verified: true,
-      included: [
-        "Guía oficial Mincetur bilingüe",
-        "Entrada al Convento de San Francisco y catacumbas",
-        "Entrada a Casa de Aliaga",
-      ],
-      cancellation: "flexible",
-      meetingPoint: "",
-    },
-    date: "2025-11-22",
-    guests: 1,
-    total: 75,
-    status: "completed",
-    code: "FINDE-LC-002",
-    reviewed: false,
-  },
-];
+// "Mis Viajes" ya no usa seed mock: se hidrata con las reservas REALES del
+// viajero desde GET /api/me (bookings filtradas por userEmail del token),
+// mapeadas con mapBookingToTrip. Ver el useEffect de hidratación en AppDemo.
 
 // Reseñas: solo reales. Eliminado todo el andamiaje de reseñas/ratings
 // fabricados (REVIEW_AUTHORS, REVIEW_TEXTS_BY_CATEGORY, hashTourId,
@@ -2852,10 +2946,14 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
   );
 }
 
-function NotifsView({ notifs, setNotifs }) {
+// Notificaciones derivadas (sin modelo en DB). `notifs` ya trae `read` calculado.
+// onSelect(n) (en App scope) marca la notif como vista y la navega a su destino
+// (n.target: "trips" → Mis Viajes; "dashboard" → pestaña Reservas). onMarkAll
+// marca todas como leídas.
+function NotifsView({ notifs, onSelect, onMarkAll }) {
   return (
     <div className="npage fu">
-      <div className="npage-h"><h2>Notificaciones</h2><button onClick={() => setNotifs(notifs.map((n) => ({ ...n, read: true })))}>Marcar leído</button></div>
+      <div className="npage-h"><h2>Notificaciones</h2><button onClick={onMarkAll}>Marcar leído</button></div>
       {notifs.length === 0 && (
         <div style={{ textAlign: "center", padding: "48px 24px", color: "var(--gy)" }}>
           <Bell size={32} strokeWidth={1.5} color="var(--lg)" />
@@ -2863,7 +2961,7 @@ function NotifsView({ notifs, setNotifs }) {
         </div>
       )}
       {notifs.map((n) => (
-        <div key={n.id} className={`ni-item ${!n.read ? "unread" : ""}`} onClick={() => setNotifs(notifs.map((x) => x.id === n.id ? { ...x, read: true } : x))}>
+        <div key={n.id} className={`ni-item ${!n.read ? "unread" : ""}`} onClick={() => onSelect(n)}>
           <div className={`ni-ic ${n.type}`}>{(() => { const Ic = n.icon; return <Ic size={18} strokeWidth={1.5} color="#2D5A3D" />; })()}</div>
           <div className="ni-body"><div className="ni-title">{n.title}</div><div className="ni-text">{n.body}</div><div className="ni-time">{n.time}</div></div>
           {!n.read && <div className="ni-dot" />}
@@ -2914,6 +3012,27 @@ function TripDetailView({ trip, go, onReview }) {
     <div className="tdet-page fu">
       <button className="bk-btn tdet-back" onClick={() => go("trips")} aria-label="Volver a Mis Viajes" type="button"><ArrowLeft size={20} strokeWidth={1.5} /></button>
       <h2 className="tdet-h">Tu viaje</h2>
+      {/* CTA verde grande arriba, igual que el voucher post-reserva: coordinar/
+          pagar con la agencia por WhatsApp es la acción principal también desde
+          Mis Viajes. Mismo link (buildWhatsAppLink) ya cableado para el trip. */}
+      {(() => {
+        const wa = buildWhatsAppLink(trip);
+        return wa ? (
+          <a
+            href={wa}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mbtn"
+            style={{ background: "#25D366", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, textDecoration: "none", marginBottom: 16 }}
+          >
+            <Smartphone size={18} strokeWidth={2} /> Coordinar con la agencia por WhatsApp
+          </a>
+        ) : (
+          <div className="mbtn" style={{ background: "var(--lg)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "default", pointerEvents: "none", marginBottom: 16 }}>
+            <Smartphone size={18} strokeWidth={2} /> Coordinación por WhatsApp no disponible
+          </div>
+        );
+      })()}
       <VoucherDetail trip={trip} />
       <div className="tdet-actions">
         {canReview && !showRev && (
@@ -2943,18 +3062,6 @@ function TripDetailView({ trip, go, onReview }) {
           </button>
         )}
       </div>
-      {(() => {
-        const wa = buildWhatsAppLink(trip);
-        return wa ? (
-          <a className="voucher-wa" href={wa} target="_blank" rel="noopener noreferrer" style={{ marginTop: 12 }}>
-            <Smartphone size={14} strokeWidth={1.5} /> Coordinar con la agencia por WhatsApp <ArrowRight size={12} strokeWidth={1.5} />
-          </a>
-        ) : (
-          <div className="voucher-wa" style={{ marginTop: 12, opacity: .6, cursor: "default", pointerEvents: "none" }}>
-            <Smartphone size={14} strokeWidth={1.5} /> Coordinación por WhatsApp no disponible
-          </div>
-        );
-      })()}
     </div>
   );
 }
@@ -4309,7 +4416,9 @@ export default function AppDemo() {
   const [tour, setTour] = useState(null);
   const [nav, setNav] = useState("explore");
   const [cat, setCat] = useState("all");
-  const [notifs, setNotifs] = useState(NOTIFS);
+  // IDs de notificaciones ya vistas (persisten en localStorage). El read de cada
+  // notificación derivada se calcula contra este set (no hay modelo Notification).
+  const [seenNotifs, setSeenNotifs] = useState(() => loadSeenNotifs());
   const [tours, setTours] = useState([]);
   const [toursLoading, setToursLoading] = useState(true);
   // Feature "Tours en [ciudad]": ciudad mostrada en la sección. Arranca en
@@ -4331,6 +4440,10 @@ export default function AppDemo() {
   // M3 Sub-paso B: reservas reales del operador, desde /api/operators/me/bookings
   // (filtrado por operatorId del token). Reemplaza el mock OP_BK. Arranca vacío.
   const [opBookings, setOpBookings] = useState([]);
+
+  // "Mis Viajes": reservas reales del viajero (hidratadas desde /api/me más
+  // abajo). Declarado antes del efecto de hidratación que usa setTrips.
+  const [trips, setTrips] = useState([]);
 
   // Carga (y recarga) el catálogo público. Reusable: montaje inicial y refetch
   // tras pausar/reanudar un tour (M2.3), para que el catálogo refleje el filtro
@@ -4467,6 +4580,36 @@ export default function AppDemo() {
     return () => { cancel = true; };
   }, [isOperator, loading]);
 
+  // M3 Sub-paso 1: hidrata "Mis Viajes" con las reservas REALES del viajero
+  // (GET /api/me → bookings, filtradas por userEmail del token). Reemplaza el
+  // seed mock MY_TRIPS. Espera a que useAuth resuelva (loading); sin sesión → [].
+  // Siembra solo al montar / cambiar de usuario, así los appends optimistas de
+  // handleAddLocalTrip (reserva recién hecha) no se pisan; al recargar, esa
+  // reserva ya vendrá de /api/me. (AuthContext ya llama /api/me para isOperator,
+  // pero no expone bookings y no podemos tocarlo aquí → segunda llamada GET.)
+  useEffect(() => {
+    if (loading) return;
+    let cancel = false;
+    const hydrateTrips = async () => {
+      if (!user) {
+        if (!cancel) setTrips([]);
+        return;
+      }
+      try {
+        const r = await authFetch("/api/me");
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        if (cancel) return;
+        setTrips((data.bookings || []).map(mapBookingToTrip).filter(Boolean));
+      } catch (err) {
+        console.error("Error cargando los viajes del usuario:", err);
+        if (!cancel) setTrips([]);
+      }
+    };
+    hydrateTrips();
+    return () => { cancel = true; };
+  }, [user, loading]);
+
   // Resolución de ciudad vía /api/geo. Si el usuario ya cambió manualmente
   // (geoSource === "manual") cuando llega la respuesta, la ignoramos
   // (race condition R2). En localhost el dev override aplicado en el
@@ -4497,10 +4640,36 @@ export default function AppDemo() {
   const [dashTab, setDashTab] = useState("bookings");
   const [loginMsg, setLoginMsg] = useState("");
   const [reviews, setReviews] = useState({});
-  const [trips, setTrips] = useState(MY_TRIPS);
   const [currentTrip, setCurrentTrip] = useState(null);
   const ref = useRef(null);
+  // Notificaciones combinadas: viajero (sub-paso 2) + operador (sub-paso 3). Un
+  // usuario puede ser ambos. Los reminders del viajero (urgentes: hoy/mañana) van
+  // arriba; el resto —confirmadas del viajero + reservas recibidas del operador—
+  // se intercala por recencia (createdAt, vía `ts`).
+  const derivedNotifs = useMemo(() => {
+    const traveler = buildTravelerNotifs(trips);
+    const operator = buildOperatorNotifs(opBookings);
+    const reminders = traveler.filter((n) => n.type === "reminder");
+    const activity = [...traveler.filter((n) => n.type !== "reminder"), ...operator]
+      .sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    return [...reminders, ...activity];
+  }, [trips, opBookings]);
+  const notifs = useMemo(
+    () => derivedNotifs.map((n) => ({ ...n, read: seenNotifs.has(n.id) })),
+    [derivedNotifs, seenNotifs]
+  );
   const unread = notifs.filter((n) => !n.read).length;
+  // Marca como vistos (persistente) uno o varios IDs de notificación.
+  const markNotifsSeen = useCallback((ids) => {
+    setSeenNotifs((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      ids.forEach((id) => { if (!next.has(id)) { next.add(id); changed = true; } });
+      if (!changed) return prev;
+      persistSeenNotifs(next);
+      return next;
+    });
+  }, []);
 
   // SPA fix: cambiar de vista no es navegación real, así que reseteamos
   // manualmente el scroll de window y del contenedor principal en cada
@@ -4515,6 +4684,8 @@ export default function AppDemo() {
     setView(v);
     if (v === "home") setNav("explore");
     if (v === "catalog") setNav("search");
+    if (v === "trips") setNav("trips");
+    if (v === "profile") setNav("profile");
   };
   const handleBook = () => {
     if (!user) { setLoginMsg("Inicia sesión o regístrate para reservar tu experiencia"); go("login"); }
@@ -4541,6 +4712,15 @@ export default function AppDemo() {
     }));
   };
   const navGo = (id) => { setNav(id); if (id === "explore") go("home"); else if (id === "search") go("catalog"); else if (id === "trips") go("trips"); else if (id === "profile") go("profile"); };
+
+  // Tocar una notificación: marca vista (persistente) + navega a su destino. El
+  // target "dashboard" (notif del operador) abre la pestaña Reservas; el resto
+  // (ej. "trips") va por go normal (que ya sincroniza el tab del nav).
+  const handleNotifSelect = (n) => {
+    markNotifsSeen([n.id]);
+    if (n.target === "dashboard") { setDashTab("bookings"); go("dashboard"); }
+    else if (n.target) go(n.target);
+  };
 
   const handleEditTour = (t) => { setEditingTour(t); go("new-tour"); };
   // Sub-paso M2.6b: borra el tour propio (hard delete) vía DELETE /api/tours/:id
@@ -4883,7 +5063,7 @@ export default function AppDemo() {
         {effectiveView === "catalog" && <CatalogView go={go} pick={setTour} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} />}
         {effectiveView === "detail" && <DetailView tour={currentTour} go={go} pick={setTour} onBook={handleBook} reviews={reviews} />}
         {effectiveView === "booking" && <BookingView tour={currentTour} go={go} onLocalBookingSuccess={handleAddLocalTrip} />}
-        {effectiveView === "notifications" && <NotifsView notifs={notifs} setNotifs={setNotifs} />}
+        {effectiveView === "notifications" && <NotifsView notifs={notifs} onSelect={handleNotifSelect} onMarkAll={() => markNotifsSeen(notifs.map((n) => n.id))} />}
         {effectiveView === "trips" && <TripsView go={go} onSelectTrip={setCurrentTrip} trips={trips} />}
         {effectiveView === "trip-detail" && <TripDetailView trip={currentTrip} go={go} onReview={handleReview} />}
         {effectiveView === "profile" && <ProfileView go={go} />}
