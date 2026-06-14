@@ -2886,6 +2886,27 @@ function TripDetailView({ trip, go, onReview }) {
     <div className="tdet-page fu">
       <button className="bk-btn tdet-back" onClick={() => go("trips")} aria-label="Volver a Mis Viajes" type="button"><ArrowLeft size={20} strokeWidth={1.5} /></button>
       <h2 className="tdet-h">Tu viaje</h2>
+      {/* CTA verde grande arriba, igual que el voucher post-reserva: coordinar/
+          pagar con la agencia por WhatsApp es la acción principal también desde
+          Mis Viajes. Mismo link (buildWhatsAppLink) ya cableado para el trip. */}
+      {(() => {
+        const wa = buildWhatsAppLink(trip);
+        return wa ? (
+          <a
+            href={wa}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mbtn"
+            style={{ background: "#25D366", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, textDecoration: "none", marginBottom: 16 }}
+          >
+            <Smartphone size={18} strokeWidth={2} /> Coordinar con la agencia por WhatsApp
+          </a>
+        ) : (
+          <div className="mbtn" style={{ background: "var(--lg)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "default", pointerEvents: "none", marginBottom: 16 }}>
+            <Smartphone size={18} strokeWidth={2} /> Coordinación por WhatsApp no disponible
+          </div>
+        );
+      })()}
       <VoucherDetail trip={trip} />
       <div className="tdet-actions">
         {canReview && !showRev && (
@@ -2915,18 +2936,6 @@ function TripDetailView({ trip, go, onReview }) {
           </button>
         )}
       </div>
-      {(() => {
-        const wa = buildWhatsAppLink(trip);
-        return wa ? (
-          <a className="voucher-wa" href={wa} target="_blank" rel="noopener noreferrer" style={{ marginTop: 12 }}>
-            <Smartphone size={14} strokeWidth={1.5} /> Coordinar con la agencia por WhatsApp <ArrowRight size={12} strokeWidth={1.5} />
-          </a>
-        ) : (
-          <div className="voucher-wa" style={{ marginTop: 12, opacity: .6, cursor: "default", pointerEvents: "none" }}>
-            <Smartphone size={14} strokeWidth={1.5} /> Coordinación por WhatsApp no disponible
-          </div>
-        );
-      })()}
     </div>
   );
 }
