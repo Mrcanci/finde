@@ -2679,7 +2679,18 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
       customerName: name,
     };
     return (
-      <div className="suc fu" style={{ alignItems: "stretch", padding: "32px 16px 100px", textAlign: "left" }}>
+      <div className="suc fu" style={{ alignItems: "stretch", padding: "16px 16px 100px", textAlign: "left" }}>
+        {/* La vista "booking" oculta el header/nav global (App ~showHeader), así
+            que el voucher necesita su propia salida al inicio: sin esto, el
+            viajero solo podía ir a "Mis Viajes". "Explorar" del nav = go("home"). */}
+        <button
+          type="button"
+          onClick={() => go("home")}
+          aria-label="Volver al inicio"
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, alignSelf: "flex-start", marginBottom: 16, padding: "6px 4px", background: "none", border: "none", color: "var(--f)", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}
+        >
+          <ArrowLeft size={18} strokeWidth={1.5} /> Volver al inicio
+        </button>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", marginBottom: 20 }}>
           <div className="suc-chk"><Check size={28} strokeWidth={2.5} /></div>
           <div className="suc-t">¡Reserva confirmada!</div>
