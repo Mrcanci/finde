@@ -4648,6 +4648,8 @@ export default function AppDemo() {
     setView(v);
     if (v === "home") setNav("explore");
     if (v === "catalog") setNav("search");
+    if (v === "trips") setNav("trips");
+    if (v === "profile") setNav("profile");
   };
   const handleBook = () => {
     if (!user) { setLoginMsg("Inicia sesión o regístrate para reservar tu experiencia"); go("login"); }
