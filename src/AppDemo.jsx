@@ -267,7 +267,7 @@ function mapTourFromApi(t) {
     title: t.title,
     titleQu: "",
     location: t.region && t.region !== t.city ? `${t.city}, ${t.region}` : t.city,
-    price: Math.round(t.priceSoles / 100),
+    price: Number.isFinite(t.priceSoles) ? Math.round(t.priceSoles / 100) : null,
     rating: t.rating,
     reviews: t.reviewsCount,
     duration: t.durationHours >= 24
