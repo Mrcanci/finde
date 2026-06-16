@@ -61,8 +61,15 @@ export const LIST_SELECT = Prisma.validator<Prisma.TourSelect>()({
 });
 
 // Para detalle: agrega ciudad y email del operador (perfil completo).
+// Campos quechua: solo en DETAIL (el toggle ES↔QU vive en DetailView); el
+// listado/catálogo no tiene toggle, así que LIST_SELECT se mantiene liviano.
+// null/[] = sin traducir → el front cae al español.
 export const DETAIL_SELECT = Prisma.validator<Prisma.TourSelect>()({
   ...tourFields,
+  titleQu: true,
+  descQu: true,
+  includedQu: true,
+  excludedQu: true,
   operator: {
     select: {
       name: true,
