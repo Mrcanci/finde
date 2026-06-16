@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, Smartphone, MessageCircle, Camera, MountainSnow, Hand, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff, Info, Trash2, Lock } from "lucide-react";
 import { useAuth } from "./contexts/AuthContext.jsx";
 import { authFetch } from "./lib/authFetch.js";
@@ -429,7 +430,9 @@ function buildTravelerNotifs(trips) {
 
   const confirmed = trips
     .filter((t) => t.createdAt && now - new Date(t.createdAt).getTime() <= NOTIF_RECENT_MS)
-    .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))
+    // Orden por recencia (createdAt desc) ANTES de cortar, con comparación
+    // numérica de timestamp (robusta ante formatos de fecha no uniformes).
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 5)
     .map((t) => ({
       id: `confirm-${t.code}`,
@@ -457,7 +460,9 @@ function buildOperatorNotifs(opBookings) {
   const now = Date.now();
   return opBookings
     .filter((b) => b.createdAt && now - new Date(b.createdAt).getTime() <= NOTIF_RECENT_MS)
-    .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))
+    // Orden por recencia (createdAt desc) ANTES de cortar, con comparación
+    // numérica de timestamp (robusta ante formatos de fecha no uniformes).
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 5)
     .map((b) => ({
       id: `opbooking-${b.id}`,
@@ -913,6 +918,16 @@ html{scrollbar-gutter:stable}
 .city-sheet-opt:hover{background:var(--cr)}
 .city-sheet-opt.on{color:var(--tr)}
 .city-sheet-opt .city-sheet-check{color:var(--tr)}
+/* Popover de notificaciones (campana): mobile = bottom-sheet; desktop (≥640px,
+   en el media query de abajo) = dropdown anclado a la derecha. Clases propias
+   notif-* (no reutilizan city-*). */
+.notif-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:90;animation:fadeUp .2s ease-out}
+.notif-sheet{position:fixed;left:0;right:0;bottom:0;background:white;border-radius:20px 20px 0 0;padding:8px 0 24px;z-index:91;max-height:70vh;display:flex;flex-direction:column;animation:slideUp .25s ease-out;box-shadow:0 -8px 32px rgba(0,0,0,.15)}
+.notif-sheet-grip{width:40px;height:4px;background:var(--sd);border-radius:2px;margin:10px auto 14px;flex:none}
+.notif-sheet-h{display:flex;justify-content:space-between;align-items:center;padding:0 20px 12px;flex:none}
+.notif-sheet-title{font-family:'DM Serif Display',Georgia,serif;font-size:18px;color:var(--ch)}
+.notif-sheet-mark{font-size:12px;font-weight:600;color:var(--tr);background:none;border:none;cursor:pointer;font-family:inherit}
+.notif-sheet-list{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;text-align:left}
 .city-empty{margin:0 16px 24px;padding:32px 20px;background:var(--cr);border-radius:20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}
 .city-empty-ic{width:48px;height:48px;border-radius:50%;background:rgba(199,97,58,.12);color:var(--tr);display:flex;align-items:center;justify-content:center;margin-bottom:4px}
 .city-empty-tl{font-family:'DM Serif Display',Georgia,serif;font-size:18px;color:var(--ch);max-width:260px}
@@ -1110,10 +1125,10 @@ html{scrollbar-gutter:stable}
 .npage-h{display:flex;justify-content:space-between;align-items:center;padding:0 20px 16px}
 .npage-h h2{font-family:'DM Serif Display',Georgia,serif;font-size:24px}
 .npage-h button{font-size:12px;font-weight:600;color:var(--tr);background:none;border:none;cursor:pointer;font-family:inherit}
-.ni-item{display:flex;align-items:flex-start;gap:12px;padding:16px 20px;border-bottom:1px solid rgba(0,0,0,.04);cursor:pointer;transition:.15s;position:relative}
+.ni-item{display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-bottom:1px solid rgba(0,0,0,.04);cursor:pointer;transition:.15s;position:relative}
 .ni-item:hover{background:var(--cr)}
 .ni-item.unread{background:rgba(27,58,45,.02)}
-.ni-ic{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--f)}
+.ni-ic{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--f)}
 .ni-ic.ai{background:rgba(14,165,233,.1)}.ni-ic.booking{background:rgba(45,90,61,.1)}.ni-ic.reminder{background:rgba(212,168,67,.1)}.ni-ic.promo{background:rgba(199,97,58,.1)}.ni-ic.review{background:rgba(212,168,67,.1)}.ni-ic.quechua{background:rgba(212,168,67,.1)}
 .ni-body{flex:1}
 .ni-title{font-size:14px;font-weight:700;margin-bottom:3px}
@@ -1335,6 +1350,11 @@ html{scrollbar-gutter:stable}
   .city-sheet-grip{display:none}
   .city-sheet-title{display:none}
   .city-sheet-opt{padding:10px 16px;font-size:13px}
+
+  /* Notificaciones: dropdown anclado a la campana (mobile usa bottom sheet) */
+  .notif-backdrop{background:transparent}
+  .notif-sheet{position:absolute;left:auto;right:0;bottom:auto;top:calc(100% + 6px);width:340px;max-height:min(70vh,420px);border-radius:14px;padding:8px 0;animation:fadeUp .15s ease-out;box-shadow:0 10px 32px rgba(0,0,0,.15);border:1px solid var(--sd)}
+  .notif-sheet-grip{display:none}
   .city-empty{margin:0 0 24px}
   .gc{display:flex;flex-direction:column;height:100%}
   .gc-b{flex:1}
@@ -1469,7 +1489,87 @@ html{scrollbar-gutter:stable}
 
 // ── Reusable Components ───────────────────────────────
 
-function TopNav({ onHome, onDash, onNotif, view, unread, isOperator, navActive, onNavClick }) {
+// Popover de notificaciones anclado a la campana (espeja CitySelector):
+// bottom-sheet en mobile, dropdown anclado a la derecha en desktop. La campana
+// TOGGLEA el popover (ya no navega). La página full-page (NotifsView) sigue
+// disponible como fallback vía el Footer.
+function NotifBell({ notifs, unread, onSelect, onMarkAll }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const sheetRef = useRef(null);
+  // En mobile (<640px) el sheet se portaliza a document.body para escapar el
+  // containing block que crea el backdrop-filter de .tn (rompería el fixed).
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia("(max-width:639px)").matches);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width:639px)");
+    const update = (e) => setIsMobile(e.matches);
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    const onClick = (e) => {
+      const t = e.target;
+      // El sheet puede vivir fuera del wrapper (portal en mobile): chequear ambos.
+      if (ref.current && ref.current.contains(t)) return;
+      if (sheetRef.current && sheetRef.current.contains(t)) return;
+      setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    // setTimeout 0 evita que el mismo click que abre cierre el sheet.
+    const t = setTimeout(() => window.addEventListener("mousedown", onClick), 0);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("mousedown", onClick);
+      clearTimeout(t);
+    };
+  }, [open]);
+
+  // Abrir el popover ya NO marca nada: los puntos de las no leídas quedan
+  // visibles. Cada notif baja su punto al clickearla (handleNotifSelect →
+  // markNotifsSeen([id])); "Marcar todo" baja todas de una.
+  const handleSelect = (n) => { onSelect(n); setOpen(false); };
+  // Marcar todas como leídas + cerrar el popover.
+  const handleMarkAll = () => { onMarkAll(); setOpen(false); };
+
+  const popover = (
+    <>
+      <div className="notif-backdrop" onClick={() => setOpen(false)} />
+      <div className="notif-sheet" ref={sheetRef} role="dialog" aria-label="Notificaciones">
+        <div className="notif-sheet-grip" />
+        <div className="notif-sheet-h">
+          <span className="notif-sheet-title">Notificaciones</span>
+          <button type="button" className="notif-sheet-mark" onClick={handleMarkAll}>Marcar todo como leído</button>
+        </div>
+        <div className="notif-sheet-list">
+          <NotifList notifs={notifs} onSelect={handleSelect} />
+        </div>
+      </div>
+    </>
+  );
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        className="tn-btn"
+        onClick={() => setOpen((v) => !v)}
+        aria-label={unread > 0 ? `Notificaciones, ${unread} sin leer` : "Notificaciones"}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        type="button"
+      >
+        {unread > 0 && <span className="ndot" />}
+        <Bell size={18} strokeWidth={1.5} />
+      </button>
+      {open && (isMobile ? createPortal(popover, document.body) : popover)}
+    </div>
+  );
+}
+
+function TopNav({ onHome, onDash, notifs, unread, onNotifSelect, onMarkAll, view, isOperator, navActive, onNavClick }) {
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     const h = () => setScrolled(window.scrollY > 40);
@@ -1488,7 +1588,7 @@ function TopNav({ onHome, onDash, onNotif, view, unread, isOperator, navActive, 
         </div>
         <div className="tn-r">
           <button className={`tn-btn ${view === "dashboard" ? "on" : ""}`} onClick={onDash} aria-label={view === "dashboard" || view === "new-tour" ? "Inicio" : "Dashboard"} type="button" style={{ visibility: isOperator ? 'visible' : 'hidden' }}>{view === "dashboard" || view === "new-tour" ? <Home size={18} strokeWidth={1.5} /> : <BarChart3 size={18} strokeWidth={1.5} />}</button>
-          <button className="tn-btn" onClick={onNotif} aria-label={unread > 0 ? `Notificaciones, ${unread} sin leer` : "Notificaciones"} type="button">{unread > 0 && <span className="ndot" />}<Bell size={18} strokeWidth={1.5} /></button>
+          <NotifBell notifs={notifs} unread={unread} onSelect={onNotifSelect} onMarkAll={onMarkAll} />
           <button className="tn-btn tn-profile" onClick={() => onNavClick("profile")} aria-label="Perfil" type="button"><User size={18} strokeWidth={1.5} /></button>
         </div>
       </div>
@@ -2950,10 +3050,11 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
 // onSelect(n) (en App scope) marca la notif como vista y la navega a su destino
 // (n.target: "trips" → Mis Viajes; "dashboard" → pestaña Reservas). onMarkAll
 // marca todas como leídas.
-function NotifsView({ notifs, onSelect, onMarkAll }) {
+// Lista reusable de notificaciones (estado vacío + ítems .ni-item). La comparten
+// la página full-page (NotifsView) y el popover anclado a la campana (NotifBell).
+function NotifList({ notifs, onSelect }) {
   return (
-    <div className="npage fu">
-      <div className="npage-h"><h2>Notificaciones</h2><button onClick={onMarkAll}>Marcar leído</button></div>
+    <>
       {notifs.length === 0 && (
         <div style={{ textAlign: "center", padding: "48px 24px", color: "var(--gy)" }}>
           <Bell size={32} strokeWidth={1.5} color="var(--lg)" />
@@ -2967,6 +3068,15 @@ function NotifsView({ notifs, onSelect, onMarkAll }) {
           {!n.read && <div className="ni-dot" />}
         </div>
       ))}
+    </>
+  );
+}
+
+function NotifsView({ notifs, onSelect, onMarkAll }) {
+  return (
+    <div className="npage fu">
+      <div className="npage-h"><h2>Notificaciones</h2><button onClick={onMarkAll}>Marcar leído</button></div>
+      <NotifList notifs={notifs} onSelect={onSelect} />
     </div>
   );
 }
@@ -5056,7 +5166,7 @@ export default function AppDemo() {
     <>
       <style>{CSS}</style>
       <div className="app app-demo" ref={ref}>
-        {showHeader && <TopNav onHome={() => go("home")} onDash={() => go(view === "dashboard" ? "home" : "dashboard")} onNotif={() => go("notifications")} view={view} unread={unread} isOperator={isOperator} navActive={nav} onNavClick={navGo} />}
+        {showHeader && <TopNav onHome={() => go("home")} onDash={() => go(view === "dashboard" ? "home" : "dashboard")} notifs={notifs} unread={unread} onNotifSelect={handleNotifSelect} onMarkAll={() => markNotifsSeen(notifs.map((n) => n.id))} view={view} isOperator={isOperator} navActive={nav} onNavClick={navGo} />}
         {effectiveView === "login" && <LoginView go={go} loginMsg={loginMsg} />}
         {effectiveView === "welcome" && <WelcomeView go={go} />}
         {effectiveView === "home" && <HomeView go={go} pick={setTour} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} selectedCity={selectedCity} setSelectedCity={pickCity} geoSource={geoSource} />}
