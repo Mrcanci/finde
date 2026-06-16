@@ -61,6 +61,9 @@ model Tour {
   description   String   @db.Text
   shortPitch    String?
 
+  titleQu       String?            // traducción quechua del título (null = sin traducir)
+  descQu        String?            // traducción quechua de la descripción (null = sin traducir)
+
   category      Category
   difficulty    String?
   city          String
@@ -73,6 +76,8 @@ model Tour {
   language      String[] @default(["es"])
   included      String[] @default([])
   excluded      String[] @default([])
+  includedQu    String[] @default([]) // espeja included en quechua (vacío = sin traducir)
+  excludedQu    String[] @default([]) // espeja excluded en quechua (vacío = sin traducir)
 
   imageUrl      String?            // portada (cards/búsqueda/voucher)
   images        String[] @default([]) // galería multi-foto (Opción A); imageUrl es la portada
