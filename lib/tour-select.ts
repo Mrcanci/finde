@@ -24,6 +24,14 @@ const tourFields = {
   language: true,
   included: true,
   excluded: true,
+  // Traducción quechua persistida. En la base COMPARTIDA (no solo DETAIL) porque
+  // el detalle del viajero renderiza el objeto del LISTADO (no hay GET al detalle),
+  // así que LIST_SELECT debe traerlos para que el toggle QU tenga datos.
+  // null/[] = sin traducir → el front cae al español.
+  titleQu: true,
+  descQu: true,
+  includedQu: true,
+  excludedQu: true,
   imageUrl: true,
   images: true,
   rating: true,
@@ -61,15 +69,10 @@ export const LIST_SELECT = Prisma.validator<Prisma.TourSelect>()({
 });
 
 // Para detalle: agrega ciudad y email del operador (perfil completo).
-// Campos quechua: solo en DETAIL (el toggle ES↔QU vive en DetailView); el
-// listado/catálogo no tiene toggle, así que LIST_SELECT se mantiene liviano.
-// null/[] = sin traducir → el front cae al español.
+// Los campos quechua viven en tourFields (compartidos con LIST), porque el
+// detalle del viajero renderiza el objeto del listado.
 export const DETAIL_SELECT = Prisma.validator<Prisma.TourSelect>()({
   ...tourFields,
-  titleQu: true,
-  descQu: true,
-  includedQu: true,
-  excludedQu: true,
   operator: {
     select: {
       name: true,

@@ -265,7 +265,9 @@ function mapTourFromApi(t) {
   return ensureAvailabilityFields({
     id: t.id,
     title: t.title,
-    titleQu: "",
+    // Traducción quechua persistida en DB (solo la trae DETAIL_SELECT). "" si el
+    // tour aún no está traducido → el toggle QU cae a español.
+    titleQu: t.titleQu ?? "",
     location: t.region && t.region !== t.city ? `${t.city}, ${t.region}` : t.city,
     price: Number.isFinite(t.priceSoles) ? Math.round(t.priceSoles / 100) : null,
     rating: t.rating,
@@ -292,8 +294,11 @@ function mapTourFromApi(t) {
     difficulty: t.difficulty || "Moderada",
     included: t.included || [],
     excluded: t.excluded || [],
+    // Listas quechua persistidas (DETAIL_SELECT). [] si sin traducir → fallback ES.
+    includedQu: t.includedQu ?? [],
+    excludedQu: t.excludedQu ?? [],
     desc: t.description,
-    descQu: "",
+    descQu: t.descQu ?? "",
     aiSummary: t.shortPitch || "",
     altTour: null,
     tags: [],
@@ -2346,41 +2351,9 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
   const [lang, setLang] = useState("es");
   const [langOpen, setLangOpen] = useState(false);
   const [showAllRevs, setShowAllRevs] = useState(false);
-  const [quechuaByTour, setQuechuaByTour] = useState({});
-  const [quechuaLoading, setQuechuaLoading] = useState(false);
-  const [quechuaError, setQuechuaError] = useState("");
-  const quechuaText = (tour?.id && quechuaByTour[tour.id]) || tour?.descQu || "";
-
-  useEffect(() => {
-    if (lang !== "qu") return;
-    if (!tour?.id) return;
-    if (quechuaByTour[tour.id]) return;
-    if (tour.descQu) return;
-    if (!tour.desc || tour.desc.length < 50) return;
-
-    let cancel = false;
-    (async () => {
-      setQuechuaError("");
-      setQuechuaLoading(true);
-      try {
-        const r = await fetch("/api/ai/generate-quechua", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ spanishText: tour.desc }),
-        });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const d = await r.json();
-        if (!cancel) {
-          setQuechuaByTour(prev => ({ ...prev, [tour.id]: d.quechuaText || "" }));
-        }
-      } catch {
-        if (!cancel) setQuechuaError("No pudimos traducir al quechua. Intenta de nuevo.");
-      } finally {
-        if (!cancel) setQuechuaLoading(false);
-      }
-    })();
-    return () => { cancel = true; };
-  }, [lang, tour?.id]);
+  // Quechua: las traducciones (titleQu/descQu/includedQu/excludedQu) se sirven
+  // desde la DB vía DETAIL_SELECT. El toggle QU lee esos campos con fallback a
+  // español si están vacíos. Ya no hay traducción on-the-fly.
 
   if (!tour) return null;
   const isQu = lang === "qu";
@@ -2413,11 +2386,11 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
         <div className="det-ov" />
         <button className="bk-btn" onClick={() => go("home")} aria-label="Volver al inicio" type="button"><ArrowLeft size={20} strokeWidth={1.5} /></button>
         <div className="det-nfo">
-          <div className="det-tl">{isQu ? tour.titleQu : tour.title}</div>
+          <div className="det-tl">{isQu ? (tour.titleQu || tour.title) : tour.title}</div>
         </div>
       </div>
       <div className="det-c fu">
-        <h1 className="det-tl-desktop">{isQu ? tour.titleQu : tour.title}</h1>
+        <h1 className="det-tl-desktop">{isQu ? (tour.titleQu || tour.title) : tour.title}</h1>
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
           <div className="lang-dd">
             <button className="lang-dd-btn" onClick={() => setLangOpen(!langOpen)}>
@@ -2466,10 +2439,7 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
           );
         })()}
         <p className="det-ds">
-          {isQu
-            ? (quechuaText
-                || (quechuaLoading ? "Traduciendo a quechua…" : (quechuaError || tour.desc)))
-            : tour.desc}
+          {isQu ? (tour.descQu || tour.desc) : tour.desc}
         </p>
         <div className="det-op">
           <div className="det-op-av">{tour.operator[0]}</div>
@@ -2490,8 +2460,18 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
         </div>
         <div className="det-st">{isQu ? "Imapas chaypi kan" : "Incluye"}</div>
         <div className="det-incs">
-          {(Array.isArray(tour.included) ? tour.included : []).map((x, i) => <div key={i} className="det-inc"><div className="det-ic iy"><Check size={14} strokeWidth={2} /></div>{x}</div>)}
-          {(Array.isArray(tour.excluded) ? tour.excluded : []).map((x, i) => <div key={i} className="det-inc"><div className="det-ic in"><X size={14} strokeWidth={2} /></div>{x}</div>)}
+          {(() => {
+            // En QU usa las listas traducidas si existen; si están vacías (tour
+            // sin traducir), cae a las españolas. En ES, siempre español.
+            const inc = isQu && tour.includedQu?.length ? tour.includedQu : tour.included;
+            const exc = isQu && tour.excludedQu?.length ? tour.excludedQu : tour.excluded;
+            return (
+              <>
+                {(Array.isArray(inc) ? inc : []).map((x, i) => <div key={`i${i}`} className="det-inc"><div className="det-ic iy"><Check size={14} strokeWidth={2} /></div>{x}</div>)}
+                {(Array.isArray(exc) ? exc : []).map((x, i) => <div key={`e${i}`} className="det-inc"><div className="det-ic in"><X size={14} strokeWidth={2} /></div>{x}</div>)}
+              </>
+            );
+          })()}
         </div>
         {SHOW_CANCELLATION_POLICY && (() => {
           const pol = getCancelPolicy(tour.cancellation);
