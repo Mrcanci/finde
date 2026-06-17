@@ -1,30 +1,33 @@
 // scripts/backfill-quechua.ts
 // Backfill puntual: traduce los tours al QUECHUA SUREÑO (variante Cusco-Collao)
-// y persiste titleQu / descQu / includedQu / excludedQu en la DB. Acompaña la
-// migración docs/migrations/2026-06-16-add-tour-quechua-columns.md.
+// y persiste los campos *Qu en la DB. Acompaña las migraciones
+// docs/migrations/2026-06-16-add-tour-quechua-columns.md y
+// docs/migrations/2026-06-16-add-tour-quechua-meetingpoint-shortpitch.md.
 //
-// Usa la MISMA variante de quechua y las MISMAS reglas de traducción que el
-// endpoint api/ai/generate-quechua.ts (Claude Sonnet 4.6, tool_use forzado),
-// para que el contenido persistido y el on-the-fly sean consistentes. La
-// diferencia: este script traduce title + description + included[] + excluded[]
-// en UNA sola llamada con salida estructurada (4 campos), en vez de un string.
+// Campos traducibles (6): titleQu, descQu, shortPitchQu, meetingPointQu (strings)
+// e includedQu, excludedQu (listas). Usa la MISMA variante de quechua y reglas
+// que api/ai/generate-quechua.ts (Claude Sonnet 4.6, tool_use forzado).
+//
+// PARCIAL E IDEMPOTENTE: por cada tour solo traduce los campos *Qu que están
+// vacíos Y cuya fuente en español existe. NO re-traduce ni pisa los *Qu que ya
+// tienen valor, y escribe un update SOLO con los campos recién traducidos. Así:
+//   - los 40 tours ya traducidos (title/desc/included/excluded) solo reciben
+//     meetingPointQu/shortPitchQu;
+//   - un tour nuevo (todo null) recibe los 6;
+//   - un campo con fuente null/vacía (p. ej. meetingPoint null) se deja en null.
 //
 // Uso:
 //   # (a) DRY-RUN sobre 2 tours: traduce e IMPRIME, NO escribe en DB.
 //   DRY_RUN=1 LIMIT=2 npx dotenv-cli -e .env.local -- npx tsx scripts/backfill-quechua.ts
 //
-//   # (b) Corrida REAL (todos los tours sin traducir):
+//   # (b) Corrida REAL (todos los tours con campos faltantes):
 //   npx dotenv-cli -e .env.local -- npx tsx scripts/backfill-quechua.ts
 //
 //   # variantes:
 //   LIMIT=5 npx dotenv-cli -e .env.local -- npx tsx scripts/backfill-quechua.ts   # real, solo 5
 //   DRY_RUN=1 npx dotenv-cli -e .env.local -- npx tsx scripts/backfill-quechua.ts # dry-run, todos
 //
-// IDEMPOTENTE: solo procesa tours con titleQu === null. Una segunda corrida
-// rellena únicamente los que falten (los ya traducidos se saltean). Un tour solo
-// se ESCRIBE si la traducción pasa todas las validaciones; si falla, se saltea y
-// se reintenta en la próxima corrida.
-//
+// Tras completar, un re-run reporta "nada que hacer" (ningún campo faltante).
 // Secuencial (sin paralelismo) para no pegarle a los rate limits de Anthropic.
 
 import { db } from "../lib/db";
@@ -32,8 +35,8 @@ import { anthropic, MODEL } from "../lib/anthropic";
 
 // Reglas de traducción: COPIA VERBATIM de las reglas 1-6 de
 // api/ai/generate-quechua.ts (misma variante Cusco-Collao). Solo cambia la
-// sección OUTPUT y la instrucción de tool, porque aquí devolvemos 4 campos
-// estructurados en vez de un único string.
+// sección OUTPUT y la instrucción de tool, porque aquí devolvemos campos
+// estructurados (los que se pidan en cada tour) en vez de un único string.
 const SYSTEM_PROMPT = `Eres traductor especializado de español a QUECHUA SUREÑO, variante Cusco-Collao (qheswa simi de Cusco, Puno y Apurímac). Es la variante mayoritaria del Perú andino. NO traduces a quechua boliviano, NO a quechua ayacuchano-chanka, NO a kichwa ecuatoriano. NO mezcles variantes.
 
 Tu trabajo es producir una traducción USABLE por un quechuahablante de Cusco, no una traducción académica ni una transliteración palabra por palabra. Mantén el SENTIDO y el TONO del original — si el español es respetuoso y formal, el quechua también lo será.
@@ -68,46 +71,13 @@ REGLAS:
    - Usa ortografía pan-quechua estándar (k, q, w, y) — la más extendida en escuelas EIB del sur peruano.
    - Triple vocálica (a, i, u). NO uses la pentavocálica académica (no e/o salvo en préstamos del español).
 
-OUTPUT (traducción de la ficha COMPLETA de un tour):
-- Traduce CADA campo respetando las reglas anteriores.
-- "includedQu" y "excludedQu" deben tener EXACTAMENTE el mismo número de elementos que las listas de entrada, traduciendo cada ítem EN EL MISMO ORDEN. NO agregues, NO quites, NO reordenes, NO fusiones ítems. Si una lista de entrada está vacía, devuelve una lista vacía.
+OUTPUT (traducción de los campos indicados de un tour):
+- Traduce SOLO los campos que se te piden, respetando las reglas anteriores.
+- Las listas ("includedQu"/"excludedQu") deben tener EXACTAMENTE el mismo número de elementos que la lista de entrada, traduciendo cada ítem EN EL MISMO ORDEN. NO agregues, NO quites, NO reordenes, NO fusiones ítems.
 - Cada ítem de las listas es una frase corta (p. ej. "Transporte ida y vuelta", "Almuerzo buffet"); tradúcelo como frase corta equivalente.
 - SIN meta-comentarios, SIN notas del traductor, SIN explicaciones, SIN markdown, SIN emojis.
 
 Llama SIEMPRE la herramienta traducir_tour_a_quechua. No respondas en texto libre.`;
-
-const TOOL = {
-  name: "traducir_tour_a_quechua",
-  description:
-    "Devuelve la traducción al quechua sureño (Cusco-Collao) de los campos de un tour.",
-  input_schema: {
-    type: "object" as const,
-    properties: {
-      titleQu: {
-        type: "string",
-        description: "Traducción al quechua del título del tour.",
-      },
-      descQu: {
-        type: "string",
-        description: "Traducción al quechua de la descripción del tour.",
-      },
-      includedQu: {
-        type: "array",
-        items: { type: "string" },
-        description:
-          "Traducción al quechua de la lista 'incluye'. MISMO número de ítems y MISMO orden que la entrada.",
-      },
-      excludedQu: {
-        type: "array",
-        items: { type: "string" },
-        description:
-          "Traducción al quechua de la lista 'no incluye'. MISMO número de ítems y MISMO orden que la entrada.",
-      },
-    },
-    required: ["titleQu", "descQu", "includedQu", "excludedQu"],
-    additionalProperties: false,
-  },
-};
 
 interface TourRow {
   id: string;
@@ -115,53 +85,136 @@ interface TourRow {
   description: string;
   included: string[];
   excluded: string[];
-}
-
-interface Translation {
-  titleQu: string;
-  descQu: string;
+  meetingPoint: string | null;
+  shortPitch: string | null;
+  titleQu: string | null;
+  descQu: string | null;
   includedQu: string[];
   excludedQu: string[];
+  meetingPointQu: string | null;
+  shortPitchQu: string | null;
 }
+
+// Una "QuKey" es el nombre de columna *Qu. Cada campo declara su tipo (string o
+// lista), su fuente en español (src) y su valor *Qu actual (cur), para decidir
+// si falta traducir y para traducir solo lo necesario.
+type QuKey =
+  | "titleQu"
+  | "descQu"
+  | "shortPitchQu"
+  | "meetingPointQu"
+  | "includedQu"
+  | "excludedQu";
+
+interface Campo {
+  qu: QuKey;
+  kind: "string" | "list";
+  label: string;
+  src: (t: TourRow) => string | string[] | null;
+  cur: (t: TourRow) => string | string[] | null;
+}
+
+const CAMPOS: Campo[] = [
+  { qu: "titleQu", kind: "string", label: "TÍTULO", src: (t) => t.title, cur: (t) => t.titleQu },
+  { qu: "descQu", kind: "string", label: "DESCRIPCIÓN", src: (t) => t.description, cur: (t) => t.descQu },
+  { qu: "shortPitchQu", kind: "string", label: "PITCH CORTO", src: (t) => t.shortPitch, cur: (t) => t.shortPitchQu },
+  { qu: "meetingPointQu", kind: "string", label: "PUNTO DE ENCUENTRO", src: (t) => t.meetingPoint, cur: (t) => t.meetingPointQu },
+  { qu: "includedQu", kind: "list", label: "INCLUYE", src: (t) => t.included, cur: (t) => t.includedQu },
+  { qu: "excludedQu", kind: "list", label: "NO INCLUYE", src: (t) => t.excluded, cur: (t) => t.excludedQu },
+];
 
 const DRY_RUN = !!process.env.DRY_RUN;
 const LIMIT = process.env.LIMIT ? parseInt(process.env.LIMIT, 10) : null;
 
-function buildUserMessage(t: TourRow): string {
-  const fmtList = (xs: string[]) =>
-    xs.length ? xs.map((x, i) => `${i + 1}. ${x}`).join("\n") : "(vacía)";
+// Campos que faltan traducir en un tour: el *Qu está vacío Y la fuente existe.
+// - string: cur null/"" y src con texto.
+// - list: cur [] y src con al menos 1 ítem.
+// Un campo con fuente vacía (meetingPoint null, included []) NO se incluye → su
+// *Qu queda como está (null / []).
+function camposFaltantes(t: TourRow): Campo[] {
+  return CAMPOS.filter((c) => {
+    const cur = c.cur(t);
+    const src = c.src(t);
+    if (c.kind === "list") {
+      const curEmpty = !Array.isArray(cur) || cur.length === 0;
+      const srcPresent = Array.isArray(src) && src.length > 0;
+      return curEmpty && srcPresent;
+    }
+    const curEmpty = !cur || String(cur).trim().length === 0;
+    const srcPresent = !!src && String(src).trim().length > 0;
+    return curEmpty && srcPresent;
+  });
+}
 
-  return `Traduce al quechua sureño (Cusco-Collao) la ficha de este tour. Llama traducir_tour_a_quechua con el resultado.
+// Tool dinámico: solo expone (y exige) los campos a traducir en ESTE tour.
+function buildTool(campos: Campo[]) {
+  const properties: Record<string, unknown> = {};
+  const required: string[] = [];
+  for (const c of campos) {
+    properties[c.qu] =
+      c.kind === "list"
+        ? {
+            type: "array",
+            items: { type: "string" },
+            description: `Traducción al quechua de "${c.label}". MISMO número de ítems y orden que la entrada.`,
+          }
+        : {
+            type: "string",
+            description: `Traducción al quechua de "${c.label}".`,
+          };
+    required.push(c.qu);
+  }
+  return {
+    name: "traducir_tour_a_quechua",
+    description:
+      "Devuelve la traducción al quechua sureño (Cusco-Collao) de los campos indicados de un tour.",
+    input_schema: {
+      type: "object" as const,
+      properties,
+      required,
+      additionalProperties: false,
+    },
+  };
+}
 
-TÍTULO:
-"""
-${t.title}
-"""
+function fmtList(xs: string[]): string {
+  return xs.length ? xs.map((x, i) => `${i + 1}. ${x}`).join("\n") : "(vacía)";
+}
 
-DESCRIPCIÓN:
-"""
-${t.description}
-"""
+function buildUserMessage(t: TourRow, campos: Campo[]): string {
+  const bloques = campos
+    .map((c) => {
+      if (c.kind === "list") {
+        const xs = c.src(t) as string[];
+        return `${c.label} (${xs.length} ítems — devuelve EXACTAMENTE ${xs.length} en ${c.qu}, mismo orden):\n${fmtList(xs)}`;
+      }
+      return `${c.label}:\n"""\n${c.src(t) as string}\n"""`;
+    })
+    .join("\n\n");
 
-INCLUYE (${t.included.length} ítems — devuelve EXACTAMENTE ${t.included.length} en includedQu, mismo orden):
-${fmtList(t.included)}
+  return `Traduce al quechua sureño (Cusco-Collao) SOLO los siguientes campos de este tour. Llama traducir_tour_a_quechua devolviendo únicamente esos campos.
 
-NO INCLUYE (${t.excluded.length} ítems — devuelve EXACTAMENTE ${t.excluded.length} en excludedQu, mismo orden):
-${fmtList(t.excluded)}`;
+${bloques}`;
 }
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
+type Result = Partial<Record<QuKey, string | string[]>>;
 
-// Una llamada a Claude. Devuelve la Translation validada (shape básico: titleQu/
-// descQu strings no vacíos, includedQu/excludedQu arrays). Lanza con un mensaje
-// específico si el shape falla, para que el loop reintente con feedback.
-async function intentarTraduccion(messages: ChatMessage[]): Promise<Translation> {
+// Una llamada a Claude. Valida el shape básico de CADA campo pedido (strings no
+// vacíos, listas son arrays). Lanza con mensaje específico si falla, para que el
+// loop reintente con feedback. NO valida el LARGO de las listas (eso pasa al
+// escribir, con fallback a español por campo).
+async function intentarTraduccion(
+  messages: ChatMessage[],
+  tool: ReturnType<typeof buildTool>,
+  campos: Campo[]
+): Promise<Result> {
   const respuesta = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 4096,
     system: SYSTEM_PROMPT,
-    tools: [TOOL],
-    tool_choice: { type: "tool", name: TOOL.name },
+    tools: [tool],
+    tool_choice: { type: "tool", name: tool.name },
     messages,
   });
 
@@ -170,45 +223,47 @@ async function intentarTraduccion(messages: ChatMessage[]): Promise<Translation>
     throw new Error("Claude no llamó la herramienta traducir_tour_a_quechua");
   }
 
-  const out = toolUse.input as Partial<Translation>;
+  const out = toolUse.input as Record<string, unknown>;
+  const result: Result = {};
 
-  if (typeof out.titleQu !== "string" || out.titleQu.trim().length === 0) {
-    throw new Error("titleQu ausente o vacío");
-  }
-  if (typeof out.descQu !== "string" || out.descQu.trim().length === 0) {
-    throw new Error("descQu ausente o vacío");
-  }
-  if (!Array.isArray(out.includedQu) || !Array.isArray(out.excludedQu)) {
-    throw new Error("includedQu/excludedQu no son arrays");
+  for (const c of campos) {
+    const v = out[c.qu];
+    if (c.kind === "list") {
+      if (!Array.isArray(v)) throw new Error(`${c.qu} no es array`);
+      result[c.qu] = v.map((x) => String(x));
+    } else {
+      if (typeof v !== "string" || v.trim().length === 0) {
+        throw new Error(`${c.qu} ausente o vacío`);
+      }
+      result[c.qu] = v.trim();
+    }
   }
 
-  return {
-    titleQu: out.titleQu.trim(),
-    descQu: out.descQu.trim(),
-    includedQu: out.includedQu.map((x) => String(x)),
-    excludedQu: out.excludedQu.map((x) => String(x)),
-  };
+  return result;
 }
 
 // Loop de hasta 3 intentos con feedback (mirror de api/ai/generate-quechua.ts).
-// El fallo "includedQu/excludedQu no son arrays" es NO-determinístico (~25% de
-// los tours), por eso reintentar lo convierte en transitorio. Si los 3 intentos
-// fallan, relanza el último error → el caller saltea el tour (titleQu=null,
-// re-procesable). NO valida el LARGO de las listas aquí: eso lo maneja
-// alinearListas() downstream (fallback a español por campo).
-async function llamarClaude(t: TourRow): Promise<Translation> {
+// El fallo "X no es array" / "X ausente" es NO-determinístico, por eso reintentar
+// lo convierte en transitorio. Si los 3 intentos fallan, relanza el último error
+// → el caller saltea el tour (campos quedan sin traducir, re-procesables).
+async function llamarClaude(t: TourRow, campos: Campo[]): Promise<Result> {
+  const tool = buildTool(campos);
   const baseMessages: ChatMessage[] = [
-    { role: "user", content: buildUserMessage(t) },
+    { role: "user", content: buildUserMessage(t, campos) },
   ];
   let messages: ChatMessage[] = baseMessages;
   let ultimoError: Error | null = null;
 
+  const listas = campos.filter((c) => c.kind === "list");
+  const detalleListas = listas
+    .map((c) => `${c.qu} con EXACTAMENTE ${(c.src(t) as string[]).length} ítems`)
+    .join(" y ");
+
   for (let intento = 1; intento <= 3; intento++) {
     try {
-      return await intentarTraduccion(messages);
+      return await intentarTraduccion(messages, tool, campos);
     } catch (error) {
       ultimoError = error as Error;
-      // Reintento con feedback que nombra el defecto y exige el shape correcto.
       messages = [
         ...baseMessages,
         {
@@ -217,32 +272,19 @@ async function llamarClaude(t: TourRow): Promise<Translation> {
         },
         {
           role: "user",
-          content: `El intento anterior falló: ${ultimoError.message}. Vuelve a llamar traducir_tour_a_quechua devolviendo includedQu como un array JSON con EXACTAMENTE ${t.included.length} ítems y excludedQu con EXACTAMENTE ${t.excluded.length} ítems, cada uno traducido en orden (no como string ni texto unido por saltos de línea), y titleQu/descQu como strings no vacíos.`,
+          content: `El intento anterior falló: ${ultimoError.message}. Vuelve a llamar traducir_tour_a_quechua devolviendo EXACTAMENTE estos campos: ${campos
+            .map((c) => c.qu)
+            .join(", ")}.${
+            detalleListas
+              ? ` Las listas (${detalleListas}) deben ser arrays JSON, cada ítem traducido en orden (no como string ni texto unido por saltos de línea).`
+              : ""
+          } Los textos deben ser strings no vacíos.`,
         },
       ];
     }
   }
 
-  // Los 3 intentos fallaron: relanza para que el caller saltee el tour.
   throw ultimoError ?? new Error("traducción falló tras 3 intentos");
-}
-
-// Valida el largo de las listas. Si includedQu/excludedQu no coinciden en
-// número de ítems con la entrada, deja ESE campo EN ESPAÑOL (no escribe un
-// array desalineado). Devuelve los campos finales a persistir + flags de
-// fallback para el log.
-function alinearListas(
-  t: TourRow,
-  tr: Translation
-): { includedQu: string[]; excludedQu: string[]; incFallback: boolean; excFallback: boolean } {
-  const incOk = tr.includedQu.length === t.included.length;
-  const excOk = tr.excludedQu.length === t.excluded.length;
-  return {
-    includedQu: incOk ? tr.includedQu : t.included,
-    excludedQu: excOk ? tr.excludedQu : t.excluded,
-    incFallback: !incOk,
-    excFallback: !excOk,
-  };
 }
 
 function sleep(ms: number): Promise<void> {
@@ -251,24 +293,45 @@ function sleep(ms: number): Promise<void> {
 
 async function main(): Promise<void> {
   const total = await db.tour.count();
-  // IDEMPOTENCIA: solo los que aún NO tienen título en quechua.
-  const pendientesTodos = await db.tour.findMany({
-    where: { titleQu: null },
-    select: { id: true, title: true, description: true, included: true, excluded: true },
+  // SELECCIÓN: tours nuevos (titleQu null → todo por traducir) MÁS los ya
+  // traducidos que solo necesitan los 2 campos nuevos (meetingPoint/shortPitch).
+  const pendientesTodos = (await db.tour.findMany({
+    where: {
+      OR: [
+        { titleQu: null },
+        { AND: [{ meetingPoint: { not: null } }, { meetingPointQu: null }] },
+        { AND: [{ shortPitch: { not: null } }, { shortPitchQu: null }] },
+      ],
+    },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      included: true,
+      excluded: true,
+      meetingPoint: true,
+      shortPitch: true,
+      titleQu: true,
+      descQu: true,
+      includedQu: true,
+      excludedQu: true,
+      meetingPointQu: true,
+      shortPitchQu: true,
+    },
     orderBy: { createdAt: "asc" },
-  });
+  })) as TourRow[];
 
   const pendientes =
     LIMIT != null ? pendientesTodos.slice(0, LIMIT) : pendientesTodos;
 
   console.log(
-    `Tours totales: ${total}. Sin traducir (titleQu=null): ${pendientesTodos.length}.` +
+    `Tours totales: ${total}. Con campos *Qu faltantes: ${pendientesTodos.length}.` +
       (LIMIT != null ? ` LIMIT=${LIMIT} → procesando ${pendientes.length}.` : "") +
       (DRY_RUN ? " MODO DRY_RUN (no se escribe en DB)." : "")
   );
 
   if (pendientes.length === 0) {
-    console.log("Nada que hacer: no quedan tours sin traducir.");
+    console.log("Nada que hacer: no quedan tours con campos por traducir.");
     await db.$disconnect();
     return;
   }
@@ -278,36 +341,50 @@ async function main(): Promise<void> {
   const fallbacks: string[] = [];
 
   for (const [idx, t] of pendientes.entries()) {
-    const tag = `[${idx + 1}/${pendientes.length}] ${t.id} — "${t.title.slice(0, 50)}"`;
-    try {
-      const tr = await llamarClaude(t);
-      const { includedQu, excludedQu, incFallback, excFallback } = alinearListas(t, tr);
+    const campos = camposFaltantes(t);
+    const tag = `[${idx + 1}/${pendientes.length}] ${t.id} — "${t.title.slice(0, 45)}" [${campos.map((c) => c.qu).join(",")}]`;
 
-      if (incFallback) {
-        fallbacks.push(`${t.id}: includedQu (${tr.includedQu.length} vs ${t.included.length}) → ES`);
-      }
-      if (excFallback) {
-        fallbacks.push(`${t.id}: excludedQu (${tr.excludedQu.length} vs ${t.excluded.length}) → ES`);
+    // Defensa: si la selección lo trajo pero no hay campos con fuente, saltea.
+    if (campos.length === 0) {
+      console.log(`SKIP (sin campos con fuente) ${tag}`);
+      continue;
+    }
+
+    try {
+      const result = await llamarClaude(t, campos);
+
+      // Arma el update SOLO con los campos recién traducidos. Para listas valida
+      // el largo: si no coincide, deja ESE campo en español (no escribe desalineo).
+      const data: Record<string, string | string[]> = {};
+      for (const c of campos) {
+        if (c.kind === "list") {
+          const src = c.src(t) as string[];
+          const tr = result[c.qu] as string[];
+          if (tr.length === src.length) {
+            data[c.qu] = tr;
+          } else {
+            data[c.qu] = src; // fallback a español
+            fallbacks.push(`${t.id}: ${c.qu} (${tr.length} vs ${src.length}) → ES`);
+          }
+        } else {
+          data[c.qu] = result[c.qu] as string;
+        }
       }
 
       if (DRY_RUN) {
         console.log(`\nOK (dry-run) ${tag}`);
-        console.log(`  titleQu: ${tr.titleQu}`);
-        console.log(`  descQu:  ${tr.descQu.slice(0, 120)}${tr.descQu.length > 120 ? "…" : ""}`);
-        console.log(`  includedQu (${includedQu.length}${incFallback ? ", FALLBACK ES" : ""}): ${JSON.stringify(includedQu)}`);
-        console.log(`  excludedQu (${excludedQu.length}${excFallback ? ", FALLBACK ES" : ""}): ${JSON.stringify(excludedQu)}`);
+        for (const c of campos) {
+          const v = data[c.qu];
+          const isFallback = c.kind === "list" && v === c.src(t) && (result[c.qu] as string[]).length !== (c.src(t) as string[]).length;
+          if (Array.isArray(v)) {
+            console.log(`  ${c.qu} (${v.length}${isFallback ? ", FALLBACK ES" : ""}): ${JSON.stringify(v)}`);
+          } else {
+            console.log(`  ${c.qu}: ${v.slice(0, 120)}${v.length > 120 ? "…" : ""}`);
+          }
+        }
       } else {
-        await db.tour.update({
-          where: { id: t.id },
-          data: {
-            titleQu: tr.titleQu,
-            descQu: tr.descQu,
-            includedQu,
-            excludedQu,
-          },
-        });
-        const flags = [incFallback && "inc→ES", excFallback && "exc→ES"].filter(Boolean).join(",");
-        console.log(`OK ${tag}${flags ? ` (${flags})` : ""}`);
+        await db.tour.update({ where: { id: t.id }, data });
+        console.log(`OK ${tag}`);
       }
       traducidos++;
     } catch (error) {
@@ -315,12 +392,11 @@ async function main(): Promise<void> {
       console.error(`FALLÓ (saltado) ${tag}: ${(error as Error).message}`);
     }
 
-    // Pausa corta entre tours: amable con el rate limit.
     if (idx < pendientes.length - 1) await sleep(500);
   }
 
   console.log(
-    `\nResumen: ${traducidos} ${DRY_RUN ? "traducidos (dry-run, sin escribir)" : "traducidos y escritos"}, ` +
+    `\nResumen: ${traducidos} ${DRY_RUN ? "tours traducidos (dry-run, sin escribir)" : "tours actualizados"}, ` +
       `${fallidos} fallidos/saltados, ${pendientesTodos.length - pendientes.length} fuera del LIMIT.`
   );
   if (fallbacks.length) {
