@@ -63,6 +63,7 @@ model Tour {
 
   titleQu       String?            // traducción quechua del título (null = sin traducir)
   descQu        String?            // traducción quechua de la descripción (null = sin traducir)
+  shortPitchQu  String?            // traducción quechua del shortPitch (null = sin traducir)
 
   category      Category
   difficulty    String?
@@ -90,6 +91,7 @@ model Tour {
   badge         String?
   cancellation  CancellationPolicy @default(Moderada)
   meetingPoint  String?
+  meetingPointQu String?           // traducción quechua del meetingPoint (null = sin traducir)
   altitude      Int?
   startTime     String?            // hora de salida "HH:MM" (24h); null = sin definir (legacy)
   active        Boolean            @default(true) // operador pausa/reanuda; el catálogo público filtra active=true

@@ -32,6 +32,8 @@ const tourFields = {
   descQu: true,
   includedQu: true,
   excludedQu: true,
+  meetingPointQu: true,
+  shortPitchQu: true,
   imageUrl: true,
   images: true,
   rating: true,

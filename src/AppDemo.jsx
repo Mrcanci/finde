@@ -300,6 +300,12 @@ function mapTourFromApi(t) {
     desc: t.description,
     descQu: t.descQu ?? "",
     aiSummary: t.shortPitch || "",
+    // Traducciones quechua persistidas (DETAIL_SELECT). "" si sin traducir.
+    // Disponibles para el render bajo el toggle QU cuando exista un sitio que
+    // las muestre (hoy: shortPitch va a aiSummary y meetingPoint vive en el
+    // voucher, ninguno bajo el toggle del detalle).
+    shortPitchQu: t.shortPitchQu ?? "",
+    meetingPointQu: t.meetingPointQu ?? "",
     altTour: null,
     tags: [],
     // cancellation: enum API → key del front; undefined si el API no lo trae
