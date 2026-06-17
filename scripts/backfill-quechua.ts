@@ -150,16 +150,19 @@ NO INCLUYE (${t.excluded.length} ítems — devuelve EXACTAMENTE ${t.excluded.le
 ${fmtList(t.excluded)}`;
 }
 
-// Llama a Claude y devuelve el input crudo del tool. Lanza si no llama el tool
-// o si el shape básico no es válido (lo captura el caller → saltea el tour).
-async function llamarClaude(t: TourRow): Promise<Translation> {
+type ChatMessage = { role: "user" | "assistant"; content: string };
+
+// Una llamada a Claude. Devuelve la Translation validada (shape básico: titleQu/
+// descQu strings no vacíos, includedQu/excludedQu arrays). Lanza con un mensaje
+// específico si el shape falla, para que el loop reintente con feedback.
+async function intentarTraduccion(messages: ChatMessage[]): Promise<Translation> {
   const respuesta = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 4096,
     system: SYSTEM_PROMPT,
     tools: [TOOL],
     tool_choice: { type: "tool", name: TOOL.name },
-    messages: [{ role: "user", content: buildUserMessage(t) }],
+    messages,
   });
 
   const toolUse = respuesta.content.find((b) => b.type === "tool_use");
@@ -185,6 +188,43 @@ async function llamarClaude(t: TourRow): Promise<Translation> {
     includedQu: out.includedQu.map((x) => String(x)),
     excludedQu: out.excludedQu.map((x) => String(x)),
   };
+}
+
+// Loop de hasta 3 intentos con feedback (mirror de api/ai/generate-quechua.ts).
+// El fallo "includedQu/excludedQu no son arrays" es NO-determinístico (~25% de
+// los tours), por eso reintentar lo convierte en transitorio. Si los 3 intentos
+// fallan, relanza el último error → el caller saltea el tour (titleQu=null,
+// re-procesable). NO valida el LARGO de las listas aquí: eso lo maneja
+// alinearListas() downstream (fallback a español por campo).
+async function llamarClaude(t: TourRow): Promise<Translation> {
+  const baseMessages: ChatMessage[] = [
+    { role: "user", content: buildUserMessage(t) },
+  ];
+  let messages: ChatMessage[] = baseMessages;
+  let ultimoError: Error | null = null;
+
+  for (let intento = 1; intento <= 3; intento++) {
+    try {
+      return await intentarTraduccion(messages);
+    } catch (error) {
+      ultimoError = error as Error;
+      // Reintento con feedback que nombra el defecto y exige el shape correcto.
+      messages = [
+        ...baseMessages,
+        {
+          role: "assistant",
+          content: "Realicé un intento previo que no cumplió el formato.",
+        },
+        {
+          role: "user",
+          content: `El intento anterior falló: ${ultimoError.message}. Vuelve a llamar traducir_tour_a_quechua devolviendo includedQu como un array JSON con EXACTAMENTE ${t.included.length} ítems y excludedQu con EXACTAMENTE ${t.excluded.length} ítems, cada uno traducido en orden (no como string ni texto unido por saltos de línea), y titleQu/descQu como strings no vacíos.`,
+        },
+      ];
+    }
+  }
+
+  // Los 3 intentos fallaron: relanza para que el caller saltee el tour.
+  throw ultimoError ?? new Error("traducción falló tras 3 intentos");
 }
 
 // Valida el largo de las listas. Si includedQu/excludedQu no coinciden en
