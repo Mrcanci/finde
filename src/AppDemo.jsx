@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, Smartphone, MessageCircle, Camera, MountainSnow, Hand, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff, Info, Trash2, Lock } from "lucide-react";
+import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, Smartphone, MessageCircle, Camera, MountainSnow, Hand, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff, Info, Trash2, Lock, CreditCard, Banknote } from "lucide-react";
 import { useAuth } from "./contexts/AuthContext.jsx";
 import { authFetch } from "./lib/authFetch.js";
 import { supabase } from "./lib/supabase.js";
@@ -45,6 +45,10 @@ const getCancelPolicy = (id) => CANCEL_POLICIES[id] || CANCEL_POLICIES.flexible;
 // reactiva todos los bloques (detalle, flujo de reserva, voucher, formulario del
 // operador) cuando haya pagos. Los datos/helpers de cancelación se conservan.
 const SHOW_CANCELLATION_POLICY = false;
+
+// DEMO_PAYMENT_FLOW: gatea la pantalla de pago mock (y en paso 2, la politica de cancelacion).
+// Poner en false antes de onboardear operadores reales o cuando el gateway real reemplace el mock.
+const DEMO_PAYMENT_FLOW = true;
 
 // ─── Disponibilidad de tours ──────────────────────────
 // Trabajamos con strings YYYY-MM-DD para evitar bugs de zona horaria peruana.
@@ -2744,6 +2748,11 @@ function VoucherDetail({ trip }) {
 function BookingView({ tour, go, onLocalBookingSuccess }) {
   const { user } = useAuth();
   const [step, setStep] = useState(1);
+  // Numeración derivada del flag: en modo demo el pago es el paso 3 y el voucher
+  // se corre al 4; en modo honesto el voucher sigue siendo el paso 3 (sin pago).
+  const VOUCHER_STEP = DEMO_PAYMENT_FLOW ? 4 : 3;
+  const PAYMENT_STEP = 3;
+  const [pay, setPay] = useState("yape");
   const [guests, setGuests] = useState(2);
   const [date, setDate] = useState(() => {
     if (!tour) return "";
@@ -2800,7 +2809,7 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
           customerEmail: email,
         });
       }
-      setStep(3);
+      setStep(VOUCHER_STEP);
       setSubmitting(false);
       return;
     }
@@ -2845,7 +2854,7 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
           customerEmail: email,
         });
       }
-      setStep(3);
+      setStep(VOUCHER_STEP);
     } catch (e) {
       setSubmitError(e.message || "Error creando la reserva");
     } finally {
@@ -2863,7 +2872,7 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
   const docIdValid = docId.trim().length >= 6;
   const step2Valid = nameValid && phoneValid && emailValid && docIdValid;
 
-  if (step === 3) {
+  if (step === VOUCHER_STEP) {
     // Construimos el trip equivalente al que terminó en TripsView para que el
     // voucher muestre exactamente la misma información que verá el viajero en el
     // detalle de su viaje.
@@ -2932,7 +2941,7 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
       <button className="bk-btn" onClick={() => step === 1 ? go("detail") : setStep(step - 1)} style={{ position: "relative", marginBottom: 16 }} aria-label={step === 1 ? "Volver al tour" : "Paso anterior"} type="button"><ArrowLeft size={20} strokeWidth={1.5} /></button>
       {/* 3 etapas: Fecha/Viajeros → Datos → Reserva lista (la final es step 3,
           que se renderiza arriba; aquí solo se ven las etapas 1 y 2). */}
-      <div className="bkf-st"><div className={`bkf-s ${step >= 1 ? "on" : ""}`} /><div className={`bkf-s ${step >= 2 ? "on" : ""}`} /><div className={`bkf-s ${step >= 3 ? "on" : ""}`} /></div>
+      <div className="bkf-st"><div className={`bkf-s ${step >= 1 ? "on" : ""}`} /><div className={`bkf-s ${step >= 2 ? "on" : ""}`} /><div className={`bkf-s ${step >= 3 ? "on" : ""}`} />{DEMO_PAYMENT_FLOW && <div className={`bkf-s ${step >= 4 ? "on" : ""}`} />}</div>
 
       <div className="bkf-steps">
       {step === 1 && <div className="fu">
@@ -3001,13 +3010,16 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
           {touched && !docIdValid && <div className="field-err">Documento inválido (mínimo 6 caracteres)</div>}
         </div>
         {/* Resumen + política movidos aquí desde el ex-step de pago: el viajero
-            confirma con contexto completo y crea la reserva directamente. */}
+            confirma con contexto completo y crea la reserva directamente. En modo
+            demo el resumen vive dentro del paso de pago, así que aquí se oculta. */}
+        {!DEMO_PAYMENT_FLOW && (
         <div className="sum" style={{ marginTop: 8, marginBottom: 16 }}>
           <div className="bk-sum-tour">{tour.title}</div>
           <div className="bk-sum-meta"><Calendar size={14} strokeWidth={1.5} /> {formatLongDate(date) || date} · <Users size={14} strokeWidth={1.5} /> {guests} persona{guests > 1 ? "s" : ""}</div>
           <div className="sum-r"><span>S/ {tour.price} × {guests}</span><span>S/ {total.toFixed(2)}</span></div>
           <div className="sum-t"><span>Total</span><span>S/ {total.toFixed(2)}</span></div>
         </div>
+        )}
         {SHOW_CANCELLATION_POLICY && (() => {
           const pol = getCancelPolicy(tour.cancellation);
           return (
@@ -3019,12 +3031,59 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
             </div>
           );
         })()}
+        {!DEMO_PAYMENT_FLOW && (
         <div style={{ fontSize: 12, color: "var(--gy)", lineHeight: 1.5, marginBottom: 14, textAlign: "center" }}>
           Al confirmar, coordinarás el pago y los detalles directamente con la agencia por WhatsApp.
         </div>
+        )}
         {submitError && <div className="field-err" style={{ marginBottom: 12 }}>{submitError}</div>}
-        <button className="mbtn" disabled={submitting} onClick={() => { if (!step2Valid) { setTouched(true); return; } submitBooking(); }}>
-          {submitting ? "Procesando reserva…" : "Confirmar reserva"}
+        {DEMO_PAYMENT_FLOW ? (
+          <button className="mbtn" disabled={submitting} onClick={() => { if (!step2Valid) { setTouched(true); return; } setStep(PAYMENT_STEP); }}>
+            Continuar al pago
+          </button>
+        ) : (
+          <button className="mbtn" disabled={submitting} onClick={() => { if (!step2Valid) { setTouched(true); return; } submitBooking(); }}>
+            {submitting ? "Procesando reserva…" : "Confirmar reserva"}
+          </button>
+        )}
+      </div>}
+
+      {/* Paso de pago mock (solo modo demo). Recuperado de 3506c0a; NO cobra real:
+          el botón llama submitBooking, que lleva al voucher (setStep(VOUCHER_STEP)).
+          La política de cancelación va gateada por SHOW_CANCELLATION_POLICY (oculta
+          en el piloto), así que en este paso todavía no se ve. */}
+      {DEMO_PAYMENT_FLOW && step === PAYMENT_STEP && <div className="fu">
+        <div className="bkf-t">Método de pago</div><div className="bkf-sub">Revisa tu reserva y elige cómo pagar</div>
+        <div className="sum" style={{ marginBottom: 16 }}>
+          <div className="bk-sum-tour">{tour.title}</div>
+          <div className="bk-sum-meta"><Calendar size={14} strokeWidth={1.5} /> {formatLongDate(date) || date} · <Users size={14} strokeWidth={1.5} /> {guests} persona{guests > 1 ? "s" : ""}</div>
+          <div className="sum-r"><span>S/ {tour.price} × {guests}</span><span>S/ {total.toFixed(2)}</span></div>
+          <div className="sum-t"><span>Total</span><span>S/ {total.toFixed(2)}</span></div>
+        </div>
+        {SHOW_CANCELLATION_POLICY && (() => {
+          const pol = getCancelPolicy(tour.cancellation);
+          return (
+            <div style={{ padding: 12, background: "var(--cr)", borderRadius: 12, marginBottom: 24, borderLeft: "3px solid var(--f)" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--f)", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                <ShieldCheck size={14} strokeWidth={1.5} /> Política de cancelación: {pol.label}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--gy)", lineHeight: 1.5 }}>{pol.short}</div>
+            </div>
+          );
+        })()}
+        <label className="lbl" style={{ marginBottom: 12 }}>Método de pago</label>
+        <div className="pms">
+          {[{ id: "yape", n: "Yape", c: "var(--yp)", tg: "Popular" }, { id: "plin", n: "Plin", c: "var(--pl)" }, { id: "card", n: "Tarjeta", c: "var(--ch)", ic: CreditCard }, { id: "cash", n: "PagoEfectivo", c: "#FF6B00", ic: Banknote }].map((m) => (
+            <div key={m.id} className={`pm ${pay === m.id ? "sel" : ""}`} onClick={() => setPay(m.id)}>
+              <div className="pm-rd" /><div className="pm-ic" style={{ background: m.c }}>{m.ic ? <m.ic size={16} strokeWidth={1.5} /> : m.n[0]}</div><div className="pm-n">{m.n}</div>{m.tg && <div className="pm-tg">{m.tg}</div>}
+            </div>
+          ))}
+        </div>
+        {submitError && <div className="field-err" style={{ marginBottom: 12 }}>{submitError}</div>}
+        <button className={`mbtn ${pay === "yape" ? "yp" : ""}`} disabled={submitting} onClick={submitBooking}>
+          {submitting
+            ? "Procesando reserva…"
+            : pay === "cash" ? "Generar código PagoEfectivo" : `Pagar S/ ${total.toFixed(2)} con ${PAYMENT_LABELS[pay]}`}
         </button>
       </div>}
       </div>
