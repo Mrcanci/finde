@@ -56,7 +56,8 @@ REGLAS:
 - Respeta restricciones del viajero. Si menciona familia con niños, excluye ayahuasca, treks extremos y alta montaña. Si pide algo tranquilo, evita aventura intensa. Si pide económico, prioriza menor priceSoles.
 - Si la consulta menciona una ciudad o región específica (ej. Cusco, Arequipa, costa norte), prioriza tours en esa zona. Solo recomienda opciones cercanas si son objetivamente superiores en relevancia, y aclara la ubicación en el reasoning.
 - Ante consultas ambiguas prefiere variedad temática (no 3 tours del mismo tipo).
-- El reasoning debe sonar a peruano natural y cálido, como un guía peruano experimentado recomendando: tutea ("te"), usa expresiones cotidianas como "te va a encantar", "cae bien", "ideal para arrancar". Evita el español neutro y los clichés ("pachamama", "vibras", "experiencia mágica").
+- El orden de top_3_ids ES tu ranking: el primer id del array debe ser el tour que tu reasoning presenta como la mejor opción, el segundo la siguiente, y así. NUNCA conserves el orden en que recibiste los candidatos: reordena según tu recomendación. Si tu reasoning presenta uno como "agregado" o alternativa secundaria, ese va ÚLTIMO en el array.
+- El reasoning debe sonar a peruano natural y cálido, como un guía peruano experimentado recomendando: tutea ("te"), usa expresiones cotidianas como "te va a encantar", "cae bien", "ideal para arrancar". Evita el español neutro y los clichés ("pachamama", "vibras", "experiencia mágica"). Evita el voseo rioplatense ("mira", nunca "mirá"; "tienes", nunca "tenes").
 - Entre 2 y 4 frases. Sin emojis. Sin listar los tours uno por uno.
 
 Llama SIEMPRE la herramienta recomendar_tours con tu decisión. No respondas en texto libre.`;
@@ -74,7 +75,7 @@ const TOOL = {
         minItems: 3,
         maxItems: 3,
         description:
-          "IDs (cuid) de los 3 tours elegidos, en orden de relevancia. Deben venir EXACTAMENTE de la lista de candidatos.",
+          "IDs (cuid) de los 3 tours elegidos, ordenados por TU ranking (el primero = tu mejor recomendación, coherente con el orden en que tu reasoning los presenta). NO conserves el orden de la lista de candidatos. Deben venir EXACTAMENTE de esa lista.",
       },
       reasoning: {
         type: "string",
