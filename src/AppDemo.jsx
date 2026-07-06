@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, Smartphone, MessageCircle, Camera, MountainSnow, Hand, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff, Info, Trash2, Lock, CreditCard, Banknote } from "lucide-react";
+import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarChart3, Compass, Search, Ticket, Star, MapPin, Timer, ArrowUp, Users, Dumbbell, Check, X, ChevronLeft, ChevronRight, ChevronDown, ArrowLeft, ArrowRight, Bot, CheckCircle, Clock, Tag, Languages, ShieldCheck, Building2, Smartphone, MessageCircle, Camera, MountainSnow, Hand, FileText, Pencil, HelpCircle, Heart, Home, Calendar, Eye, EyeOff, Info, Trash2, Lock, CreditCard } from "lucide-react";
 import { useAuth } from "./contexts/AuthContext.jsx";
 import { authFetch } from "./lib/authFetch.js";
 import { supabase } from "./lib/supabase.js";
@@ -2589,7 +2589,7 @@ function buildWhatsAppLink(trip) {
   return `https://wa.me/${phone}?text=${encodeURIComponent(lines.join(" "))}`;
 }
 
-const PAYMENT_LABELS = { yape: "Yape", plin: "Plin", card: "Tarjeta", cash: "PagoEfectivo" };
+const PAYMENT_LABELS = { yape: "Yape", plin: "Plin", card: "Tarjeta" };
 
 // VoucherDetail — comprobante completo del viaje. Único componente compartido
 // entre la pantalla de éxito post-pago y el detalle del viaje en Mis Viajes,
@@ -3067,7 +3067,7 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
         })()}
         <label className="lbl" style={{ marginBottom: 12 }}>Método de pago</label>
         <div className="pms">
-          {[{ id: "yape", n: "Yape", c: "var(--yp)", tg: "Popular" }, { id: "plin", n: "Plin", c: "var(--pl)" }, { id: "card", n: "Tarjeta", c: "var(--ch)", ic: CreditCard }, { id: "cash", n: "PagoEfectivo", c: "#FF6B00", ic: Banknote }].map((m) => (
+          {[{ id: "yape", n: "Yape", c: "var(--yp)", tg: "Popular" }, { id: "plin", n: "Plin", c: "var(--pl)" }, { id: "card", n: "Tarjeta", c: "var(--ch)", ic: CreditCard }].map((m) => (
             <div key={m.id} className={`pm ${pay === m.id ? "sel" : ""}`} onClick={() => setPay(m.id)}>
               <div className="pm-rd" /><div className="pm-ic" style={{ background: m.c }}>{m.ic ? <m.ic size={16} strokeWidth={1.5} /> : m.n[0]}</div><div className="pm-n">{m.n}</div>{m.tg && <div className="pm-tg">{m.tg}</div>}
             </div>
@@ -3077,7 +3077,7 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
         <button className={`mbtn ${pay === "yape" ? "yp" : ""}`} disabled={submitting} onClick={submitBooking}>
           {submitting
             ? "Procesando reserva…"
-            : pay === "cash" ? "Generar código PagoEfectivo" : `Pagar S/ ${total.toFixed(2)} con ${PAYMENT_LABELS[pay]}`}
+            : `Pagar S/ ${total.toFixed(2)} con ${PAYMENT_LABELS[pay]}`}
         </button>
       </div>}
       </div>
