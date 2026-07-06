@@ -2584,7 +2584,7 @@ function buildWhatsAppLink(trip) {
     `Hola, soy ${customer}. Hice una reserva por finde.pe.`,
     `Reservé ${tourTitle}${guestsLabel} para el ${dateLabel}.`,
     code ? `Mi código de reserva es ${code}.` : "",
-    "Quisiera coordinar los detalles y el pago.",
+    "Tengo una consulta sobre mi reserva.",
   ].filter(Boolean);
   return `https://wa.me/${phone}?text=${encodeURIComponent(lines.join(" "))}`;
 }
@@ -2726,9 +2726,9 @@ function VoucherDetail({ trip }) {
         );
       })()}
 
-      {/* 7 — Resumen. Etapa piloto: sin gateway de pago. El pago se coordina con
-          la agencia por WhatsApp, así que NO se muestra método ni "total pagado"
-          (sería falso); solo código y total de la reserva, más la nota. */}
+      {/* 7 — Resumen. El pago del demo pasa por Finde; no se muestra método ni
+          "total pagado" (sería falso en el mock), solo código y total de la
+          reserva, más la nota de que Finde protege el pago. */}
       <div className="voucher-sec">
         <div className="voucher-sec-l">Resumen</div>
         <div className="voucher-pay-row">
@@ -2739,7 +2739,7 @@ function VoucherDetail({ trip }) {
           <span className="l">Total</span>
           <span>S/ {totalSoles.toFixed(2)}</span>
         </div>
-        <div className="voucher-note">El pago se coordina directamente con la agencia por WhatsApp.</div>
+        <div className="voucher-note">Tu pago está protegido por Finde.</div>
       </div>
     </div>
   );
@@ -2902,28 +2902,6 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
           <div className="suc-t">¡Reserva confirmada!</div>
           <div className="suc-sub">Tu voucher está listo. Toda la información que necesitas está aquí abajo.</div>
         </div>
-        {/* CTA primario ARRIBA del voucher: coordinar/pagar con la agencia por
-            WhatsApp (sin gateway en el piloto) es la acción principal. El número
-            real va en el href, nunca visible como texto. Fallback honesto si el
-            operador no tiene teléfono → sin link roto. */}
-        {(() => {
-          const wa = buildWhatsAppLink(successTrip);
-          return wa ? (
-            <a
-              href={wa}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mbtn"
-              style={{ background: "#25D366", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, textDecoration: "none", marginBottom: 16 }}
-            >
-              <Smartphone size={18} strokeWidth={2} /> Coordinar con la agencia por WhatsApp
-            </a>
-          ) : (
-            <div className="mbtn" style={{ background: "var(--lg)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "default", pointerEvents: "none", marginBottom: 16 }}>
-              <Smartphone size={18} strokeWidth={2} /> Coordinación por WhatsApp no disponible
-            </div>
-          );
-        })()}
         <VoucherDetail trip={successTrip} />
         <button
           className="bk-btn"
@@ -2932,6 +2910,22 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
         >
           <Ticket size={16} strokeWidth={1.5} /> Ver en Mis Viajes
         </button>
+        {/* CTA secundario al FINAL: link discreto para dudas con la agencia (el
+            pago ya pasa por Finde, no se coordina por acá). El número real va en el
+            href, nunca visible como texto. Fallback si el operador no tiene
+            teléfono → sin link roto. */}
+        {(() => {
+          const wa = buildWhatsAppLink(successTrip);
+          return wa ? (
+            <a className="voucher-wa" href={wa} target="_blank" rel="noopener noreferrer">
+              <Smartphone size={14} strokeWidth={1.5} /> ¿Tienes consultas? Escríbele a la agencia <ArrowRight size={12} strokeWidth={1.5} />
+            </a>
+          ) : (
+            <div className="voucher-wa" style={{ opacity: .6, cursor: "default", pointerEvents: "none" }}>
+              <Smartphone size={14} strokeWidth={1.5} /> Contacto por WhatsApp no disponible
+            </div>
+          );
+        })()}
       </div>
     );
   }
@@ -3167,28 +3161,22 @@ function TripDetailView({ trip, go, onReview }) {
     <div className="tdet-page fu">
       <button className="bk-btn tdet-back" onClick={() => go("trips")} aria-label="Volver a Mis Viajes" type="button"><ArrowLeft size={20} strokeWidth={1.5} /></button>
       <h2 className="tdet-h">Tu viaje</h2>
-      {/* CTA verde grande arriba, igual que el voucher post-reserva: coordinar/
-          pagar con la agencia por WhatsApp es la acción principal también desde
-          Mis Viajes. Mismo link (buildWhatsAppLink) ya cableado para el trip. */}
+      <VoucherDetail trip={trip} />
+      {/* CTA secundario al FINAL, consistente con el voucher post-reserva: link
+          discreto para dudas con la agencia (el pago pasa por Finde). Mismo link
+          (buildWhatsAppLink) cableado para el trip; fallback si no hay teléfono. */}
       {(() => {
         const wa = buildWhatsAppLink(trip);
         return wa ? (
-          <a
-            href={wa}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mbtn"
-            style={{ background: "#25D366", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, textDecoration: "none", marginBottom: 16 }}
-          >
-            <Smartphone size={18} strokeWidth={2} /> Coordinar con la agencia por WhatsApp
+          <a className="voucher-wa" href={wa} target="_blank" rel="noopener noreferrer">
+            <Smartphone size={14} strokeWidth={1.5} /> ¿Tienes consultas? Escríbele a la agencia <ArrowRight size={12} strokeWidth={1.5} />
           </a>
         ) : (
-          <div className="mbtn" style={{ background: "var(--lg)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "default", pointerEvents: "none", marginBottom: 16 }}>
-            <Smartphone size={18} strokeWidth={2} /> Coordinación por WhatsApp no disponible
+          <div className="voucher-wa" style={{ opacity: .6, cursor: "default", pointerEvents: "none" }}>
+            <Smartphone size={14} strokeWidth={1.5} /> Contacto por WhatsApp no disponible
           </div>
         );
       })()}
-      <VoucherDetail trip={trip} />
       <div className="tdet-actions">
         {canReview && !showRev && (
           <button className="tdet-act-sec" onClick={() => { setShowRev(true); setRvRating(0); setRvText(""); }}>
