@@ -3389,7 +3389,7 @@ function ProfileView({ go }) {
   );
 }
 
-function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleActive, initialTab = "bookings", onTabConsumed }) {
+function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleActive, initialTab = "bookings", onTabConsumed, onBusinessSaved }) {
   const [tab, setTab] = useState(initialTab);
   useEffect(() => { if (onTabConsumed) onTabConsumed(); }, []);
   // Reservas reales del operador (GET /api/operators/me/bookings), hidratadas en
@@ -3449,6 +3449,11 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
         throw new Error("No pudimos guardar los cambios. Intenta de nuevo.");
       }
       await refreshOperator();
+      // Refrescar catálogos: el nombre del operador se lee por join vivo pero el
+      // front lo aplana y cachea en `tours` (detalle/voucher del viajero) y
+      // `opTours` (cards del dashboard). Sin esto, el nombre nuevo no aparece
+      // hasta un reload. Solo en el camino de éxito (tras PATCH ok).
+      await onBusinessSaved?.();
       setEditingBiz(false);
       setBizSaved(true);
       setTimeout(() => setBizSaved(false), 3000);
@@ -4616,66 +4621,69 @@ export default function AppDemo() {
   // Sub-paso 2.7: opTours = los tours REALES del operador autenticado
   // (GET /api/operators/me/tours, filtrado por operatorId del token). Reemplaza
   // el mock previo de "primeros 4 del catálogo" (tours ajenos → editar daba 403).
-  // - Espera a que useAuth resuelva (loading) antes de decidir.
   // - No operador → opTours vacío (no dashboard de tours).
   // - tourId conserva el CUID real → handleSaveTour (2.6) edita el tour correcto
   //   y, al ser propio, el PUT responde 200.
+  // Loader reusable (useCallback): extraído del useEffect de montaje para poder
+  // re-invocarlo tras editar el negocio (saveBiz) y reflejar el nombre nuevo sin
+  // recargar. Devuelve activos e inactivos.
+  const loadOperatorTours = useCallback(async () => {
+    if (!isOperator) {
+      setOpTours([]);
+      return;
+    }
+    try {
+      const r = await authFetch("/api/operators/me/tours");
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      // mapTourFromApi ya normaliza (incl. days/cancellation reales vía
+      // LIST_SELECT ampliado); de ahí a la forma que espera el dashboard.
+      const mine = (data.tours || []).map(mapTourFromApi);
+      setOpTours(mine.map((t, i) => ({
+        id: i + 1,
+        tourId: t.id,
+        // Estado real del API (M2.3); me/tours devuelve activos e inactivos.
+        active: t.active ?? true,
+        image: t.image,
+        // Galería real del API (sub-paso 3): el editor la carga para mostrar
+        // las fotos actuales y, si no se tocan, preservarlas al guardar.
+        images: Array.isArray(t.images) ? t.images : [],
+        title: t.title || "",
+        location: t.location || "",
+        duration: t.duration || "",
+        price: t.price || 0,
+        rating: t.rating || 0,
+        reviews: t.reviews || 0,
+        category: t.category || "adventure",
+        capacity: String(t.capacity || ""),
+        difficulty: t.difficulty || "Moderada",
+        description: t.desc || "",
+        included: Array.isArray(t.included) ? t.included.join(", ") : (t.included || ""),
+        excluded: Array.isArray(t.excluded) ? t.excluded.join(", ") : (t.excluded || ""),
+        days: t.days || DEFAULT_DAYS,
+        excludedDates: t.excludedDates || [],
+        addedDates: t.addedDates || [],
+        meetingPoint: t.meetingPoint || "",
+        // Hora real del API (M3.3); "08:00" solo como fallback para tours
+        // legacy sin hora (startTime null).
+        startTime: t.startTime || "08:00",
+        cancellation: t.cancellation || "flexible",
+        photo: null,
+      })));
+    } catch (err) {
+      console.error("Error cargando tours del operador:", err);
+      setOpTours([]);
+    }
+  }, [isOperator]);
+
+  // Sub-paso 2.7: opTours = los tours REALES del operador autenticado. Espera a
+  // que useAuth resuelva (loading) antes de decidir; el loader vive fuera del
+  // efecto para reusarse tras editar el negocio (saveBiz).
   useEffect(() => {
     if (loading) return;
-    let cancel = false;
-    // setState solo dentro de este callback async (no síncrono en el efecto).
-    const hydrateOpTours = async () => {
-      if (!isOperator) {
-        if (!cancel) setOpTours([]);
-        return;
-      }
-      try {
-        const r = await authFetch("/api/operators/me/tours");
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const data = await r.json();
-        if (cancel) return;
-        // mapTourFromApi ya normaliza (incl. days/cancellation reales vía
-        // LIST_SELECT ampliado); de ahí a la forma que espera el dashboard.
-        const mine = (data.tours || []).map(mapTourFromApi);
-        setOpTours(mine.map((t, i) => ({
-          id: i + 1,
-          tourId: t.id,
-          // Estado real del API (M2.3); me/tours devuelve activos e inactivos.
-          active: t.active ?? true,
-          image: t.image,
-          // Galería real del API (sub-paso 3): el editor la carga para mostrar
-          // las fotos actuales y, si no se tocan, preservarlas al guardar.
-          images: Array.isArray(t.images) ? t.images : [],
-          title: t.title || "",
-          location: t.location || "",
-          duration: t.duration || "",
-          price: t.price || 0,
-          rating: t.rating || 0,
-          reviews: t.reviews || 0,
-          category: t.category || "adventure",
-          capacity: String(t.capacity || ""),
-          difficulty: t.difficulty || "Moderada",
-          description: t.desc || "",
-          included: Array.isArray(t.included) ? t.included.join(", ") : (t.included || ""),
-          excluded: Array.isArray(t.excluded) ? t.excluded.join(", ") : (t.excluded || ""),
-          days: t.days || DEFAULT_DAYS,
-          excludedDates: t.excludedDates || [],
-          addedDates: t.addedDates || [],
-          meetingPoint: t.meetingPoint || "",
-          // Hora real del API (M3.3); "08:00" solo como fallback para tours
-          // legacy sin hora (startTime null).
-          startTime: t.startTime || "08:00",
-          cancellation: t.cancellation || "flexible",
-          photo: null,
-        })));
-      } catch (err) {
-        console.error("Error cargando tours del operador:", err);
-        if (!cancel) setOpTours([]);
-      }
-    };
-    hydrateOpTours();
-    return () => { cancel = true; };
-  }, [isOperator, loading]);
+    const run = async () => { await loadOperatorTours(); };
+    run();
+  }, [loading, loadOperatorTours]);
 
   // M3 Sub-paso B: hidrata las reservas del operador (GET /api/operators/me/bookings,
   // filtrado por operatorId del token). Mismo patrón que opTours: espera a que
@@ -5210,7 +5218,7 @@ export default function AppDemo() {
         {effectiveView === "trips" && <TripsView go={go} onSelectTrip={setCurrentTrip} trips={trips} />}
         {effectiveView === "trip-detail" && <TripDetailView trip={currentTrip} go={go} onReview={handleReview} />}
         {effectiveView === "profile" && <ProfileView go={go} />}
-        {effectiveView === "dashboard" && <DashView go={go} opTours={opTours} opBookings={opBookings} onEditTour={handleEditTour} onDeleteTour={handleDeleteTour} onToggleActive={handleToggleTourActive} initialTab={dashTab} onTabConsumed={() => setDashTab("bookings")} />}
+        {effectiveView === "dashboard" && <DashView go={go} opTours={opTours} opBookings={opBookings} onEditTour={handleEditTour} onDeleteTour={handleDeleteTour} onToggleActive={handleToggleTourActive} initialTab={dashTab} onTabConsumed={() => setDashTab("bookings")} onBusinessSaved={async () => { await loadPublicTours(); await loadOperatorTours(); }} />}
         {effectiveView === "new-tour" && <NewTourView go={go} editingTour={editingTour} onSaveTour={handleSaveTour} onCreateTour={handleCreateTour} onCancel={handleCancelTour} />}
         {showFooter && <Footer go={go} />}
         {showNav && <BNav active={nav} go={navGo} />}
