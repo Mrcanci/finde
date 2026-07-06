@@ -277,7 +277,7 @@ function mapTourFromApi(t) {
     rating: t.rating,
     reviews: t.reviewsCount,
     duration: t.durationHours >= 24
-      ? `${Math.round(t.durationHours / 24)} días`
+      ? `${Math.round(t.durationHours / 24)} ${Math.round(t.durationHours / 24) === 1 ? "día" : "días"}`
       : `${t.durationHours} horas`,
     image: t.imageUrl,
     // Galería multi-foto (Opción A). `image` (portada) sigue siendo imageUrl;
