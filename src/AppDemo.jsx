@@ -559,7 +559,7 @@ const AI_SUGGESTIONS = [
   { query: "algo tranquilo con niños sin mucha altitud", results: ["cmoh8rd3t000zvpn2vn252gw0", "cmoh8rd6l0011vpn2gh5sebuu", "cmoh8rdvu001jvpn2mor2wbyw"], reason: "Baja altitud + actividades familiares" },
   { query: "aventura extrema para jóvenes", results: ["cmoh8rceb000hvpn29qhzz4ug", "cmoh8rdhw0019vpn2wq5xn8tk", "cmoh8rc8h000dvpn22yhhhrii"], reason: "Alta adrenalina + desafío físico" },
   { query: "tour barato con almuerzo incluido", results: ["cmoh8rcvc000tvpn23butdi5i", "cmoh8rdkp001bvpn26emecam2", "cmoh8rcha000jvpn2fo8kzet0", "cmoh8rdf30017vpn2syj9r18z"], reason: "Precio accesible + almuerzo en inclusiones" },
-  { query: "qué hacer en feriado largo de mayo", results: ["cmoh8re7d001rvpn2eyvaz3bk", "cmoh8re4h001pvpn23qzu04f2", "cmoh8re1o001nvpn2yispucfu"], reason: "Multi-día o full day + temporada seca" },
+  { query: "qué hacer en Fiestas Patrias", results: ["cmoh8re7d001rvpn2eyvaz3bk", "cmoh8re4h001pvpn23qzu04f2", "cmoh8re1o001nvpn2yispucfu"], reason: "Multi-día o full day + temporada seca" },
   { query: "sin turistas y naturaleza pura", results: ["cmoh8rea5001tvpn2uchbmxj4", "cmoh8rdyo001lvpn28ylkpior", "cmoh8rdt1001hvpn2a6g2ai1a"], reason: "Baja masificación + naturaleza" },
   { query: "planes cerca de Lima para el fin de semana", results: ["cmoh8rd0x000xvpn2orc0q2wm", "cmoh8rd3t000zvpn2vn252gw0", "cmpdm1s1e000rvpl9a1qv68up", "cmpdm1po0000nvpl9zonbjbq3"], reason: "Destinos accesibles desde Lima" },
 ];
@@ -843,7 +843,7 @@ html{scrollbar-gutter:stable}
 .bn-i .nd{width:4px;height:4px;border-radius:50%;background:var(--tr);opacity:0;transition:.2s}.bn-i.on .nd{opacity:1}
 
 /* ── Hero ── */
-.hero{position:relative;margin:0 16px 20px;border-radius:28px;overflow:hidden;height:220px;background:url(https://images.unsplash.com/photo-1587595431973-160d0d94add1?w=400&h=300&fit=crop) center/cover no-repeat}
+.hero{position:relative;margin:0 16px 20px;border-radius:28px;overflow:hidden;height:220px;background:url(https://images.unsplash.com/photo-1593111357479-0384c900794c?q=80&w=2400&auto=format&fit=crop) center/cover no-repeat}
 .hero-tex{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.35) 0%,rgba(0,0,0,.55) 100%)}
 .hero-c{position:relative;z-index:2;padding:28px 24px;display:flex;flex-direction:column;justify-content:space-between;height:100%}
 .hero-tag{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);backdrop-filter:blur(10px);padding:6px 14px;border-radius:100px;font-size:11px;font-weight:600;color:rgba(255,255,255,.9);width:fit-content;letter-spacing:.5px}
@@ -1630,7 +1630,7 @@ function Footer({ go }) {
         <div className="site-footer-cols">
           <div className="site-footer-brand">
             <div className="logo" onClick={() => go("home")}>finde<span>.</span></div>
-            <div className="site-footer-tagline">Descubre experiencias auténticas en todo el Perú. +8,000 tours verificados en 52 destinos.</div>
+            <div className="site-footer-tagline">Descubre experiencias auténticas en todo el Perú.</div>
           </div>
           <div className="site-footer-col">
             <div className="site-footer-col-t">Explorar</div>
@@ -1798,9 +1798,9 @@ function LoginView({ go, loginMsg }) {
         <div className="login-hero-logo">finde<span>.</span></div>
         <div className="login-hero-tagline">El marketplace de tours y experiencias para descubrir el Perú</div>
         <div className="login-hero-stat">
-          <div className="login-hero-stat-i"><div className="login-hero-stat-v">8,000+</div><div className="login-hero-stat-l">Experiencias</div></div>
-          <div className="login-hero-stat-i"><div className="login-hero-stat-v">52</div><div className="login-hero-stat-l">Destinos</div></div>
-          <div className="login-hero-stat-i"><div className="login-hero-stat-v">4.7<Star size={12} strokeWidth={1.5} fill="currentColor" style={{display:"inline",verticalAlign:"middle",marginLeft:2}} /></div><div className="login-hero-stat-l">Promedio</div></div>
+          <div className="login-hero-stat-i"><div className="login-hero-stat-v">Agencias</div><div className="login-hero-stat-l">verificadas</div></div>
+          <div className="login-hero-stat-i"><div className="login-hero-stat-v">Pago</div><div className="login-hero-stat-l">protegido</div></div>
+          <div className="login-hero-stat-i"><div className="login-hero-stat-v">Búsqueda</div><div className="login-hero-stat-l">con IA</div></div>
         </div>
       </div>
       <div className="login-body">
@@ -2003,8 +2003,8 @@ function HomeView({ go, pick, cat, setCat, tours, toursLoading, selectedCity, se
   return (
     <div>
       <div className="hero fu"><div className="hero-tex" /><div className="hero-c">
-        <div><div className="hero-tag"><Sparkles size={12} strokeWidth={1.5} style={{display:"inline",verticalAlign:"middle",marginRight:4}} />FERIADO LARGO · 1-4 MAYO</div></div>
-        <div><div className="hero-t">Descubre el Perú que no conoces</div><div className="hero-sub">+8,000 experiencias verificadas en 52 destinos</div></div>
+        <div><div className="hero-tag"><Sparkles size={12} strokeWidth={1.5} style={{display:"inline",verticalAlign:"middle",marginRight:4}} />PRÓXIMO FERIADO LARGO · 28-29 JUL</div></div>
+        <div><div className="hero-t">Descubre el Perú que no conoces</div><div className="hero-sub">Agencias verificadas en todo el Perú</div></div>
       </div></div>
       <div className="home-pg pg">
         <div className="ai-sb fd1">
