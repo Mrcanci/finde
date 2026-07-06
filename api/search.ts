@@ -5,6 +5,7 @@
 // Si Claude falla por cualquier razón, fallback graceful con top 3 semánticos.
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { db } from "../lib/db.js";
 import { voyage, MODEL_EMBED, DIM } from "../lib/voyage.js";
@@ -47,7 +48,7 @@ const SYSTEM_PROMPT = `Eres el asistente de Finde, un marketplace peruano de exp
 Recibes la consulta de un viajero en lenguaje natural y 8 tours pre-seleccionados por similitud semántica. Tu trabajo es:
 
 1. Elegir los 3 tours más relevantes para esa consulta específica.
-2. Explicar en 1–2 frases POR QUÉ esos tres son la mejor recomendación (no qué son — el usuario ya ve la ficha).
+2. Explicar en 2–4 frases POR QUÉ esos tres son la mejor recomendación (no qué son — el usuario ya ve la ficha).
 3. Detectar filtros implícitos en la consulta: categoría (adventure | cultural | gastronomy | nature | mystic), ciudad, presupuesto máximo en soles, duración aproximada.
 
 REGLAS:
@@ -55,8 +56,9 @@ REGLAS:
 - Respeta restricciones del viajero. Si menciona familia con niños, excluye ayahuasca, treks extremos y alta montaña. Si pide algo tranquilo, evita aventura intensa. Si pide económico, prioriza menor priceSoles.
 - Si la consulta menciona una ciudad o región específica (ej. Cusco, Arequipa, costa norte), prioriza tours en esa zona. Solo recomienda opciones cercanas si son objetivamente superiores en relevancia, y aclara la ubicación en el reasoning.
 - Ante consultas ambiguas prefiere variedad temática (no 3 tours del mismo tipo).
-- El reasoning debe sonar a peruano natural y cálido, como un guía peruano experimentado recomendando: tutea ("te"), usa expresiones cotidianas como "te va a encantar", "cae bien", "ideal para arrancar". Evita el español neutro y los clichés ("pachamama", "vibras", "experiencia mágica").
-- Máximo 2 frases. Sin emojis. Sin listar los tours uno por uno.
+- El orden de top_3_ids ES tu ranking: el primer id del array debe ser el tour que tu reasoning presenta como la mejor opción, el segundo la siguiente, y así. NUNCA conserves el orden en que recibiste los candidatos: reordena según tu recomendación. Si tu reasoning presenta uno como "agregado" o alternativa secundaria, ese va ÚLTIMO en el array.
+- El reasoning debe sonar a peruano natural y cálido, como un guía peruano experimentado recomendando: tutea ("te"), usa expresiones cotidianas como "te va a encantar", "cae bien", "ideal para arrancar". Evita el español neutro y los clichés ("pachamama", "vibras", "experiencia mágica"). Evita el voseo rioplatense ("mira", nunca "mirá"; "tienes", nunca "tenes").
+- Entre 2 y 4 frases. Sin emojis. Sin listar los tours uno por uno.
 
 Llama SIEMPRE la herramienta recomendar_tours con tu decisión. No respondas en texto libre.`;
 
@@ -73,12 +75,12 @@ const TOOL = {
         minItems: 3,
         maxItems: 3,
         description:
-          "IDs (cuid) de los 3 tours elegidos, en orden de relevancia. Deben venir EXACTAMENTE de la lista de candidatos.",
+          "IDs (cuid) de los 3 tours elegidos, ordenados por TU ranking (el primero = tu mejor recomendación, coherente con el orden en que tu reasoning los presenta). NO conserves el orden de la lista de candidatos. Deben venir EXACTAMENTE de esa lista.",
       },
       reasoning: {
         type: "string",
         description:
-          "1–2 frases en español peruano natural explicando por qué estos 3 son la mejor recomendación.",
+          "2–4 frases en español peruano natural explicando por qué estos 3 son la mejor recomendación.",
       },
       filters_detected: {
         type: "object",
@@ -175,6 +177,11 @@ Elige los 3 mejores y llama recomendar_tours.`;
   };
 }
 
+// Días que una entrada de FeaturedSearch se considera fresca. Al expirar, el
+// cache-hit se degrada a MISS y el flujo completo recomputa TODO junto
+// (resultados + reasoning coherentes) y re-upsertea, refrescando updatedAt.
+const CACHE_TTL_DIAS = 7;
+
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -217,7 +224,16 @@ export default async function handler(
     where: { query: normalized },
   });
 
-  if (cached && cached.results.length > 0) {
+  const cacheExpirado =
+    cached != null &&
+    Date.now() - cached.updatedAt.getTime() >
+      CACHE_TTL_DIAS * 24 * 60 * 60 * 1000;
+
+  if (cacheExpirado) {
+    console.log(`[cache EXPIRED] query: ${query} — recomputando`);
+  }
+
+  if (cached && cached.results.length > 0 && !cacheExpirado) {
     console.log(`[cache HIT] query: ${query}`);
     const cachedTours = await db.tour.findMany({
       where: { id: { in: cached.results }, active: true },
@@ -294,12 +310,16 @@ export default async function handler(
   let chosenIds: string[];
   let reasoning: string;
   let filtersDetected: FiltrosDetectados;
+  // Solo el flujo con Claude exitoso alimenta el write-through cache; el
+  // fallback semántico NO se cachea (detectado por boolean, no por strings).
+  let claudeOk = false;
 
   try {
     const decision = await decidirConClaude(query, candidatos);
     chosenIds = decision.top_3_ids;
     reasoning = decision.reasoning;
     filtersDetected = decision.filters_detected;
+    claudeOk = true;
   } catch (error) {
     console.error("Claude falló, usando fallback semántico:", error);
     chosenIds = candidatos.slice(0, 3).map((c) => c.id);
@@ -332,6 +352,33 @@ export default async function handler(
     });
   } catch (error) {
     console.error("Error guardando SearchLog (no bloqueante):", error);
+  }
+
+  // Paso 6: write-through cache. Toda búsqueda EXITOSA se upsertea a
+  // FeaturedSearch por query normalizada → repeticiones exactas responden
+  // instantáneas con texto idéntico. @updatedAt refresca la ventana TTL.
+  // Guardrails: NO cachear fallback (claudeOk=false) ni respuestas con <3
+  // tours. No bloqueante y ANTES de res (serverless no garantiza ejecución
+  // después del res).
+  if (claudeOk && results.length >= 3) {
+    try {
+      await db.featuredSearch.upsert({
+        where: { query: normalized },
+        create: {
+          query: normalized,
+          results: results.map((t) => t.id),
+          reasoning,
+          filtersDetected: filtersDetected as unknown as Prisma.InputJsonValue,
+        },
+        update: {
+          results: results.map((t) => t.id),
+          reasoning,
+          filtersDetected: filtersDetected as unknown as Prisma.InputJsonValue,
+        },
+      });
+    } catch (error) {
+      console.error("Error en write-through cache (no bloqueante):", error);
+    }
   }
 
   res.status(200).json({

@@ -2074,7 +2074,7 @@ function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
   const searchRef = useRef(null);
   const fullSearch = q.length >= 2 ? searchTours(tours, q, cat) : null;
   const filt = aiResult
-    ? tours.filter(t => aiResult.results.includes(t.id))
+    ? aiResult.results.map(id => tours.find(t => t.id === id)).filter(Boolean)
     : geminiIds
       ? geminiIds.map(id => tours.find(t => t.id === id)).filter(Boolean)
       : fullSearch
@@ -2084,8 +2084,9 @@ function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
 
   // Búsqueda IA reusable: la llama el debounce desde handleChange y también
   // Enter (que cancela el timer pendiente y dispara la búsqueda al toque).
-  // Combina los 3 tours top de Claude con los matches locales relevantes para
-  // que el grid no quede limitado a 3 cards (api/search devuelve top_3_ids).
+  // La grilla muestra EXACTAMENTE los tours que la IA eligió, en su orden
+  // (api/search devuelve top_3_ids rankeados). No se mezclan extras locales:
+  // eso inflaba la grilla y contradecía el reasoning ("los tres").
   const runAiSearch = async (value) => {
     setShowDropdown(false);
     setHasSearched(true);
@@ -2099,20 +2100,14 @@ function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
       if (r.ok) {
         const data = await r.json();
         const apiIds = (data.results || []).map(t => t.id);
-        const local = searchTours(tours, value, cat).results;
         if (apiIds.length > 0) {
-          // Merge: top 3 de Claude primero (más relevantes), luego matches
-          // locales que no estén en la respuesta IA (para abundancia).
-          const apiSet = new Set(apiIds);
-          const localExtras = local.filter(t => !apiSet.has(t.id)).slice(0, 12);
-          const combinedIds = [...apiIds, ...localExtras.map(t => t.id)];
+          // Solo los tours de la IA, en su orden de ranking.
           const apiTours = apiIds.map(id => tours.find(t => t.id === id)).filter(Boolean);
-          const localNotInApi = local.filter(t => !apiSet.has(t.id));
           // Setear todo ANTES de bajar geminiLoading para evitar frame con
           // loading=false + grid vacía.
-          setGeminiIds(combinedIds);
+          setGeminiIds(apiIds);
           setApiReasoning(data.reasoning || "");
-          setLocalResults([...apiTours, ...localNotInApi].slice(0, 5));
+          setLocalResults(apiTours);
         } else {
           // Backend respondió pero sin matches IA. Guardamos el reasoning
           // ("Por ahora no encontramos…") para mostrarlo como análisis.
