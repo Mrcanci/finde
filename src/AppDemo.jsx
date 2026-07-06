@@ -40,15 +40,15 @@ const CANCEL_POLICIES = {
 };
 const getCancelPolicy = (id) => CANCEL_POLICIES[id] || CANCEL_POLICIES.flexible;
 
-// Etapa piloto: sin gateway de pago, Finde no gestiona reembolsos, así que NO
-// mostramos política de cancelación en la UI. Flag reversible: poner en true
-// reactiva todos los bloques (detalle, flujo de reserva, voucher, formulario del
-// operador) cuando haya pagos. Los datos/helpers de cancelación se conservan.
-const SHOW_CANCELLATION_POLICY = false;
-
-// DEMO_PAYMENT_FLOW: gatea la pantalla de pago mock (y en paso 2, la politica de cancelacion).
+// DEMO_PAYMENT_FLOW: flag maestro del demo. Gatea la pantalla de pago mock y, a
+// través de SHOW_CANCELLATION_POLICY, la política de cancelación.
 // Poner en false antes de onboardear operadores reales o cuando el gateway real reemplace el mock.
 const DEMO_PAYMENT_FLOW = true;
+
+// Política de cancelación: atada al flag maestro. En el piloto (DEMO_PAYMENT_FLOW
+// false) no se muestra en ningún lado; con el pago encendido reaparece en detalle,
+// paso de pago, voucher y formulario del operador. Los datos/helpers se conservan.
+const SHOW_CANCELLATION_POLICY = DEMO_PAYMENT_FLOW;
 
 // ─── Disponibilidad de tours ──────────────────────────
 // Trabajamos con strings YYYY-MM-DD para evitar bugs de zona horaria peruana.
@@ -2973,7 +2973,7 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
         </div>
         <div className="fg"><label className="lbl">Personas</label><div className="gctr" role="group" aria-label="Cantidad de personas"><button type="button" className="gbtn" onClick={() => setGuests(Math.max(1, guests - 1))} disabled={guests <= 1} aria-label="Disminuir número de personas">−</button><div className="gcnt" aria-live="polite">{guests}</div><button type="button" className="gbtn" onClick={() => setGuests(Math.min(tour.capacity, guests + 1))} disabled={guests >= tour.capacity} aria-label="Aumentar número de personas">+</button></div></div>
         <div className="sum"><div className="sum-r"><span>S/ {tour.price} × {guests}</span><span>S/ {total.toFixed(2)}</span></div><div className="sum-t"><span>Total</span><span>S/ {total.toFixed(2)}</span></div></div>
-        {SHOW_CANCELLATION_POLICY && (() => {
+        {SHOW_CANCELLATION_POLICY && !DEMO_PAYMENT_FLOW && (() => {
           const pol = getCancelPolicy(tour.cancellation);
           return (
             <div style={{ padding: 12, background: "var(--cr)", borderRadius: 12, marginBottom: 16, borderLeft: "3px solid var(--f)" }}>
@@ -3020,7 +3020,7 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
           <div className="sum-t"><span>Total</span><span>S/ {total.toFixed(2)}</span></div>
         </div>
         )}
-        {SHOW_CANCELLATION_POLICY && (() => {
+        {SHOW_CANCELLATION_POLICY && !DEMO_PAYMENT_FLOW && (() => {
           const pol = getCancelPolicy(tour.cancellation);
           return (
             <div style={{ padding: 12, background: "var(--cr)", borderRadius: 12, marginBottom: 16, borderLeft: "3px solid var(--f)" }}>
