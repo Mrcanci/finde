@@ -1747,7 +1747,7 @@ function GCard({ t, onClick }) {
   );
 }
 
-function LoginView({ go, loginMsg }) {
+function LoginView({ go, loginMsg, onGuest }) {
   const { signInWithPassword, signUpWithPassword } = useAuth();
   const [mode, setMode] = useState("signin"); // "signin" | "signup"
   const [email, setEmail] = useState("");
@@ -1887,7 +1887,7 @@ function LoginView({ go, loginMsg }) {
         </button>
 
         <div className="login-divider">o</div>
-        <button className="login-skip" onClick={() => go("home")}>Explorar sin cuenta</button>
+        <button className="login-skip" onClick={onGuest}>Explorar sin cuenta</button>
 
         {/* TODO(M1 sub-paso 8): enlace "¿Eres agencia de turismo?" para onboarding de operador. */}
 
@@ -3204,8 +3204,8 @@ function TripDetailView({ trip, go, onReview }) {
   );
 }
 
-function ProfileView({ go }) {
-  const { user, isOperator, refreshOperator, signOut } = useAuth();
+function ProfileView({ go, onLogout }) {
+  const { user, isOperator, refreshOperator } = useAuth();
   // Opción 1 (mínimo honesto): solo datos reales. El email es el identificador
   // principal; joinLabel sale de created_at si existe; no se finge nombre.
   const joinLabel = user?.created_at
@@ -3378,7 +3378,7 @@ function ProfileView({ go }) {
         </div>
         <ChevronRight size={16} strokeWidth={1.5} style={{ color: "var(--lg)" }} />
       </div>
-      <button className="pf-logout" onClick={() => signOut()}>Cerrar sesión</button>
+      <button className="pf-logout" onClick={() => onLogout()}>Cerrar sesión</button>
       <div className="pf-ver">finde. AI v3.0 · Hecho en Perú</div>
     </div>
   );
@@ -4552,10 +4552,18 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
   );
 }
 
+// Vistas públicas: un invitado ("Explorar sin cuenta") puede verlas sin sesión.
+// Todo lo demás (booking, trips, trip-detail, profile, dashboard, new-tour,
+// notifications) es privado y lo rebota el guard de effectiveView al login.
+const GUEST_VIEWS = ["home", "catalog", "detail", "login", "welcome"];
+
 // ── MAIN ──────────────────────────────────────────────
 export default function AppDemo() {
-  const { user, loading, isOperator } = useAuth();
+  const { user, loading, isOperator, signOut } = useAuth();
   const [view, setView] = useState("login");
+  // Modo invitado explícito: sin él, el guard de effectiveView rebotaría al
+  // login cualquier vista sin sesión y "Explorar sin cuenta" no navegaría.
+  const [guest, setGuest] = useState(false);
   const [tour, setTour] = useState(null);
   const [nav, setNav] = useState("explore");
   const [cat, setCat] = useState("all");
@@ -4833,6 +4841,10 @@ export default function AppDemo() {
     if (v === "trips") setNav("trips");
     if (v === "profile") setNav("profile");
   };
+  const handleGuest = () => { setGuest(true); go("home"); };
+  // El logout apaga el modo invitado: cerrar sesión vuelve al login normal, no
+  // deja al usuario navegando el catálogo como invitado.
+  const handleLogout = async () => { setGuest(false); await signOut(); };
   const handleBook = () => {
     if (!user) { setLoginMsg("Inicia sesión o regístrate para reservar tu experiencia"); go("login"); }
     else go("booking");
@@ -5171,9 +5183,14 @@ export default function AppDemo() {
   // - sin sesión en una vista protegida (logout o expiración de sesión) →
   //   "login". Guard derivado durante el render (no useEffect/setState): sin
   //   flash ni render extra. En el re-login, LoginView hace go("home").
+  // - sin sesión y sin modo invitado → solo login/welcome.
+  // - sin sesión en modo invitado → además las vistas públicas (GUEST_VIEWS);
+  //   una vista privada (reservar, viajes, perfil...) sigue cayendo al login.
+  // Con sesión, `guest` es irrelevante: la primera rama manda.
+  const allowedWithoutSession = guest ? GUEST_VIEWS : ["login", "welcome"];
   const effectiveView =
     user && view === "login" ? "home"
-      : !user && !["login", "welcome"].includes(view) ? "login"
+      : !user && !allowedWithoutSession.includes(view) ? "login"
         : view;
   const isAuth = !["login", "welcome"].includes(effectiveView);
   const showNav = isAuth && !["booking", "detail", "new-tour", "trip-detail"].includes(effectiveView);
@@ -5203,7 +5220,7 @@ export default function AppDemo() {
       <style>{CSS}</style>
       <div className="app app-demo" ref={ref}>
         {showHeader && <TopNav onHome={() => go("home")} onDash={() => go(view === "dashboard" ? "home" : "dashboard")} notifs={notifs} unread={unread} onNotifSelect={handleNotifSelect} onMarkAll={() => markNotifsSeen(notifs.map((n) => n.id))} view={view} isOperator={isOperator} navActive={nav} onNavClick={navGo} />}
-        {effectiveView === "login" && <LoginView go={go} loginMsg={loginMsg} />}
+        {effectiveView === "login" && <LoginView go={go} loginMsg={loginMsg} onGuest={handleGuest} />}
         {effectiveView === "welcome" && <WelcomeView go={go} />}
         {effectiveView === "home" && <HomeView go={go} pick={setTour} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} selectedCity={selectedCity} setSelectedCity={pickCity} geoSource={geoSource} />}
         {effectiveView === "catalog" && <CatalogView go={go} pick={setTour} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} />}
@@ -5212,7 +5229,7 @@ export default function AppDemo() {
         {effectiveView === "notifications" && <NotifsView notifs={notifs} onSelect={handleNotifSelect} onMarkAll={() => markNotifsSeen(notifs.map((n) => n.id))} />}
         {effectiveView === "trips" && <TripsView go={go} onSelectTrip={setCurrentTrip} trips={trips} />}
         {effectiveView === "trip-detail" && <TripDetailView trip={currentTrip} go={go} onReview={handleReview} />}
-        {effectiveView === "profile" && <ProfileView go={go} />}
+        {effectiveView === "profile" && <ProfileView go={go} onLogout={handleLogout} />}
         {effectiveView === "dashboard" && <DashView go={go} opTours={opTours} opBookings={opBookings} onEditTour={handleEditTour} onDeleteTour={handleDeleteTour} onToggleActive={handleToggleTourActive} initialTab={dashTab} onTabConsumed={() => setDashTab("bookings")} onBusinessSaved={async () => { await loadPublicTours(); await loadOperatorTours(); }} />}
         {effectiveView === "new-tour" && <NewTourView go={go} editingTour={editingTour} onSaveTour={handleSaveTour} onCreateTour={handleCreateTour} onCancel={handleCancelTour} />}
         {showFooter && <Footer go={go} />}
