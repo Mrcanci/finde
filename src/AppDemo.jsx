@@ -1901,11 +1901,18 @@ function WelcomeView({ go }) {
   return (
     <div className="welcome fu">
       <div className="welcome-check"><Check size={24} strokeWidth={2.5} /></div>
-      <div className="welcome-title">¡Bienvenida, Alejandra!</div>
+      {/* Sin nombre: el registro solo pide email, así que no hay nombre real
+          que saludar (el mock USER era un residuo pre-auth). */}
+      <div className="welcome-title">¡Bienvenido a Finde!</div>
       <div className="welcome-sub">Tu cuenta está lista. Esto es lo que puedes hacer en Finde:</div>
       <div className="welcome-features">
         <div className="welcome-feat"><div className="welcome-feat-ic" style={{ background: "rgba(45,90,61,.1)" }}><Search size={20} strokeWidth={1.5} /></div><div className="welcome-feat-txt">Buscar experiencias con inteligencia artificial</div></div>
-        <div className="welcome-feat"><div className="welcome-feat-ic" style={{ background: "rgba(107,42,160,.1)" }}><Heart size={20} strokeWidth={1.5} /></div><div className="welcome-feat-txt">Coordina y paga con la agencia por WhatsApp</div></div>
+        {/* El pago sigue al flag maestro, como el resto de la copy de pago
+            (ver BookingView): con el flujo demo el pago pasa por Finde; en el
+            piloto se coordina con la agencia por WhatsApp. */}
+        {DEMO_PAYMENT_FLOW
+          ? <div className="welcome-feat"><div className="welcome-feat-ic" style={{ background: "rgba(45,90,61,.1)" }}><ShieldCheck size={20} strokeWidth={1.5} /></div><div className="welcome-feat-txt">Tu pago protegido por Finde hasta completar el tour</div></div>
+          : <div className="welcome-feat"><div className="welcome-feat-ic" style={{ background: "rgba(107,42,160,.1)" }}><Heart size={20} strokeWidth={1.5} /></div><div className="welcome-feat-txt">Coordina y paga con la agencia por WhatsApp</div></div>}
         <div className="welcome-feat"><div className="welcome-feat-ic" style={{ background: "rgba(37,211,102,.1)" }}><MessageCircle size={20} strokeWidth={1.5} /></div><div className="welcome-feat-txt">Recibir confirmaciones por WhatsApp</div></div>
         <div className="welcome-feat"><div className="welcome-feat-ic" style={{ background: "rgba(212,168,67,.1)" }}><Languages size={20} strokeWidth={1.5} /></div><div className="welcome-feat-txt">Tours disponibles en quechua</div></div>
       </div>
