@@ -31,7 +31,7 @@ const Icon = ({ name, className = "" }) => {
 };
  
 const TRAVELER_BENEFITS = [
-  { icon: "search", title: "Búsqueda con IA", desc: "Dile qué tipo de experiencia buscas y la inteligencia artificial te sugiere destinos y tours que encajan contigo — incluso los menos conocidos." },
+  { icon: "search", title: "Búsqueda con IA", desc: "Dile qué tipo de experiencia buscas y la inteligencia artificial te sugiere destinos y tours que encajan contigo, incluso los menos conocidos." },
   { icon: "shield", title: "Agencias verificadas", desc: "Agencias de viaje certificadas por MINCETUR. Cada experiencia revisada antes de publicarse." },
   { icon: "wallet", title: "Paga en soles con Yape", desc: "Precios transparentes. Yape, Plin, tarjeta o transferencia." },
 ];
@@ -46,8 +46,8 @@ const FAQ = [
   // ── Para viajeros
   { q: "¿Cuándo lanzan?", a: "Planeamos abrir beta cerrada en el segundo semestre de 2026. Los primeros 500 pre-registrados acceden 48h antes." },
   { q: "¿Es gratis para viajeros?", a: "Sí. Para el viajero, usar finde no cuesta nada. Pagas únicamente el precio del tour a la agencia. Sin comisiones ocultas ni cargos por servicio." },
-  { q: "¿Aceptan Yape y Plin?", a: "Sí. Yape y Plin son métodos de pago nativos en finde desde el día uno. También aceptamos tarjeta de crédito/débito y PagoEfectivo." },
-  { q: "¿Los tours están verificados?", a: "Sí. Trabajamos exclusivamente con agencias formalizadas y guías con certificación vigente (MINCETUR, SERNANP o colegiados). Además, todos los tours tienen reseñas de viajeros reales." },
+  { q: "¿Aceptan Yape y Plin?", a: "Sí. Yape y Plin son métodos de pago nativos en finde desde el día uno. También aceptamos tarjeta de crédito/débito." },
+  { q: "¿Los tours están verificados?", a: "Sí. Cada agencia se verifica contra SUNAT (RUC activo) y el registro oficial de MINCETUR antes de publicar. Además, el Índice de Confianza Finde resume en un solo puntaje la verificación, el cumplimiento de reservas y las reseñas de cada agencia." },
   { q: "¿Puedo reservar para un grupo?", a: "Sí. Al momento de reservar puedes indicar cuántas personas van. Muchas experiencias ofrecen precios especiales para grupos de 4 o más." },
   // ── Para agencias
   { q: "Soy agencia, ¿cuánto me cobran?", a: "Cero costo de alta y cero mensualidad. Los detalles comerciales los compartimos directamente contigo en el onboarding cuando te contactemos por WhatsApp." },
@@ -157,17 +157,25 @@ export default function FindeLanding() {
               <h1 className="hero-title fd0">
                 Descubre el Perú real<span className="hero-dot">.</span>
                 <br />
-                <em>Reserva en soles, paga con Yape o Plin</em><span className="hero-dot">.</span>
+                <em>Reserva sin miedo, con pago protegido</em><span className="hero-dot">.</span>
               </h1>
               <p className="hero-sub fd1">
-                El primer marketplace peruano de tours y experiencias.
-                Agencias verificadas, búsqueda con inteligencia artificial, precios en soles, Yape y Plin nativos.
+                Cada agencia verificada contra SUNAT y MINCETUR antes de publicar. Tu pago en soles,
+                protegido hasta que completes el tour. Y una IA que te ayuda a encontrar el viaje correcto.
               </p>
  
               <div className="hero-proof fd2">
                 <div className="hero-proof-item">
                   <Icon name="check" className="hero-proof-icon" />
-                  <span>Agencias de viaje locales verificadas</span>
+                  <span>Agencias verificadas contra SUNAT y MINCETUR</span>
+                </div>
+                <div className="hero-proof-item">
+                  <Icon name="check" className="hero-proof-icon" />
+                  <span>Índice de Confianza Finde en cada agencia</span>
+                </div>
+                <div className="hero-proof-item">
+                  <Icon name="check" className="hero-proof-icon" />
+                  <span>Pago protegido en soles con Yape y Plin</span>
                 </div>
                 <div className="hero-proof-item">
                   <Icon name="check" className="hero-proof-icon" />
@@ -176,10 +184,6 @@ export default function FindeLanding() {
                 <div className="hero-proof-item">
                   <Icon name="check" className="hero-proof-icon" />
                   <span>Destinos alternativos menos masificados</span>
-                </div>
-                <div className="hero-proof-item">
-                  <Icon name="check" className="hero-proof-icon" />
-                  <span>Soporte y recomendaciones por WhatsApp con IA</span>
                 </div>
               </div>
  
@@ -288,14 +292,14 @@ export default function FindeLanding() {
                           type="tel"
                           inputMode="tel"
                           autoComplete="tel-national"
-                          placeholder="Celular (opcional) — 9XX XXX XXX"
+                          placeholder="Celular (opcional): 9XX XXX XXX"
                           aria-label="Celular peruano, prefijo +51"
                           value={formData.phone}
                           onChange={e => setFormData({ ...formData, phone: e.target.value })}
                           maxLength={11}
                         />
                       </div>
-                      <div className="field-hint">Opcional — te avisamos por WhatsApp si nos dejas tu celular</div>
+                      <div className="field-hint">Opcional: te avisamos por WhatsApp si nos dejas tu celular</div>
                     </div>
  
                     {mode === "operator" && (
@@ -367,31 +371,28 @@ export default function FindeLanding() {
                 </div>
               )}
             </div>
-          <div className="hero-mincetur">En proceso de postulación al concurso de innovación turística — MINCETUR</div>
           </div>
         </section>
 
         {/* ═══════════ PROBLEMA (corto) ═══════════ */}
         <section className="problem">
           <div className="section-inner">
+            <h2 className="section-title" style={{ textAlign: "center", marginBottom: 40 }}>
+              Reservar por redes sociales es un acto de fe<span className="dot-accent">.</span>
+            </h2>
             <div className="problem-stats">
               <div className="problem-stat">
-                <div className="problem-num">5,800+</div>
-                <div className="problem-lbl">agencias de viajes en el Perú<sup>1</sup></div>
+                <div className="problem-num">S/7,000</div>
+                <div className="problem-lbl">perdió una sola víctima de una agencia que se publicitaba por TikTok sin denuncias registradas</div>
               </div>
               <div className="problem-divider" />
               <div className="problem-stat">
-                <div className="problem-num">~40%</div>
-                <div className="problem-lbl">del sector opera en informalidad<sup>2</sup></div>
-              </div>
-              <div className="problem-divider" />
-              <div className="problem-stat">
-                <div className="problem-num">17M+</div>
-                <div className="problem-lbl">peruanos usan Yape — nadie los acepta<sup>3</sup></div>
+                <div className="problem-num">124</div>
+                <div className="problem-lbl">sanciones de Indecopi a agencias de viaje, con más de S/5 millones en multas desde 2019</div>
               </div>
             </div>
             <div className="problem-sources">
-              <sup>1</sup> MINCETUR · <sup>2</sup> ComexPerú · <sup>3</sup> BCRP / Credicorp
+              La República · Indecopi
             </div>
           </div>
         </section>
@@ -440,7 +441,7 @@ export default function FindeLanding() {
               <div className="mockup-phone">
                 <div className="mockup-notch" />
                 <div className="mockup-frame">
-                  <img src={`/mockups/mockup-${activeMockup === "search" ? "home" : activeMockup}.png`} alt={activeMockup === "search" ? "finde — pantalla de búsqueda" : activeMockup === "detail" ? "finde — detalle de experiencia" : "finde — pago con Yape"} className="mockup-img" loading="lazy" decoding="async" width="848" height="1552" />
+                  <img src={`/mockups/mockup-${activeMockup === "search" ? "home" : activeMockup}.png`} alt={activeMockup === "search" ? "finde: pantalla de búsqueda" : activeMockup === "detail" ? "finde: detalle de experiencia" : "finde: pago con Yape"} className="mockup-img" loading="lazy" decoding="async" width="848" height="1552" />
                 </div>
                 <div className="mockup-home-bar" />
               </div>
@@ -462,6 +463,9 @@ export default function FindeLanding() {
             </div>
  
             <div className="faq-cta">
+              <h2 className="section-title" style={{ marginBottom: 24 }}>
+                ¿Está en Finde? Entonces resérvalo<span className="dot-accent">.</span>
+              </h2>
               <button type="button" className="btn-primary" onClick={() => document.getElementById("registro")?.scrollIntoView({ behavior: "smooth", block: "center" })}>
                 Pre-registrarme ahora
               </button>
@@ -506,7 +510,7 @@ export default function FindeLanding() {
           <div className="footer-inner">
             <div className="footer-top">
               <div className="footer-logo">finde<span>.</span></div>
-              <p className="footer-tagline">El marketplace de tours y experiencias para descubrir el Perú.</p>
+              <p className="footer-tagline">La infraestructura de confianza del turismo peruano.</p>
             </div>
             <div className="footer-links">
               <a href="mailto:hola@finde.pe">hola@finde.pe</a>
@@ -516,7 +520,7 @@ export default function FindeLanding() {
               <span>Lima, Perú</span>
             </div>
             <div className="footer-legal">
-              finde — proyecto en etapa pre-lanzamiento. En proceso de postulación al concurso de innovación turística de MINCETUR.
+              finde: proyecto en etapa pre-lanzamiento.
               Tus datos se tratan bajo la Ley 29733 de Protección de Datos Personales.
             </div>
             <div className="footer-copy">© 2026 finde. Hecho en el Perú.</div>
@@ -596,10 +600,10 @@ const CSS = `
 .hero-texture { position: absolute; inset: 0; background: repeating-linear-gradient(45deg, transparent, transparent 12px, rgba(27,58,45,.018) 12px, rgba(27,58,45,.018) 24px); pointer-events: none; }
 .hero-grid { max-width: 1200px; width: 100%; margin: 0 auto; display: grid; grid-template-columns: 1.15fr 1fr; gap: 56px; align-items: center; position: relative; z-index: 2; }
  
-.hero-title { font-family: 'DM Serif Display', Georgia, serif; font-size: clamp(42px, 4.2vw, 64px); line-height: 1.1; margin-bottom: 24px; color: var(--ch); letter-spacing: -.5px; }
+.landing .hero-title { font-family: 'DM Serif Display', Georgia, serif; font-size: clamp(42px, 4.2vw, 64px); line-height: 1.18; margin-bottom: 32px; color: var(--ch); letter-spacing: -.5px; }
 .hero-title em { font-style: italic; color: var(--f); }
 .hero-dot, .dot-accent { color: var(--tr); }
-.hero-sub { font-size: clamp(16px, 1.3vw, 19px); line-height: 1.7; color: var(--gy); max-width: 480px; margin-bottom: 28px; }
+.hero-sub { font-size: clamp(16px, 1.3vw, 19px); line-height: 1.7; color: var(--gy); max-width: 480px; margin-bottom: 32px; }
  
 .hero-proof { display: flex; flex-direction: column; gap: 14px; margin-bottom: 36px; }
 .hero-proof-item { display: flex; align-items: center; gap: 12px; font-size: 16px; color: var(--ch); font-weight: 500; line-height: 1.4; }
@@ -670,7 +674,7 @@ const CSS = `
  
 /* PROBLEM */
 .problem { padding: 80px 40px; background: var(--f); color: white; }
-.problem-stats { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; gap: 32px; }
+.problem-stats { max-width: 720px; margin: 0 auto; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 32px; }
 .problem-stat { text-align: center; }
 .problem-num { font-family: 'DM Serif Display', Georgia, serif; font-size: clamp(32px, 3.5vw, 44px); color: var(--gd); line-height: 1; margin-bottom: 8px; }
 .problem-lbl { font-size: 14px; color: rgba(255,255,255,.85); line-height: 1.55; max-width: 240px; margin: 0 auto; }
@@ -773,7 +777,7 @@ const CSS = `
 }
 @media (max-width: 640px) {
   .hero { padding: 88px 20px 40px; }
-  .hero-title { font-size: 32px; margin-bottom: 20px; }
+  .landing .hero-title { font-size: 32px; margin-bottom: 20px; }
   .hero-sub { margin-bottom: 24px; }
   .hero-proof { gap: 12px; margin-bottom: 28px; }
   .hero-proof-item { font-size: 15px; }
