@@ -121,6 +121,98 @@ async function createBookingWithRetry(data: {
   throw new Error("No se pudo generar bookingCode único tras 3 intentos");
 }
 
+// Envía a la agencia el aviso de nueva reserva vía Resend (fetch nativo, sin
+// SDK). NUNCA lanza: todos los caminos de error se loguean y retornan, para que
+// el envío no pueda romper la reserva ya creada.
+async function sendOperatorBookingEmail(params: {
+  operator: { email: string; name: string; userId: string | null };
+  tourTitle: string;
+  scheduledAt: Date;
+  guests: number;
+  totalSoles: number;
+  bookingCode: string;
+  userName: string;
+  userPhone: string;
+  userEmail: string;
+}): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.warn("[email] RESEND_API_KEY ausente, skip");
+    return;
+  }
+
+  // Solo agencias reales onboarded (userId de Supabase). Los operadores del seed
+  // tienen emails ficticios; enviarles genera rebotes que dañan la reputación
+  // del dominio en Resend.
+  const { operator } = params;
+  if (!operator?.userId || !operator?.email) {
+    console.log("[email] agencia seed o sin email, skip");
+    return;
+  }
+
+  // Solo la fecha (sin hora): scheduledAt lleva una hora técnica que no refleja
+  // la salida real del tour. Formato largo en español, hora de Lima.
+  const fechaLarga = new Intl.DateTimeFormat("es-PE", {
+    timeZone: "America/Lima",
+    dateStyle: "long",
+  }).format(params.scheduledAt);
+
+  const text = `Hola ${operator.name},
+
+Tienes una nueva reserva en Finde.
+
+Tour: ${params.tourTitle}
+Fecha: ${fechaLarga}
+Personas: ${params.guests}
+Total: ${formatSoles(params.totalSoles)}
+Código de reserva: ${params.bookingCode}
+
+Datos del viajero:
+Nombre: ${params.userName}
+Teléfono: ${params.userPhone}
+Email: ${params.userEmail}
+
+Coordina los detalles con el viajero y gestiona la reserva desde tu panel:
+https://finde.pe/demo
+
+El equipo de Finde`;
+
+  // Timeout duro de 5s: un Resend lento no debe colgar la respuesta al viajero.
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    const resp = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "Finde <reservas@finde.pe>",
+        to: [operator.email],
+        reply_to: params.userEmail,
+        subject: `Nueva reserva ${params.bookingCode}: ${params.tourTitle}`,
+        text,
+      }),
+      signal: controller.signal,
+    });
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => "");
+      console.error(
+        `[email] Resend respondió ${resp.status} (no bloqueante):`,
+        body
+      );
+    }
+  } catch (error) {
+    console.error(
+      "[email] Error enviando aviso a la agencia (no bloqueante):",
+      error
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -183,7 +275,15 @@ export default async function handler(
 
   const tour = await db.tour.findUnique({
     where: { id: tourId },
-    select: { id: true, priceSoles: true, capacity: true, active: true },
+    select: {
+      id: true,
+      priceSoles: true,
+      capacity: true,
+      active: true,
+      // Datos de la agencia para el aviso por email (sin query extra; userId
+      // distingue agencia real onboarded vs operador del seed).
+      operator: { select: { email: true, name: true, userId: true } },
+    },
   });
 
   if (!tour) {
@@ -225,6 +325,22 @@ export default async function handler(
     res.status(500).json({ error: "Error creando la reserva" });
     return;
   }
+
+  // Aviso por email a la agencia (no bloqueante, patrón SearchLog): la función
+  // se traga cualquier error y solo loguea, así que la reserva JAMÁS falla por
+  // el email. Se hace await ANTES del res porque Vercel puede congelar la
+  // función tras responder.
+  await sendOperatorBookingEmail({
+    operator: tour.operator,
+    tourTitle: booking.tour.title,
+    scheduledAt: booking.scheduledAt,
+    guests: booking.guests,
+    totalSoles: booking.totalSoles,
+    bookingCode: booking.bookingCode,
+    userName,
+    userPhone,
+    userEmail,
+  });
 
   res.status(200).json({
     booking: {
