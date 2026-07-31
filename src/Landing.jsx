@@ -374,14 +374,14 @@ export default function FindeLanding() {
                   <p className="success-desc">
                     {mode === "operator"
                       ? "Te contactaremos por WhatsApp en los próximos días para coordinar tu onboarding."
-                      : <>Eres parte de los primeros 500. Acceso anticipado <strong>48h antes</strong> + experiencia exclusiva sin costo al lanzar.</>
+                      : <>Eres parte de los primeros 500. Entras <strong>48 horas antes</strong> que el resto cuando abramos la beta.</>
                     }
                   </p>
  
                   <button
                     type="button"
                     className="share-wa"
-                    onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent("Reserva tours auténticos en Perú con operadores verificados. Paga con Yape, Plin o tarjeta. Pre-regístrate acá: https://finde.pe")}`, "_blank")}
+                    onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent("Reserva tours auténticos en Perú con agencias verificadas. Paga con Yape, Plin o tarjeta. Pre-regístrate acá: https://finde.pe")}`, "_blank")}
                   >
                     Compartir por WhatsApp
                   </button>
