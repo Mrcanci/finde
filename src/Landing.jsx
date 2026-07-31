@@ -210,14 +210,14 @@ export default function FindeLanding() {
               {!submitted ? (
                 <>
                   <div className="form-head">
-                    <div className="form-badge">Oferta fundador</div>
+                    <div className="form-badge">Acceso fundador</div>
                     <h3 className="form-title">
-                      Acceso anticipado <span className="form-title-dot">+</span> experiencia gratis
+                      {mode === "operator" ? "Publica antes que el resto" : "Entra 48 horas antes que nadie"}
                     </h3>
                     <p className="form-sub">
                       {mode === "operator"
                         ? "Las agencias que se registren antes del lanzamiento reciben prioridad en resultados de búsqueda durante la etapa inicial."
-                        : "Los primeros 500 viajeros reciben acceso 48h antes del lanzamiento y una experiencia exclusiva sin costo con una de nuestras agencias validadas."
+                        : "Reservamos los primeros 500 cupos para quienes se registran ahora, con agencias ya verificadas contra SUNAT y MINCETUR."
                       }
                     </p>
                   </div>
