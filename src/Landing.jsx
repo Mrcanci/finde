@@ -214,9 +214,9 @@ export default function FindeLanding() {
                 <>
                   <div className="form-head">
                     <div className="form-badge">Acceso fundador</div>
-                    <h3 className="form-title">
+                    <h2 className="form-title">
                       {mode === "operator" ? "Publica antes que el resto" : "Entra 48 horas antes que nadie"}
-                    </h3>
+                    </h2>
                     <p className="form-sub">
                       {mode === "operator"
                         ? "Las agencias que se registren antes del lanzamiento reciben prioridad en resultados de búsqueda durante la etapa inicial."
@@ -797,8 +797,9 @@ const CSS = `
 }
 @media (max-width: 640px) {
   .hero { padding: 88px 20px 40px; }
-  .landing .hero-title { font-size: 32px; margin-bottom: 20px; }
+  .landing .hero-title { font-size: 36px; margin-bottom: 20px; }
   .hero-sub { margin-bottom: 24px; }
+  .section-title { font-size: 24px; }
   .hero-proof { gap: 12px; margin-bottom: 28px; }
   .hero-proof-item { font-size: 15px; }
   .hero-form { padding: 24px; border-radius: 18px; }
