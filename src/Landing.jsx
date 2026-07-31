@@ -371,7 +371,7 @@ export default function FindeLanding() {
                   </h3>
                   <p className="success-desc">
                     {mode === "operator"
-                      ? "Te contactaremos por WhatsApp en los próximos días para coordinar tu onboarding."
+                      ? "Te escribimos en los próximos días para coordinar tu onboarding. Si nos dejaste tu celular, te buscamos por WhatsApp."
                       : <>Eres parte de los primeros 500. Entras <strong>48 horas antes</strong> que el resto cuando abramos la beta.</>
                     }
                   </p>
