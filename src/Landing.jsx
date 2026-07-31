@@ -171,19 +171,19 @@ export default function FindeLanding() {
                 </div>
                 <div className="hero-proof-item">
                   <Icon name="check" className="hero-proof-icon" />
-                  <span>Índice de Confianza Finde en cada agencia</span>
+                  <span>Verificamos antes de publicar, no después del reclamo</span>
                 </div>
                 <div className="hero-proof-item">
                   <Icon name="check" className="hero-proof-icon" />
-                  <span>Pago protegido en soles con Yape y Plin</span>
+                  <span>Pago en soles con Yape, Plin o tarjeta</span>
                 </div>
                 <div className="hero-proof-item">
                   <Icon name="check" className="hero-proof-icon" />
-                  <span>Búsqueda inteligente con IA</span>
+                  <span>Búsqueda con IA en tu propio idioma</span>
                 </div>
                 <div className="hero-proof-item">
                   <Icon name="check" className="hero-proof-icon" />
-                  <span>Destinos alternativos menos masificados</span>
+                  <span>Destinos fuera de la ruta de siempre</span>
                 </div>
               </div>
  
