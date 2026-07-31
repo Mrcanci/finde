@@ -482,7 +482,7 @@ export default function FindeLanding() {
             <p className="team-intro">
               Somos un equipo peruano de profesionales en producto digital, ingeniería y turismo.
               Viajamos mucho por el Perú y nos cansamos de que las plataformas globales nos ignoren:
-              precios en dólares, cero Yape, cero operadores locales. Así nació finde.
+              precios en dólares, cero Yape, cero agencias locales. Así nació finde.
             </p>
  
             <div className="team-pillars">
@@ -494,7 +494,7 @@ export default function FindeLanding() {
               <div className="team-pillar">
                 <div className="team-pillar-num">02</div>
                 <div className="team-pillar-title">Operaciones y turismo</div>
-                <div className="team-pillar-desc">Trabajo directo con agencias, guías certificados y gobiernos locales en 6 regiones.</div>
+                <div className="team-pillar-desc">Relación directa con agencias regionales, guías certificados y autoridades locales.</div>
               </div>
               <div className="team-pillar">
                 <div className="team-pillar-num">03</div>
