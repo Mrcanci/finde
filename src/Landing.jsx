@@ -31,7 +31,7 @@ const Icon = ({ name, className = "" }) => {
 };
  
 const TRAVELER_BENEFITS = [
-  { icon: "search", title: "Pide lo que quieres, no lo que existe", desc: "Escribe «algo tranquilo cerca de Lima para el finde» y la IA entiende qué buscas. Te propone opciones que no habrías encontrado tú solo, incluidas las de regiones menos visitadas." },
+  { icon: "search", title: "Pídelo con tus palabras", desc: "Escribe «algo tranquilo cerca de Lima para el finde» y la IA entiende qué buscas. Te propone opciones que no habrías encontrado tú solo, incluidas las de regiones menos visitadas." },
   { icon: "shield", title: "Sabes quién te vende", desc: "Validamos el RUC en SUNAT y el registro en MINCETUR de cada agencia antes de darle acceso. La que no pasa la validación no llega a publicar." },
   { icon: "wallet", title: "Todo en soles, sin sorpresas", desc: "El precio que ves es el que pagas. Yape, Plin, tarjeta o transferencia, sin conversión de moneda ni cargos por servicio." },
 ];
