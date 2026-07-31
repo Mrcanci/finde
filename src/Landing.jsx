@@ -382,13 +382,13 @@ export default function FindeLanding() {
             </h2>
             <div className="problem-stats">
               <div className="problem-stat">
-                <div className="problem-num">S/7,000</div>
-                <div className="problem-lbl">perdió una sola víctima de una agencia que se publicitaba por TikTok sin denuncias registradas</div>
+                <div className="problem-num">124</div>
+                <div className="problem-lbl">sanciones de Indecopi a agencias de viaje, con más de S/5 millones en multas desde 2019</div>
               </div>
               <div className="problem-divider" />
               <div className="problem-stat">
-                <div className="problem-num">124</div>
-                <div className="problem-lbl">sanciones de Indecopi a agencias de viaje, con más de S/5 millones en multas desde 2019</div>
+                <div className="problem-num">S/7,000</div>
+                <div className="problem-lbl">perdió una sola víctima con una agencia que vendía por TikTok y contra la que nadie había registrado una denuncia</div>
               </div>
             </div>
             <div className="problem-sources">
