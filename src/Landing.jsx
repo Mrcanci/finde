@@ -379,7 +379,10 @@ export default function FindeLanding() {
                   <button
                     type="button"
                     className="share-wa"
-                    onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent("Reserva tours auténticos en Perú con agencias verificadas. Paga con Yape, Plin o tarjeta. Pre-regístrate acá: https://finde.pe")}`, "_blank")}
+                    onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(mode === "operator"
+                      ? "Me registré en finde, un marketplace peruano de tours que solo acepta agencias formales verificadas contra SUNAT y MINCETUR. Sin costo de alta ni mensualidad. Si tienes agencia, entra acá: https://finde.pe"
+                      : "Me pre-registré en finde, una app peruana para reservar tours sin miedo a estafas. Solo agencias verificadas contra SUNAT y MINCETUR, y pagas en soles con Yape o Plin. Todavía no lanza, la lista está acá: https://finde.pe"
+                    )}`, "_blank")}
                   >
                     Compartir por WhatsApp
                   </button>
