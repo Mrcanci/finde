@@ -91,6 +91,7 @@ export default function FindeLanding() {
   const handleSubmit = () => {
     if (submitting) return;
     if (!formData.consent) return;
+    if (mode === "traveler" && !formData.email.trim()) return;
     if (mode === "operator" && !formData.businessName.trim()) return;
     if (mode === "operator" && !isValidRuc(formData.ruc)) return;
 
@@ -127,7 +128,9 @@ export default function FindeLanding() {
  
   const canSubmit =
     formData.consent &&
-    (mode === "traveler" || (formData.businessName.trim() && isValidRuc(formData.ruc)));
+    (mode === "traveler"
+      ? formData.email.trim() !== ""
+      : (formData.businessName.trim() && isValidRuc(formData.ruc)));
  
   return (
     <>
@@ -243,7 +246,9 @@ export default function FindeLanding() {
  
                   <div className="form-fields">
                     <div className="field">
+                      <label className="visually-hidden" htmlFor="reg-name">Tu nombre (opcional)</label>
                       <input
+                        id="reg-name"
                         type="text"
                         placeholder="Tu nombre"
                         aria-label="Tu nombre"
@@ -254,12 +259,17 @@ export default function FindeLanding() {
                     </div>
  
                     <div className="field">
+                      <label className="visually-hidden" htmlFor="reg-email">
+                        {mode === "operator" ? "Tu email (opcional)" : "Tu email"}
+                      </label>
                       <input
+                        id="reg-email"
                         type="email"
                         inputMode="email"
                         autoComplete="email"
-                        placeholder="Tu email (opcional)"
+                        placeholder={mode === "operator" ? "Tu email (opcional)" : "Tu email"}
                         aria-label="Tu email"
+                        required={mode === "traveler"}
                         value={formData.email}
                         onChange={e => setFormData({ ...formData, email: e.target.value })}
                       />
@@ -267,7 +277,9 @@ export default function FindeLanding() {
 
                     {mode === "operator" && (
                       <div className="field">
+                        <label className="visually-hidden" htmlFor="reg-ruc">RUC (opcional)</label>
                         <input
+                          id="reg-ruc"
                           type="text"
                           inputMode="numeric"
                           pattern="[0-9]*"
@@ -282,13 +294,16 @@ export default function FindeLanding() {
                             El RUC debe tener 11 dígitos
                           </div>
                         )}
+                        <div className="field-hint">Lo usamos para validar tu registro en SUNAT y MINCETUR. Solo agencias formales.</div>
                       </div>
                     )}
  
                     <div className="field">
+                      <label className="visually-hidden" htmlFor="reg-phone">Celular (opcional)</label>
                       <div className="phone-row">
                         <div className="phone-prefix" aria-hidden="true">+51</div>
                         <input
+                          id="reg-phone"
                           type="tel"
                           inputMode="tel"
                           autoComplete="tel-national"
@@ -304,9 +319,11 @@ export default function FindeLanding() {
  
                     {mode === "operator" && (
                       <div className="field">
+                        <label className="visually-hidden" htmlFor="reg-business-name">Nombre de tu agencia</label>
                         <input
+                          id="reg-business-name"
                           type="text"
-                          placeholder="Nombre de tu agencia *"
+                          placeholder="Nombre de tu agencia"
                           aria-label="Nombre de tu agencia"
                           aria-required="true"
                           autoComplete="organization"
@@ -343,7 +360,7 @@ export default function FindeLanding() {
                   </button>
  
                   <div className="form-foot">
-                    Te avisamos por email cuando lancemos. Sin spam, sin letra chica.
+                    Te escribimos apenas abramos la beta. Sin spam, sin letra chica.
                   </div>
                 </>
               ) : (
@@ -558,6 +575,9 @@ const CSS = `
 .landing { overflow-x: hidden; width: 100vw; max-width: 100%; margin: 0; padding: 0; text-align: left; border: none; display: block; font: 16px/1.5 'Plus Jakarta Sans', system-ui, sans-serif; letter-spacing: normal; color: var(--ch); }
 .landing h1, .landing h2, .landing h3, .landing h4 { font-family: 'DM Serif Display', Georgia, serif; margin: 0; font-weight: 400; letter-spacing: -0.5px; }
 .landing p, .landing span, .landing div, .landing a, .landing button, .landing input, .landing label { letter-spacing: normal; }
+
+/* Labels accesibles: presentes para lectores de pantalla, invisibles en el diseño */
+.landing .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
 /* Anchor scroll: el nav fijo ocupa ~70-80px, evitamos que tape el inicio de la sección */
 .landing section[id], .landing [id="registro"] { scroll-margin-top: 90px; }
