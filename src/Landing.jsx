@@ -85,13 +85,13 @@ export default function FindeLanding() {
     return `${base}-${Math.random().toString(36).slice(2, 6)}`;
   };
  
-  // Validación condicional: si el RUC tiene contenido, debe tener 11 dígitos
-  const isValidRuc = (ruc) => ruc === "" || /^\d{11}$/.test(ruc);
+  // RUC obligatorio para agencias: exactamente 11 dígitos (sin verificar contra SUNAT)
+  const isValidRuc = (ruc) => /^\d{11}$/.test(ruc);
 
   const handleSubmit = () => {
     if (submitting) return;
     if (!formData.consent) return;
-    if (mode === "traveler" && !formData.email.trim()) return;
+    if (!formData.email.trim()) return;
     if (mode === "operator" && !formData.businessName.trim()) return;
     if (mode === "operator" && !isValidRuc(formData.ruc)) return;
 
@@ -128,9 +128,8 @@ export default function FindeLanding() {
  
   const canSubmit =
     formData.consent &&
-    (mode === "traveler"
-      ? formData.email.trim() !== ""
-      : (formData.businessName.trim() && isValidRuc(formData.ruc)));
+    formData.email.trim() !== "" &&
+    (mode === "traveler" || (formData.businessName.trim() && isValidRuc(formData.ruc)));
  
   return (
     <>
@@ -259,17 +258,15 @@ export default function FindeLanding() {
                     </div>
  
                     <div className="field">
-                      <label className="visually-hidden" htmlFor="reg-email">
-                        {mode === "operator" ? "Tu email (opcional)" : "Tu email"}
-                      </label>
+                      <label className="visually-hidden" htmlFor="reg-email">Tu email</label>
                       <input
                         id="reg-email"
                         type="email"
                         inputMode="email"
                         autoComplete="email"
-                        placeholder={mode === "operator" ? "Tu email (opcional)" : "Tu email"}
+                        placeholder="Tu email"
                         aria-label="Tu email"
-                        required={mode === "traveler"}
+                        required
                         value={formData.email}
                         onChange={e => setFormData({ ...formData, email: e.target.value })}
                       />
@@ -277,21 +274,22 @@ export default function FindeLanding() {
 
                     {mode === "operator" && (
                       <div className="field">
-                        <label className="visually-hidden" htmlFor="reg-ruc">RUC (opcional)</label>
+                        <label className="visually-hidden" htmlFor="reg-ruc">RUC</label>
                         <input
                           id="reg-ruc"
                           type="text"
                           inputMode="numeric"
                           pattern="[0-9]*"
                           maxLength={11}
-                          placeholder="RUC"
+                          placeholder="20XXXXXXXXX"
                           aria-label="RUC de tu agencia"
+                          required
                           value={formData.ruc}
                           onChange={e => setFormData({ ...formData, ruc: e.target.value.replace(/\D/g, '').slice(0, 11) })}
                         />
                         {formData.ruc !== "" && formData.ruc.length !== 11 && (
                           <div className="field-hint" style={{ color: "#C7613A" }}>
-                            El RUC debe tener 11 dígitos
+                            El RUC tiene 11 dígitos
                           </div>
                         )}
                         <div className="field-hint">Lo usamos para validar tu registro en SUNAT y MINCETUR. Solo agencias formales.</div>
