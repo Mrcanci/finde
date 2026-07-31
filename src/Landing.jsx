@@ -249,7 +249,7 @@ export default function FindeLanding() {
                       <input
                         id="reg-name"
                         type="text"
-                        placeholder="Tu nombre"
+                        placeholder="María Quispe"
                         aria-label="Tu nombre"
                         autoComplete="name"
                         value={formData.name}
@@ -305,14 +305,14 @@ export default function FindeLanding() {
                           type="tel"
                           inputMode="tel"
                           autoComplete="tel-national"
-                          placeholder="Celular (opcional): 9XX XXX XXX"
+                          placeholder="9XX XXX XXX"
                           aria-label="Celular peruano, prefijo +51"
                           value={formData.phone}
                           onChange={e => setFormData({ ...formData, phone: e.target.value })}
                           maxLength={11}
                         />
                       </div>
-                      <div className="field-hint">Opcional: te avisamos por WhatsApp si nos dejas tu celular</div>
+                      <div className="field-hint">Te avisamos por WhatsApp si nos dejas tu celular.</div>
                     </div>
  
                     {mode === "operator" && (
@@ -321,7 +321,7 @@ export default function FindeLanding() {
                         <input
                           id="reg-business-name"
                           type="text"
-                          placeholder="Nombre de tu agencia"
+                          placeholder="Viajes Andinos SAC"
                           aria-label="Nombre de tu agencia"
                           aria-required="true"
                           autoComplete="organization"
