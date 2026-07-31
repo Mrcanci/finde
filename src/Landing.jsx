@@ -281,7 +281,7 @@ export default function FindeLanding() {
                           inputMode="numeric"
                           pattern="[0-9]*"
                           maxLength={11}
-                          placeholder="20XXXXXXXXX"
+                          placeholder="11 dígitos"
                           aria-label="RUC de tu agencia"
                           required
                           value={formData.ruc}
