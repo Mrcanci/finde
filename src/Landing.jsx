@@ -44,14 +44,14 @@ const MOCKUP_TABS = [
  
 const FAQ = [
   // ── Para viajeros
-  { q: "¿Cuándo lanzan?", a: "Planeamos abrir beta cerrada en el segundo semestre de 2026. Los primeros 500 pre-registrados acceden 48h antes." },
+  { q: "¿Cuándo lanzan?", a: "Planeamos abrir beta cerrada en los próximos meses. Los primeros 500 pre-registrados acceden 48h antes." },
   { q: "¿Es gratis para viajeros?", a: "Sí. Para el viajero, usar finde no cuesta nada. Pagas únicamente el precio del tour a la agencia. Sin comisiones ocultas ni cargos por servicio." },
   { q: "¿Aceptan Yape y Plin?", a: "Sí. Yape y Plin son métodos de pago nativos en finde desde el día uno. También aceptamos tarjeta de crédito/débito." },
-  { q: "¿Los tours están verificados?", a: "Sí. Cada agencia se verifica contra SUNAT (RUC activo) y el registro oficial de MINCETUR antes de publicar. Además, el Índice de Confianza Finde resume en un solo puntaje la verificación, el cumplimiento de reservas y las reseñas de cada agencia." },
-  { q: "¿Puedo reservar para un grupo?", a: "Sí. Al momento de reservar puedes indicar cuántas personas van. Muchas experiencias ofrecen precios especiales para grupos de 4 o más." },
+  { q: "¿Los tours están verificados?", a: "Verificamos a la agencia, que es lo que de verdad te protege. Antes de que pueda publicar, comprobamos que su RUC esté activo en SUNAT y que su registro en MINCETUR esté vigente. Vas a poder ver esos datos y la fecha de verificación en su perfil." },
+  { q: "¿Puedo reservar para un grupo?", a: "Sí. Al reservar indicas cuántas personas van y el precio se ajusta automáticamente. Algunas agencias manejan tarifas especiales para grupos y lo verás en el tour." },
   // ── Para agencias
-  { q: "Soy agencia, ¿cuánto me cobran?", a: "Cero costo de alta y cero mensualidad. Los detalles comerciales los compartimos directamente contigo en el onboarding cuando te contactemos por WhatsApp." },
-  { q: "¿Qué beneficio tengo por registrarme ahora?", a: "Las agencias que se pre-registran antes del lanzamiento obtienen prioridad en los resultados de búsqueda durante la etapa inicial. Es nuestra forma de agradecer a quienes confían en finde desde el principio." },
+  { q: "Soy agencia, ¿cuánto me cobran?", a: "Cero costo de alta y cero mensualidad. Solo cobramos una comisión cuando se concreta una reserva, así que si no vendes no pagas nada. El porcentaje depende del tipo de experiencia y del volumen, y queda por escrito en tu contrato antes de que publiques tu primer tour." },
+  { q: "¿Qué beneficio tengo por registrarme ahora?", a: "Si eres viajero, entras 48 horas antes que el resto cuando abra la beta, con los primeros 500 cupos reservados. Si eres agencia, tus tours tienen prioridad en los resultados de búsqueda durante la etapa inicial." },
   { q: "¿Puedo seguir usando mis otros canales de venta?", a: "Por supuesto. finde es un canal adicional, no un reemplazo. Tú decides qué tours listar, a qué precios, y con qué disponibilidad. No pedimos exclusividad." },
   { q: "¿Mis datos están protegidos?", a: "Sí. Cumplimos la Ley 29733 de Protección de Datos Personales del Perú. Solo usamos tus datos para contactarte por el lanzamiento y, si lo autorizas, enviarte novedades." },
 ];
