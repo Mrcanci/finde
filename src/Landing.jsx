@@ -31,9 +31,9 @@ const Icon = ({ name, className = "" }) => {
 };
  
 const TRAVELER_BENEFITS = [
-  { icon: "search", title: "Búsqueda con IA", desc: "Dile qué tipo de experiencia buscas y la inteligencia artificial te sugiere destinos y tours que encajan contigo, incluso los menos conocidos." },
-  { icon: "shield", title: "Agencias verificadas", desc: "Agencias de viaje certificadas por MINCETUR. Cada experiencia revisada antes de publicarse." },
-  { icon: "wallet", title: "Paga en soles con Yape", desc: "Precios transparentes. Yape, Plin, tarjeta o transferencia." },
+  { icon: "search", title: "Pide lo que quieres, no lo que existe", desc: "Escribe «algo tranquilo cerca de Lima para el finde» y la IA entiende qué buscas. Te propone opciones que no habrías encontrado tú solo, incluidas las de regiones menos visitadas." },
+  { icon: "shield", title: "Sabes quién te vende", desc: "Validamos el RUC en SUNAT y el registro en MINCETUR de cada agencia antes de darle acceso. La que no pasa la validación no llega a publicar." },
+  { icon: "wallet", title: "Todo en soles, sin sorpresas", desc: "El precio que ves es el que pagas. Yape, Plin, tarjeta o transferencia, sin conversión de moneda ni cargos por servicio." },
 ];
  
 const MOCKUP_TABS = [
