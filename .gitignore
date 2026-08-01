@@ -36,3 +36,8 @@ backups/
 # Backups de schema y scripts de prueba locales
 prisma/*.backup-*
 scripts/get-test-token.ts
+
+# Materiales de pitch (binarios pesados, no versionar)
+*.pptx
+*.pdf
+*.docx
