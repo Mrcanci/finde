@@ -159,11 +159,11 @@ export default function FindeLanding() {
               <h1 className="hero-title fd0">
                 Descubre el Perú real<span className="hero-dot">.</span>
                 <br />
-                <em>Reserva sin miedo, con pago protegido</em><span className="hero-dot">.</span>
+                <em>Reserva tours sin miedo, con pago protegido</em><span className="hero-dot">.</span>
               </h1>
               <p className="hero-sub fd1">
                 Cada agencia verificada contra SUNAT y MINCETUR antes de publicar. Tu pago en soles,
-                protegido hasta que completes el tour. Y una IA que te ayuda a encontrar el viaje correcto.
+                protegido hasta que completes el tour. Y una IA que entiende lo que buscas.
               </p>
  
               <div className="hero-proof fd2">
@@ -185,7 +185,7 @@ export default function FindeLanding() {
                 </div>
                 <div className="hero-proof-item">
                   <Icon name="check" className="hero-proof-icon" />
-                  <span>Destinos fuera de la ruta de siempre</span>
+                  <span>Tours en destinos fuera de la ruta de siempre</span>
                 </div>
               </div>
  
@@ -396,7 +396,7 @@ export default function FindeLanding() {
         <section className="problem">
           <div className="section-inner">
             <h2 className="section-title" style={{ textAlign: "center", marginBottom: 40 }}>
-              Reservar por redes sociales es un acto de fe<span className="dot-accent">.</span>
+              Reservar un tour por redes sociales es un acto de fe<span className="dot-accent">.</span>
             </h2>
             <div className="problem-stats">
               <div className="problem-stat">
