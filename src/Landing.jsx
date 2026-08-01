@@ -798,7 +798,7 @@ const CSS = `
 }
 @media (max-width: 640px) {
   .hero { padding: 88px 20px 40px; }
-  .landing .hero-title { font-size: 36px; margin-bottom: 20px; }
+  .landing .hero-title { font-size: 35px; margin-bottom: 20px; }
   .hero-sub { margin-bottom: 24px; }
   .section-title { font-size: 24px; }
   .hero-proof { gap: 12px; margin-bottom: 28px; }
