@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finde · Reconstrucción del Pitch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --f:#1B3A2D; --m:#2D5A3D; --tr:#C7613A; --gd:#D4A843; --yp:#6B2FA0;
+    --ink:#20282300; --tx:#26302a; --mut:#5c6b62; --line:#e4e9e5;
+    --bg:#f7f9f7; --card:#ffffff; --soft:#f0f4f0;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:"Plus Jakarta Sans",system-ui,sans-serif;
+    color:#26302a; background:var(--bg); line-height:1.62; font-size:16px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:820px; margin:0 auto; padding:0 22px 90px;}
+  h1,h2,h3{font-family:"DM Serif Display",Georgia,serif; font-weight:400; color:var(--f); line-height:1.2;}
+
+  /* HERO */
+  .hero{background:var(--f); color:#fff; margin:0 -22px 0; padding:44px 40px 38px; border-radius:0 0 18px 18px;}
+  .wrap{padding-top:0;}
+  .hero .logo{font-family:"DM Serif Display",serif; font-size:30px;}
+  .hero .logo span{color:var(--gd);}
+  .hero h1{color:#fff; font-size:34px; margin:14px 0 8px;}
+  .hero p{color:#d6e4db; font-size:15px; max-width:60ch;}
+  .hero .meta{margin-top:16px; display:flex; flex-wrap:wrap; gap:8px;}
+  .hero .meta span{font-size:12px; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.16); color:#eaf2ec; padding:4px 11px; border-radius:20px;}
+
+  /* TOC */
+  .toc{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 22px; margin:26px 0 8px;}
+  .toc h4{font-size:11px; letter-spacing:1.3px; text-transform:uppercase; color:var(--tr); margin-bottom:10px; font-weight:800; font-family:"Plus Jakarta Sans";}
+  .toc ol{list-style:none; counter-reset:t; display:grid; grid-template-columns:1fr 1fr; gap:4px 24px;}
+  .toc li{counter-increment:t; font-size:14px;}
+  .toc li a{color:var(--tx); text-decoration:none; display:flex; gap:9px; padding:3px 0;}
+  .toc li a::before{content:counter(t); color:var(--tr); font-weight:700; min-width:16px;}
+  .toc li a:hover{color:var(--tr);}
+
+  section{margin-top:38px; scroll-margin-top:20px;}
+  .kick{font-size:11px; letter-spacing:1.3px; text-transform:uppercase; color:var(--tr); font-weight:800; margin-bottom:5px;}
+  h2{font-size:26px; margin-bottom:6px;}
+  h2 .n{color:var(--gd); margin-right:10px;}
+  h3{font-size:19px; margin:22px 0 8px; color:var(--m);}
+  p{margin:10px 0;}
+  strong,b{color:var(--f); font-weight:700;}
+  .lead{font-size:17px;}
+  hr{border:none; border-top:1px solid var(--line); margin:34px 0;}
+
+  ul{margin:10px 0 10px 4px; list-style:none;}
+  ul li{position:relative; padding:4px 0 4px 20px;}
+  ul li::before{content:""; position:absolute; left:2px; top:13px; width:6px; height:6px; border-radius:50%; background:var(--tr);}
+
+  /* CALLOUT (statements) */
+  .callout{background:var(--card); border:1px solid var(--line); border-left:4px solid var(--gd); border-radius:0 12px 12px 0; padding:16px 20px; margin:14px 0;}
+  .callout.tr{border-left-color:var(--tr);}
+  .callout.f{border-left-color:var(--f);}
+  .callout .lbl{font-size:12px; font-weight:800; color:var(--tr); text-transform:uppercase; letter-spacing:.6px; display:block; margin-bottom:5px;}
+  .callout.f .lbl{color:var(--f);}
+
+  /* TABLE */
+  .tbl{overflow-x:auto; margin:16px 0; border:1px solid var(--line); border-radius:12px;}
+  table{width:100%; border-collapse:collapse; font-size:14px; min-width:460px;}
+  th,td{text-align:left; padding:10px 14px; border-bottom:1px solid var(--line); vertical-align:top;}
+  th{background:var(--soft); color:var(--f); font-weight:700; font-size:12px; letter-spacing:.4px; text-transform:uppercase;}
+  tr:last-child td{border-bottom:none;}
+  td b{color:var(--f);}
+
+  /* DO / DON'T */
+  .honesty{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:16px 0;}
+  .honesty > div{border-radius:12px; padding:14px 16px; font-size:14.5px;}
+  .yes{background:#eef6ef; border:1px solid #cfe6d3;}
+  .no{background:#fbeeea; border:1px solid #f0d5cc;}
+  .yes .h{color:#1e6b3a; font-weight:800; margin-bottom:5px;}
+  .no .h{color:#b1442a; font-weight:800; margin-bottom:5px;}
+
+  .num{font-family:"DM Serif Display",serif; color:var(--tr);}
+  .badge{display:inline-block; font-size:11px; font-weight:800; padding:2px 8px; border-radius:20px; background:#f4e6bf; color:#8a6a12; margin-left:6px;}
+  .foot{margin-top:50px; padding-top:18px; border-top:1px solid var(--line); color:var(--mut); font-size:13px;}
+
+  /* GUION */
+  .beat{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 20px; margin:14px 0;}
+  .beat h4{font-family:"Plus Jakarta Sans"; font-size:15px; color:var(--f); font-weight:800; margin-bottom:6px; display:flex; justify-content:space-between; align-items:baseline; gap:10px;}
+  .beat h4 .t{font-size:12px; color:var(--mut); font-weight:600; white-space:nowrap;}
+  .dir{font-size:12.5px; color:var(--mut); font-style:italic; margin:9px 0 2px;}
+  .say{border-left:3px solid var(--gd); padding:3px 0 3px 14px; margin:4px 0; color:#2a332d; font-size:15px;}
+  .say b{color:var(--f);}
+
+  @media (max-width:640px){
+    .toc ol{grid-template-columns:1fr;} .honesty{grid-template-columns:1fr;}
+    .hero{padding:34px 24px 30px;} .hero h1{font-size:27px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="logo">Finde<span>.</span></div>
+    <h1>Reconstrucción del Pitch</h1>
+    <p>Nuevo eje: la <b style="color:#fff">capa de confianza</b>. De un problema contado desde la moral, a uno que se siente en el bolsillo.</p>
+    <div class="meta">
+      <span>10 jul 2026</span><span>eTEC 2026 · preincubación</span><span>Eje: confianza (ICF + Escudo)</span>
+    </div>
+  </div>
+
+  <nav class="toc">
+    <h4>Contenido</h4>
+    <ol>
+      <li><a href="#s1">Diagnóstico: por qué no convencía</a></li>
+      <li><a href="#s2">Problemática · Solución · Valor</a></li>
+      <li><a href="#s3">Índice de Confianza (ICF)</a></li>
+      <li><a href="#s4">Detector de Agencias Fantasma</a></li>
+      <li><a href="#s5">Otros diferenciadores</a></li>
+      <li><a href="#s6">Reestructura del pitch</a></li>
+      <li><a href="#s7">Framing honesto</a></li>
+      <li><a href="#s8">Qué construir</a></li>
+      <li><a href="#s9">Guion palabra por palabra</a></li>
+      <li><a href="#s10">Deck — blueprint</a></li>
+      <li><a href="#s11">Impacto esperado — KPIs</a></li>
+    </ol>
+  </nav>
+
+  <section id="s1">
+    <div class="kick">Análisis</div>
+    <h2><span class="n">1</span>Por qué el pitch no convencía</h2>
+    <p class="lead">El error central: la problemática se cuenta desde la <b>moral</b> ("formalizar el Perú"), no desde el <b>bolsillo</b> de quien paga. La informalidad es el <i>contexto</i>, no el <i>dolor</i>.</p>
+    <p>Cuatro correcciones (las dos últimas van más allá de la investigación original):</p>
+    <ul>
+      <li><b>Problema económico, no moral.</b> Mostrar la caja de la agencia sangrando, no el discurso de ministerio.</li>
+      <li><b>El 20% como ahorro, no como precio.</b> Anclarlo contra el costo real de conseguir un cliente hoy.</li>
+      <li><b>El trust score con señales de comportamiento es humo hoy</b> (0 transacciones). v1 = solo capa registral; comportamiento = "se activa con reservas". Eso es el flywheel de datos, no una debilidad.</li>
+      <li><b>El foso no es la fórmula del score</b> (copiable), es la <b>red de confianza verificada</b> (dato + verificación viva + comportamiento acumulado).</li>
+      <li><b>Benchmarks = dolor prestado. Tus 5 agencias entrevistadas = dolor propio.</b> Un testimonio grabado con números reales &gt; todas las citas. Máxima palanca, cero código.</li>
+    </ul>
+  </section>
+
+  <hr>
+
+  <section id="s2">
+    <div class="kick">El núcleo</div>
+    <h2><span class="n">2</span>Problemática · Solución · Valor</h2>
+
+    <h3>Problemática — visceral primero, económica después</h3>
+    <div class="callout tr">
+      <span class="lbl">Lado viajero</span>
+      Comprar un tour por internet en Perú es una ruleta. En nov-2025, <b>Pax Travel Assist estafó a 40 personas</b> que pagaron hasta S/7,000 por paquetes que nunca existieron: operaba por TikTok/Facebook, cobraba por Yape a cuenta personal, y desapareció aunque no tenía denuncias en Indecopi. La División de Estafas de la PNP persigue decenas de "agencias fantasma" con el mismo libreto.
+    </div>
+    <div class="callout tr">
+      <span class="lbl">Lado agencia formal</span>
+      La agencia con RUC y MINCETUR no puede competir contra eso. Quema pauta fija en Meta (+18% IGV desde dic-2024, se venda o no), pierde reservas por no-shows sin adelanto, cobra por Yape personal sin comprobante, y para volumen entrega 20–30% a Viator/GYG que le pagan semanas después. <b>Ser formal cuesta más y no vende más. La informalidad gana por default.</b>
+    </div>
+    <div class="callout f">
+      <span class="lbl">Núcleo</span>
+      No existe una capa de confianza entre el viajero peruano y la agencia local. Sin ella, el viajero no distingue lo formal de lo trucho, y la formalidad no tiene recompensa.
+    </div>
+
+    <h3>Solución</h3>
+    <div class="callout">
+      Finde es esa capa de confianza. Marketplace donde cada agencia está <b>verificada de forma continua</b> contra SUNAT y MINCETUR (no un check único), con un <b>Índice de Confianza visible y explicable</b>, un <b>Escudo anti-estafa</b> que bloquea fantasmas, búsqueda con IA sobre inventario real, y pago en soles. El viajero ve en quién confiar; la agencia formal convierte su formalidad en ventaja de venta. Cobramos 20% solo cuando la agencia vende. <span class="badge">Custodia: próxima fase</span>
+    </div>
+
+    <h3>Valor agregado / moat</h3>
+    <div class="callout f">
+      No es "hacer un marketplace". Es la <b>red de confianza verificada del turismo peruano</b>: oferta verificada + verificación viva contra fuentes oficiales + comportamiento acumulado con cada transacción. Cada reserva mejora el score → mejora el ranking → sube la conversión → atrae más oferta. Flywheel que solo corre para el primero que lo construya en Perú. WhatsApp no puede; una OTA global no atiende el turismo interno; un banco tiene pagos pero no la oferta verificada.
+    </div>
+
+    <h3>Reframe del 20%</h3>
+    <div class="callout tr">
+      "No le quitamos 20% a la agencia. Le cambiamos un costo fijo que le quema la caja — pauta con IGV, no-shows, 20–30% a las OTAs que pagan tarde — por un costo variable que solo aparece cuando ya cobró, en soles, al terminar el tour."
+    </div>
+
+    <h3>Valor para la agencia</h3>
+    <div class="callout f">
+      Con Finde la agencia <b>cuesta menos</b> (20% a éxito, sin costos fijos) <b>y gana más</b> (<b>Última Hora</b> llena los asientos que hoy pierde). Finde no solo la protege: la hace ganar.
+    </div>
+  </section>
+
+  <hr>
+
+  <section id="s3">
+    <div class="kick">Diferenciador · foso</div>
+    <h2><span class="n">3</span>Índice de Confianza Finde (ICF)</h2>
+    <p class="lead">Puntaje 0–100 por agencia, visible al viajero, <b>explicable</b> (no caja negra). Hace la confianza legible y la formalidad rentable.</p>
+
+    <h3>Capa registral — la base, verificable hoy</h3>
+    <div class="tbl"><table>
+      <tr><th>Factor</th><th>Fuente</th><th>Tipo</th></tr>
+      <tr><td>RUC activo y habido</td><td>SUNAT</td><td>Gate (binario)</td></tr>
+      <tr><td>Antigüedad de actividad</td><td>SUNAT</td><td>Escala</td></tr>
+      <tr><td>Registro MINCETUR/DIRCETUR vigente</td><td>Directorio DNPSTC</td><td>Binario + fecha</td></tr>
+      <tr><td>Datos completos (rep. legal, CCI, contacto)</td><td>Onboarding</td><td>Escala</td></tr>
+    </table></div>
+
+    <h3>Capa de comportamiento <span class="badge">se activa con reservas</span></h3>
+    <p>Cumplimiento · velocidad de respuesta · no-show (inverso) · reseñas verificadas · disputas. En el prototipo: marcadas como <i>"pendiente de datos de reservas"</i>. Eso es tu flywheel de datos.</p>
+
+    <h3>Fórmula (transparente)</h3>
+    <div class="callout f">
+      <b>ICF = 100 × Σ(wᵢ × fᵢ)</b> — cada factor <span class="num">fᵢ</span> normalizado 0–1, pesos suman 1. Hoy ~70% registral + 30% comportamiento (arranca neutro). <b>RUC inactivo/sin habido = gate, no publica.</b>
+    </div>
+    <p><b>Gate + Score + Vivo:</b> gate al entrar; score entre las verificadas; <b>vivo</b> = re-chequeo periódico. Si el MINCETUR vence o el RUC cae, el score baja o suspende en vivo. <b>Ese es el momento demo: una agencia que <i>cae</i>.</b></p>
+
+    <h3>Ejemplo de demo <span class="badge">agencias de ejemplo · prototipo</span></h3>
+    <div class="tbl"><table>
+      <tr><th>Agencia (ejemplo)</th><th>Situación</th><th>ICF</th></tr>
+      <tr><td>Andes Explorer</td><td>RUC 6 años, MINCETUR vigente, datos completos</td><td><b>87 · Verificado</b></td></tr>
+      <tr><td>Cusco Nuevo Tours</td><td>RUC formal 4 meses, MINCETUR en trámite</td><td>58 · En verificación</td></tr>
+      <tr><td>"PromoViajes Perú" (fantasma)</td><td>RUC nuevo, sin MINCETUR, solo Facebook</td><td>18 · Bloqueada</td></tr>
+    </table></div>
+  </section>
+
+  <hr>
+
+  <section id="s4">
+    <div class="kick">Diferenciador · misión</div>
+    <h2><span class="n">4</span>Detector de Agencias Fantasma <span style="font-size:18px; color:var(--mut)">· "Escudo anti-estafa"</span></h2>
+    <p class="lead">Distinto del ICF. El ICF puntúa a las legítimas; el Escudo <b>caza estafadores disfrazados</b> antes de que dañen. Corre en el registro, aguas arriba del score.</p>
+
+    <h3>Señales <span class="badge">reglas v1 · ML con datos</span></h3>
+    <ul>
+      <li>RUC creado hace poco <b>+</b> paquetes de alto valor.</li>
+      <li>Ofrece tours <b>sin registro MINCETUR</b>.</li>
+      <li>Nombre comercial <b>no coincide</b> con el titular del RUC.</li>
+      <li>Solo redes sociales, sin datos verificables.</li>
+      <li>Intenta <b>redirigir el pago</b> fuera de la plataforma / a cuenta personal.</li>
+      <li>Contacto sin verificar; velocidad anómala (muchos tours caros de golpe).</li>
+    </ul>
+    <p><b>Salidas:</b> bloqueo duro (patrón claro) o revisión manual (sospechoso). El ICF solo puntúa a las que pasan el Escudo.</p>
+
+    <div class="callout tr">
+      <span class="lbl">Ángulo para el jurado</span>
+      "El ICF premia a las buenas; el Escudo caza a las malas. <b>Pax Travel Assist habría sido bloqueada:</b> RUC de días, sin MINCETUR, marca que no coincide con el titular, pago redirigido." Cierra el bucle problema→solución, y es tu argumento B2G: haces el control de fraude que el Estado no puede.
+    </div>
+  </section>
+
+  <hr>
+
+  <section id="s5">
+    <div class="kick">Complementos</div>
+    <h2><span class="n">5</span>Otros diferenciadores</h2>
+    <ul>
+      <li><b>Ranking ponderado por confianza:</b> <span class="num">relevancia_semántica × ICF × disponibilidad</span>, no solo similitud de embeddings. "No te mostramos el más barato, sino el más confiable y disponible."</li>
+      <li><b>Última Hora (motor de cupos) — próxima fase:</b> detecta salidas próximas con asientos libres y genera ofertas de última hora. Valor de <b>crecimiento</b> para la agencia (recupera capacidad ociosa). No es moat (copiable), pero es el argumento de "te hago ganar".</li>
+      <li><b>Roadmap adicional:</b> sugerencia de precios con IA.</li>
+      <li><b>No soltar lo que ya existe y es real:</b> búsqueda semántica + quechua persistido. Bajan a apoyo del ICF, no protagonistas.</li>
+    </ul>
+  </section>
+
+  <hr>
+
+  <section id="s6">
+    <div class="kick">Estructura</div>
+    <h2><span class="n">6</span>Reestructura del pitch <span style="font-size:18px; color:var(--mut)">· eje confianza</span></h2>
+    <div class="tbl"><table>
+      <tr><th>#</th><th>Beat</th></tr>
+      <tr><td>1</td><td><b>El problema — dos víctimas:</b> viajero (Pax Travel Assist) + agencia formal (la caja de Rosa). Un solo beat, señalizado. Sin mamá como personaje; se conserva la pregunta "¿será seguro?".</td></tr>
+      <tr><td>2</td><td><b>Demo:</b> el MVP real en vivo (búsqueda IA · agencia verificada · quechua · reserva) → y encima, el prototipo del ICF + Escudo.</td></tr>
+      <tr><td>3</td><td><b>Modelo:</b> reframe del 20% "a éxito vs. costo real" + Última Hora.</td></tr>
+      <tr><td>4</td><td><b>Impacto:</b> formaliza · protege · descentraliza y sostiene.</td></tr>
+      <tr><td>5</td><td><b>Equipo:</b> negocio + tecnología, credenciales reales.</td></tr>
+      <tr><td>6</td><td><b>Tracción + ask:</b> 80% intención · MVP en vivo · 3 agencias; ask concreto.</td></tr>
+      <tr><td>7</td><td><b>Cierre:</b> "¿será seguro?" → "¿está en Finde? Resérvalo."</td></tr>
+    </table></div>
+  </section>
+
+  <hr>
+
+  <section id="s7">
+    <div class="kick">Integridad</div>
+    <h2><span class="n">7</span>Framing honesto — la línea</h2>
+    <div class="honesty">
+      <div class="yes"><div class="h">✓ Sí decir</div>"Así funciona nuestro Índice de Confianza. Prototipo con agencias de ejemplo para ver el mecanismo."</div>
+      <div class="no"><div class="h">✕ No decir</div>"Estas agencias tienen este score calculado con su tasa real de no-show."</div>
+    </div>
+    <p>Marcar como <b>"próxima fase"</b>: comportamiento en el ICF, ML de fraude, custodia, agente WhatsApp, verificación IA continua automatizada. En preincubación, explicar y prototipar es válido; inventar operación no.</p>
+  </section>
+
+  <hr>
+
+  <section id="s8">
+    <div class="kick">Ejecución</div>
+    <h2><span class="n">8</span>Qué construir — foco</h2>
+    <ul>
+      <li><b>Testimonio grabado de 1 agencia con números reales</b> (pauta/mes, no-shows). Cero código, máxima palanca.</li>
+      <li><b>ICF registral + verificación viva</b>, con la demo de la agencia que "cae". Una cosa, impecable.</li>
+      <li><b>Escudo anti-estafa v1 (reglas)</b> + el ejemplo Pax Travel Assist en lámina.</li>
+      <li>Pendiente: reescribir el <b>guion del beat de innovación (ICF)</b> palabra por palabra.</li>
+    </ul>
+  </section>
+
+  <hr>
+
+  <section id="s9">
+    <div class="kick">Guion</div>
+    <h2><span class="n">9</span>Guion palabra por palabra <span style="font-size:18px; color:var(--mut)">· 5 min, nuevo eje</span></h2>
+
+    <div class="tbl"><table>
+      <tr><th>#</th><th>Beat</th><th>Tiempo</th><th>Criterio</th></tr>
+      <tr><td>1</td><td>El problema — dos víctimas (Pax viajero + Rosa agencia)</td><td>~70s</td><td>setup/mercado</td></tr>
+      <tr><td>2</td><td>Demo: MVP real (IA+quechua) + ICF/Escudo prototipo</td><td>~90s</td><td><b>Innovación 25%</b></td></tr>
+      <tr><td>3</td><td>Modelo: reframe 20% (+ Última Hora)</td><td>~30s</td><td>—</td></tr>
+      <tr><td>4</td><td>Impacto en turismo</td><td>~30s</td><td><b>Impacto 25%</b></td></tr>
+      <tr><td>5</td><td>Equipo</td><td>~25s</td><td><b>Equipo 20%</b></td></tr>
+      <tr><td>6</td><td>Tracción + ask</td><td>~20s</td><td>Mercado/Escal.</td></tr>
+      <tr><td>7</td><td>Cierre (bookend "¿será seguro?")</td><td>~15s</td><td>—</td></tr>
+    </table></div>
+    <p style="font-size:14px; color:var(--mut)">Un solo hilo, 7 beats, ~280s. Si te pasas de 5 min: recorta el lado agencia del beat 1; nunca el demo. Sin mamá como personaje; se conserva la pregunta "¿será seguro?" y el bookend.</p>
+
+    <div class="beat">
+      <h4><span>Beat 1 · El problema — dos víctimas</span><span class="t">~70s</span></h4>
+      <div class="dir">[Pantalla: «¿Será seguro?»]</div>
+      <div class="say">En el Perú, reservar un tour es un acto de fe. La pregunta siempre es la misma: <i>¿será seguro?</i> Y esa desconfianza tiene <b>dos víctimas.</b></div>
+      <div class="dir">[El viajero — Pantalla: titular real de Pax Travel Assist]</div>
+      <div class="say">El viajero. En noviembre, <b>Pax Travel Assist estafó a 40 personas:</b> paquetes que nunca existieron, pago por Yape a cuenta personal, hasta <b>7,000 soles</b> — y desapareció sin una sola denuncia en Indecopi. La Policía persigue decenas de estas "agencias fantasma". El viajero no tiene cómo distinguir la real de la trucha.</div>
+      <div class="dir">[La agencia formal — Pantalla: la "caja" de Rosa]</div>
+      <div class="say">Y del otro lado, <b>Rosa</b>, con RUC y registro MINCETUR, que no puede competir contra eso: quema pauta con IGV (se venda o no), pierde reservas por no-shows, cobra por Yape personal, y entrega hasta <b>30% a las OTAs</b>. <b>Ser formal le cuesta más y no le vende más.</b></div>
+      <div class="dir">[al jurado]</div>
+      <div class="say">No existe una capa de confianza entre los dos. <b>Por eso la informalidad gana.</b></div>
+      <div class="dir">[transición]</div>
+      <div class="say">Finde es la capa de confianza que le faltaba a los dos.</div>
+    </div>
+
+    <div class="beat">
+      <h4><span>Beat 2 · Demo: el MVP real + la capa de confianza</span><span class="t">~90s</span></h4>
+      <div class="dir">Parte A — lo que YA funciona (en vivo): recupera el MVP real + buscador IA + quechua.</div>
+      <div class="dir">[transición desde Rosa]</div>
+      <div class="say">Y Finde ya resuelve esto. No es una idea: está en producción. Mírenlo.</div>
+      <div class="dir">[Pantalla: finde.pe en vivo]</div>
+      <div class="say">El viajero busca en lenguaje natural — "algo de aventura cerca de Lima que no sea lo de siempre" — y la IA razona y le recomienda, solo tours reales del catálogo. No inventa. Somos la primera plataforma de tours <b>AI-native</b> del Perú.</div>
+      <div class="say">Entra a un tour: <b>agencia verificada</b> contra SUNAT y MINCETUR.</div>
+      <div class="say">Toca el toggle: el tour completo en <b>quechua</b>, en los 40 tours. Único en LATAM.</div>
+      <div class="say">Y reserva, en soles.</div>
+      <div class="dir">[al jurado]</div>
+      <div class="say">Todo esto <b>ya funciona hoy.</b> Eso es lo que casi nadie en esta sala trae: un producto real.</div>
+      <div class="dir">Parte B — lo que construimos ENCIMA (prototipo): el foso.</div>
+      <div class="say">Y sobre ese producto real, estamos construyendo lo que nos hace únicos: una <b>capa de confianza medible.</b> El Índice de Confianza.</div>
+      <div class="dir">[señalas puntaje + desglose]</div>
+      <div class="say">Un puntaje del 0 al 100 por agencia, y no es una caja negra: <b>se explica.</b> Se calcula contra fuentes oficiales — RUC en SUNAT, antigüedad, registro MINCETUR. Es un prototipo con agencias de ejemplo, pero el mecanismo corre sobre datos reales.</div>
+      <div class="dir">[verificación viva — el momento "whoa"]</div>
+      <div class="say">Y es <b>vivo:</b> si el registro de una agencia vence, su puntaje cae solo.</div>
+      <div class="dir">[el Escudo]</div>
+      <div class="say">Más un <b>Escudo</b> que bloquea a los fantasmas. ¿Recuerdan a Pax Travel Assist? RUC de días, sin MINCETUR, pago a cuenta personal. <b>Con Finde, bloqueada.</b></div>
+      <div class="dir">[moat, al jurado]</div>
+      <div class="say">Eso no es un marketplace. Es la <b>red de confianza del turismo peruano</b>, y se hace más fuerte con cada reserva. Eso es lo que no se copia.</div>
+    </div>
+
+    <div class="beat">
+      <h4><span>Beat 3 · Modelo: reframe del 20%</span><span class="t">~30s</span></h4>
+      <div class="say">¿Y cómo ganamos? Cobramos 20% de comisión, pero <b>solo cuando la agencia vende.</b></div>
+      <div class="dir">[Pantalla: costo fijo vs. variable]</div>
+      <div class="say">Acuérdense de Rosa. Hoy ya paga eso y más: 20 a 30% a Viator o GetYourGuide, que le pagan semanas después. O quema pauta fija con IGV, que se paga venda o no.</div>
+      <div class="dir">[al jurado]</div>
+      <div class="say">No le quitamos 20%. Le cambiamos un costo fijo que le quema la caja por uno variable que solo aparece <b>cuando ya cobró</b>, en soles, apenas termina el tour. <b>El riesgo cambia de lado.</b></div>
+      <div class="dir">[+ próxima fase]</div>
+      <div class="say">Y no solo le cuesta menos: con <b>Última Hora</b> llenamos los asientos que hoy salen vacíos. La agencia gana con Finde, no solo ahorra.</div>
+    </div>
+
+    <div class="beat">
+      <h4><span>Beat 4 · Impacto en turismo</span><span class="t">~30s</span></h4>
+      <div class="say">Y esta capa de confianza es, en el fondo, una herramienta de política turística. <b>Formaliza:</b> por primera vez, ser formal vende más. <b>Protege:</b> bloquea las estafas que hoy golpean al viajero peruano. <b>Descentraliza y sostiene:</b> lleva demanda a regiones más allá de Lima y Cusco — menos overtourism, economías locales, guías certificados y el quechua.</div>
+      <div class="say">Es nuestra respuesta directa al desafío: turismo innovador y <b>sostenible</b> — ambiental, social y cultural — alineado con la Nueva Ley General de Turismo.</div>
+    </div>
+
+    <div class="beat">
+      <h4><span>Beat 5 · Equipo</span><span class="t">~28s</span></h4>
+      <div class="say">Somos dos, y somos el equipo completo para construir esto: negocio y tecnología.</div>
+      <div class="say">Yo, Jose: vengo de LATAM Airlines, conozco la industria de viajes por dentro, y llevo el producto y el negocio.</div>
+      <div class="say">Franco: ingeniero de sistemas con maestría en Dirección de TI, 8 años liderando productos digitales, y con su propia consultora tecnológica desde 2018. Él construyó la plataforma.</div>
+      <div class="dir">[al jurado, pausa]</div>
+      <div class="say">15 años de amistad y de proyectos juntos. Todo lo que acaban de ver lo hicimos nosotros dos, sin contratar a nadie.</div>
+    </div>
+
+    <div class="beat">
+      <h4><span>Beat 6 · Tracción + ask</span><span class="t">~24s</span></h4>
+      <div class="say">¿Le importa a alguien? 25 entrevistas, 20 viajeros y 5 agencias: el 80% usaría Finde en un viaje que ya tiene en mente.</div>
+      <div class="say">El MVP está en producción, en finde.pe, y ya tenemos 3 agencias reales interesadas en sumarse. Somos pre-comerciales; el piloto valida la primera venta.</div>
+      <div class="dir">[el pedido]</div>
+      <div class="say">Buscamos el acompañamiento para dar el salto: de MVP a nuestro primer piloto transaccional en Lima.</div>
+    </div>
+
+    <div class="beat">
+      <h4><span>Beat 7 · Cierre</span><span class="t">~15s</span></h4>
+      <div class="dir">[viene del beat de equipo]</div>
+      <div class="say">La pregunta de todo viajero peruano es «¿será seguro?». Finde existe para que desaparezca.</div>
+      <div class="dir">[pausa, al jurado]</div>
+      <div class="say">Que ya no sea «¿será seguro?», sino: <b>«¿está en Finde? Resérvalo.»</b> Somos Jose y Franco. Gracias.</div>
+    </div>
+
+    <p style="font-size:14px; color:var(--mut)">Los 7 beats completos, en un solo hilo. Números honestos: 3 agencias interesadas · MVP en vivo · 0 ventas.</p>
+  </section>
+
+  <hr>
+
+  <section id="s10">
+    <div class="kick">Presentación</div>
+    <h2><span class="n">10</span>Deck — blueprint <span style="font-size:18px; color:var(--mut)">· eje confianza</span></h2>
+    <p>Una idea por slide. Slide 5 = <b>MVP real en vivo</b>; slides 6-7 = prototipo del ICF. <b>La presentación armada está en <code>docs/pitch-deck.html</code></b> (flechas para navegar, F11 pantalla completa).</p>
+    <div class="tbl"><table>
+      <tr><th>#</th><th>Slide</th><th>Titular</th><th>Beat</th></tr>
+      <tr><td>1</td><td>Hook</td><td>«¿Será seguro? Revísalo tú.»</td><td>1</td></tr>
+      <tr><td>2</td><td>Problema viajero</td><td>Reservar un tour es un acto de fe (Pax Travel Assist)</td><td>1</td></tr>
+      <tr><td>3</td><td>Problema agencia</td><td>Ser formal cuesta más y no vende más (caja de Rosa)</td><td>2</td></tr>
+      <tr><td>4</td><td>Solución</td><td>La capa de confianza que falta (flujo roto vs. Finde)</td><td>3</td></tr>
+      <tr><td>5</td><td><b>MVP en vivo (REAL)</b></td><td>Esto ya existe · búsqueda IA · agencia verificada · quechua · reserva</td><td>3-A</td></tr>
+      <tr><td>6</td><td>ICF (prototipo)</td><td>Y encima: Índice de Confianza · explicable</td><td>3-B</td></tr>
+      <tr><td>7</td><td>Vivo + Escudo (prototipo)</td><td>La confianza es viva · fantasma bloqueado</td><td>3-B</td></tr>
+      <tr><td>8</td><td>Modelo</td><td>20%, solo cuando vende (+ Última Hora)</td><td>4</td></tr>
+      <tr><td>9</td><td>Impacto</td><td>Formaliza · Protege · Descentraliza y sostiene</td><td>5</td></tr>
+      <tr><td>10</td><td>Equipo</td><td>Negocio y tecnología (credenciales reales)</td><td>6</td></tr>
+      <tr><td>11</td><td>Tracción + ask</td><td>80% · MVP en vivo · 3 agencias + el pedido</td><td>7</td></tr>
+      <tr><td>12</td><td>Cierre</td><td>«¿Está en Finde? Resérvalo.»</td><td>8</td></tr>
+    </table></div>
+    <p style="font-size:14px; color:var(--mut)"><b>Recuperado:</b> el MVP real en vivo (búsqueda IA + quechua + verificación + reserva) vuelve como prueba de ejecución (slide 5), ANTES del prototipo del ICF (6-7). <b>Apéndice (oculto):</b> impacto/KPIs · propuesta de valor · competencia · proyección · plan piloto. <b>Prioridad de construcción #1:</b> el prototipo del ICF (slides 6-7).</p>
+    <div class="honesty">
+      <div class="yes"><div class="h">Falta poner (tuyo)</div>Titular real de Pax Travel Assist (slide 2) · fotos reales del equipo (slide 9) · números reales de una agencia para la caja de Rosa (slide 3).</div>
+      <div class="no"><div class="h">Cambios clave vs. deck viejo</div>2 slides de problema con casos reales · demo = prototipo del ICF, no 6 capturas · IA/quechua bajan a apoyo · slide 4 (flujo roto vs. Finde) nueva.</div>
+    </div>
+  </section>
+
+  <hr>
+
+  <section id="s11">
+    <div class="kick">Impacto</div>
+    <h2><span class="n">11</span>Impacto esperado en el turismo <span style="font-size:18px; color:var(--mut)">· KPIs</span></h2>
+    <p class="lead">Respuesta a la pregunta de los mentores ("¿cuánto esperan impactar?"). Tres niveles, cada uno con un KPI medible en el piloto. Dicho como <b>meta</b>, no como logro.</p>
+    <div class="callout f">
+      <span class="lbl">Viajero · confianza (y expande el mercado)</span>
+      Al resolver la confianza no solo repartimos reservas: convertimos al viajero que hoy no se anima a reservar online por miedo. <b>KPI:</b> % que declara reservar con más confianza (encuesta post-reserva); el 80% de intención ya es evidencia.
+    </div>
+    <div class="callout tr">
+      <span class="lbl">Agencia · formalización + servicio</span>
+      El sello hace que ser formal venda más (incentivo a formalizarse); el ICF + reseñas + strikes crean presión de calidad → mejor servicio. <b>KPIs:</b> # agencias formalizadas/verificadas · rating promedio · caída de no-shows.
+    </div>
+    <div class="callout">
+      <span class="lbl">Destino · descentralización + sostenibilidad</span>
+      Demanda a regiones = ingreso descentralizado + alivio de overtourism (ambiental), economías locales y guías certificados (social), quechua (cultural). <b>KPI:</b> % de GMV a destinos fuera de Lima-Cusco.
+    </div>
+    <p><b>El "cuánto" (honesto, atado al SOM):</b> Año 1 = 5,000 reservas → <b>~S/480,000 liberados a agencias locales formales</b> (80% de S/600K de GMV). 100% del catálogo verificado por diseño.</p>
+    <div class="callout f">
+      <span class="lbl">Frase para mentores</span>
+      "Nuestro impacto se mide en tres cosas: cuántas agencias se formalizan porque ser formal ahora vende, cuánto ingreso llega a regiones fuera de Lima y Cusco, y cuántos viajeros reservan con confianza en vez de a ciegas. Al resolver la confianza no solo repartimos el mercado, lo hacemos crecer."
+    </div>
+    <p style="font-size:14px; color:var(--mut)">Va como <b>slide de apéndice</b> (Q&amp;A), no en los 5 min. En el deck: slide 12.</p>
+  </section>
+
+  <div class="foot">
+    Finde · Reconstrucción del pitch · fuente: <code>docs/pitch-reconstruccion.md</code>. Documento vivo — se regenera desde el .md.
+  </div>
+
+</div>
+</body>
+</html>

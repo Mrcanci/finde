@@ -156,6 +156,201 @@ Calibrado para ~90s a ritmo de pitch. Si lo dices más lento, recorta el Beat 3.
 - **Transición de salida** hacia el Beat 3 del pitch (innovación): al ver "Reserva confirmada", levantas la vista → *"lo que acaban de ver son tres tecnologías que nadie más junta en el Perú…"*
 - **Cronométralo con el video corriendo, no leyendo.** El screencast marca el ritmo; narras encima.
 
+## 9. Guion del hook y del cierre — palabra por palabra
+
+El cierre bookendea con el hook (vuelve a la frase de la mamá): hace que el pitch se sienta una historia, no una lista de features.
+
+### Hook (~50s)
+
+**[Pantalla: la frase de la mamá]**
+> "«¿Será seguro? Revísalo tú.» Eso me decía mi mamá cada vez que encontraba un full day en Facebook."
+
+**[pausa 1s]**
+> "Y tenía razón en desconfiar. Así se reserva un tour en el Perú hoy:"
+
+**[Pantalla: el chat del Yape]**
+> "'Full day Paracas, 89 soles, últimos cupos.' Preguntas si son formales. Te dicen: 'sí señito, yapea al 987 a nombre de J. Ramírez para separar.' Y le pagas a un desconocido. Sin comprobante. Sin protección."
+
+> "Seis de cada diez agencias en el Perú operan en la informalidad. Nueve de cada diez reservas ocurren así, a ciegas. En nuestras entrevistas, ocho de cada diez viajeros no pudo verificar si la agencia era formal."
+
+**[al jurado, más lento]**
+> "Reservar un tour en el Perú es un acto de fe. Nosotros lo volvemos una decisión informada. Y no es una idea en papel: está en producción, ahora mismo. Miren."
+
+**[→ arranca la demo sin pausa]**
+
+### Cierre (~15s)
+
+**[viene del beat de equipo, tras "lo construimos nosotros dos"]**
+> "Finde ya existe. En producción, en finde.pe, hecho por nosotros dos. Lo que pedimos de este programa es el acompañamiento para dar el último salto: de MVP a nuestro primer piloto con ventas reales en Lima."
+
+**[pausa, al jurado]**
+> "Que la pregunta de mi mamá ya no sea «¿será seguro?»."
+
+**[más lento, mic-drop]**
+> "Sino: «¿está en Finde? Resérvalo.» Gracias."
+
+### Notas de entrega
+- El hook abre con vulnerabilidad, no con datos. La línea de la mamá desarma; dila despacio. Los números vienen después.
+- El chat del Yape dilo con complicidad/humor; cuando el jurado se ríe reconociéndolo, ganaste el problema.
+- "Está en producción, ahora mismo. Miren." es el puente al demo: dilo y arranca de inmediato, sin aire muerto.
+- Termina en «Resérvalo» + "Gracias". No agregues, no resumas.
+- El pedido es específico a propósito ("de MVP a primer piloto con ventas reales"): muestra que sabes tu siguiente paso. Mucho más fuerte que "queremos ganar".
+
+## 10. Guion de impacto y equipo — palabra por palabra
+
+Los dos criterios pesados que más fácil suenan genéricos. Clave: especificidad peruana concreta.
+
+### Beat 4 · Impacto en el turismo (~42s)
+
+**[Pantalla: Formaliza · Descentraliza · Sostiene]**
+> "Finde no solo le resuelve al viajero. Mueve tres palancas del turismo peruano."
+> "**Formaliza.** Hoy formalizarse cuesta y no vende. Con Finde, el sello Verificado convierte el RUC y el registro MINCETUR en ventaja comercial: la agencia formal aparece primero y vende más. Por primera vez, ser formal es negocio."
+> "**Descentraliza.** La IA empuja demanda hacia destinos regionales, más allá de Lima y Cusco: Choquequirao en vez de Machu Picchu, San Fernando en vez de Ballestas. Menos overtourism, más ingreso para regiones que hoy no reciben nada."
+> "**Sostiene.** Economías locales, guías certificados, y el quechua que acaban de ver."
+> **[al jurado]** "Es nuestra respuesta directa al desafío del concurso: experiencias innovadoras y sostenibles con tecnología emergente en el núcleo. Alineado con la Nueva Ley General de Turismo."
+
+### Beat 6 · Equipo (~28s)
+
+**[Pantalla: Jose + Franco]**
+> "Somos dos. Yo, Jose: vengo de LATAM Airlines, conozco la industria de viajes por dentro, y llevo el producto y el negocio."
+> "Franco: ocho años de ingeniería de sistemas. Él construyó esta plataforma. La IA, la búsqueda semántica, el quechua, todo."
+> "Quince años de amistad y de construir juntos."
+> **[pausa antes de la última línea]** "Todo lo que acaban de ver, este MVP en producción, no lo tercerizamos ni contratamos a nadie. Lo construimos nosotros dos."
+
+### Notas de entrega
+- Impacto: baja la velocidad en *"por primera vez, ser formal es negocio"* — es el objetivo de política pública del MINCETUR resuelto con producto.
+- Nombra destinos concretos (Choquequirao vs. Machu Picchu); la especificidad convence más que "destinos regionales".
+- La Ley 32392: una mención al final, sin forzar.
+- Equipo: LATAM es la credencial de turismo ("la industria de viajes por dentro"); señala operación y escala.
+- *"Lo construimos nosotros dos"* = prueba de ejecución. Míralos, pausa antes, sin apuro. Tu mayor diferenciador de equipo en una sala de conceptos.
+
+## 11. Guion de innovación y tracción — palabra por palabra
+
+Los dos beats de transición. Van comprimidos.
+
+### Beat 3 · Innovación (~40s)
+
+**[Pantalla: 3 pilares / "AI-native"]**
+> "Lo que acaban de ver son tres tecnologías que nadie junta en el Perú."
+> "**Una:** búsqueda semántica sobre inventario real. La IA razona en lenguaje natural, pero solo sobre tours que existen. No alucina."
+> "**Dos:** verificación formal. Hoy validamos a mano el RUC en SUNAT y el registro MINCETUR de cada agencia; cada sello es real. El siguiente paso: agentes de IA que lo hacen continuo, en el tiempo. La confianza como dato, no como promesa."
+> "**Tres:** quechua persistido en los 40 tours."
+> **[al jurado]** "No es un chatbot pegado a un marketplace. Es la primera plataforma de tours AI-native del Perú."
+
+**Ojo honestidad:** la verificación con IA continua es **roadmap, no está viva** (hoy es manual). Misma trampa que el pago — no digas "agentes que validan" como si ya corrieran. El framing "hoy a mano, el siguiente paso son agentes" es más fuerte: el trabajo manual prueba que cada sello es real.
+
+### Beat 5 · Tracción + mercado (~36s)
+
+**[Pantalla: los 3 números]**
+> "¿Le importa a alguien? Entrevistamos a 25 personas, 20 viajeros y 5 agencias: el 80% usaría Finde en un viaje que ya tiene en mente."
+> "El MVP está en producción, en finde.pe, funcionando. Ya tenemos 3 agencias reales interesadas en sumarse. Somos pre-comerciales; el piloto valida la primera venta."
+> "El mercado: solo los millennials de Lima que reservan en línea son 700 mil. Nuestra meta del Año 1 es menos del 1% de eso, y ya es rentable. Cobramos 20%, y solo si la agencia vende."
+
+**Notas:** va rápido, es el beat que comprimes. No te disculpes por no tener ventas (en etapa temprana es lo esperado; decirlo de frente da credibilidad). Aterriza *"y solo si la agencia vende"* — tu modelo pro-agencia en cuatro palabras.
+
+---
+
+## Guion completo — resumen de tiempos
+
+| Beat | Contenido | Tiempo | Sección |
+|---|---|---|---|
+| 1 | Hook + problema | ~50s | §9 |
+| 2 | Demo (grabada + narrada) | ~90s | §8 |
+| 3 | Innovación | ~40s | §11 |
+| 4 | Impacto en turismo | ~42s | §10 |
+| 5 | Tracción + mercado | ~36s | §11 |
+| 6 | Equipo | ~28s | §10 |
+| 7 | Cierre | ~15s | §9 |
+| | **Total** | **~5:01** | |
+
+Ajuste fino: si te pasas, el primer recorte es el Beat 5 (mercado), luego el Beat 3. Nunca recortes el hook, la demo ni el cierre.
+
+## 12. Orden del deck y su lógica
+
+El deck cuenta una historia que responde 5 preguntas en orden:
+
+| Pregunta | Slides |
+|---|---|
+| 1. ¿Cuál es el dolor? | 1 (hook) → 2 (problema) |
+| 2. ¿Qué hiciste? | 3 (demo) |
+| 3. ¿Por qué es innovador? | 4 (innovación) |
+| 4. ¿Por qué le importa al Perú? | 5 (impacto) |
+| 5. ¿Funciona y quién lo hizo? | 6 (tracción) → 7 (equipo) |
+| → Pedido | 8 (cierre) |
+
+**Decisiones de orden (y por qué):**
+1. **Demo temprano (slide 3), no al final.** Es tu activo más fuerte; gana la atención antes de pedirla. Muestras primero, explicas después.
+2. **Innovación antes que impacto.** Primero el *cómo* (tech real), luego el *por qué importa*. El impacto pega más si ya entendieron que la tecnología no es humo.
+3. **Tracción/mercado después del impacto.** Los números aterrizan mejor con el jurado ya comprado emocionalmente. Abrir con tamaño de mercado = hoja de cálculo.
+4. **Equipo al final (slide 7).** Para este jurado, la credibilidad del equipo ES que 2 personas construyeron lo que vieron. Funciona como remate del demo. El hilo se planta al cerrar la demo (*"lo construimos nosotros dos"*) y se cobra en la slide 7. Regla: no abras con quién eres, ciérralo con quién eres, tras probar qué eres capaz de hacer.
+
+**Fijo, no reordenar:** hook (1) y cierre (8) son un par (bookend con la mamá). Mover uno sin el otro rompe el círculo que convierte 8 slides en una historia.
+
+## 13. Contenido exacto de las slides a rehacer (deck v2)
+
+Decisión: la grilla de 6 capturas queda como **slide de backup oculta** (plan B si el demo en vivo falla). Anexos solo se muestran si el jurado pregunta.
+
+### Slide 3 · Problema (comprimida)
+- Kicker: `EL PROBLEMA`
+- [chat del Yape, grande]
+- Dato único: **6 de 10 agencias operan en la informalidad** · fuente chica: CANATUR / APAVIT
+- Cierre: **Reservar un tour en el Perú es un acto de fe.**
+- Elimina: "70% reservó así · 8 de 10 no pudo verificar" y "sin comprobante · sin protección". La slide 2 vieja ("acto de fe") desaparece; su frase baja acá.
+
+### Slide 4 · Demo + backup
+- **Slide 4 (presentada):** screencast a pantalla completa. Único texto: header `finde.pe · en producción`. Sin bullets.
+- **Slide 4-BACKUP (oculta):** la grilla de 6 capturas actual. Cambia la nota del pago a `Pago con Yape en soles · custodia en integración final`. Márcala "skip slide" en Keynote/PPT.
+
+### Slide 5 · Tecnología → 3 pilares
+- Kicker: `LA TECNOLOGÍA` · Titular: **La primera plataforma de tours AI-native del Perú**
+- **Búsqueda semántica** — La IA razona en lenguaje natural, solo sobre tours reales. No alucina.
+- **Verificación formal** — Hoy a mano (SUNAT + MINCETUR); el siguiente paso, agentes de IA continuos. Confianza como dato.
+- **Quechua persistido** — Los 40 tours, en quechua. Único en LATAM.
+- Footer chico: IA generativa + búsqueda semántica sobre inventario real · serverless · construido por el equipo.
+- Elimina los párrafos y el bloque "Siguiente fase / WhatsApp 24/7".
+
+### Slide 6 · Tracción + mercado (fusiona 7 + 8 + 1 línea de 9/10)
+- Kicker: `TRACCIÓN Y MERCADO`
+- **80%** — usaría Finde en un viaje que ya tiene en mente (25 entrevistas: 20 viajeros + 5 agencias)
+- **MVP en vivo + 3 agencias interesadas** — finde.pe en producción, funcionando
+- **700 mil** — millennials de Lima que reservan en línea (SAM); meta Año 1 <1% = 5,000 reservas
+- Línea del modelo: **Comisión 20%, solo si la agencia vende. Rentable desde el Año 1.**
+- Nota chica: Pre-comerciales: el piloto valida la primera venta.
+- Al anexo: desglose S/24/S/96 (modelo) y tablas de viabilidad.
+
+### Resto
+- Slide 1 (hook) y 6-impacto: quedan casi igual, solo apretar.
+- Slide 11 vieja: **separar** en Equipo (7) + Cierre (8); el "¿está en Finde? Resérvalo" va solo en su slide (mic-drop).
+- Anexos (ocultos): competencia · proyección financiera · plan del piloto · modelo · viabilidad.
+
+## 14. Banco de preguntas de Q&A (Demo Day)
+
+**Reglas:** (1) responde en una respiración y para; (2) en trampas, reconoce rápido, no te defiendas; (3) repártanse por dominio — Jose: negocio/mercado/impacto/equipo · Franco: IA/técnica.
+
+### Peligrosas (reconoce y reencuadra)
+- **¿Cuántas ventas reales tienen?** → "Cero, y es a propósito. Primero validamos demanda y captamos oferta: 80% de intención en entrevistas y 3 agencias reales interesadas en sumarse. La venta se activa al conectar la pasarela, en integración final. Construir pagos antes de validar demanda es resolver un problema que aún no existe." [flip → anexo Plan del Piloto]
+- **¿La pasarela ya la eligieron? ¿Soporta custodia?** → "La custodia no depende del gateway. El gateway solo cobra; la retención y liberación post-tour las manejamos nosotros con el payout quincenal. Culqi es candidata (Yape/Plin/soles); verificando con Culqi, Izipay y Niubiz antes de comprometer."
+- **¿No es solo ChatGPT con una base de datos?** (Franco) → "No. Búsqueda sobre embeddings propios con pgvector, sobre inventario real. Claude razona solo sobre tours que existen: no alucina. Quechua persistido en los 40 tours, no runtime. Infraestructura de IA de punta a punta, construida por nosotros."
+- **¿La verificación con IA ya funciona?** → "Hoy a mano: RUC en SUNAT y registro MINCETUR de cada agencia. Cada sello es real. El siguiente paso es automatizarla con agentes continuos. No la vendemos como si ya corriera."
+- **¿Qué evita la desintermediación (que coordinen por fuera)?** → "Con custodia no hay nada que saltar: el viajero le paga a Finde, no a la agencia. El valor es descubrimiento + verificación + protección. En el piloto sin pasarela coordinamos por WhatsApp y trackeamos con el código FINDE cuánto se cae. Eso lo mide el piloto."
+
+### De fuerza (extiéndete un poco)
+- **¿Qué impide que Viator/Civitatis los copien?** → "Pagos locales en soles (Yape/Plin), verificación formal peruana (SUNAT/MINCETUR), contenido regional. Ellos apuntan al turista extranjero; nosotros al interno, que no atienden."
+- **¿Y si Yape o un banco entra?** → "Un banco tiene distribución y pagos, no la oferta: agencias verificadas, catálogo curado, la capa de IA, contenido regional. Ese es el trabajo difícil, ya lo hicimos. Sería más socio que competidor."
+- **¿20% no es caro?** → "Es el piso del mercado (Viator 25%, GYG hasta 30%), todo incluido y a éxito. La agencia ya gasta 15-25% en pauta con IGV, vendedores y pasarela, venda o no. El 20% reemplaza ese gasto y solo existe con una venta. El riesgo cambia de lado."
+- **Si ganan la beca, ¿qué harían?** → "De MVP a piloto transaccional: pasarela con custodia, comprobantes SUNAT, y las primeras agencias a sus primeras 20 reservas reales en Lima."
+
+### Segundo nivel
+- **¿Cómo consiguen agencias?** → "Supply first, a mano. Ya tenemos 3 reales interesadas en sumarse. Gancho: el sello (ser formal vende más). Piloto ~50 en Lima, Cajamarca ancla regional. Cero alta, cero comisión en piloto."
+- **¿Y los viajeros?** → "Piloto: círculo cercano + tráfico de la landing. Adquisición masiva después; no gastamos en demanda hasta tener oferta que buscar."
+- **¿Cómo miden el piloto?** → "5 agencias activas, 20 reservas trackeadas, 80% de coordinación efectiva, y feedback de si pagarían comisión."
+- **¿Por qué ahora?** → "Yape/Plin masificaron el pago en soles, la IA generativa hizo viable búsqueda semántica y quechua barato, el turismo interno creció post-pandemia. Hace 3 años dos personas no lo construían."
+- **¿Mayor riesgo?** → "Oferta comprometida: agencias que publiquen y atiendan bien. La tech está; el riesgo es ejecución comercial. Por eso el piloto es chico y medible."
+- **¿Levantan capital?** → "Todavía no. Pipeline Startup Perú; aceleradoras con tracción del piloto. Primero la venta, después levantamos con datos."
+- **¿El margen S/19 aguanta escala?** → "El costo de pasarela es % fijo del ticket: el margen por reserva es estable. Lo que se diluye es el costo fijo por reserva. Equilibrio baja de 27% a 5%."
+- **¿El quechua lo usan?** → "Diferenciación e inclusión más que volumen. Nadie lo tiene; para el turismo descentralizado es respeto cultural. Activo de marca y misión."
+- **¿Tiempo completo? ¿Solo dos?** → "Dos construimos el MVP; la IA hace el trabajo pesado. Plan 1→3→6 con el volumen." (**Adaptar la parte de dedicación a la verdad.**)
+
 ## 7. La tarea (antes de la próxima mentoría)
 1. **Rearmar el deck a 7 slides + apéndice** con esta estructura.
 2. **Grabar UNA corrida completa de 5 minutos en video, con la demo en vivo real**, y verla de vuelta. El video no miente: vas a ver dónde te pasas de tiempo y dónde la demo se traba.

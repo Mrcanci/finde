@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finde · Guion Demo Day v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --f:#1B3A2D; --m:#2D5A3D; --tr:#C7613A; --gd:#D4A843;
+    --tx:#242c27; --mut:#5c6b62; --line:#e4e9e5; --bg:#f6f8f6; --card:#fff; --soft:#eef3ef;
+    --warn:#9a6a12; --warnbg:#fbf3df;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:"Plus Jakarta Sans",system-ui,sans-serif; color:var(--tx); background:var(--bg); line-height:1.6; font-size:16px; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:800px; margin:0 auto; padding:0 20px 100px;}
+  h1,h2{font-family:"DM Serif Display",Georgia,serif; font-weight:400; color:var(--f); line-height:1.15;}
+
+  .hero{background:var(--f); color:#fff; margin:0 -20px; padding:40px 34px 34px; border-radius:0 0 16px 16px;}
+  .hero .logo{font-family:"DM Serif Display",serif; font-size:26px;} .hero .logo span{color:var(--gd);}
+  .hero h1{color:#fff; font-size:30px; margin:12px 0 6px;}
+  .hero p{color:#d6e4db; font-size:14px;}
+  .hero .meta{margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;}
+  .hero .meta span{font-size:12px; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.16); padding:4px 11px; border-radius:20px; color:#eaf2ec;}
+
+  .toc{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 18px; margin:22px 0;}
+  .toc h4{font-size:10.5px; letter-spacing:1.3px; text-transform:uppercase; color:var(--tr); font-weight:800; margin-bottom:9px;}
+  .toc ol{list-style:none; display:grid; grid-template-columns:1fr 1fr; gap:2px 20px;}
+  .toc li a{display:flex; justify-content:space-between; gap:10px; text-decoration:none; color:var(--tx); font-size:13.5px; padding:3px 0;}
+  .toc li a:hover{color:var(--tr);} .toc li a .t{color:var(--mut); font-variant-numeric:tabular-nums;}
+
+  .lam{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 22px; margin:16px 0; scroll-margin-top:14px;}
+  .lam .hd{display:flex; align-items:baseline; justify-content:space-between; gap:12px; border-bottom:1px solid var(--line); padding-bottom:9px; margin-bottom:12px;}
+  .lam .hd .lbl{font-family:"DM Serif Display",serif; font-size:20px; color:var(--f);}
+  .lam .hd .tone{font-size:12.5px; color:var(--mut); font-style:italic;}
+  .lam .hd .tm{font-size:12px; color:var(--tr); font-weight:700; white-space:nowrap; font-variant-numeric:tabular-nums;}
+  .say{font-size:17px; line-height:1.7; color:#20282300;} .lam .say{color:#222; }
+  .say{color:#242c27;} .say b{color:var(--f); font-weight:700;} .say i{color:var(--mut); font-style:italic;}
+  .say .em{color:var(--tr); font-style:italic;}
+  .trans{display:flex; gap:10px; align-items:flex-start; background:var(--soft); border-left:4px solid var(--tr); border-radius:0 10px 10px 0; padding:11px 15px; margin-top:14px;}
+  .trans .arrow{color:var(--tr); font-weight:800; font-size:18px; line-height:1.4;}
+  .trans .txt{font-weight:600; color:var(--f); font-size:15px;}
+  .flag{background:var(--warnbg); border:1px solid #eeddb0; border-radius:9px; padding:9px 13px; margin-top:12px; font-size:13px; color:var(--warn);}
+  .flag b{color:#7a530d;}
+
+  section.notes{margin-top:34px;}
+  section.notes h2{font-size:23px; margin-bottom:6px;}
+  .kick{font-size:10.5px; letter-spacing:1.3px; text-transform:uppercase; color:var(--tr); font-weight:800; margin-bottom:4px;}
+  .box{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:15px 20px; margin:12px 0;}
+  .box h3{font-size:15px; color:var(--f); margin-bottom:6px; font-family:"Plus Jakarta Sans"; font-weight:800;}
+  .box ul{margin:6px 0 0 2px; list-style:none;}
+  .box li{position:relative; padding:4px 0 4px 18px; font-size:14.5px;}
+  .box li::before{content:""; position:absolute; left:2px; top:12px; width:5px; height:5px; border-radius:50%; background:var(--tr);}
+  .box p{font-size:14.5px; margin:4px 0;}
+  .box b{color:var(--f);}
+  .quote{background:var(--soft); border-left:4px solid var(--gd); border-radius:0 10px 10px 0; padding:12px 16px; font-size:15px; color:#33403a; margin:10px 0;}
+  .foot{margin-top:40px; padding-top:16px; border-top:1px solid var(--line); color:var(--mut); font-size:13px;}
+  @media (max-width:620px){ .toc ol{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hero">
+    <div class="logo">Finde<span>.</span></div>
+    <h1>Guion Demo Day · v2</h1>
+    <p>Eje "capa de confianza". Memoriza las <b style="color:#fff">transiciones</b> (naranjas), no las frases. Si te pierdes, la transición te rescata.</p>
+    <div class="meta"><span>13 láminas</span><span>objetivo 4:55</span><span>Jose</span></div>
+  </div>
+
+  <nav class="toc">
+    <h4>Láminas</h4>
+    <ol>
+      <li><a href="#l1"><span>L1 · Gancho (mamá)</span><span class="t">0:00</span></a></li>
+      <li><a href="#l2"><span>L2 · Problema viajero</span><span class="t">0:22</span></a></li>
+      <li><a href="#l3"><span>L3 · Rosa</span><span class="t">0:52</span></a></li>
+      <li><a href="#l4"><span>L4 · Solución</span><span class="t">1:30</span></a></li>
+      <li><a href="#l4b"><span>L4b · MVP en producción</span><span class="t">1:52</span></a></li>
+      <li><a href="#l5"><span>L5 · ICF</span><span class="t">2:10</span></a></li>
+      <li><a href="#l6"><span>L6 · Vivo + Escudo</span><span class="t">2:42</span></a></li>
+      <li><a href="#l6b"><span>L6b · Valor agregado</span><span class="t">3:12</span></a></li>
+      <li><a href="#l7"><span>L7 · Modelo</span><span class="t">3:24</span></a></li>
+      <li><a href="#l8"><span>L8 · Impacto</span><span class="t">3:48</span></a></li>
+      <li><a href="#l9"><span>L9 · Equipo</span><span class="t">4:08</span></a></li>
+      <li><a href="#l10"><span>L10 · Tracción + QR</span><span class="t">4:30</span></a></li>
+      <li><a href="#l11"><span>L11 · Cierre</span><span class="t">4:48</span></a></li>
+    </ol>
+  </nav>
+
+  <div class="lam" id="l1">
+    <div class="hd"><span class="lbl">L1 · Gancho</span><span class="tone">íntimo, calma</span><span class="tm">0:00–0:22</span></div>
+    <div class="say">Todo empezó con mi mamá. Me mandaba links de full days que encontraba en Facebook, siempre con la misma pregunta: <span class="em">"¿será seguro? Revísalo tú."</span> Y yo terminaba de detective: RUC, MINCETUR, denuncias... y al final, el pago era un Yape a nombre de un desconocido. <i>(pausa)</i> En el Perú, reservar un tour es un acto de fe.</div>
+    <div class="trans"><span class="arrow">→</span><span class="txt">"Y la fe se está pagando caro."</span></div>
+  </div>
+
+  <div class="lam" id="l2">
+    <div class="hd"><span class="lbl">L2 · Problema viajero</span><span class="tone">firme</span><span class="tm">0:22–0:52</span></div>
+    <div class="say">La Policía tiene identificadas <b>28 empresas</b> de turismo operando bajo modalidades de estafa. Indecopi: <b>124 sanciones</b> a agencias de viaje — más de <b>5 millones de soles</b> en multas. Y el caso más reciente: <b>40 personas estafadas</b> por una agencia de TikTok que — escuchen esto — <i>no tenía ninguna denuncia registrada</i>. <i>(pausa)</i> El problema no es que falten denuncias: <b>la formalidad no se puede ver.</b></div>
+    <div class="flag"><b>Honestidad:</b> ten fuente citable para 28 / 124 / S/5M (Policía, Indecopi) por si preguntan. Pax (40) ya está respaldado.</div>
+    <div class="trans"><span class="arrow">→</span><span class="txt">(ironía) "¿Y saben cuál es la plataforma de reservas más usada del turismo peruano? Un chat de WhatsApp y un Yape."</span></div>
+  </div>
+
+  <div class="lam" id="l3">
+    <div class="hd"><span class="lbl">L3 · Rosa</span><span class="tone">su historia, no la del sector</span><span class="tm">0:52–1:30</span></div>
+    <div class="say">Les presento a <b>Rosa</b>, dueña de una agencia formal en Lima. Rosa paga <b>publicidad que se cobra venda o no venda</b> — con 18% de IGV encima desde diciembre. Sufre <b>no-shows sin protección</b>: reservas por WhatsApp sin adelanto — su bus sale igual, con asientos vacíos. Y cuando busca volumen, entrega <b>20 a 30% a plataformas globales que le pagan semanas después, en dólares.</b> <i>(pausa)</i> Rosa ya paga por vender. Lo que no tiene es un canal donde ser formal sea su <b>ventaja</b>. Por eso la informalidad gana.</div>
+    <div class="trans"><span class="arrow">→</span><span class="txt">"Eso es exactamente lo que construimos."</span></div>
+  </div>
+
+  <div class="lam" id="l4">
+    <div class="hd"><span class="lbl">L4 · Solución</span><span class="tone">señala los dos flujos</span><span class="tm">1:30–1:52</span></div>
+    <div class="say">Hoy: Facebook → Yape a un desconocido → y a rezar. Con Finde: agencia <b>verificada</b> contra SUNAT y MINCETUR → índice de confianza <b>visible</b> → y el pago <b>va a entrar protegido</b>: el viajero le paga a Finde, no a un desconocido, y se libera a la agencia al completar el tour. Convertimos un acto de fe en una transacción protegida.</div>
+    <div class="flag"><b>Honestidad (tiempo verbal):</b> "va a entrar protegido" / "con la pasarela del piloto" — la custodia opera con la pasarela, no está viva aún.</div>
+    <div class="trans"><span class="arrow">→</span><span class="txt">"Y esto no es un plan."</span></div>
+  </div>
+
+  <div class="lam" id="l4b">
+    <div class="hd"><span class="lbl">L4b · MVP en producción</span><span class="tone">orgullo · FLIP opcional 10s</span><span class="tm">1:52–2:10</span></div>
+    <div class="say"><b>Finde.pe ya está en producción.</b> <i>(FLIP: pestaña finde.pe — escribe "algo tranquilo en Madre de Dios" [consulta pre-calentada] — resultados — vuelve. Sin internet: señala screenshots)</i> Le escribes como hablas y la IA responde en peruano solo con tours reales — nunca inventa. Cada tour muestra a su agencia verificada, con su registro MINCETUR visible. <b>Y todo el catálogo está en quechua — únicos en LATAM.</b></div>
+    <div class="trans"><span class="arrow">→</span><span class="txt">"Sobre esta base construimos la capa de confianza completa: el Índice."</span></div>
+  </div>
+
+  <div class="lam" id="l5">
+    <div class="hd"><span class="lbl">L5 · ICF</span><span class="tone">declarativo · el corazón técnico</span><span class="tm">2:10–2:42</span></div>
+    <div class="say">El <b>Índice de Confianza Finde</b>: un algoritmo de puntuación explicable, de 0 a 100, para cada agencia. <i>(señala el desglose)</i> RUC activo en SUNAT. Registro MINCETUR vigente. Antigüedad. Cumplimiento. Y <b>reseñas verificadas</b> — solo quien reservó y completó el tour puede reseñar. <b>Eso que yo hacía a mano para mi mamá — RUC, MINCETUR, denuncias — Finde lo hace por cada viajero, automáticamente.</b> No es una caja negra: cualquiera ve <b>por qué</b> una agencia tiene 87 y no 100. La confianza deja de ser promesa y se vuelve un <b>dato</b> — y con cada reserva del piloto, el índice aprende.</div>
+    <div class="trans"><span class="arrow">→</span><span class="txt">"Pero un puntaje que se mide una sola vez... miente."</span></div>
+  </div>
+
+  <div class="lam" id="l6">
+    <div class="hd"><span class="lbl">L6 · Vivo + Escudo</span><span class="tone">el momento más fuerte</span><span class="tm">2:42–3:12</span></div>
+    <div class="say">Por eso el índice <b>está diseñado para re-verificar cada día</b>: agentes que revisan los registros oficiales. Si un MINCETUR vence, la agencia <b>cae automáticamente</b> — sin que nadie tenga que denunciarla. <i>(pausa breve)</i> Y cazamos a los fantasmas: nuestro Escudo bloquea a las agencias que no existen antes de que publiquen. ¿Recuerdan a la agencia que estafó a 40 personas <i>sin tener denuncias</i>? <b>En Finde habría sido bloqueada. El viajero nunca la habría visto.</b> <i>(pausa)</i> En Finde, la confianza no se puede fingir: <b>ni las agencias fantasma, ni los registros vencidos, ni las reseñas.</b> Somos los únicos que verifican contra SUNAT y MINCETUR — y lo diseñamos para hacerlo todos los días.</div>
+    <div class="flag"><b>Honestidad:</b> la verificación continua/diaria es el mecanismo <b>en desarrollo</b>. Di "diseñado para" / "vamos a", no "lo hacemos hoy". El ICF en pantalla es prototipo con agencia de ejemplo.</div>
+    <div class="trans"><span class="arrow">→</span><span class="txt">"Junten todo lo que esto significa."</span></div>
+  </div>
+
+  <div class="lam" id="l6b">
+    <div class="hd"><span class="lbl">L6b · Valor agregado</span><span class="tone">ágil · la lámina habla sola</span><span class="tm">3:12–3:24</span></div>
+    <div class="say">Para el viajero: confianza visible, pago protegido en soles, y ofertas de último minuto. Para la agencia: paga solo cuando vende, cobra garantizado, y llena los cupos que antes perdía. <b>Los dos lados ganan en cada reserva.</b></div>
+    <div class="trans"><span class="arrow">→</span><span class="txt">"¿Y cómo ganamos nosotros?"</span></div>
+  </div>
+
+  <div class="lam" id="l7">
+    <div class="hd"><span class="lbl">L7 · Modelo</span><span class="tone">claro</span><span class="tm">3:24–3:48</span></div>
+    <div class="say">De un tour de 120 soles, Finde gana 24 y la agencia recibe 96, protegidos. <b>No le quitamos 20% a Rosa: le cambiamos un gasto fijo que quema caja por un costo a éxito</b> — hoy ya paga hasta 30% a Viator, que liquida a los 50 días; con Finde paga solo cuando ya cobró, en soles, apenas termina el tour. Y es viable: nuestro equilibrio son apenas <b>34 reservas al mes</b>.</div>
+    <div class="trans"><span class="arrow">→</span><span class="txt">"¿Por qué importa esto para el país?"</span></div>
+  </div>
+
+  <div class="lam" id="l8">
+    <div class="hd"><span class="lbl">L8 · Impacto</span><span class="tone">convicción, mirada de país</span><span class="tm">3:48–4:08</span></div>
+    <div class="say"><b>Formaliza</b>: por primera vez, ser formal vende más — para Rosa y las miles de agencias como ella. <b>Protege</b>: al viajero y a la agencia, en cada transacción. <b>Descentraliza y sostiene</b>: demanda hacia las regiones — alivia los destinos saturados (ambiental), impulsa economías locales y guías certificados (social), e incluye lenguas como el quechua (cultural). <i>(pausa breve)</i> <b>Así es como Finde va a cambiar el turismo en el país.</b></div>
+    <div class="trans"><span class="arrow">→</span><span class="txt">"Y detrás de esto..."</span></div>
+  </div>
+
+  <div class="lam" id="l9">
+    <div class="hd"><span class="lbl">L9 · Equipo</span><span class="tone">humano, seguro</span><span class="tm">4:08–4:30</span></div>
+    <div class="say">...está el equipo completo que un marketplace necesita. Yo vengo de <b>LATAM Airlines</b> — 6 años en producto y negocio. <b>Franco es ingeniero de sistemas, primer puesto de su promoción, con maestría en dirección de TI</b> — 8 años liderando productos digitales, dirige su propia consultora. Él construyó esta plataforma: la IA, el quechua, todo. 15 años de amistad. <i>(sonríe)</i> Todo lo que vieron lo construimos nosotros dos.</div>
+    <div class="trans"><span class="arrow">→</span><span class="txt">"¿Y dónde estamos hoy?"</span></div>
+  </div>
+
+  <div class="lam" id="l10">
+    <div class="hd"><span class="lbl">L10 · Tracción + pedido</span><span class="tone">datos + QR</span><span class="tm">4:30–4:48</span></div>
+    <div class="say">MVP en producción — lo vieron funcionar. <b>80% de intención de uso</b> en 25 entrevistas. <b>3 agencias reales</b> interesadas en el piloto. Y no me crean a mí: <b>escaneen el código y pruébenlo ahora, desde su teléfono.</b> <i>(pausa de 2 segundos)</i> Buscamos el acompañamiento para dar el salto: de MVP a nuestro primer piloto transaccional en Lima.</div>
+    <div class="trans"><span class="arrow">→</span><span class="txt">(baja la voz, hazlo íntimo)</span></div>
+  </div>
+
+  <div class="lam" id="l11">
+    <div class="hd"><span class="lbl">L11 · Cierre</span><span class="tone">íntimo</span><span class="tm">4:48–4:58</span></div>
+    <div class="say">Nuestro sueño es simple: que cuando cualquier peruano vea un tour, la pregunta ya no sea <span class="em">"¿será seguro?"</span>... <i>(PAUSA de 2 segundos — mira al jurado)</i> ...sino <span class="em">"¿está en Finde?"</span>. Y si está en Finde — <b>resérvalo</b>. Gracias.</div>
+  </div>
+
+  <section class="notes">
+    <div class="kick">Entrega</div>
+    <h2>Notas de entrega</h2>
+    <div class="box">
+      <h3>6 pausas de oro</h3>
+      <ul>
+        <li>Tras "acto de fe" (L1).</li>
+        <li>Tras "ninguna denuncia registrada" (L2).</li>
+        <li>La ironía WhatsApp+Yape — deja que caiga.</li>
+        <li>Antes de "En Finde habría sido bloqueada" (L6).</li>
+        <li>El QR (L10).</li>
+        <li>Antes de "¿está en Finde?" (L11 — cuenta 1-2 en silencio).</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>4 frases declarativas <span style="font-weight:400; color:var(--mut); font-size:13px;">(más lento, tono de hecho)</span></h3>
+      <ul>
+        <li>"La formalidad no se puede ver."</li>
+        <li>"En Finde habría sido bloqueada."</li>
+        <li>"Somos los únicos que verifican contra SUNAT y MINCETUR."</li>
+        <li>"Así es como Finde va a cambiar el turismo en el país."</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>Si te atrasas <span style="font-weight:400; color:var(--mut); font-size:13px;">(recorta en orden)</span></h3>
+      <p>L6b a 8s → L3 quita la frase del IGV → L7 quita la comparación con Viator. <b>Nunca</b> recortes L1, L2, L6 ni L11.</p>
+    </div>
+    <div class="box">
+      <h3>Rosa es arquetipo</h3>
+      <p>Si preguntan "¿existe?": <i>"Rosa representa a las 5 agencias que entrevistamos — sus tres dolores salieron de esas entrevistas."</i> Con números reales de tus agencias, reemplaza los rangos y Rosa se vuelve testimonio.</p>
+    </div>
+    <div class="box">
+      <h3>Honestidad calibrada</h3>
+      <p>ICF en pantalla = prototipo con agencia de ejemplo (el mecanismo sobre fuentes oficiales es real) · custodia opera con la pasarela del piloto · verificación diaria = mecanismo en desarrollo, di "diseñado para" · el índice "se activa con las reservas del piloto". Cifras de L2: ten fuente.</p>
+    </div>
+  </section>
+
+  <section class="notes">
+    <div class="kick">Q&amp;A</div>
+    <h2>Munición · unit economics de diseño</h2>
+    <p style="font-size:14px; color:var(--mut); margin:4px 0 8px;">No va en el pitch. Si preguntan por CAC / LTV / unit economics:</p>
+    <div class="quote">"En pre-incubación no tenemos unit economics medidos — tenemos los <b>de diseño</b>, que el piloto va a validar: ticket S/120 · margen S/19 por reserva tras costos variables · CAC objetivo S/12–15 con tres canales (agencias traen a sus clientes = CAC cero, microinfluencers pagados con cupos, y pauta acotada) · un viajero que reserva 2 veces al año genera S/38–48 → <b>LTV/CAC objetivo ~3x</b>. La meta del piloto es convertir estos supuestos en datos."</div>
+    <div class="box">
+      <h3>Complementos</h3>
+      <ul>
+        <li>Equilibrio 34 reservas/mes (fundadores sin sueldo por diseño; con sueldos ~430/mes, dentro de la meta de 400).</li>
+        <li>"No crea en las 5,000 — crea en las 34."</li>
+        <li>Custodia no depende del gateway: el gateway cobra, la retención la maneja Finde con el payout.</li>
+      </ul>
+    </div>
+  </section>
+
+  <div class="foot">Finde · Guion Demo Day v2 · fuente: <code>docs/guion-final-v2.md</code>. Para presentar: <code>docs/pitch-deck.html</code>.</div>
+
+</div>
+</body>
+</html>

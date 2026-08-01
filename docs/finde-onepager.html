@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finde — Onepager Demo Day</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --f:#1B3A2D; --m:#2D5A3D; --tr:#C7613A; --gd:#D4A843; --yp:#6B2FA0;
+    --ink:#1c2420; --mut:#5c6b62; --line:#e3e8e4; --bg:#ffffff; --soft:#f6f8f6;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{background:#eceeec;}
+  body{
+    font-family:"Plus Jakarta Sans",system-ui,sans-serif;
+    color:var(--ink); line-height:1.4; font-size:10.5px;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
+  }
+  .page{
+    width:210mm; min-height:297mm; margin:12px auto; background:var(--bg);
+    padding:0; box-shadow:0 6px 30px rgba(0,0,0,.12); overflow:hidden;
+    display:flex; flex-direction:column;
+  }
+  h1,h2,h3,.serif{font-family:"DM Serif Display",Georgia,serif; font-weight:400;}
+
+  /* HEADER */
+  .hero{background:var(--f); color:#fff; padding:20px 26px 18px;}
+  .hero-top{display:flex; justify-content:space-between; align-items:flex-start; gap:16px;}
+  .logo{font-family:"DM Serif Display",Georgia,serif; font-size:30px; letter-spacing:.5px;}
+  .logo span{color:var(--gd);}
+  .contact{text-align:right; font-size:9px; color:#cfe0d6; line-height:1.6;}
+  .contact b{color:#fff;}
+  .tagline{font-family:"DM Serif Display",Georgia,serif; font-style:italic; font-size:16px; color:var(--gd); margin-top:10px;}
+  .sub{font-size:11px; color:#e6efe9; margin-top:4px; max-width:80%;}
+
+  /* BODY GRID */
+  .body{padding:18px 26px 18px; flex:1; display:flex; flex-direction:column; justify-content:flex-start; gap:13px;}
+  .body > *{margin-bottom:0;}
+
+  /* CÓMO FUNCIONA */
+  .steps{display:grid; grid-template-columns:repeat(3,1fr); gap:10px;}
+  .steps > div{background:var(--soft); border-radius:8px; padding:11px 13px;}
+  .steps b{font-size:11px; color:var(--f);}
+  .steps .stepn{font-family:"DM Serif Display",Georgia,serif; font-size:16px; color:var(--tr); margin-right:6px;}
+  .steps p{font-size:9px; color:var(--mut); margin-top:3px;}
+  .row{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:14px;}
+  .block h3{font-size:13px; color:var(--f); margin-bottom:4px; display:flex; align-items:center; gap:6px;}
+  .kick{font-size:8px; font-weight:800; letter-spacing:1.2px; text-transform:uppercase; color:var(--tr); margin-bottom:3px;}
+  .block p{color:var(--mut); font-size:10px;}
+
+  /* TWO HEAVY CRITERIA */
+  .heavy{display:grid; grid-template-columns:1fr 1fr; gap:0; border:1px solid var(--line); border-radius:10px; overflow:hidden; margin-bottom:14px;}
+  .heavy > div{padding:17px 16px;}
+  .heavy .inno{background:var(--soft); border-right:1px solid var(--line);}
+  .heavy h3{font-size:13px; margin-bottom:7px;}
+  .pill{list-style:none;}
+  .pill li{font-size:9.5px; color:var(--ink); padding:3px 0 3px 15px; position:relative;}
+  .pill li::before{content:""; position:absolute; left:0; top:8px; width:6px; height:6px; border-radius:50%; background:var(--tr);}
+  .heavy .impacto .pill li::before{background:var(--gd);}
+  .pill li b{color:var(--f);}
+  .note{font-size:8.5px; color:var(--mut); font-style:italic; margin-top:7px;}
+
+  /* STATS STRIP */
+  .stats{display:grid; grid-template-columns:repeat(4,1fr); gap:0; background:var(--f); border-radius:10px; overflow:hidden; margin-bottom:14px;}
+  .stats > div{padding:16px 10px; text-align:center; color:#fff; border-right:1px solid rgba(255,255,255,.12);}
+  .stats > div:last-child{border-right:none;}
+  .stats .n{font-family:"DM Serif Display",Georgia,serif; font-size:22px; color:var(--gd); line-height:1;}
+  .stats .l{font-size:8px; color:#d3e2d9; margin-top:5px; line-height:1.3;}
+
+  /* MODEL + MARKET compact */
+  .strip{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:14px;}
+  .strip .block p b{color:var(--f);}
+
+  /* TEAM */
+  .team{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:6px;}
+  .person{display:flex; gap:10px; align-items:flex-start;}
+  .av{width:34px; height:34px; border-radius:50%; background:var(--m); color:#fff; font-family:"DM Serif Display",serif; font-size:14px; display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .person .nm{font-weight:700; font-size:11px; color:var(--f);}
+  .person .rl{font-size:9px; color:var(--mut);}
+  .friend{text-align:center; font-size:9px; color:var(--mut); font-style:italic; margin-top:2px;}
+
+  /* ASK FOOTER */
+  .ask{background:var(--tr); color:#fff; padding:14px 26px; margin-top:14px;}
+  .ask .kick{color:#ffe0d2;}
+  .ask h3{font-size:13px; color:#fff; margin-bottom:3px;}
+  .ask p{font-size:10.5px; color:#fff;}
+  .ask .close{font-family:"DM Serif Display",Georgia,serif; font-style:italic; font-size:14px; color:#fff; margin-top:8px; text-align:right;}
+  .ask .close b{color:#ffe9b0;}
+
+  /* ROADMAP */
+  .roadmap{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; border:1px dashed var(--gd); border-radius:10px; padding:13px 15px; margin-bottom:14px; background:#fdfaf1;}
+  .roadmap > div b{display:block; font-size:10.5px; color:var(--f); margin-bottom:3px;}
+  .roadmap > div span{font-size:9px; color:var(--mut); line-height:1.35;}
+  .roadmap .tag{display:inline-block; font-size:7.5px; font-weight:800; letter-spacing:.8px; color:#a07a17; background:#f4e6bf; border-radius:4px; padding:1px 5px; margin-bottom:5px;}
+
+  /* MOAT */
+  .moat{text-align:center; font-size:9.5px; color:var(--mut); padding:9px 14px; background:var(--soft); border-radius:8px; margin-bottom:2px;}
+  .moat b{color:var(--f);}
+
+  @media print{
+    html,body{background:#fff;}
+    .page{margin:0; box-shadow:none; width:auto; min-height:297mm;}
+    @page{size:A4; margin:0;}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-top">
+      <div class="logo">Finde<span>.</span></div>
+      <div class="contact">
+        <b>finde.pe</b><br>
+        Jose Cancino · Franco Romaní<br>
+        hola@finde.pe
+      </div>
+    </div>
+    <div class="tagline">Reservar un tour en el Perú deja de ser un acto de fe.</div>
+    <div class="sub">El marketplace AI-native de tours y experiencias con agencias locales verificadas. MVP en producción.</div>
+  </div>
+
+  <div class="body">
+
+    <!-- PROBLEMA / SOLUCIÓN -->
+    <div class="row">
+      <div class="block">
+        <div class="kick">El problema</div>
+        <p><b style="color:var(--f)">6 de 10</b> agencias de turismo operan en la informalidad. Más del 90% de las reservas ocurren offline, por WhatsApp, sin comprobante ni protección. El viajero le paga a un desconocido.</p>
+      </div>
+      <div class="block">
+        <div class="kick">La solución</div>
+        <p>Finde conecta viajeros con agencias verificadas contra <b style="color:var(--f)">SUNAT y MINCETUR</b>: búsqueda con IA, reserva en soles y pago con custodia. La confianza como dato, no como promesa.</p>
+      </div>
+    </div>
+
+    <!-- CÓMO FUNCIONA -->
+    <div class="sec">
+    <div class="kick" style="margin-bottom:6px;">Cómo funciona</div>
+    <div class="steps">
+      <div><b><span class="stepn">1</span>Busca con IA</b><p>En lenguaje natural, sin filtros.</p></div>
+      <div><b><span class="stepn">2</span>Agencia verificada</b><p>Validada contra SUNAT y MINCETUR.</p></div>
+      <div><b><span class="stepn">3</span>Paga en soles</b><p>Yape, Plin o tarjeta.</p></div>
+    </div>
+    </div>
+
+    <!-- DOS CRITERIOS PESADOS -->
+    <div class="heavy">
+      <div class="inno">
+        <div class="kick">Innovación</div>
+        <h3>La primera plataforma de tours AI-native del Perú</h3>
+        <ul class="pill">
+          <li><b>Búsqueda semántica</b> sobre inventario real: la IA razona en lenguaje natural, solo sobre tours que existen. No alucina.</li>
+          <li><b>Verificación formal</b> contra SUNAT y MINCETUR: cada agencia validada. La confianza como dato, no como promesa.</li>
+          <li><b>Agente de IA en WhatsApp:</b> soporte 24/7 y coordinación, con quechua conversacional <i>(próxima fase)</i>.</li>
+          <li><b>Quechua persistido</b> en todo el catálogo (variante Cusco-Collao). Único en LATAM.</li>
+        </ul>
+        <div class="note">IA generativa + pgvector + serverless. Construido de punta a punta por el equipo.</div>
+      </div>
+      <div class="impacto">
+        <div class="kick">Impacto en el turismo</div>
+        <h3>Formaliza · Descentraliza · Sostiene</h3>
+        <ul class="pill">
+          <li><b>Formaliza:</b> por primera vez, ser formal vende más.</li>
+          <li><b>Descentraliza:</b> demanda hacia destinos regionales más allá de Lima y Cusco. Anti-overtourism.</li>
+          <li><b>Sostiene:</b> economías locales, guías certificados, inclusión cultural.</li>
+        </ul>
+        <div class="note">Respuesta directa al desafío del concurso · alineado con la Nueva Ley General de Turismo (Ley 32392).</div>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats">
+      <div><div class="n">80%</div><div class="l">intención de uso<br>(25 entrevistas)</div></div>
+      <div><div class="n">En vivo</div><div class="l">MVP en producción<br>en finde.pe</div></div>
+      <div><div class="n">3</div><div class="l">agencias interesadas<br>en sumarse</div></div>
+      <div><div class="n">700 mil</div><div class="l">SAM: millennials de Lima<br>que reservan en línea</div></div>
+    </div>
+
+    <!-- MODELO / MERCADO -->
+    <div class="strip">
+      <div class="block">
+        <div class="kick">Modelo de negocio</div>
+        <p><b>Comisión 20%, todo incluido y a éxito.</b> La agencia solo paga si vende. Pasarela y soporte incluidos. Rentable desde el Año 1 (equilibrio del piloto: 34 reservas/mes).</p>
+      </div>
+      <div class="block">
+        <div class="kick">Estado</div>
+        <p><b>Pre-comercial:</b> MVP funcional en producción con 3 agencias reales interesadas en sumarse. El piloto valida la primera venta. Meta Año 1: 5,000 reservas en Lima (&lt;1% del SAM).</p>
+      </div>
+    </div>
+
+    <!-- EQUIPO -->
+    <div class="sec">
+    <div class="kick" style="margin-bottom:6px;">El equipo</div>
+    <div class="team">
+      <div class="person">
+        <div class="av">JC</div>
+        <div><div class="nm">Jose Cancino — CEO</div><div class="rl">Ex-LATAM Airlines. Producto, negocio y validación con agencias y viajeros.</div></div>
+      </div>
+      <div class="person">
+        <div class="av">FR</div>
+        <div><div class="nm">Franco Romaní — CTO</div><div class="rl">8 años en ingeniería de sistemas. IA, arquitectura y plataforma. Construyó Finde.</div></div>
+      </div>
+    </div>
+    <div class="friend">15 años de amistad y proyectos juntos · el MVP completo, hecho por los dos.</div>
+    </div>
+
+    <!-- MOAT -->
+    <div class="moat" style="margin-top:12px;"><b>El foso:</b> pagos locales (Yape/Plin) en soles · verificación formal peruana (SUNAT/MINCETUR) · contenido regional. Ninguna otra agencia de turismo global lo replica rápido en el Perú.</div>
+
+  </div>
+
+  <!-- ASK -->
+  <div class="ask">
+    <div class="kick">El pedido</div>
+    <h3>De MVP a nuestro primer piloto transaccional en Lima</h3>
+    <p>Buscamos acompañamiento para dar el salto: pasarela con custodia, comprobantes SUNAT y las primeras 20 reservas reales con agencias verificadas.</p>
+    <div class="close">«¿Está en Finde? <b>Resérvalo.»</b></div>
+  </div>
+
+</div>
+</body>
+</html>
