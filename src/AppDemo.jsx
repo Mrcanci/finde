@@ -3002,23 +3002,23 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
       {step === 2 && <div className="fu">
         <div className="bkf-t">Datos del viajero</div><div className="bkf-sub">{tour.title}</div>
         <div className="fg">
-          <label className="lbl">Nombre completo</label>
-          <input className={`inp${touched.name && !nameValid ? " inp-err" : ""}`} placeholder="Tu nombre completo" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setTouched(t => ({ ...t, name: true }))} />
+          <label className="lbl" htmlFor="bkf-name">Nombre completo</label>
+          <input id="bkf-name" className={`inp${touched.name && !nameValid ? " inp-err" : ""}`} placeholder="Tu nombre completo" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setTouched(t => ({ ...t, name: true }))} />
           {touched.name && !nameValid && <div className="field-err">Escribe tu nombre completo</div>}
         </div>
         <div className="fg">
-          <label className="lbl">Teléfono</label>
-          <input className={`inp${touched.phone && !phoneValid ? " inp-err" : ""}`} placeholder="987 654 321" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^0-9\s]/g, ""))} onBlur={() => setTouched(t => ({ ...t, phone: true }))} type="tel" maxLength={11} />
+          <label className="lbl" htmlFor="bkf-phone">Teléfono</label>
+          <input id="bkf-phone" className={`inp${touched.phone && !phoneValid ? " inp-err" : ""}`} placeholder="987 654 321" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^0-9\s]/g, ""))} onBlur={() => setTouched(t => ({ ...t, phone: true }))} type="tel" maxLength={11} />
           {touched.phone && !phoneValid && <div className="field-err">Necesitamos un celular de 9 dígitos</div>}
         </div>
         <div className="fg">
-          <label className="lbl">Email</label>
-          <input className={`inp${touched.email && !emailValid ? " inp-err" : ""}`} placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => setTouched(t => ({ ...t, email: true }))} type="email" />
+          <label className="lbl" htmlFor="bkf-email">Email</label>
+          <input id="bkf-email" className={`inp${touched.email && !emailValid ? " inp-err" : ""}`} placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => setTouched(t => ({ ...t, email: true }))} type="email" />
           {touched.email && !emailValid && <div className="field-err">Revisa tu email: ahí te enviamos el voucher</div>}
         </div>
         <div className="fg">
-          <label className="lbl">DNI, Pasaporte o CE</label>
-          <input className={`inp${touched.doc && !docIdValid ? " inp-err" : ""}`} placeholder="DNI, pasaporte o carnet de extranjería" value={docId} onChange={(e) => setDocId(e.target.value)} onBlur={() => setTouched(t => ({ ...t, doc: true }))} maxLength={20} inputMode="numeric" />
+          <label className="lbl" htmlFor="bkf-doc">DNI, Pasaporte o CE</label>
+          <input id="bkf-doc" className={`inp${touched.doc && !docIdValid ? " inp-err" : ""}`} placeholder="DNI, pasaporte o carnet de extranjería" value={docId} onChange={(e) => setDocId(e.target.value)} onBlur={() => setTouched(t => ({ ...t, doc: true }))} maxLength={20} inputMode="numeric" />
           {touched.doc && !docIdValid && <div className="field-err">Revisa tu número de documento</div>}
         </div>
         {/* Resumen + política movidos aquí desde el ex-step de pago: el viajero
