@@ -2300,7 +2300,7 @@ function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
           </div>
         ) : (
           <>
-            <div style={{ paddingBottom: 12, fontSize: 13, color: "var(--gy)" }}>{filt.length} tours disponibles</div>
+            {!(aiResult || geminiIds) && <div style={{ paddingBottom: 12, fontSize: 13, color: "var(--gy)" }}>{filt.length} tours disponibles</div>}
             <div className="tg">{filt.map((t) => <GCard key={t.id} t={t} onClick={() => { pick(t); go("detail"); }} />)}</div>
           </>
         ))}
