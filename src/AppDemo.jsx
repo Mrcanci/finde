@@ -1597,7 +1597,7 @@ function TopNav({ onHome, onDash, notifs, unread, onNotifSelect, onMarkAll, view
       <div className="tn-inner">
         <div className="logo" onClick={onHome}>finde<span>.</span></div>
         <div className="tn-links">
-          {[{id:"explore",l:"Explorar"},{id:"search",l:"Buscar"},{id:"trips",l:"Mis Viajes"}].map(i => (
+          {[{id:"explore",l:"Explorar"},{id:"search",l:"Buscar"},{id:"trips",l:"Mis reservas"}].map(i => (
             <button key={i.id} className={`tn-link ${navActive===i.id?"on":""}`} onClick={() => onNavClick(i.id)}>{i.l}</button>
           ))}
         </div>
@@ -1614,7 +1614,7 @@ function TopNav({ onHome, onDash, notifs, unread, onNotifSelect, onMarkAll, view
 function BNav({ active, go }) {
   return (
     <nav className="bn" aria-label="Navegación principal">
-      {[{ id: "explore", ic: Compass, l: "Explorar" }, { id: "search", ic: Search, l: "Buscar" }, { id: "trips", ic: Ticket, l: "Mis Viajes" }, { id: "profile", ic: User, l: "Perfil" }].map((i) => (
+      {[{ id: "explore", ic: Compass, l: "Explorar" }, { id: "search", ic: Search, l: "Buscar" }, { id: "trips", ic: Ticket, l: "Mis reservas" }, { id: "profile", ic: User, l: "Perfil" }].map((i) => (
         <button key={i.id} className={`bn-i ${active === i.id ? "on" : ""}`} onClick={() => go(i.id)} aria-label={i.l} aria-current={active === i.id ? "page" : undefined} type="button">
           <span className="ni" aria-hidden="true"><i.ic size={20} strokeWidth={1.5} /></span>{i.l}<span className="nd" aria-hidden="true" />
         </button>
@@ -1630,7 +1630,7 @@ function Footer({ go }) {
         <div className="site-footer-cols">
           <div className="site-footer-brand">
             <div className="logo" onClick={() => go("home")}>finde<span>.</span></div>
-            <div className="site-footer-tagline">Descubre experiencias auténticas en todo el Perú.</div>
+            <div className="site-footer-tagline">Tours con agencias verificadas en todo el Perú.</div>
           </div>
           <div className="site-footer-col">
             <div className="site-footer-col-t">Explorar</div>
@@ -1642,7 +1642,7 @@ function Footer({ go }) {
           <div className="site-footer-col">
             <div className="site-footer-col-t">Empresa</div>
             <button>Sobre Finde</button>
-            <button>Operadores</button>
+            <button>Para agencias</button>
             <button>Blog</button>
             <button>Contacto</button>
           </div>
@@ -2011,7 +2011,7 @@ function HomeView({ go, pick, cat, setCat, tours, toursLoading, selectedCity, se
     <div>
       <div className="hero fu"><div className="hero-tex" /><div className="hero-c">
         <div><div className="hero-tag"><Sparkles size={12} strokeWidth={1.5} style={{display:"inline",verticalAlign:"middle",marginRight:4}} />PRÓXIMO FERIADO LARGO · 28-29 JUL</div></div>
-        <div><div className="hero-t">Descubre el Perú que no conoces</div><div className="hero-sub">Agencias verificadas en todo el Perú</div></div>
+        <div><div className="hero-t">Descubre el Perú que no conoces</div><div className="hero-sub">Agencias formales y verificadas en todo el Perú</div></div>
       </div></div>
       <div className="home-pg pg">
         <div className="ai-sb fd1">
@@ -2058,7 +2058,7 @@ function HomeView({ go, pick, cat, setCat, tours, toursLoading, selectedCity, se
             </button>
           </div>
         )}
-        <div className="sh" style={{ marginTop: 8 }}><div className="st">Explora experiencias</div></div>
+        <div className="sh" style={{ marginTop: 8 }}><div className="st">Explora tours</div></div>
         <div className="tg">{toursLoading ? Array.from({ length: 8 }).map((_, i) => <GCardSkeleton key={i} />) : filt.map((t) => <GCard key={t.id} t={t} onClick={() => { pick(t); go("detail"); }} />)}</div>
       </div>
     </div>
@@ -2290,17 +2290,17 @@ function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
         )}
         {toursLoading ? (
           <>
-            <div style={{ paddingBottom: 12, fontSize: 13, color: "var(--gy)" }}>Cargando experiencias…</div>
+            <div style={{ paddingBottom: 12, fontSize: 13, color: "var(--gy)" }}>Cargando tours…</div>
             <div className="tg">{Array.from({ length: 8 }).map((_, i) => <GCardSkeleton key={i} />)}</div>
           </>
         ) : !geminiLoading && !(hasSearched && filt.length === 0 && apiReasoning) && (hasSearched && filt.length === 0 ? (
           <div style={{ padding: "32px 16px 24px", textAlign: "center", color: "var(--gy)", minHeight: 180 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ch)", marginBottom: 6 }}>No se encontraron resultados</div>
-            <div style={{ fontSize: 12, lineHeight: 1.5 }}>Prueba con otras palabras o explora por categoría.</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ch)", marginBottom: 6 }}>Todavía no tenemos tours para esa búsqueda</div>
+            <div style={{ fontSize: 12, lineHeight: 1.5 }}>Prueba con otras palabras o mira las categorías.</div>
           </div>
         ) : (
           <>
-            <div style={{ paddingBottom: 12, fontSize: 13, color: "var(--gy)" }}>{filt.length} experiencias verificadas</div>
+            <div style={{ paddingBottom: 12, fontSize: 13, color: "var(--gy)" }}>{filt.length} tours disponibles</div>
             <div className="tg">{filt.map((t) => <GCard key={t.id} t={t} onClick={() => { pick(t); go("detail"); }} />)}</div>
           </>
         ))}
