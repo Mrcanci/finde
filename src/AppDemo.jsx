@@ -2020,7 +2020,7 @@ function HomeView({ go, pick, cat, setCat, tours, toursLoading, selectedCity, se
           <span className="ai-sb-tag"><Sparkles size={12} strokeWidth={1.5} /> IA</span>
         </div>
         <div className="cats fd2">{CATS.map((c) => <button key={c.id} className={`chip ${cat === c.id ? "on" : ""}`} onClick={() => setCat(c.id)}><c.ic size={16} strokeWidth={1.5} /> {c.n}</button>)}</div>
-        <div className="sh fd2"><div className="st">Populares este mes</div><button className="sl" onClick={() => go("catalog")}>Ver todos <ArrowRight size={12} strokeWidth={1.5} style={{verticalAlign:"middle"}} /></button></div>
+        <div className="sh fd2"><div className="st">Recién publicados</div><button className="sl" onClick={() => go("catalog")}>Ver todos <ArrowRight size={12} strokeWidth={1.5} style={{verticalAlign:"middle"}} /></button></div>
         <div className="tscr fd3">{toursLoading ? Array.from({ length: 4 }).map((_, i) => <TCardSkeleton key={i} />) : feat.map((t) => <TCard key={t.id} t={t} onClick={() => { pick(t); go("detail"); }} />)}</div>
         <div className="sh city-sh" style={{ marginTop: 8 }}>
           <div className="st">
