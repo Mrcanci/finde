@@ -1698,7 +1698,7 @@ function TCard({ t, onClick }) {
   return (
     <div className="tc" onClick={onClick}>
       <div className="tc-img" style={imgBg(t.image)}>
-        {t.verified && <span className="tc-ver"><Check size={12} strokeWidth={2} /> Verificado</span>}
+        {t.verified && <span className="tc-ver"><Check size={12} strokeWidth={2} /> Finde Verificado</span>}
       </div>
       <div className="tc-b">
         <div className="tc-loc">{t.location}</div>
@@ -1722,7 +1722,7 @@ function GCard({ t, onClick }) {
   return (
     <div className="gc" onClick={onClick}>
       <div className="gc-img" style={imgBg(t.image)}>
-        {t.verified && <span className="gc-ver"><Check size={10} strokeWidth={2} /> Verificado</span>}
+        {t.verified && <span className="gc-ver"><Check size={10} strokeWidth={2} /> Finde Verificado</span>}
       </div>
       <div className="gc-b">
         <div className="gc-loc">{t.location}</div>
@@ -2457,11 +2457,11 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
           <div className="det-op-av">{tour.operator[0]}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="det-op-n">{tour.operator}</div>
-            <div className="det-op-d">
-              {tour.verified
-                ? <><ShieldCheck size={14} strokeWidth={1.5} /> Finde Verificado</>
-                : "Operador Finde Basic"}
-            </div>
+            {tour.verified && (
+              <div className="det-op-d">
+                <ShieldCheck size={14} strokeWidth={1.5} /> Finde Verificado
+              </div>
+            )}
             {/* N° MINCETUR real, solo si verificado (el backend ya lo anula para
                 no verificados). Credencial pública consultable. El RUC sigue fuera
                 de los selects públicos (dato privado). */}
@@ -3722,7 +3722,7 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
             <div style={{ padding: 14, borderRadius: 12, background: "rgba(45,90,61,.06)", borderLeft: "3px solid var(--m)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                 <ShieldCheck size={18} strokeWidth={1.5} style={{ color: "var(--m)", flexShrink: 0 }} />
-                <span className="biz-badge ok"><Check size={12} strokeWidth={2} /> Verificado</span>
+                <span className="biz-badge ok"><Check size={12} strokeWidth={2} /> Finde Verificado</span>
               </div>
               <div style={{ fontSize: 13, color: "var(--ch)", lineHeight: 1.5 }}>Tu negocio está verificado. Tus tours muestran el sello “Finde Verificado”.</div>
               {operator?.mincetur && (
