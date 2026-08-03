@@ -285,7 +285,7 @@ function mapTourFromApi(t) {
     images: Array.isArray(t.images) ? t.images : [],
     badge: "",
     category: CAT_API_TO_UI[t.category] || t.category,
-    operator: t.operator?.name || "Operador Finde",
+    operator: t.operator?.name || "Agencia",
     verified: !!t.operator?.verified,
     // Teléfono del operador para el link wa.me de coordinación (M4). null si no
     // tiene → el botón de WhatsApp no se muestra. NO se renderiza como texto.
@@ -1636,7 +1636,7 @@ function Footer({ go }) {
             <div className="site-footer-col-t">Explorar</div>
             <button onClick={() => go("home")}>Inicio</button>
             <button onClick={() => go("catalog")}>Buscar tours</button>
-            <button onClick={() => go("trips")}>Mis viajes</button>
+            <button onClick={() => go("trips")}>Mis reservas</button>
             <button onClick={() => go("notifications")}>Notificaciones</button>
           </div>
           <div className="site-footer-col">
@@ -2671,7 +2671,7 @@ function VoucherDetail({ trip }) {
       <div className="voucher-sec">
         <div className="voucher-sec-l">Tu agencia</div>
         <div className="voucher-agency-n">
-          {tour.operator || "Operador Finde"}
+          {tour.operator || "Agencia"}
           {tour.verified && (
             <span className="voucher-verified"><ShieldCheck size={11} strokeWidth={1.5} /> Finde Verificado</span>
           )}
@@ -2910,7 +2910,7 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
           onClick={() => go("trips")}
           style={{ position: "relative", width: "100%", marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "none", border: "none", color: "var(--f)", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}
         >
-          <Ticket size={16} strokeWidth={1.5} /> Ver en Mis Viajes
+          <Ticket size={16} strokeWidth={1.5} /> Ver en Mis reservas
         </button>
         {/* CTA secundario al FINAL: link discreto para dudas con la agencia (el
             pago ya pasa por Finde, no se coordina por acá). El número real va en el
@@ -3127,7 +3127,7 @@ function TripsView({ go, onSelectTrip, trips }) {
   const list = f === "all" ? trips : trips.filter((t) => t.status === f);
   return (
     <div className="tp-page fu">
-      <div className="tp-h"><h2>Mis Viajes</h2><p>{trips.length} experiencias</p></div>
+      <div className="tp-h"><h2>Mis reservas</h2><p>{trips.length} reservas</p></div>
       <div className="tp-tabs">{[{ id: "all", l: "Todos" }, { id: "upcoming", l: "Próximos" }, { id: "completed", l: "Completados" }].map((x) => <button key={x.id} className={`tp-tab ${f === x.id ? "on" : ""}`} onClick={() => setF(x.id)}>{x.l}</button>)}</div>
       {list.map((trip) => (
         <div key={trip.id}>
@@ -3161,8 +3161,8 @@ function TripDetailView({ trip, go, onReview }) {
   const isUpcoming = trip.status === "upcoming";
   return (
     <div className="tdet-page fu">
-      <button className="bk-btn tdet-back" onClick={() => go("trips")} aria-label="Volver a Mis Viajes" type="button"><ArrowLeft size={20} strokeWidth={1.5} /></button>
-      <h2 className="tdet-h">Tu viaje</h2>
+      <button className="bk-btn tdet-back" onClick={() => go("trips")} aria-label="Volver a Mis reservas" type="button"><ArrowLeft size={20} strokeWidth={1.5} /></button>
+      <h2 className="tdet-h">Tu reserva</h2>
       <VoucherDetail trip={trip} />
       {/* CTA secundario al FINAL, consistente con el voucher post-reserva: link
           discreto para dudas con la agencia (el pago pasa por Finde). Mismo link
@@ -3279,7 +3279,7 @@ function ProfileView({ go, onLogout }) {
       await refreshOperator();
       setShowOpForm(false);
     } catch (e) {
-      setOpError(e.message || "Error registrando operador");
+      setOpError(e.message || "Error registrando la agencia");
     } finally {
       setOpLoading(false);
     }
@@ -3445,7 +3445,7 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
         }),
       });
       if (!r.ok) {
-        if (r.status === 404) throw new Error("No encontramos tu perfil de operador.");
+        if (r.status === 404) throw new Error("No encontramos tu perfil de agencia.");
         if (r.status === 429) throw new Error("Demasiados intentos. Espera un momento.");
         if (r.status === 400) throw new Error("Revisa los datos: RUC de 11 dígitos y teléfono de 8 a 15.");
         throw new Error("No pudimos guardar los cambios. Intenta de nuevo.");
@@ -3490,7 +3490,7 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
         body: JSON.stringify({ mincetur: mincForm.trim() }),
       });
       if (!r.ok) {
-        if (r.status === 404) throw new Error("No encontramos tu perfil de operador.");
+        if (r.status === 404) throw new Error("No encontramos tu perfil de agencia.");
         if (r.status === 429) throw new Error("Demasiados intentos. Espera un momento.");
         if (r.status === 400) throw new Error("N° MINCETUR inválido (3 a 30 caracteres alfanuméricos o guiones).");
         throw new Error("No pudimos enviar tu N° MINCETUR. Intenta de nuevo.");
@@ -5095,7 +5095,7 @@ export default function AppDemo() {
     }
 
     if (res.status === 403) {
-      return { ok: false, error: "Necesitas un perfil de operador para publicar tours." };
+      return { ok: false, error: "Necesitas un perfil de agencia para publicar tours." };
     }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
