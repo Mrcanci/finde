@@ -1007,7 +1007,7 @@ html{scrollbar-gutter:stable}
    título overlaid queda fuera del viewport. Mostramos un H1 en la columna de
    contenido para que sea legible y natural. */
 .det-tl-desktop{display:none}
-.det-c{padding:20px}
+.det-c{padding:20px;text-align:left}
 .ai-sum{padding:14px 16px;background:linear-gradient(135deg,rgba(14,165,233,.06),rgba(14,165,233,.02));border:1.5px solid rgba(14,165,233,.15);border-radius:14px;margin-bottom:20px}
 .ai-sum-h{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:var(--ai);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
 .ai-sum-t{font-size:13px;color:var(--ch);line-height:1.6}
