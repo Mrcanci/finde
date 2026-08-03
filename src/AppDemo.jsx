@@ -225,7 +225,7 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
           const titleAttr = (mode === "select" && !isClickable && !isPast)
             ? (belowMin
                 ? `Requiere al menos ${MIN_BOOKING_LEAD_DAYS} día${MIN_BOOKING_LEAD_DAYS > 1 ? "s" : ""} de anticipación`
-                : "El operador no opera este día")
+                : "Este día la agencia no tiene salidas")
             : undefined;
           return (
             <button
@@ -3004,22 +3004,22 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
         <div className="fg">
           <label className="lbl">Nombre completo</label>
           <input className={`inp${touched.name && !nameValid ? " inp-err" : ""}`} placeholder="Tu nombre completo" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setTouched(t => ({ ...t, name: true }))} />
-          {touched.name && !nameValid && <div className="field-err">Nombre debe tener al menos 3 caracteres</div>}
+          {touched.name && !nameValid && <div className="field-err">Escribe tu nombre completo</div>}
         </div>
         <div className="fg">
           <label className="lbl">Teléfono</label>
           <input className={`inp${touched.phone && !phoneValid ? " inp-err" : ""}`} placeholder="987 654 321" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^0-9\s]/g, ""))} onBlur={() => setTouched(t => ({ ...t, phone: true }))} type="tel" maxLength={11} />
-          {touched.phone && !phoneValid && <div className="field-err">Teléfono debe tener entre 8 y 15 dígitos</div>}
+          {touched.phone && !phoneValid && <div className="field-err">Necesitamos un celular de 9 dígitos</div>}
         </div>
         <div className="fg">
           <label className="lbl">Email</label>
           <input className={`inp${touched.email && !emailValid ? " inp-err" : ""}`} placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => setTouched(t => ({ ...t, email: true }))} type="email" />
-          {touched.email && !emailValid && <div className="field-err">Email inválido</div>}
+          {touched.email && !emailValid && <div className="field-err">Revisa tu email: ahí te enviamos el voucher</div>}
         </div>
         <div className="fg">
           <label className="lbl">DNI, Pasaporte o CE</label>
           <input className={`inp${touched.doc && !docIdValid ? " inp-err" : ""}`} placeholder="DNI, pasaporte o carnet de extranjería" value={docId} onChange={(e) => setDocId(e.target.value)} onBlur={() => setTouched(t => ({ ...t, doc: true }))} maxLength={20} inputMode="numeric" />
-          {touched.doc && !docIdValid && <div className="field-err">Documento inválido (mínimo 6 caracteres)</div>}
+          {touched.doc && !docIdValid && <div className="field-err">Revisa tu número de documento</div>}
         </div>
         {/* Resumen + política movidos aquí desde el ex-step de pago: el viajero
             confirma con contexto completo y crea la reserva directamente. En modo
