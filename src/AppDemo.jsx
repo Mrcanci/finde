@@ -2768,7 +2768,9 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
   // y usa el del token; lo mostramos sólo para que el usuario vea su identidad.
   const [email, setEmail] = useState(user?.email || "");
   const [docId, setDocId] = useState("");
-  const [touched, setTouched] = useState(false);
+  // Touched por campo: el error de cada campo aparece al abandonarlo (onBlur)
+  // inválido; el botón de continuar queda deshabilitado hasta que todo valide.
+  const [touched, setTouched] = useState({ name: false, phone: false, email: false, doc: false });
   const [bookingCode] = useState(() => Math.random().toString(36).substring(2, 8).toUpperCase());
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -3001,23 +3003,23 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
         <div className="bkf-t">Datos del viajero</div><div className="bkf-sub">{tour.title}</div>
         <div className="fg">
           <label className="lbl">Nombre completo</label>
-          <input className={`inp${touched && !nameValid ? " inp-err" : ""}`} placeholder="Tu nombre completo" value={name} onChange={(e) => setName(e.target.value)} />
-          {touched && !nameValid && <div className="field-err">Nombre debe tener al menos 3 caracteres</div>}
+          <input className={`inp${touched.name && !nameValid ? " inp-err" : ""}`} placeholder="Tu nombre completo" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setTouched(t => ({ ...t, name: true }))} />
+          {touched.name && !nameValid && <div className="field-err">Nombre debe tener al menos 3 caracteres</div>}
         </div>
         <div className="fg">
           <label className="lbl">Teléfono</label>
-          <input className={`inp${touched && !phoneValid ? " inp-err" : ""}`} placeholder="987 654 321" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^0-9\s]/g, ""))} type="tel" maxLength={11} />
-          {touched && !phoneValid && <div className="field-err">Teléfono debe tener entre 8 y 15 dígitos</div>}
+          <input className={`inp${touched.phone && !phoneValid ? " inp-err" : ""}`} placeholder="987 654 321" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^0-9\s]/g, ""))} onBlur={() => setTouched(t => ({ ...t, phone: true }))} type="tel" maxLength={11} />
+          {touched.phone && !phoneValid && <div className="field-err">Teléfono debe tener entre 8 y 15 dígitos</div>}
         </div>
         <div className="fg">
           <label className="lbl">Email</label>
-          <input className={`inp${touched && !emailValid ? " inp-err" : ""}`} placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} type="email" />
-          {touched && !emailValid && <div className="field-err">Email inválido</div>}
+          <input className={`inp${touched.email && !emailValid ? " inp-err" : ""}`} placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => setTouched(t => ({ ...t, email: true }))} type="email" />
+          {touched.email && !emailValid && <div className="field-err">Email inválido</div>}
         </div>
         <div className="fg">
           <label className="lbl">DNI, Pasaporte o CE</label>
-          <input className={`inp${touched && !docIdValid ? " inp-err" : ""}`} placeholder="DNI, pasaporte o carnet de extranjería" value={docId} onChange={(e) => setDocId(e.target.value)} maxLength={20} inputMode="numeric" />
-          {touched && !docIdValid && <div className="field-err">Documento inválido (mínimo 6 caracteres)</div>}
+          <input className={`inp${touched.doc && !docIdValid ? " inp-err" : ""}`} placeholder="DNI, pasaporte o carnet de extranjería" value={docId} onChange={(e) => setDocId(e.target.value)} onBlur={() => setTouched(t => ({ ...t, doc: true }))} maxLength={20} inputMode="numeric" />
+          {touched.doc && !docIdValid && <div className="field-err">Documento inválido (mínimo 6 caracteres)</div>}
         </div>
         {/* Resumen + política movidos aquí desde el ex-step de pago: el viajero
             confirma con contexto completo y crea la reserva directamente. En modo
@@ -3048,11 +3050,11 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
         )}
         {submitError && <div className="field-err" style={{ marginBottom: 12 }}>{submitError}</div>}
         {DEMO_PAYMENT_FLOW ? (
-          <button className="mbtn" disabled={submitting} onClick={() => { if (!step2Valid) { setTouched(true); return; } setStep(PAYMENT_STEP); }}>
+          <button className="mbtn" disabled={submitting || !step2Valid} onClick={() => { if (!step2Valid) return; setStep(PAYMENT_STEP); }}>
             Continuar al pago
           </button>
         ) : (
-          <button className="mbtn" disabled={submitting} onClick={() => { if (!step2Valid) { setTouched(true); return; } submitBooking(); }}>
+          <button className="mbtn" disabled={submitting || !step2Valid} onClick={() => { if (!step2Valid) return; submitBooking(); }}>
             {submitting ? "Procesando reserva…" : "Confirmar reserva"}
           </button>
         )}
