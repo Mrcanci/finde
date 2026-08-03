@@ -1741,7 +1741,7 @@ function GCard({ t, onClick }) {
             </>
           )}
         </div>
-        <div className="gc-p">S/ {t.price} <span>/ pers</span></div>
+        <div className="gc-p">S/ {t.price} <span>por persona</span></div>
       </div>
     </div>
   );
@@ -2016,7 +2016,7 @@ function HomeView({ go, pick, cat, setCat, tours, toursLoading, selectedCity, se
       <div className="home-pg pg">
         <div className="ai-sb fd1">
           <span className="ai-sb-ic"><Search size={16} strokeWidth={1.5} /></span>
-          <input placeholder="¿A dónde quieres ir?" readOnly onFocus={() => go("catalog")} />
+          <input placeholder="Ej: algo tranquilo cerca de Lima" readOnly onFocus={() => go("catalog")} />
           <span className="ai-sb-tag"><Sparkles size={12} strokeWidth={1.5} /> IA</span>
         </div>
         <div className="cats fd2">{CATS.map((c) => <button key={c.id} className={`chip ${cat === c.id ? "on" : ""}`} onClick={() => setCat(c.id)}><c.ic size={16} strokeWidth={1.5} /> {c.n}</button>)}</div>
