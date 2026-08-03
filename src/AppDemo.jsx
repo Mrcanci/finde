@@ -2956,6 +2956,21 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
             addedDates={tour.addedDates || []}
             minDate={minBookingISO()}
           />
+          {(() => {
+            // Línea informativa solo si el tour NO opera todos los días.
+            const opDays = tour.days || DEFAULT_DAYS;
+            if (opDays.length >= 7) return null;
+            const order = ["lun", "mar", "mie", "jue", "vie", "sab", "dom"];
+            const plural = { sab: "sábados", dom: "domingos" };
+            const names = order.filter(c => opDays.includes(c)).map(c => plural[c] || DAY_LABEL_LONG[c]);
+            if (names.length === 0) return null;
+            const list = names.length > 1 ? `${names.slice(0, -1).join(", ")} y ${names[names.length - 1]}` : names[0];
+            return (
+              <div style={{ marginTop: 8, fontSize: 12, color: "var(--gy)" }}>
+                Este tour solo sale los {list}.
+              </div>
+            );
+          })()}
           {date ? (
             <div style={{ marginTop: 10, fontSize: 12, color: "var(--gy)" }}>
               Fecha seleccionada: <strong style={{ color: "var(--f)" }}>{formatLongDate(date)}</strong>
