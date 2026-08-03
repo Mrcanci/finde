@@ -2756,14 +2756,9 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
   const PAYMENT_STEP = 3;
   const [pay, setPay] = useState("yape");
   const [guests, setGuests] = useState(2);
-  const [date, setDate] = useState(() => {
-    if (!tour) return "";
-    // El prefill arranca en la fecha mínima reservable (hoy + anticipación), no
-    // en hoy, para no preseleccionar una fecha que el calendario ya bloquea.
-    const t0 = minBookingISO();
-    const available = getAvailableDatesInRange(tour, t0, addDaysISO(t0, 90));
-    return available[0] || "";
-  });
+  // Sin fecha preseleccionada: el viajero elige el día explícitamente y
+  // "Continuar" queda deshabilitado hasta entonces.
+  const [date, setDate] = useState("");
   // Sin prefill del mock USER: el viajero escribe su identidad real, así cada
   // reserva guarda su userName/userPhone reales (antes todas salían iguales).
   // El email sí se prefilla del token (real) más abajo.
@@ -2866,6 +2861,10 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
 
   if (!tour) return null;
   const total = tour.price * guests;
+  // Disponibilidad en los próximos 90 días: decide si se muestra el aviso de
+  // "sin fechas disponibles" ahora que date arranca vacía.
+  const bookingT0 = minBookingISO();
+  const hasAvailableDates = getAvailableDatesInRange(tour, bookingT0, addDaysISO(bookingT0, 90)).length > 0;
   // Validación de formato (no sólo trim) para evitar confirmar con datos que el
   // backend rechazará (api/bookings.ts: email format, phone /^\d{8,15}$/).
   const nameValid = name.trim().length >= 3;
@@ -2961,11 +2960,11 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
             <div style={{ marginTop: 10, fontSize: 12, color: "var(--gy)" }}>
               Fecha seleccionada: <strong style={{ color: "var(--f)" }}>{formatLongDate(date)}</strong>
             </div>
-          ) : (
+          ) : !hasAvailableDates ? (
             <div style={{ marginTop: 10, padding: 10, background: "rgba(199,97,58,.08)", borderRadius: 10, fontSize: 12, color: "var(--tr)", lineHeight: 1.5 }}>
               Sin fechas disponibles próximamente. Contacta al operador por WhatsApp.
             </div>
-          )}
+          ) : null}
         </div>
         <div className="fg"><label className="lbl">Personas</label><div className="gctr" role="group" aria-label="Cantidad de personas"><button type="button" className="gbtn" onClick={() => setGuests(Math.max(1, guests - 1))} disabled={guests <= 1} aria-label="Disminuir número de personas">−</button><div className="gcnt" aria-live="polite">{guests}</div><button type="button" className="gbtn" onClick={() => setGuests(Math.min(tour.capacity, guests + 1))} disabled={guests >= tour.capacity} aria-label="Aumentar número de personas">+</button></div></div>
         <div className="sum"><div className="sum-r"><span>S/ {tour.price} × {guests}</span><span>S/ {total.toFixed(2)}</span></div><div className="sum-t"><span>Total</span><span>S/ {total.toFixed(2)}</span></div></div>
