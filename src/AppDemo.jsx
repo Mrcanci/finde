@@ -2208,7 +2208,7 @@ function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
       <div className="pg catalog-pg">
         <div className="ai-sb" style={{ marginTop: 8 }} ref={searchRef}>
           <span className="ai-sb-ic"><Search size={16} strokeWidth={1.5} /></span>
-          <input placeholder="¿Qué quieres hacer? ¿A dónde ir?"
+          <input placeholder="Ej: algo tranquilo cerca de Lima"
             value={q}
             onChange={(e) => handleChange(e.target.value)}
             onFocus={handleFocus}
@@ -2217,7 +2217,7 @@ function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
           {dropdownOpen && (
             <div className="ai-suggest">
               {isPopular && hasResults && <div className="ai-suggest-h">Búsquedas populares</div>}
-              {!isPopular && geminiLoading && <div className="sr-ai-hint"><Sparkles size={12} strokeWidth={1.5} /> Buscando con IA...</div>}
+              {!isPopular && geminiLoading && <div className="sr-ai-hint"><Sparkles size={12} strokeWidth={1.5} /> Buscando…</div>}
               {hasResults ? localResults.map(t => (
                 <div key={t.id} className="sr-item" onMouseDown={(e) => { e.preventDefault(); pick(t); go("detail"); }}>
                   <div className="sr-thumb" style={imgBg(t.image)} />
@@ -2252,7 +2252,7 @@ function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
         {aiResult && (
           <div className="ai-result">
             <div className="ai-result-ic"><Sparkles size={16} strokeWidth={1.5} /></div>
-            <div><div className="ai-result-t">Finde encontró {filt.length} experiencias</div><div className="ai-result-b">&ldquo;{aiResult.query}&rdquo; — {aiResult.reason}</div></div>
+            <div><div className="ai-result-t">Encontramos {filt.length} tours</div><div className="ai-result-b">&ldquo;{aiResult.query}&rdquo;. {aiResult.reason}</div></div>
             <button className="sr-clear" onClick={() => { setAiResult(null); setQ(""); }}><X size={16} strokeWidth={1.5} /></button>
           </div>
         )}
@@ -2260,7 +2260,7 @@ function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
           <div className="ai-result">
             <div className="ai-result-ic"><Sparkles size={16} strokeWidth={1.5} /></div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="ai-result-t">IA encontró {filt.length} experiencias</div>
+              <div className="ai-result-t">Encontramos {filt.length} tours</div>
               <div className="ai-result-b">para &ldquo;{q}&rdquo;</div>
               {apiReasoning && <div className="ai-result-x">{apiReasoning}</div>}
             </div>
@@ -2272,8 +2272,8 @@ function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
           <div className="ai-result loading">
             <div className="ai-result-ic"><Sparkles size={16} strokeWidth={1.5} /></div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="ai-result-t">Buscando con IA…</div>
-              <div className="ai-result-b">Analizando tu consulta para encontrar las mejores experiencias</div>
+              <div className="ai-result-t">Buscando entre tours verificados…</div>
+              <div className="ai-result-b">Estamos viendo cuáles encajan con lo que buscas</div>
             </div>
           </div>
         )}
@@ -2281,7 +2281,7 @@ function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
           <div className="ai-result">
             <div className="ai-result-ic"><Sparkles size={16} strokeWidth={1.5} /></div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="ai-result-t">No se encontraron resultados con IA</div>
+              <div className="ai-result-t">No encontramos tours para esa búsqueda</div>
               <div className="ai-result-b">para &ldquo;{q}&rdquo;</div>
               <div className="ai-result-x">{apiReasoning}</div>
             </div>
