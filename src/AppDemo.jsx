@@ -4738,10 +4738,14 @@ export default function AppDemo() {
     if (loading) return;
     let cancel = false;
     const monthsShort = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+    // Los primeros 10 chars del ISO son el yyyy-mm-dd de la reserva; parsearlos
+    // directo evita el drift de zona de new Date() + getters locales (mismo
+    // patrón que mapBookingToTrip).
     const fmtBookingDate = (iso) => {
-      const d = new Date(iso);
-      if (isNaN(d.getTime())) return "";
-      return `${String(d.getDate()).padStart(2, "0")} ${monthsShort[d.getMonth()]} ${d.getFullYear()}`;
+      if (typeof iso !== "string") return "";
+      const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+      if (!y || !m || !d || !monthsShort[m - 1]) return "";
+      return `${String(d).padStart(2, "0")} ${monthsShort[m - 1]} ${y}`;
     };
     const hydrateOpBookings = async () => {
       if (!isOperator) {
