@@ -4486,6 +4486,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           <button className="ai-cc-btn" onClick={generateAiDesc} disabled={aiLoading || !form.title || !form.location}>
             <Sparkles size={12} strokeWidth={1.5} /> {aiLoading ? "Generando…" : "Generar descripción"}
           </button>
+          {aiLoading && <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 8 }}>Estamos escribiendo tu descripción. Toma unos segundos.</div>}
           {aiError && <div className="field-err" style={{ marginTop: 8 }}>{aiError}</div>}
           {aiDesc && (
             <div style={{ marginTop: 12, padding: 12, background: "white", borderRadius: 10, fontSize: 13, lineHeight: 1.6, color: "var(--ch)" }}>
