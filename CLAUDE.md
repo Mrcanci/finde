@@ -57,11 +57,17 @@ npx dotenv-cli -e .env.local -- npx prisma db push
 
 y documentar el cambio en `docs/migrations/YYYY-MM-DD-<descripcion>.md`.
 
-Para backend/auth en local, las funciones `/api/*` necesitan las variables de `.env.local`. `vercel dev` por sí solo no las carga; usar:
+Para backend/auth en local, correr:
 
 ```bash
 npx dotenv-cli -e .env.local -- vercel dev
 ```
+
+Ojo con el origen real de cada variable en las funciones `/api/*` (verificado 2026-08-04):
+
+- **`DATABASE_URL`, `DIRECT_URL`, `ANTHROPIC_API_KEY` y `VOYAGE_API_KEY` vienen del entorno Development del dashboard de Vercel** (proyecto `finde`), que `vercel dev` inyecta pisando lo que haya en `.env.local` o en el env del shell. Cambiarlas en `.env.local` NO afecta al backend local; hay que cambiarlas con `vercel env` (o probar vía código, ej. `datasourceUrl` en `lib/db.ts`).
+- Las 3 de Supabase (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) NO están en Development, así que esas sí salen de `.env.local` vía `dotenv-cli` — por eso el wrapper sigue siendo necesario.
+- Además, en `vercel dev` cada request de función corre en un proceso nuevo (sin conexiones calientes entre requests): las latencias de DB locales no son representativas de producción.
 
 There is no test suite configured.
 
