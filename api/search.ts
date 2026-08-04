@@ -329,6 +329,22 @@ export default async function handler(
     return;
   }
 
+  // Paso 4 arranca ANTES que el paso 3 y corre en paralelo con Claude: los 3
+  // elegidos son siempre subconjunto de los 8 candidatos, así que hidratamos
+  // los 8 con LIST_SELECT mientras el modelo decide, y filtramos al final.
+  // La conexión de DB queda libre durante la llamada HTTP a Anthropic, así
+  // que el solape es real incluso con connection_limit=1.
+  const sHydration = Date.now();
+  const hydrationPromise = db.tour
+    .findMany({
+      where: { id: { in: candidatos.map((c) => c.id) }, active: true },
+      select: LIST_SELECT,
+    })
+    .then((rows) => {
+      mark("hydration", sHydration);
+      return rows;
+    });
+
   // Paso 3: Claude re-rankea (con fallback graceful)
   let chosenIds: string[];
   let reasoning: string;
@@ -352,17 +368,14 @@ export default async function handler(
   }
   mark("model", s);
 
-  // Paso 4: hidratamos con LIST_SELECT (incluye operator name + verified)
-  s = Date.now();
-  const tours = await db.tour.findMany({
-    where: { id: { in: chosenIds }, active: true },
-    select: LIST_SELECT,
-  });
-  mark("hydration", s);
+  // Paso 4 (cierre): la hidratación ya corrió en paralelo con Claude; acá
+  // solo esperamos el resultado (normalmente ya resuelto) y filtramos los 3.
+  const tours = await hydrationPromise;
   // Gateo: mincetur de operador no verificado nunca sale en el payload.
   tours.forEach(gateOperatorMincetur);
 
-  // Reordenar según el orden elegido (findMany no respeta el orden de in:)
+  // Reordenar según el orden elegido (findMany no respeta el orden de in:;
+  // el Map tiene los 8 candidatos, chosenIds selecciona y ordena los 3)
   const byId = new Map(tours.map((t) => [t.id, t]));
   const results = chosenIds
     .map((id) => byId.get(id))
