@@ -186,6 +186,13 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ): Promise<void> {
+  // Instrumentación de latencia por etapa. Solo duraciones y conteos:
+  // nunca el texto de la consulta (Ley 29733).
+  const t0 = Date.now();
+  const t: Record<string, number> = {};
+  const mark = (k: string, start: number) => { t[k] = Date.now() - start; };
+  let s = t0;
+
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     res.status(405).json({ error: "Método no permitido" });
@@ -220,9 +227,11 @@ export default async function handler(
   // No se escribe SearchLog en cache hit (la query ya está representada en
   // FeaturedSearch y el demo no debe pagar el costo del INSERT).
   const normalized = normalizeQuery(query);
+  s = Date.now();
   const cached = await db.featuredSearch.findFirst({
     where: { query: normalized },
   });
+  mark("cache_lookup", s);
 
   const cacheExpirado =
     cached != null &&
@@ -235,10 +244,12 @@ export default async function handler(
 
   if (cached && cached.results.length > 0 && !cacheExpirado) {
     console.log(`[cache HIT] qlen=${query.length}`);
+    s = Date.now();
     const cachedTours = await db.tour.findMany({
       where: { id: { in: cached.results }, active: true },
       select: LIST_SELECT,
     });
+    mark("hydration", s);
     // Gateo: mincetur de operador no verificado nunca sale en el payload.
     cachedTours.forEach(gateOperatorMincetur);
     const byCachedId = new Map(cachedTours.map((t) => [t.id, t]));
@@ -246,6 +257,10 @@ export default async function handler(
       .map((id) => byCachedId.get(id))
       .filter((t): t is NonNullable<typeof t> => t != null);
 
+    mark("total", t0);
+    console.log(
+      `[search-timing] cache=HIT cache_lookup=${t.cache_lookup}ms hydration=${t.hydration}ms total=${t.total}ms results=${cachedResults.length}`
+    );
     res.status(200).json({
       results: cachedResults,
       reasoning: cached.reasoning,
@@ -259,6 +274,7 @@ export default async function handler(
   console.log(`[cache MISS] qlen=${query.length} — usando flujo completo`);
 
   // Paso 1: embedding del query (inputType "query" para retrieval asimétrico)
+  s = Date.now();
   let queryEmbedding: number[];
   try {
     const r = await voyage.embed({
@@ -276,9 +292,11 @@ export default async function handler(
     res.status(500).json({ error: "Error al procesar la búsqueda" });
     return;
   }
+  mark("embedding", s);
 
   // Paso 2: top 8 candidatos por distancia cosenoidal (pgvector <=>)
   const vectorLiteral = JSON.stringify(queryEmbedding);
+  s = Date.now();
   let candidatos: Candidato[];
   try {
     candidatos = await db.$queryRaw<Candidato[]>`
@@ -294,8 +312,13 @@ export default async function handler(
     res.status(500).json({ error: "Error al procesar la búsqueda" });
     return;
   }
+  mark("vector", s);
 
   if (candidatos.length === 0) {
+    mark("total", t0);
+    console.log(
+      `[search-timing] cache=MISS cache_lookup=${t.cache_lookup}ms embedding=${t.embedding}ms vector=${t.vector}ms total=${t.total}ms results=0`
+    );
     res.status(200).json({
       results: [],
       reasoning:
@@ -314,6 +337,7 @@ export default async function handler(
   // fallback semántico NO se cachea (detectado por boolean, no por strings).
   let claudeOk = false;
 
+  s = Date.now();
   try {
     const decision = await decidirConClaude(query, candidatos);
     chosenIds = decision.top_3_ids;
@@ -326,12 +350,15 @@ export default async function handler(
     reasoning = "Resultados ordenados por similitud semántica";
     filtersDetected = {};
   }
+  mark("model", s);
 
   // Paso 4: hidratamos con LIST_SELECT (incluye operator name + verified)
+  s = Date.now();
   const tours = await db.tour.findMany({
     where: { id: { in: chosenIds }, active: true },
     select: LIST_SELECT,
   });
+  mark("hydration", s);
   // Gateo: mincetur de operador no verificado nunca sale en el payload.
   tours.forEach(gateOperatorMincetur);
 
@@ -342,6 +369,7 @@ export default async function handler(
     .filter((t): t is NonNullable<typeof t> => t != null);
 
   // Paso 5: SearchLog (no bloqueante — un fallo de log no debe romper la respuesta)
+  s = Date.now();
   try {
     await db.searchLog.create({
       data: {
@@ -353,6 +381,7 @@ export default async function handler(
   } catch (error) {
     console.error("Error guardando SearchLog (no bloqueante):", error);
   }
+  mark("searchlog", s);
 
   // Paso 6: write-through cache. Toda búsqueda EXITOSA se upsertea a
   // FeaturedSearch por query normalizada → repeticiones exactas responden
@@ -360,6 +389,7 @@ export default async function handler(
   // Guardrails: NO cachear fallback (claudeOk=false) ni respuestas con <3
   // tours. No bloqueante y ANTES de res (serverless no garantiza ejecución
   // después del res).
+  s = Date.now();
   if (claudeOk && results.length >= 3) {
     try {
       await db.featuredSearch.upsert({
@@ -380,7 +410,12 @@ export default async function handler(
       console.error("Error en write-through cache (no bloqueante):", error);
     }
   }
+  mark("cache_write", s);
 
+  mark("total", t0);
+  console.log(
+    `[search-timing] cache=MISS cache_lookup=${t.cache_lookup}ms embedding=${t.embedding}ms vector=${t.vector}ms model=${t.model}ms hydration=${t.hydration}ms searchlog=${t.searchlog}ms cache_write=${t.cache_write}ms total=${t.total}ms results=${results.length}`
+  );
   res.status(200).json({
     results,
     reasoning,
