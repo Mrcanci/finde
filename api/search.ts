@@ -230,11 +230,11 @@ export default async function handler(
       CACHE_TTL_DIAS * 24 * 60 * 60 * 1000;
 
   if (cacheExpirado) {
-    console.log(`[cache EXPIRED] query: ${query} — recomputando`);
+    console.log(`[cache EXPIRED] qlen=${query.length} — recomputando`);
   }
 
   if (cached && cached.results.length > 0 && !cacheExpirado) {
-    console.log(`[cache HIT] query: ${query}`);
+    console.log(`[cache HIT] qlen=${query.length}`);
     const cachedTours = await db.tour.findMany({
       where: { id: { in: cached.results }, active: true },
       select: LIST_SELECT,
@@ -256,7 +256,7 @@ export default async function handler(
     return;
   }
 
-  console.log(`[cache MISS] query: ${query} — usando flujo completo`);
+  console.log(`[cache MISS] qlen=${query.length} — usando flujo completo`);
 
   // Paso 1: embedding del query (inputType "query" para retrieval asimétrico)
   let queryEmbedding: number[];
