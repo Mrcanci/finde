@@ -4050,6 +4050,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
     if (!form.title || !form.location) return;
     setAiLoading(true);
     setAiError("");
+    setAiDesc(null);
     try {
       const cityRegion = form.location.split(",").map(s => s.trim());
       const apiCat = CAT_UI_TO_API[form.category] || form.category;
