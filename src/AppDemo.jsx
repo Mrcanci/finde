@@ -3341,8 +3341,8 @@ function ProfileView({ go, onLogout }) {
           </div>
           <div className="fg">
             <label className="lbl">RUC <span style={{ color: "var(--tr)" }}>*</span> <span style={{ color: "var(--gy)", fontWeight: 400 }}>(11 dígitos)</span></label>
-            <input className={`inp${opForm.ruc && !opRucValid ? " inp-err" : ""}`} value={opForm.ruc} onChange={(e) => updOp("ruc", e.target.value.replace(/\D/g, ""))} maxLength={11} placeholder="20612345678" inputMode="numeric" />
-            {opForm.ruc && !opRucValid && <div className="field-err">El RUC debe tener 11 dígitos</div>}
+            <input className={`inp${opForm.ruc && !opRucValid ? " inp-err" : ""}`} value={opForm.ruc} onChange={(e) => updOp("ruc", e.target.value.replace(/\D/g, ""))} maxLength={11} placeholder="11 dígitos" inputMode="numeric" />
+            {opForm.ruc && !opRucValid && <div className="field-err">El RUC tiene 11 dígitos</div>}
             <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 6, lineHeight: 1.5 }}>
               Solo agencias con RUC activo pueden vender en Finde. Validaremos contra SUNAT.
             </div>
