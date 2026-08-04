@@ -3371,8 +3371,8 @@ function ProfileView({ go, onLogout }) {
               <MountainSnow size={20} strokeWidth={1.5} color="white" />
             </div>
             <div>
-              <div className="pf-op-title">Panel de operador</div>
-              <div className="pf-op-desc">Gestiona reservas e ingresos</div>
+              <div className="pf-op-title">Panel de agencia</div>
+              <div className="pf-op-desc">Gestiona tus reservas y tus tours</div>
             </div>
           </div>
           <ChevronRight size={16} strokeWidth={1.5} style={{ color: "var(--lg)" }} />
