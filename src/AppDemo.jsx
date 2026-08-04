@@ -3261,7 +3261,7 @@ function ProfileView({ go, onLogout }) {
   const opFormValid = opNameValid && opEmailValid && opPhoneValid && opCityValid && opRucValid && opAcceptTerms;
 
   const submitOperator = async () => {
-    if (!opRucValid) { setOpError("El RUC debe tener exactamente 11 dígitos"); return; }
+    if (!opRucValid) { setOpError("El RUC tiene 11 dígitos"); return; }
     if (!opAcceptTerms) { setOpError("Debes aceptar los Términos y Condiciones"); return; }
     setOpLoading(true);
     setOpError("");
@@ -3566,7 +3566,7 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
       <div className="dsh-tabs fd1">
         {/* Tab "Ingresos" oculta en la etapa piloto: sin gateway de pago no hay
             ingresos reales que mostrar (los datos eran mock). Reactivar cuando se cobre. */}
-        {[{ id: "bookings", l: "Reservas" }, { id: "business", l: "Mi Negocio" }, { id: "listings", l: "Mis Tours" }].map((t) => (
+        {[{ id: "bookings", l: "Reservas" }, { id: "business", l: "Mi negocio" }, { id: "listings", l: "Mis tours" }].map((t) => (
           <button key={t.id} className={`dsh-tab ${tab === t.id ? "on" : ""}`} onClick={() => { setTab(t.id); setSelectedBooking(null); }}>{t.l}</button>
         ))}
       </div>
