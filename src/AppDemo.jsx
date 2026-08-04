@@ -4491,6 +4491,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           {aiDesc && (
             <div style={{ marginTop: 12, padding: 12, background: "white", borderRadius: 10, fontSize: 13, lineHeight: 1.6, color: "var(--ch)" }}>
               {aiDesc}
+              <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 8 }}>Revisa y edita antes de publicar. La IA puede agregar detalles que tu tour no incluye.</div>
               <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                 <button style={{ padding: "6px 14px", borderRadius: 8, background: "var(--f)", color: "white", border: "none", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
                   onClick={() => u("description", aiDesc)}>Usar esta</button>
