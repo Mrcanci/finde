@@ -4133,8 +4133,9 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         <div className="bkf-t">Información básica</div>
         <div className="bkf-sub">Paso 1 de 5 · Nombre, ubicación y categoría</div>
         <div className="fg">
-          <label className="lbl">Nombre del tour <span style={{ color: "var(--tr)" }}>*</span></label>
+          <label className="lbl" htmlFor="nt-title">Nombre del tour <span style={{ color: "var(--tr)" }}>*</span></label>
           <input
+            id="nt-title"
             className={`inp${(form.title || "").trim().length > 0 && (form.title || "").trim().length < 3 ? " inp-err" : ""}`}
             placeholder="Ej: Trekking al Nevado Pastoruri"
             value={form.title}
@@ -4145,15 +4146,16 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           )}
         </div>
         <div className="fg">
-          <label className="lbl">Ubicación <span style={{ color: "var(--tr)" }}>*</span></label>
-          <input className="inp" placeholder="Ej: Huaraz, Áncash" value={form.location} onChange={(e) => u("location", e.target.value)} />
+          <label className="lbl" htmlFor="nt-location">Ubicación <span style={{ color: "var(--tr)" }}>*</span></label>
+          <input id="nt-location" className="inp" placeholder="Ej: Huaraz, Áncash" value={form.location} onChange={(e) => u("location", e.target.value)} />
         </div>
         <div className="fg">
-          <label className="lbl">Punto de encuentro <span style={{ color: "var(--tr)" }}>*</span></label>
+          <label className="lbl" htmlFor="nt-meeting">Punto de encuentro <span style={{ color: "var(--tr)" }}>*</span></label>
           <div style={{ fontSize: 11, color: "var(--gy)", marginBottom: 8, lineHeight: 1.5 }}>
             Lugar exacto donde tus viajeros te encontrarán (ej. "Frente a Larcomar, tienda Inkawasi, segundo piso")
           </div>
           <input
+            id="nt-meeting"
             className={`inp${form.meetingPoint && form.meetingPoint.trim().length < 10 ? " inp-err" : ""}`}
             placeholder="Ej. Plaza de Armas, frente a la catedral"
             value={form.meetingPoint}
@@ -4185,7 +4187,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           </div>
         </div>
         <div className="fg">
-          <label className="lbl">Fotos del tour <span style={{ color: "var(--gy)", fontWeight: 500 }}>(opcional)</span></label>
+          <label className="lbl" htmlFor="nt-photos">Fotos del tour <span style={{ color: "var(--gy)", fontWeight: 500 }}>(opcional)</span></label>
           <div style={{ fontSize: 11, color: "var(--gy)", marginBottom: 10, lineHeight: 1.5 }}>
             La portada (marcada con <Star size={10} strokeWidth={2} fill="currentColor" style={{ display: "inline", verticalAlign: "middle", color: "var(--gd)" }} />) se muestra en el listado. Puedes subir hasta {MAX_GALLERY}; el orden de la galería es el de subida.
           </div>
@@ -4240,7 +4242,12 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
             // Zona de drop + click. El drag-and-drop es ADITIVO: reusa el mismo
             // handlePhotoUpload (valida tipo/tamaño/tope y sube en loop) que el
             // input. dragOver solo controla el feedback visual.
-            <label
+            <div
+              role="button"
+              tabIndex={0}
+              aria-label="Subir fotos del tour"
+              onClick={(e) => { const inp = e.currentTarget.querySelector('input[type="file"]'); if (inp && e.target !== inp) inp.click(); }}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.currentTarget.querySelector('input[type="file"]')?.click(); } }}
               onDragEnter={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
@@ -4258,9 +4265,9 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
               {form.images.length === 0 && (
                 <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>Opcional por ahora. Sin foto usamos un diseño por defecto.</span>
               )}
-              <input type="file" accept="image/jpeg,image/png" multiple style={{ display: "none" }}
+              <input id="nt-photos" type="file" accept="image/jpeg,image/png" multiple style={{ display: "none" }}
                 onChange={(e) => { handlePhotoUpload(e.target.files); e.target.value = ""; }} />
-            </label>
+            </div>
           ) : (
             <div style={{ fontSize: 11, color: "var(--gy)", textAlign: "center", padding: "8px 0" }}>
               Máximo de {MAX_GALLERY} fotos alcanzado. Quita alguna para subir otra.
@@ -4280,8 +4287,9 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         <div className="bkf-t">Detalles del tour</div>
         <div className="bkf-sub">Paso 2 de 5 · Duración, precio y capacidad</div>
         <div className="fg">
-          <label className="lbl">Duración <span style={{ color: "var(--tr)" }}>*</span></label>
+          <label className="lbl" htmlFor="nt-duration">Duración <span style={{ color: "var(--tr)" }}>*</span></label>
           <input
+            id="nt-duration"
             className="inp"
             placeholder="Ej: 8 horas, Full day, 2 días"
             value={form.duration}
@@ -4290,8 +4298,9 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 4 }}>Ej: 8 horas, Full day o 2 días</div>
         </div>
         <div className="fg">
-          <label className="lbl">Precio por persona (S/) <span style={{ color: "var(--tr)" }}>*</span></label>
+          <label className="lbl" htmlFor="nt-price">Precio por persona (S/) <span style={{ color: "var(--tr)" }}>*</span></label>
           <input
+            id="nt-price"
             className={`inp${form.price !== "" && form.price != null && !priceValid ? " inp-err" : ""}`}
             placeholder="150"
             type="number"
@@ -4303,8 +4312,9 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
             : <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 4 }}>Entre S/ 1 y S/ 100,000</div>}
         </div>
         <div className="fg">
-          <label className="lbl">Cantidad de personas <span style={{ color: "var(--tr)" }}>*</span></label>
+          <label className="lbl" htmlFor="nt-capacity">Cantidad de personas <span style={{ color: "var(--tr)" }}>*</span></label>
           <input
+            id="nt-capacity"
             className={`inp${capacityRaw !== "" && !capacityInRange ? " inp-err" : ""}`}
             placeholder="12"
             type="number"
@@ -4316,12 +4326,12 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
             : <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 4 }}>Personas por salida</div>}
         </div>
         <div className="fg">
-          <label className="lbl">Qué incluye (separado por comas)</label>
-          <input className="inp" placeholder="Transporte, guía, almuerzo, entrada" value={form.included} onChange={(e) => u("included", e.target.value)} />
+          <label className="lbl" htmlFor="nt-included">Qué incluye (separado por comas)</label>
+          <input id="nt-included" className="inp" placeholder="Transporte, guía, almuerzo, entrada" value={form.included} onChange={(e) => u("included", e.target.value)} />
         </div>
         <div className="fg">
-          <label className="lbl">Qué no incluye (separado por comas)</label>
-          <input className="inp" placeholder="Propinas, snacks, seguro" value={form.excluded} onChange={(e) => u("excluded", e.target.value)} />
+          <label className="lbl" htmlFor="nt-excluded">Qué no incluye (separado por comas)</label>
+          <input id="nt-excluded" className="inp" placeholder="Propinas, snacks, seguro" value={form.excluded} onChange={(e) => u("excluded", e.target.value)} />
         </div>
         <button className="mbtn" style={{ marginTop: 8 }} disabled={!durationValid || !priceValid || !capacityValid} onClick={() => setStep(3)}>Siguiente</button>
       </div>}
@@ -4398,8 +4408,8 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           </div>
         </div>
         <div className="fg">
-          <label className="lbl">Hora de salida</label>
-          <input className="inp" type="time" value={form.startTime} onChange={(e) => u("startTime", e.target.value)} />
+          <label className="lbl" htmlFor="nt-start-time">Hora de salida</label>
+          <input id="nt-start-time" className="inp" type="time" value={form.startTime} onChange={(e) => u("startTime", e.target.value)} />
         </div>
         {/* Campo de política de cancelación oculto en el piloto vía flag. El
             estado form.cancellation conserva su default ("flexible") aunque el
@@ -4451,8 +4461,8 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         <div className="bkf-t">Descripción</div>
         <div className="bkf-sub">Paso 4 de 5 · Escríbela tú o usa la IA</div>
         <div className="fg">
-          <label className="lbl">Descripción del tour <span style={{ color: "var(--tr)" }}>*</span></label>
-          <textarea className="ai-cc-input" style={{ minHeight: 100 }} placeholder="Describe tu tour con detalle: qué verán los viajeros, qué lo hace especial y qué pueden esperar…"
+          <label className="lbl" htmlFor="nt-description">Descripción del tour <span style={{ color: "var(--tr)" }}>*</span></label>
+          <textarea id="nt-description" className="ai-cc-input" style={{ minHeight: 100 }} placeholder="Describe tu tour con detalle: qué verán los viajeros, qué lo hace especial y qué pueden esperar…"
             value={form.description} onChange={(e) => u("description", e.target.value)} />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
             {(form.description || "").trim().length > 0 && (form.description || "").trim().length < 10
