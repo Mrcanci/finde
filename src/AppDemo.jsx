@@ -2051,8 +2051,8 @@ function HomeView({ go, pick, cat, setCat, tours, toursLoading, selectedCity, se
         ) : (
           <div className="city-empty">
             <div className="city-empty-ic"><MapPin size={22} strokeWidth={1.5} /></div>
-            <div className="city-empty-tl">Pronto tendremos experiencias en {selectedCity}</div>
-            <div className="city-empty-sub">Estamos sumando operadores verificados. Mientras tanto, mira los tours de Lima.</div>
+            <div className="city-empty-tl">Pronto tendremos tours en {selectedCity}</div>
+            <div className="city-empty-sub">Estamos sumando agencias verificadas de todo el Perú.</div>
             <button type="button" className="city-empty-btn" onClick={() => handleCityChange("Lima")}>
               Ver tours en Lima
             </button>
@@ -2979,7 +2979,7 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
             </div>
           ) : !hasAvailableDates ? (
             <div style={{ marginTop: 10, padding: 10, background: "rgba(199,97,58,.08)", borderRadius: 10, fontSize: 12, color: "var(--tr)", lineHeight: 1.5 }}>
-              Sin fechas disponibles próximamente. Contacta al operador por WhatsApp.
+              Sin fechas disponibles próximamente. Escríbele a la agencia por WhatsApp.
             </div>
           ) : null}
         </div>
@@ -3315,14 +3315,14 @@ function ProfileView({ go, onLogout }) {
             </div>
             <div>
               <div className="pf-op-title">¿Ofreces tours?</div>
-              <div className="pf-op-desc">Activa tu perfil de operador</div>
+              <div className="pf-op-desc">Activa tu perfil de agencia</div>
             </div>
           </div>
           <ChevronRight size={16} strokeWidth={1.5} style={{ color: "var(--lg)" }} />
         </div>
       ) : !isOperator && showOpForm ? (
         <div className="pf-sec">
-          <div className="pf-sec-t">Registrarse como operador</div>
+          <div className="pf-sec-t">Registrar mi agencia</div>
           <div className="fg">
             <label className="lbl">Nombre o razón social</label>
             <input className="inp" value={opForm.name} onChange={(e) => updOp("name", e.target.value)} />
@@ -3360,7 +3360,7 @@ function ProfileView({ go, onLogout }) {
           </label>
           {opError && <div className="field-err" style={{ marginBottom: 12 }}>{opError}</div>}
           <button className="mbtn" disabled={opLoading || !opFormValid} onClick={submitOperator}>
-            {opLoading ? "Registrando…" : "Registrarse como operador"}
+            {opLoading ? "Registrando…" : "Registrar mi agencia"}
           </button>
           <button className="rv-cancel" style={{ marginTop: 8, width: "100%" }} onClick={() => { setShowOpForm(false); setOpError(""); }}>Cancelar</button>
         </div>
@@ -3553,7 +3553,7 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
   return (
     <div className="dsh">
       <div className="dsh-h fu">
-        <div className="dsh-gr">Panel de operador <Hand size={18} strokeWidth={1.5} style={{display:"inline",verticalAlign:"middle"}} /></div>
+        <div className="dsh-gr">Panel de agencia <Hand size={18} strokeWidth={1.5} style={{display:"inline",verticalAlign:"middle"}} /></div>
         <div className="dsh-nm">{operatorName}</div>
         <div className="dsh-sts">
           <div className="dsh-s"><div className="dsh-s-v">{opTours.filter((t) => t.active).length}</div><div className="dsh-s-l">Tours activos</div></div>
