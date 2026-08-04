@@ -4412,10 +4412,10 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {[
-              { id: "flexible", label: "Flexible", desc: "100% si cancela 24+ horas antes. 0% con menos de 24h." },
-              { id: "moderada", label: "Moderada", desc: "100% si cancela 72+ horas antes. 50% entre 72h y 24h. 0% con menos de 24h." },
-              { id: "estricta", label: "Estricta", desc: "100% si cancela 30+ días antes. 50% entre 15 y 30 días. 0% con menos de 15 días." },
-              { id: "no_reembolsable", label: "No reembolsable", desc: "Sin reembolso desde el momento del pago. Solo para tours con permisos prepagados." },
+              { id: "flexible", label: "Flexible", desc: "Devuelves el 100% si cancelan con 24 horas o más. Sin devolución con menos de 24 horas." },
+              { id: "moderada", label: "Moderada", desc: "Devuelves el 100% si cancelan con 72 horas o más, y el 50% entre 72 y 24 horas. Sin devolución con menos de 24 horas." },
+              { id: "estricta", label: "Estricta", desc: "Devuelves el 100% si cancelan con 30 días o más, y el 50% entre 30 y 15 días. Sin devolución con menos de 15 días." },
+              { id: "no_reembolsable", label: "No reembolsable", desc: "Sin devolución desde el momento del pago. Solo para tours con permisos prepagados." },
             ].map((opt) => (
               <div key={opt.id} onClick={() => u("cancellation", opt.id)} style={{
                 padding: "12px 14px", borderRadius: 12, border: "2px solid",
