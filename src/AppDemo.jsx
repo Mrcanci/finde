@@ -4051,6 +4051,8 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
     setAiLoading(true);
     setAiError("");
     setAiDesc(null);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
     try {
       const cityRegion = form.location.split(",").map(s => s.trim());
       const apiCat = CAT_UI_TO_API[form.category] || form.category;
@@ -4077,6 +4079,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        signal: controller.signal,
       });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
@@ -4085,8 +4088,11 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
       const data = await r.json();
       setAiDesc(data.description || "");
     } catch (e) {
-      setAiError(e.message || "No pudimos generar la descripción. Intenta de nuevo.");
+      setAiError(e.name === "AbortError"
+        ? "La generación tardó demasiado. Intenta de nuevo."
+        : e.message || "No pudimos generar la descripción. Intenta de nuevo.");
     } finally {
+      clearTimeout(timeoutId);
       setAiLoading(false);
     }
   };
