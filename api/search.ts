@@ -368,49 +368,57 @@ export default async function handler(
     .map((id) => byId.get(id))
     .filter((t): t is NonNullable<typeof t> => t != null);
 
-  // Paso 5: SearchLog (no bloqueante — un fallo de log no debe romper la respuesta)
-  s = Date.now();
-  try {
-    await db.searchLog.create({
-      data: {
-        query,
-        resultIds: results.map((t) => t.id),
-        reasoning,
-      },
-    });
-  } catch (error) {
-    console.error("Error guardando SearchLog (no bloqueante):", error);
-  }
-  mark("searchlog", s);
-
-  // Paso 6: write-through cache. Toda búsqueda EXITOSA se upsertea a
-  // FeaturedSearch por query normalizada → repeticiones exactas responden
-  // instantáneas con texto idéntico. @updatedAt refresca la ventana TTL.
-  // Guardrails: NO cachear fallback (claudeOk=false) ni respuestas con <3
-  // tours. No bloqueante y ANTES de res (serverless no garantiza ejecución
+  // Pasos 5 y 6 en paralelo: SearchLog y el write-through cache no dependen
+  // entre sí (tablas distintas) y un fallo de cualquiera no debe romper la
+  // respuesta. Ambos siguen ANTES de res (serverless no garantiza ejecución
   // después del res).
+  // Write-through cache: toda búsqueda EXITOSA se upsertea a FeaturedSearch
+  // por query normalizada → repeticiones exactas responden instantáneas con
+  // texto idéntico. @updatedAt refresca la ventana TTL. Guardrails: NO
+  // cachear fallback (claudeOk=false) ni respuestas con <3 tours.
   s = Date.now();
+  const escrituras: Promise<void>[] = [
+    db.searchLog
+      .create({
+        data: {
+          query,
+          resultIds: results.map((t) => t.id),
+          reasoning,
+        },
+      })
+      .then(() => mark("searchlog", s))
+      .catch((error) => {
+        console.error("Error guardando SearchLog (no bloqueante):", error);
+        mark("searchlog", s);
+      }),
+  ];
   if (claudeOk && results.length >= 3) {
-    try {
-      await db.featuredSearch.upsert({
-        where: { query: normalized },
-        create: {
-          query: normalized,
-          results: results.map((t) => t.id),
-          reasoning,
-          filtersDetected: filtersDetected as unknown as Prisma.InputJsonValue,
-        },
-        update: {
-          results: results.map((t) => t.id),
-          reasoning,
-          filtersDetected: filtersDetected as unknown as Prisma.InputJsonValue,
-        },
-      });
-    } catch (error) {
-      console.error("Error en write-through cache (no bloqueante):", error);
-    }
+    escrituras.push(
+      db.featuredSearch
+        .upsert({
+          where: { query: normalized },
+          create: {
+            query: normalized,
+            results: results.map((t) => t.id),
+            reasoning,
+            filtersDetected: filtersDetected as unknown as Prisma.InputJsonValue,
+          },
+          update: {
+            results: results.map((t) => t.id),
+            reasoning,
+            filtersDetected: filtersDetected as unknown as Prisma.InputJsonValue,
+          },
+        })
+        .then(() => mark("cache_write", s))
+        .catch((error) => {
+          console.error("Error en write-through cache (no bloqueante):", error);
+          mark("cache_write", s);
+        })
+    );
+  } else {
+    t.cache_write = 0;
   }
-  mark("cache_write", s);
+  await Promise.all(escrituras);
 
   mark("total", t0);
   console.log(
