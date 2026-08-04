@@ -5,6 +5,7 @@
 // Si Claude falla por cualquier razón, fallback graceful con top 3 semánticos.
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { waitUntil } from "@vercel/functions";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { db } from "../lib/db.js";
@@ -384,10 +385,11 @@ export default async function handler(
     .map((id) => byId.get(id))
     .filter((t): t is NonNullable<typeof t> => t != null);
 
-  // Pasos 5 y 6 en paralelo: SearchLog y el write-through cache no dependen
-  // entre sí (tablas distintas) y un fallo de cualquiera no debe romper la
-  // respuesta. Ambos siguen ANTES de res (serverless no garantiza ejecución
-  // después del res).
+  // Pasos 5 y 6 en paralelo y FUERA del camino crítico: SearchLog y el
+  // write-through cache no dependen entre sí (tablas distintas) y un fallo de
+  // cualquiera no debe romper la respuesta. waitUntil mantiene viva la función
+  // hasta completarlos DESPUÉS de responder; el tradeoff aceptado es que si la
+  // instancia muere antes de terminar, esa fila de log o ese upsert se pierden.
   // Write-through cache: toda búsqueda EXITOSA se upsertea a FeaturedSearch
   // por query normalizada → repeticiones exactas responden instantáneas con
   // texto idéntico. @updatedAt refresca la ventana TTL. Guardrails: NO
@@ -434,11 +436,15 @@ export default async function handler(
   } else {
     t.cache_write = 0;
   }
-  await Promise.all(escrituras);
-
+  // total mide hasta la respuesta al usuario; el log sale cuando terminan las
+  // escrituras en background para incluir también sus duraciones.
   mark("total", t0);
-  console.log(
-    `[search-timing] cache=MISS cache_lookup=${t.cache_lookup}ms embedding=${t.embedding}ms vector=${t.vector}ms model=${t.model}ms hydration=${t.hydration}ms searchlog=${t.searchlog}ms cache_write=${t.cache_write}ms total=${t.total}ms results=${results.length}`
+  waitUntil(
+    Promise.all(escrituras).then(() => {
+      console.log(
+        `[search-timing] cache=MISS cache_lookup=${t.cache_lookup}ms embedding=${t.embedding}ms vector=${t.vector}ms model=${t.model}ms hydration=${t.hydration}ms searchlog=${t.searchlog}ms cache_write=${t.cache_write}ms total=${t.total}ms results=${results.length}`
+      );
+    })
   );
   res.status(200).json({
     results,
