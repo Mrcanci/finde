@@ -4256,7 +4256,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
               <span style={{ fontSize: 13, fontWeight: 600, color: "var(--f)" }}>{form.images.length ? "Agregar más fotos" : "Subir fotos"}</span>
               <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>Arrastra fotos aquí o haz click para elegir · hasta {MAX_GALLERY} · JPG o PNG · máx 5MB c/u</span>
               {form.images.length === 0 && (
-                <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>Opcional por ahora — sin foto usamos un diseño por defecto.</span>
+                <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>Opcional por ahora. Sin foto usamos un diseño por defecto.</span>
               )}
               <input type="file" accept="image/jpeg,image/png" multiple style={{ display: "none" }}
                 onChange={(e) => { handlePhotoUpload(e.target.files); e.target.value = ""; }} />
@@ -4287,7 +4287,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
             value={form.duration}
             onChange={(e) => u("duration", e.target.value)}
           />
-          <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 4 }}>Ej. "8 horas", "Full day" o "2 días". Obligatorio.</div>
+          <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 4 }}>Ej: 8 horas, Full day o 2 días</div>
         </div>
         <div className="fg">
           <label className="lbl">Precio por persona (S/) <span style={{ color: "var(--tr)" }}>*</span></label>
@@ -4313,7 +4313,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           />
           {capacityRaw !== "" && !capacityInRange
             ? <div className="field-err">Ingresa un número entero válido (mínimo 1)</div>
-            : <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 4 }}>Personas por salida. Obligatorio.</div>}
+            : <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 4 }}>Personas por salida</div>}
         </div>
         <div className="fg">
           <label className="lbl">Qué incluye (separado por comas)</label>
@@ -4329,7 +4329,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
       {/* Step 3: Disponibilidad */}
       {step === 3 && <div className="fu">
         <div className="bkf-t">Disponibilidad</div>
-        <div className="bkf-sub">Paso 3 de 5 · Días y horario{SHOW_CANCELLATION_POLICY ? " y cancelación" : ""}</div>
+        <div className="bkf-sub">Paso 3 de 5 · {SHOW_CANCELLATION_POLICY ? "Días, horario y cancelación" : "Días y horario"}</div>
         <div className="fg">
           <label className="lbl">Días que operas</label>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -4351,7 +4351,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           </div>
           <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 6 }}>
             {form.days.length === 0
-              ? "Sin días recurrentes — usa el calendario abajo para fechas específicas"
+              ? "Sin días recurrentes. Usa el calendario de abajo para fechas específicas."
               : `Opera: ${form.days.map(d => DAY_LABEL_LONG[d] || d).join(", ")}`}
           </div>
         </div>
@@ -4452,7 +4452,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         <div className="bkf-sub">Paso 4 de 5 · Escríbela tú o usa la IA</div>
         <div className="fg">
           <label className="lbl">Descripción del tour <span style={{ color: "var(--tr)" }}>*</span></label>
-          <textarea className="ai-cc-input" style={{ minHeight: 100 }} placeholder="Describe tu experiencia con detalle: qué verán los viajeros, qué hace especial este tour, qué pueden esperar..."
+          <textarea className="ai-cc-input" style={{ minHeight: 100 }} placeholder="Describe tu tour con detalle: qué verán los viajeros, qué lo hace especial y qué pueden esperar…"
             value={form.description} onChange={(e) => u("description", e.target.value)} />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
             {(form.description || "").trim().length > 0 && (form.description || "").trim().length < 10
