@@ -4493,7 +4493,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
               {aiDesc}
               <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 8 }}>Revisa y edita antes de publicar. La IA puede agregar detalles que tu tour no incluye.</div>
               <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <button style={{ padding: "6px 14px", borderRadius: 8, background: "var(--f)", color: "white", border: "none", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
+                <button style={{ padding: "10px 18px", borderRadius: 8, background: "var(--f)", color: "white", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
                   onClick={() => u("description", aiDesc)}>Usar esta</button>
                 <button style={{ padding: "6px 14px", borderRadius: 8, background: "var(--sd)", color: "var(--ch)", border: "none", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
                   onClick={generateAiDesc}>Regenerar</button>
