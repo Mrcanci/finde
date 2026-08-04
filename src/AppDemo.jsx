@@ -943,7 +943,7 @@ html{scrollbar-gutter:stable}
 .notif-sheet-title{font-family:'DM Serif Display',Georgia,serif;font-size:18px;color:var(--ch)}
 .notif-sheet-mark{font-size:12px;font-weight:600;color:var(--tr);background:none;border:none;cursor:pointer;font-family:inherit}
 .notif-sheet-list{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;text-align:left}
-.city-empty{margin:0 16px 24px;padding:32px 20px;background:var(--cr);border-radius:20px;text-align:left;display:flex;flex-direction:column;align-items:flex-start;gap:10px}
+.city-empty{margin:0 16px 24px;padding:32px 20px;background:var(--cr);border-radius:20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}
 .city-empty-ic{width:48px;height:48px;border-radius:50%;background:rgba(199,97,58,.12);color:var(--tr);display:flex;align-items:center;justify-content:center;margin-bottom:4px}
 .city-empty-tl{font-family:'DM Serif Display',Georgia,serif;font-size:18px;color:var(--ch);max-width:260px}
 .city-empty-sub{font-size:13px;color:var(--gy);max-width:300px;line-height:1.45}
@@ -3574,7 +3574,7 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
       {/* ── RESERVAS ── */}
       {tab === "bookings" && !selectedBooking && <div className="fu">
         {bookings.length === 0 ? (
-          <div style={{ textAlign: "left", padding: "48px 24px", color: "var(--gy)" }}>
+          <div style={{ textAlign: "center", padding: "48px 24px", color: "var(--gy)" }}>
             <Smartphone size={28} strokeWidth={1.5} style={{ color: "var(--lg)", marginBottom: 12 }} />
             <div style={{ fontWeight: 700, fontSize: 15, color: "var(--ch)", marginBottom: 6 }}>Aún no tienes reservas</div>
             <div style={{ fontSize: 13, lineHeight: 1.5 }}>Cuando un viajero reserve uno de tus tours, aparecerá aquí y podrás coordinar con él por WhatsApp.</div>
