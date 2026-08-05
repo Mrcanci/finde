@@ -4778,7 +4778,10 @@ export default function AppDemo() {
   // deja []. Adapta la forma del API a lo que renderiza la tab.
   useEffect(() => {
     if (loading || !operatorResolved) return;
-    let cancel = false;
+    // AbortController por ejecución: el cleanup (doble-mount de StrictMode en
+    // dev, cambio de deps) aborta el request en vuelo de verdad, en vez de
+    // solo descartar la respuesta como hacía el flag `cancel`.
+    const ctrl = new AbortController();
     const monthsShort = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
     // Los primeros 10 chars del ISO son el yyyy-mm-dd de la reserva; parsearlos
     // directo evita el drift de zona de new Date() + getters locales (mismo
@@ -4791,14 +4794,14 @@ export default function AppDemo() {
     };
     const hydrateOpBookings = async () => {
       if (!isOperator) {
-        if (!cancel) setOpBookings([]);
+        if (!ctrl.signal.aborted) setOpBookings([]);
         return;
       }
       try {
-        const r = await authFetch("/api/operators/me/bookings");
+        const r = await authFetch("/api/operators/me/bookings", { signal: ctrl.signal });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const data = await r.json();
-        if (cancel) return;
+        if (ctrl.signal.aborted) return;
         // Adaptador API → shape de la tab. El API da CÉNTIMOS: amount en soles.
         // note y pay NO existen en el modelo real → no se mapean.
         setOpBookings((data.bookings || []).map((b) => ({
@@ -4814,12 +4817,14 @@ export default function AppDemo() {
           status: b.status,
         })));
       } catch (err) {
+        // El abort no es un error: es el cleanup cancelando este run.
+        if (err.name === "AbortError") return;
         console.error("Error cargando reservas del operador:", err);
-        if (!cancel) setOpBookings([]);
+        if (!ctrl.signal.aborted) setOpBookings([]);
       }
     };
     hydrateOpBookings();
-    return () => { cancel = true; };
+    return () => ctrl.abort();
   }, [isOperator, loading, operatorResolved]);
 
   // M3 Sub-paso 1: hidrata "Mis Viajes" con las reservas REALES del viajero
