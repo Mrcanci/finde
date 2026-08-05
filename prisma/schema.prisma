@@ -30,6 +30,35 @@ enum CancellationPolicy {
   NoReembolsable
 }
 
+// Modo de venta del tour (diseño inventario 2026-08):
+// CUPO_FIJO  = allotment exclusivo Finde, confirmación instantánea, cierra al llenarse.
+// SOLICITUD  = sin límite de asientos; las reservas nacen como solicitudes y la
+//              agencia confirma en lote antes del cierre (closeTime/closeDaysBefore).
+enum SalesMode {
+  CUPO_FIJO
+  SOLICITUD
+}
+
+// Ciclo de vida de la reserva. En CUPO_FIJO nace CONFIRMADA; en SOLICITUD nace
+// SOLICITUD y vence (VENCIDA) a las 72h o al cierre de su salida, lo que llegue
+// primero (vencimiento perezoso: se evalúa al leer, se persiste al tocar;
+// pg_cron de Supabase es el upgrade futuro para avisos automáticos).
+enum BookingStatus {
+  SOLICITUD
+  CONFIRMADA
+  RECHAZADA
+  VENCIDA
+  CANCELADA
+}
+
+// Estado de una salida materializada. "Llena" NO es un estado: es derivado
+// (seatsTaken >= cupo efectivo), sin nada extra que sincronizar.
+enum DepartureStatus {
+  ABIERTA
+  CONFIRMADA
+  CANCELADA
+}
+
 // ---------- Models ----------
 
 model Operator {
@@ -99,14 +128,47 @@ model Tour {
   excludedDates String[]           @default([])
   addedDates    String[]           @default([])
 
+  // Inventario (2026-08). days/startTime/excludedDates/addedDates siguen siendo
+  // la regla de recurrencia; las salidas se materializan de forma perezosa en
+  // Departure ante el primer evento real sobre una fecha.
+  salesMode       SalesMode @default(SOLICITUD) // default = comportamiento actual real
+  allotment       Int?      // asientos exclusivos Finde por salida (CUPO_FIJO); null en SOLICITUD
+  minQuorum       Int?      // "mínimo N personas para salir"; informa progreso, NO ejecuta nada
+  closeTime       String?   // "HH:MM" Lima; null = default de producto "20:00"
+  closeDaysBefore Int?      // días antes de la salida; null = default 1 (víspera)
+
   embedding     Unsupported("vector(1024)")?
 
   createdAt     DateTime @default(now())
 
   bookings      Booking[]
+  departures    Departure[]
 
   @@index([category])
   @@index([city])
+}
+
+// Salida materializada PEREZOSAMENTE: la fila existe solo cuando hubo un evento
+// real sobre esa fecha (una reserva, una edición de agencia, una confirmación).
+// La disponibilidad general se calcula al vuelo desde la regla de recurrencia
+// del Tour; el unique (tourId, date) es la clave del upsert anti-carrera.
+model Departure {
+  id                String          @id @default(cuid())
+  tourId            String
+  tour              Tour            @relation(fields: [tourId], references: [id], onDelete: Restrict)
+  date              String          // "YYYY-MM-DD" (fecha Lima), misma convención que excludedDates
+  startTime         String?         // COPIADA del tour al materializar (pin): editar el tour no mueve salidas vendidas
+  status            DepartureStatus @default(ABIERTA)
+  allotmentOverride Int?            // cupo efectivo = allotmentOverride ?? tour.allotment
+  seatsTaken        Int             @default(0) // guests CONFIRMADOS; solo muta vía update condicional atómico
+  seatsRequested    Int             @default(0) // guests en SOLICITUD pendiente (progreso de quórum)
+  confirmedAt       DateTime?
+  cancelReason      String?
+  createdAt         DateTime        @default(now())
+  bookings          Booking[]
+
+  @@unique([tourId, date])
+  @@index([status, date])
 }
 
 model Booking {
@@ -133,11 +195,24 @@ model Booking {
   bookingCode  String   @unique
   scheduledAt  DateTime
 
+  // Inventario (2026-08). statusNew es TRANSICIONAL: convive con el String
+  // `status` hasta la fase de limpieza (DROP + RENAME a `status`), porque
+  // convertir el tipo in-place con db push implicaría drop de la columna.
+  // expiresAt null = legacy sin vencimiento (las reservas pre-migración no
+  // vencen retroactivamente) o reserva ya decidida.
+  statusNew    BookingStatus?
+  departureId  String?
+  departure    Departure? @relation(fields: [departureId], references: [id], onDelete: Restrict)
+  expiresAt    DateTime?
+  decidedAt    DateTime?
+
   createdAt    DateTime @default(now())
 
   @@index([tourId])
   @@index([userEmail])
   @@index([userId])
+  @@index([departureId])
+  @@index([statusNew, expiresAt]) // barrido perezoso de vencimientos
 }
 
 model SearchLog {
