@@ -269,6 +269,10 @@ async function handleDelete(
 // Un body mínimo { active: boolean } evita re-validar/re-enviar todo el tour
 // solo para pausarlo. El filtro de active en el catálogo/búsqueda/detalle vive
 // en sus respectivos GET; aquí solo se persiste el flag.
+//
+// ENDPOINT LEGACY, no mueve contadores de Departure; se reemplaza en la fase
+// de panel. seatsTaken/seatsRequested los mueven SOLO la creación de reservas
+// y la cancelación del sistema nuevo (lib/inventory.ts).
 
 const patchBodySchema = z.object({ active: z.boolean() });
 

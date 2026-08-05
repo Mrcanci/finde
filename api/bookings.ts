@@ -7,10 +7,17 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
 import { randomBytes } from "node:crypto";
-import { Prisma } from "@prisma/client";
+import { Prisma, BookingStatus } from "@prisma/client";
 import { db } from "../lib/db.js";
 import { rateLimit, ipFromRequest } from "../lib/rate-limit.js";
 import { requireAuth } from "../lib/auth.js";
+import {
+  LEGACY_STATUS,
+  materializeDeparture,
+  takeSeats,
+  addRequestedSeats,
+  solicitudExpiresAt,
+} from "../lib/inventory.js";
 
 // Anticipación mínima para reservar (en días). MANTENER EN SYNC con
 // src/AppDemo.jsx (MIN_BOOKING_LEAD_DAYS): el frontend bloquea el calendario y
@@ -74,45 +81,151 @@ interface BookingCreated {
   totalSoles: number;
   scheduledAt: Date;
   guests: number;
+  statusNew: BookingStatus | null;
+  expiresAt: Date | null;
   tour: { title: string };
 }
 
-async function createBookingWithRetry(data: {
-  tourId: string;
+// Error de disponibilidad dentro de la transacción: al lanzarse, Prisma revierte
+// TODO (departure/contadores/booking quedan intactos) y el handler responde con
+// el código y mensaje que lleva.
+class AvailabilityError extends Error {
+  httpStatus: number;
+  seatsLeft?: number;
+  constructor(message: string, httpStatus: number, seatsLeft?: number) {
+    super(message);
+    this.httpStatus = httpStatus;
+    this.seatsLeft = seatsLeft;
+  }
+}
+
+function isBookingCodeCollision(error: unknown): boolean {
+  const target = (error as Prisma.PrismaClientKnownRequestError)?.meta
+    ?.target as string[] | string | undefined;
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002" &&
+    (Array.isArray(target)
+      ? target.includes("bookingCode")
+      : target === "bookingCode" || target === "Booking_bookingCode_key")
+  );
+}
+
+// Crea la reserva usando el inventario: materializa la Departure (upsert
+// anti-carrera), toma cupo atómico en CUPO_FIJO o suma seatsRequested en
+// SOLICITUD, y crea el Booking vinculado. TODO en una transacción: si algo
+// falla a mitad, nada queda escrito. Reintenta la transacción completa ante
+// colisión de bookingCode (16^6 combinaciones: rarísimo).
+async function createBookingWithInventory(params: {
+  tour: {
+    id: string;
+    startTime: string | null;
+    salesMode: "CUPO_FIJO" | "SOLICITUD";
+    allotment: number | null;
+    closeTime: string | null;
+    closeDaysBefore: number | null;
+  };
+  date: string; // "YYYY-MM-DD" Lima
   userName: string;
   userEmail: string;
   userPhone: string;
   guests: number;
   totalSoles: number;
   scheduledAt: Date;
-}): Promise<BookingCreated> {
+}): Promise<{ booking: BookingCreated; seatsLeft: number | null }> {
+  const { tour, date, guests } = params;
+  const isCupoFijo = tour.salesMode === "CUPO_FIJO";
+  const bookingState: BookingStatus = isCupoFijo ? "CONFIRMADA" : "SOLICITUD";
+  const expiresAt = isCupoFijo
+    ? null
+    : solicitudExpiresAt(new Date(), date, tour.closeTime, tour.closeDaysBefore);
+
   for (let intento = 1; intento <= 3; intento++) {
     const bookingCode = generateBookingCode();
     try {
-      return await db.booking.create({
-        data: { ...data, bookingCode, status: "pending_payment" },
-        select: {
-          id: true,
-          bookingCode: true,
-          totalSoles: true,
-          scheduledAt: true,
-          guests: true,
-          tour: { select: { title: true } },
-        },
+      return await db.$transaction(async (tx) => {
+        const dep = await materializeDeparture(tx, tour, date);
+        if (dep.status === "CANCELADA") {
+          throw new AvailabilityError(
+            "Esta salida fue cancelada por la agencia. Elige otra fecha.",
+            409
+          );
+        }
+
+        let seatsLeft: number | null = null;
+        if (isCupoFijo) {
+          const cupoEfectivo = dep.allotmentOverride ?? tour.allotment;
+          if (cupoEfectivo == null) {
+            throw new AvailabilityError(
+              "Este tour no tiene cupo configurado. Contacta a la agencia.",
+              409
+            );
+          }
+          const ok = await takeSeats(tx, dep.id, guests);
+          if (!ok) {
+            const fresh = await tx.departure.findUnique({
+              where: { id: dep.id },
+              select: { seatsTaken: true, allotmentOverride: true },
+            });
+            const left = Math.max(
+              (fresh?.allotmentOverride ?? tour.allotment ?? 0) -
+                (fresh?.seatsTaken ?? 0),
+              0
+            );
+            throw new AvailabilityError(
+              left > 0
+                ? `Solo quedan ${left} cupo${left > 1 ? "s" : ""} para esa fecha`
+                : "No quedan cupos para esa fecha. Elige otra fecha.",
+              409,
+              left
+            );
+          }
+          const after = await tx.departure.findUnique({
+            where: { id: dep.id },
+            select: { seatsTaken: true, allotmentOverride: true },
+          });
+          seatsLeft = Math.max(
+            (after?.allotmentOverride ?? tour.allotment ?? 0) -
+              (after?.seatsTaken ?? 0),
+            0
+          );
+        } else {
+          await addRequestedSeats(tx, dep.id, guests);
+        }
+
+        const booking = await tx.booking.create({
+          data: {
+            tourId: tour.id,
+            userName: params.userName,
+            userEmail: params.userEmail,
+            userPhone: params.userPhone,
+            guests,
+            totalSoles: params.totalSoles,
+            scheduledAt: params.scheduledAt,
+            bookingCode,
+            // Contrato por adición: el String legacy y el estado nuevo viajan
+            // SIEMPRE coherentes (LEGACY_STATUS).
+            status: LEGACY_STATUS[bookingState],
+            statusNew: bookingState,
+            departureId: dep.id,
+            expiresAt,
+          },
+          select: {
+            id: true,
+            bookingCode: true,
+            totalSoles: true,
+            scheduledAt: true,
+            guests: true,
+            statusNew: true,
+            expiresAt: true,
+            tour: { select: { title: true } },
+          },
+        });
+        return { booking, seatsLeft };
       });
     } catch (error) {
-      const target = (error as Prisma.PrismaClientKnownRequestError)?.meta
-        ?.target as string[] | string | undefined;
-      const isCodeCollision =
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2002" &&
-        (Array.isArray(target)
-          ? target.includes("bookingCode")
-          : target === "bookingCode" || target === "Booking_bookingCode_key");
-      if (isCodeCollision) {
-        console.warn(
-          `Colisión de bookingCode en intento ${intento}, regenerando…`
-        );
+      if (isBookingCodeCollision(error)) {
+        console.warn(`Colisión de bookingCode en intento ${intento}, regenerando…`);
         continue;
       }
       throw error;
@@ -280,6 +393,12 @@ export default async function handler(
       priceSoles: true,
       capacity: true,
       active: true,
+      // Inventario: modo de venta, cupo y parámetros de cierre de solicitudes.
+      salesMode: true,
+      allotment: true,
+      startTime: true,
+      closeTime: true,
+      closeDaysBefore: true,
       // Datos de la agencia para el aviso por email (sin query extra; userId
       // distingue agencia real onboarded vs operador del seed).
       operator: { select: { email: true, name: true, userId: true } },
@@ -310,17 +429,35 @@ export default async function handler(
   const totalSoles = tour.priceSoles * guests;
 
   let booking: BookingCreated;
+  let seatsLeft: number | null;
   try {
-    booking = await createBookingWithRetry({
-      tourId,
+    ({ booking, seatsLeft } = await createBookingWithInventory({
+      tour: {
+        id: tour.id,
+        startTime: tour.startTime,
+        salesMode: tour.salesMode,
+        allotment: tour.allotment,
+        closeTime: tour.closeTime,
+        closeDaysBefore: tour.closeDaysBefore,
+      },
+      // Fecha Lima de la salida: robusta ante cualquier hora que mande el
+      // cliente (la convención del frontend es 13:00Z).
+      date: limaDateISO(scheduledDate),
       userName,
       userEmail,
       userPhone,
       guests,
       totalSoles,
       scheduledAt: scheduledDate,
-    });
+    }));
   } catch (error) {
+    if (error instanceof AvailabilityError) {
+      res.status(error.httpStatus).json({
+        error: error.message,
+        ...(error.seatsLeft != null ? { seatsLeft: error.seatsLeft } : {}),
+      });
+      return;
+    }
     console.error("Error creando booking:", error);
     res.status(500).json({ error: "Error creando la reserva" });
     return;
@@ -350,6 +487,13 @@ export default async function handler(
       scheduledAt: booking.scheduledAt.toISOString(),
       guests: booking.guests,
       tourTitle: booking.tour.title,
+      // Contrato por adición (el frontend actual usa bookingCode/totalSoles/
+      // guests y sigue igual): estado legacy + estado nuevo + vencimiento +
+      // cupo restante (solo CUPO_FIJO).
+      status: booking.statusNew ? LEGACY_STATUS[booking.statusNew] : "pending_payment",
+      bookingState: booking.statusNew,
+      expiresAt: booking.expiresAt ? booking.expiresAt.toISOString() : null,
+      seatsLeft,
     },
     paymentInstructions: {
       method: "yape",
