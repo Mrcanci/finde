@@ -10,6 +10,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { db } from "../../../lib/db.js";
 import { requireOperator } from "../../../lib/auth.js";
 import { LIST_SELECT } from "../../../lib/tour-select.js";
+import { expireStaleSolicitudes } from "../../../lib/inventory.js";
 
 export default async function handler(
   req: VercelRequest,
@@ -47,8 +48,17 @@ export default async function handler(
     }
 
     if (resource === "bookings") {
-      // Idéntico a api/operators/me/bookings.ts: reservas de los tours del
-      // operador (propiedad vía relación tour.operatorId).
+      // Vencimiento PEREZOSO antes de leer: las solicitudes vencidas del
+      // operador se persisten como VENCIDA (y liberan seatsRequested). Un
+      // fallo no rompe la lectura.
+      try {
+        await expireStaleSolicitudes(db, { tour: { operatorId: operator.id } });
+      } catch (error) {
+        console.error("Error venciendo solicitudes (no bloqueante):", error);
+      }
+
+      // Reservas de los tours del operador (propiedad vía tour.operatorId).
+      // Contrato por adición: status legacy intacto + bookingState/expiresAt.
       const bookings = await db.booking.findMany({
         where: { tour: { operatorId: operator.id } },
         select: {
@@ -60,13 +70,20 @@ export default async function handler(
           guests: true,
           totalSoles: true,
           status: true,
+          statusNew: true,
+          expiresAt: true,
           scheduledAt: true,
           createdAt: true,
           tour: { select: { id: true, title: true, startTime: true } },
         },
         orderBy: { createdAt: "desc" },
       });
-      res.status(200).json({ bookings });
+      res.status(200).json({
+        bookings: bookings.map(({ statusNew, ...b }) => ({
+          ...b,
+          bookingState: statusNew,
+        })),
+      });
       return;
     }
 

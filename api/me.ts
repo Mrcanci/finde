@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { requireAuth } from "../lib/auth.js";
 import { db } from "../lib/db.js";
+import { expireStaleSolicitudes } from "../lib/inventory.js";
 
 export default async function handler(
   req: VercelRequest,
@@ -17,6 +18,17 @@ export default async function handler(
     user = await requireAuth(req, res);
   } catch {
     return; // requireAuth ya respondió 401
+  }
+
+  // Vencimiento PEREZOSO: antes de leer, persistir como VENCIDA toda solicitud
+  // del usuario con expiresAt en el pasado (y liberar su seatsRequested). Un
+  // fallo acá no debe romper la lectura: se loguea y se sigue.
+  if (user.email) {
+    try {
+      await expireStaleSolicitudes(db, { userEmail: user.email });
+    } catch (error) {
+      console.error("Error venciendo solicitudes (no bloqueante):", error);
+    }
   }
 
   // Resolver perfil de operador + reservas del usuario en paralelo (sin sumar
@@ -39,6 +51,9 @@ export default async function handler(
             guests: true,
             totalSoles: true,
             status: true,
+            // Contrato por adición: estado nuevo + vencimiento junto al legacy.
+            statusNew: true,
+            expiresAt: true,
             // userName/userPhone: identidad real del viajero para el voucher y el
             // link de coordinación por WhatsApp (sin esto el nombre saldría mock).
             userName: true,
@@ -73,6 +88,11 @@ export default async function handler(
       email: user.email,
     },
     operator: operator ?? null,
-    bookings,
+    // bookingState = enum nuevo; status (legacy) queda intacto. El campo crudo
+    // statusNew no se expone: en el response el nombre canónico es bookingState.
+    bookings: bookings.map(({ statusNew, ...b }) => ({
+      ...b,
+      bookingState: statusNew,
+    })),
   });
 }
