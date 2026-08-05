@@ -6,6 +6,7 @@
 // reservas (api/bookings.ts) y la cancelación interna de abajo. Los endpoints
 // legacy (p. ej. PATCH /api/tours/[id]) no tocan contadores.
 
+import { randomUUID } from "node:crypto";
 import { Prisma, PrismaClient, BookingStatus } from "@prisma/client";
 
 // Cliente Prisma o transacción en curso: los helpers atómicos funcionan igual.
@@ -55,18 +56,24 @@ export function solicitudExpiresAt(
   return close < cap ? close : cap;
 }
 
-// Materializa la salida si no existe (upsert nativo sobre el unique compuesto →
-// anti-carrera: dos primeros compradores simultáneos no chocan). startTime se
-// COPIA del tour (pin): editar el tour después no mueve salidas vendidas.
-export function materializeDeparture(
+// Materializa la salida si no existe. IMPORTANTE: INSERT ... ON CONFLICT DO
+// NOTHING crudo, NO el upsert de Prisma: el upsert hace find→create y bajo
+// concurrencia choca con el unique (P2002) abortando la transacción entera
+// (lo cazó el test de concurrencia). El ON CONFLICT es atómico y silencioso:
+// dos primeros compradores simultáneos no chocan jamás. El id se genera acá
+// (randomUUID) porque el default cuid() vive en el cliente Prisma, no en la DB.
+// startTime se COPIA del tour (pin): editarlo después no mueve salidas vendidas.
+export async function materializeDeparture(
   db: Db,
   tour: { id: string; startTime: string | null },
   date: string
 ) {
-  return db.departure.upsert({
+  await db.$executeRaw`
+    INSERT INTO "Departure" ("id", "tourId", "date", "startTime")
+    VALUES (${randomUUID()}, ${tour.id}, ${date}, ${tour.startTime})
+    ON CONFLICT ("tourId", "date") DO NOTHING`;
+  return db.departure.findUniqueOrThrow({
     where: { tourId_date: { tourId: tour.id, date } },
-    create: { tourId: tour.id, date, startTime: tour.startTime },
-    update: {},
   });
 }
 
