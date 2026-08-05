@@ -1,12 +1,15 @@
 // api/search.ts
-// POST /api/search — búsqueda semántica con pgvector + re-ranking con Claude.
-// Flujo: embedding del query (Voyage) → top 8 candidatos (pgvector <=>)
-// → Claude Sonnet 4.6 elige 3 con reasoning peruano → SearchLog → respuesta.
-// Si Claude falla por cualquier razón, fallback graceful con top 3 semánticos.
+// POST /api/search — FASE 1 de la búsqueda semántica: embedding del query
+// (Voyage) → top 8 candidatos (pgvector <=>) → Claude elige 3 POR ÍNDICE
+// (1-8, corrupción de ids estructuralmente imposible) → responde los tours
+// validados + firma HMAC para la fase 2. El reasoning lo genera la fase 2
+// (/api/search-reasoning) con las tarjetas ya en pantalla.
+// Cache HIT responde todo junto acá (results + reasoning, sin fase 2).
+// Si el modelo falla, fallback graceful con top 3 semánticos: reasoning
+// canned, SearchLog acá, sin fase 2 y sin escribir cache.
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { waitUntil } from "@vercel/functions";
-import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { db } from "../lib/db.js";
 import { voyage, MODEL_EMBED, DIM } from "../lib/voyage.js";
@@ -14,6 +17,7 @@ import { anthropic, MODEL } from "../lib/anthropic.js";
 import { LIST_SELECT, gateOperatorMincetur } from "../lib/tour-select.js";
 import { rateLimit, ipFromRequest } from "../lib/rate-limit.js";
 import { normalizeQuery } from "../lib/search-cache.js";
+import { signSearchPhase } from "../lib/search-sig.js";
 
 const bodySchema = z.object({
   query: z.string().trim().min(3).max(500),
@@ -38,75 +42,35 @@ interface FiltrosDetectados {
   duration?: string;
 }
 
-interface DecisionClaude {
-  top_3_ids: string[];
-  reasoning: string;
-  filters_detected: FiltrosDetectados;
-}
-
-const SYSTEM_PROMPT = `Eres el asistente de Finde, un marketplace peruano de experiencias turísticas curadas (aventura, cultural, gastronomía, naturaleza, místico).
-
-Recibes la consulta de un viajero en lenguaje natural y 8 tours pre-seleccionados por similitud semántica. Tu trabajo es:
-
-1. Elegir los 3 tours más relevantes para esa consulta específica.
-2. Explicar en 2–4 frases POR QUÉ esos tres son la mejor recomendación (no qué son — el usuario ya ve la ficha).
-3. Detectar filtros implícitos en la consulta: categoría (adventure | cultural | gastronomy | nature | mystic), ciudad, presupuesto máximo en soles, duración aproximada.
+// Prompt de SELECCIÓN pura: mantiene TODAS las reglas que afectan qué tours se
+// eligen (exclusiones por niños/tranquilo/económico, zona, variedad, ranking).
+// Las reglas de TEXTO (tono peruano, 2-4 frases) viven en la fase 2.
+const SYSTEM_SELECTOR = `Eres el selector de tours de Finde (marketplace peruano de turismo). Recibes la consulta de un viajero y 8 tours candidatos numerados del 1 al 8. Elige los 3 más relevantes para esa consulta.
 
 REGLAS:
-- Solo puedes elegir IDs de los 8 candidatos. Nunca inventes ni recomiendes nada fuera de esa lista.
-- Respeta restricciones del viajero. Si menciona familia con niños, excluye ayahuasca, treks extremos y alta montaña. Si pide algo tranquilo, evita aventura intensa. Si pide económico, prioriza menor priceSoles.
-- Si la consulta menciona una ciudad o región específica (ej. Cusco, Arequipa, costa norte), prioriza tours en esa zona. Solo recomienda opciones cercanas si son objetivamente superiores en relevancia, y aclara la ubicación en el reasoning.
+- Respeta restricciones del viajero: si menciona familia con niños, excluye ayahuasca, treks extremos y alta montaña. Si pide algo tranquilo, evita aventura intensa. Si pide económico, prioriza menor priceSoles.
+- Si la consulta menciona una ciudad o región específica (ej. Cusco, Arequipa, costa norte), prioriza tours en esa zona; solo elige opciones de otra zona si son objetivamente superiores en relevancia.
 - Ante consultas ambiguas prefiere variedad temática (no 3 tours del mismo tipo).
-- El orden de top_3_ids ES tu ranking: el primer id del array debe ser el tour que tu reasoning presenta como la mejor opción, el segundo la siguiente, y así. NUNCA conserves el orden en que recibiste los candidatos: reordena según tu recomendación. Si tu reasoning presenta uno como "agregado" o alternativa secundaria, ese va ÚLTIMO en el array.
-- El reasoning debe sonar a peruano natural y cálido, como un guía peruano experimentado recomendando: tutea ("te"), usa expresiones cotidianas como "te va a encantar", "cae bien", "ideal para arrancar". Evita el español neutro y los clichés ("pachamama", "vibras", "experiencia mágica"). Evita el voseo rioplatense ("mira", nunca "mirá"; "tienes", nunca "tenes").
-- Entre 2 y 4 frases. Sin emojis. Sin listar los tours uno por uno.
+- El orden del array ES tu ranking: el primero es tu mejor recomendación.
+- Devuelve SOLO números del 1 al 8, sin repetir.
 
-Llama SIEMPRE la herramienta recomendar_tours con tu decisión. No respondas en texto libre.`;
+Llama SIEMPRE elegir_tours. No respondas en texto libre.`;
 
-const TOOL = {
-  name: "recomendar_tours",
+const TOOL_SELECTOR = {
+  name: "elegir_tours",
   description:
-    "Devuelve los 3 tours más relevantes de los 8 candidatos, con reasoning en peruano y filtros detectados.",
+    "Devuelve los números (1-8) de los 3 tours más relevantes, en orden de ranking.",
   input_schema: {
     type: "object" as const,
     properties: {
-      top_3_ids: {
+      top_3: {
         type: "array",
-        items: { type: "string" },
+        items: { type: "integer", minimum: 1, maximum: 8 },
         minItems: 3,
         maxItems: 3,
-        description:
-          "IDs (cuid) de los 3 tours elegidos, ordenados por TU ranking (el primero = tu mejor recomendación, coherente con el orden en que tu reasoning los presenta). NO conserves el orden de la lista de candidatos. Deben venir EXACTAMENTE de esa lista.",
-      },
-      reasoning: {
-        type: "string",
-        description:
-          "2–4 frases en español peruano natural explicando por qué estos 3 son la mejor recomendación.",
-      },
-      filters_detected: {
-        type: "object",
-        description:
-          "Filtros implícitos detectados en la consulta. Incluye solo los que aparezcan claramente; omite el resto.",
-        properties: {
-          category: {
-            type: "string",
-            enum: ["adventure", "cultural", "gastronomy", "nature", "mystic"],
-          },
-          city: { type: "string" },
-          maxPrice: {
-            type: "number",
-            description: "Presupuesto máximo aproximado en soles.",
-          },
-          duration: {
-            type: "string",
-            description:
-              "Duración aproximada (ej. 'medio día', 'full day', '2 días').",
-          },
-        },
-        additionalProperties: false,
       },
     },
-    required: ["top_3_ids", "reasoning", "filters_detected"],
+    required: ["top_3"],
     additionalProperties: false,
   },
 };
@@ -117,7 +81,7 @@ const TOOL = {
 function formatCandidatos(c: Candidato[]): string {
   return c
     .map(
-      (t, i) => `[${i + 1}] id=${t.id}
+      (t, i) => `[${i + 1}]
 título: ${t.title}
 categoría: ${t.category}
 ciudad: ${t.city}, ${t.region}
@@ -128,58 +92,50 @@ descripción: ${t.description.slice(0, 500)}`
     .join("\n\n");
 }
 
-async function decidirConClaude(
+// Devuelve los índices (1-8) elegidos, validados: exactamente 3, enteros en
+// rango y sin repetir. Cualquier otra cosa lanza y el handler cae al fallback
+// semántico. El modelo nunca ve cuids, así que no puede corromperlos.
+async function elegirConClaude(
   query: string,
   candidatos: Candidato[]
-): Promise<DecisionClaude> {
+): Promise<number[]> {
   const userMessage = `Consulta del viajero: "${query}"
 
-Candidatos pre-seleccionados (orden por similitud semántica):
+Candidatos:
 
 ${formatCandidatos(candidatos)}
 
-Elige los 3 mejores y llama recomendar_tours.`;
+Elige los 3 mejores y llama elegir_tours.`;
 
   const respuesta = await anthropic.messages.create({
     model: MODEL,
-    max_tokens: 1024,
-    system: SYSTEM_PROMPT,
-    tools: [TOOL],
-    tool_choice: { type: "tool", name: TOOL.name },
+    max_tokens: 50,
+    system: SYSTEM_SELECTOR,
+    tools: [TOOL_SELECTOR],
+    tool_choice: { type: "tool", name: TOOL_SELECTOR.name },
     messages: [{ role: "user", content: userMessage }],
   });
 
   const toolUse = respuesta.content.find((b) => b.type === "tool_use");
   if (!toolUse || toolUse.type !== "tool_use") {
-    throw new Error("Claude no llamó la herramienta recomendar_tours");
+    throw new Error("El modelo no llamó la herramienta elegir_tours");
   }
 
-  const decision = toolUse.input as DecisionClaude;
-
+  const nums = (toolUse.input as { top_3?: unknown }).top_3;
   if (
-    !Array.isArray(decision.top_3_ids) ||
-    decision.top_3_ids.length !== 3
+    !Array.isArray(nums) ||
+    nums.length !== 3 ||
+    new Set(nums).size !== 3 ||
+    !nums.every(
+      (n) => Number.isInteger(n) && n >= 1 && n <= candidatos.length
+    )
   ) {
-    throw new Error("top_3_ids inválido");
+    throw new Error(`Índices inválidos del modelo: ${JSON.stringify(nums)}`);
   }
-
-  const idsValidos = new Set(candidatos.map((c) => c.id));
-  for (const id of decision.top_3_ids) {
-    if (!idsValidos.has(id)) {
-      throw new Error(`Claude eligió un id fuera de los candidatos: ${id}`);
-    }
-  }
-
-  if (typeof decision.reasoning !== "string" || decision.reasoning.length === 0) {
-    throw new Error("reasoning inválido");
-  }
-
-  return {
-    top_3_ids: decision.top_3_ids,
-    reasoning: decision.reasoning,
-    filters_detected: decision.filters_detected ?? {},
-  };
+  return nums as number[];
 }
+
+const FALLBACK_REASONING = "Resultados ordenados por similitud semántica";
 
 // Días que una entrada de FeaturedSearch se considera fresca. Al expirar, el
 // cache-hit se degrada a MISS y el flujo completo recomputa TODO junto
@@ -263,14 +219,16 @@ export default async function handler(
 
     mark("total", t0);
     console.log(
-      `[search-timing] cache=HIT cache_lookup=${t.cache_lookup}ms hydration=${t.hydration}ms total=${t.total}ms results=${cachedResults.length}`
+      `[search-timing] phase=1 cache=HIT cache_lookup=${t.cache_lookup}ms hydration=${t.hydration}ms total=${t.total}ms results=${cachedResults.length}`
     );
+    // HIT: todo junto (results + reasoning). El frontend NO llama fase 2.
     res.status(200).json({
       results: cachedResults,
       reasoning: cached.reasoning,
       query,
       filters_detected:
         (cached.filtersDetected as unknown as FiltrosDetectados) ?? {},
+      cached: true,
     });
     return;
   }
@@ -321,7 +279,7 @@ export default async function handler(
   if (candidatos.length === 0) {
     mark("total", t0);
     console.log(
-      `[search-timing] cache=MISS cache_lookup=${t.cache_lookup}ms embedding=${t.embedding}ms vector=${t.vector}ms total=${t.total}ms results=0`
+      `[search-timing] phase=1 cache=MISS cache_lookup=${t.cache_lookup}ms embedding=${t.embedding}ms vector=${t.vector}ms total=${t.total}ms results=0`
     );
     res.status(200).json({
       results: [],
@@ -349,26 +307,19 @@ export default async function handler(
       return rows;
     });
 
-  // Paso 3: Claude re-rankea (con fallback graceful)
+  // Paso 3: el modelo elige 3 de los 8 por índice (con fallback graceful).
+  // El fallback semántico NO pasa por la fase 2 ni se cachea.
   let chosenIds: string[];
-  let reasoning: string;
-  let filtersDetected: FiltrosDetectados;
-  // Solo el flujo con Claude exitoso alimenta el write-through cache; el
-  // fallback semántico NO se cachea (detectado por boolean, no por strings).
-  let claudeOk = false;
+  let fallback = false;
 
   s = Date.now();
   try {
-    const decision = await decidirConClaude(query, candidatos);
-    chosenIds = decision.top_3_ids;
-    reasoning = decision.reasoning;
-    filtersDetected = decision.filters_detected;
-    claudeOk = true;
+    const indices = await elegirConClaude(query, candidatos);
+    chosenIds = indices.map((n) => candidatos[n - 1].id);
   } catch (error) {
-    console.error("Claude falló, usando fallback semántico:", error);
+    console.error("Fase 1 falló, usando fallback semántico:", error);
     chosenIds = candidatos.slice(0, 3).map((c) => c.id);
-    reasoning = "Resultados ordenados por similitud semántica";
-    filtersDetected = {};
+    fallback = true;
   }
   mark("model", s);
 
@@ -385,71 +336,56 @@ export default async function handler(
     .map((id) => byId.get(id))
     .filter((t): t is NonNullable<typeof t> => t != null);
 
-  // Pasos 5 y 6 en paralelo y FUERA del camino crítico: SearchLog y el
-  // write-through cache no dependen entre sí (tablas distintas) y un fallo de
-  // cualquiera no debe romper la respuesta. waitUntil mantiene viva la función
-  // hasta completarlos DESPUÉS de responder; el tradeoff aceptado es que si la
-  // instancia muere antes de terminar, esa fila de log o ese upsert se pierden.
-  // Write-through cache: toda búsqueda EXITOSA se upsertea a FeaturedSearch
-  // por query normalizada → repeticiones exactas responden instantáneas con
-  // texto idéntico. @updatedAt refresca la ventana TTL. Guardrails: NO
-  // cachear fallback (claudeOk=false) ni respuestas con <3 tours.
-  s = Date.now();
-  const escrituras: Promise<void>[] = [
-    db.searchLog
-      .create({
-        data: {
-          query,
-          resultIds: results.map((t) => t.id),
-          reasoning,
-        },
-      })
-      .then(() => mark("searchlog", s))
-      .catch((error) => {
-        console.error("Error guardando SearchLog (no bloqueante):", error);
-        mark("searchlog", s);
-      }),
-  ];
-  if (claudeOk && results.length >= 3) {
-    escrituras.push(
-      db.featuredSearch
-        .upsert({
-          where: { query: normalized },
-          create: {
-            query: normalized,
-            results: results.map((t) => t.id),
-            reasoning,
-            filtersDetected: filtersDetected as unknown as Prisma.InputJsonValue,
-          },
-          update: {
-            results: results.map((t) => t.id),
-            reasoning,
-            filtersDetected: filtersDetected as unknown as Prisma.InputJsonValue,
+  mark("total", t0);
+
+  if (fallback) {
+    // El fallback no pasa por la fase 2, así que su SearchLog se escribe acá
+    // (vía waitUntil, fuera del camino crítico) y NO se cachea, igual que
+    // siempre. El frontend recibe reasoning ≠ null y no llama la fase 2.
+    const sLog = Date.now();
+    waitUntil(
+      db.searchLog
+        .create({
+          data: {
+            query,
+            resultIds: results.map((t) => t.id),
+            reasoning: FALLBACK_REASONING,
           },
         })
-        .then(() => mark("cache_write", s))
-        .catch((error) => {
-          console.error("Error en write-through cache (no bloqueante):", error);
-          mark("cache_write", s);
+        .catch((error) =>
+          console.error("Error guardando SearchLog (no bloqueante):", error)
+        )
+        .then(() => {
+          mark("searchlog", sLog);
+          console.log(
+            `[search-timing] phase=1 cache=MISS cache_lookup=${t.cache_lookup}ms embedding=${t.embedding}ms vector=${t.vector}ms model=${t.model}ms hydration=${t.hydration}ms searchlog=${t.searchlog}ms total=${t.total}ms results=${results.length} fallback=1`
+          );
         })
     );
-  } else {
-    t.cache_write = 0;
+    res.status(200).json({
+      results,
+      reasoning: FALLBACK_REASONING,
+      query,
+      filters_detected: {},
+      fallback: true,
+    });
+    return;
   }
-  // total mide hasta la respuesta al usuario; el log sale cuando terminan las
-  // escrituras en background para incluir también sus duraciones.
-  mark("total", t0);
-  waitUntil(
-    Promise.all(escrituras).then(() => {
-      console.log(
-        `[search-timing] cache=MISS cache_lookup=${t.cache_lookup}ms embedding=${t.embedding}ms vector=${t.vector}ms model=${t.model}ms hydration=${t.hydration}ms searchlog=${t.searchlog}ms cache_write=${t.cache_write}ms total=${t.total}ms results=${results.length}`
-      );
-    })
+
+  // Respuesta normal de fase 1: tours validados (los ids salen de
+  // candidatos[n-1], nunca del modelo), sin reasoning todavía. La firma liga
+  // query normalizada + ids elegidos para que la fase 2 pueda confiar en
+  // ellos al escribir el cache compartido. SearchLog y FeaturedSearch se
+  // escriben en la fase 2, que es quien tiene ids + reasoning coherentes.
+  console.log(
+    `[search-timing] phase=1 cache=MISS cache_lookup=${t.cache_lookup}ms embedding=${t.embedding}ms vector=${t.vector}ms model=${t.model}ms hydration=${t.hydration}ms total=${t.total}ms results=${results.length} fallback=0`
   );
   res.status(200).json({
     results,
-    reasoning,
+    reasoning: null,
     query,
-    filters_detected: filtersDetected,
+    filters_detected: {},
+    fallback: false,
+    sig: signSearchPhase(normalized, results.map((t) => t.id)),
   });
 }
