@@ -2073,12 +2073,17 @@ function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
   const [geminiIds, setGeminiIds] = useState(null);
   const [aiResult, setAiResult] = useState(null);
   const [apiReasoning, setApiReasoning] = useState("");
+  // Carga de la fase 2 (reasoning). Las tarjetas ya están visibles mientras.
+  const [reasoningLoading, setReasoningLoading] = useState(false);
   // hasSearched evita que aparezca "No se encontraron resultados" en la
   // pantalla vacía inicial. Se prende con la primera búsqueda real (Enter,
   // dispatch IA, o sugerencia clickeada) y se apaga al limpiar el query.
   const [hasSearched, setHasSearched] = useState(false);
   const geminiTimer = useRef(null);
   const searchRef = useRef(null);
+  // Número de secuencia de búsqueda IA: descarta respuestas de fase 2 que
+  // lleguen tarde cuando el usuario ya buscó otra cosa o limpió el resultado.
+  const aiSeq = useRef(0);
   const fullSearch = q.length >= 2 ? searchTours(tours, q, cat) : null;
   const filt = aiResult
     ? aiResult.results.map(id => tours.find(t => t.id === id)).filter(Boolean)
@@ -2095,6 +2100,7 @@ function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
   // (api/search devuelve top_3_ids rankeados). No se mezclan extras locales:
   // eso inflaba la grilla y contradecía el reasoning ("los tres").
   const runAiSearch = async (value) => {
+    const seq = ++aiSeq.current;
     setShowDropdown(false);
     setHasSearched(true);
     setGeminiLoading(true);
@@ -2113,8 +2119,30 @@ function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
           // Setear todo ANTES de bajar geminiLoading para evitar frame con
           // loading=false + grid vacía.
           setGeminiIds(apiIds);
-          setApiReasoning(data.reasoning || "");
           setLocalResults(apiTours);
+          if (data.reasoning != null) {
+            // Cache HIT o fallback: llegó todo junto y no hay fase 2.
+            setApiReasoning(data.reasoning || "");
+          } else {
+            // Fase 2 en background, con las tarjetas ya en pantalla. Si falla,
+            // las tarjetas se quedan y el bloque de análisis no aparece.
+            setApiReasoning("");
+            setReasoningLoading(true);
+            fetch("/api/search-reasoning", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ query: value, ids: apiIds, sig: data.sig }),
+            })
+              .then((r2) => (r2.ok ? r2.json() : null))
+              .then((d2) => {
+                if (aiSeq.current !== seq) return;
+                if (d2 && d2.reasoning) setApiReasoning(d2.reasoning);
+              })
+              .catch(() => { /* sin reasoning: no rompemos la pantalla */ })
+              .finally(() => {
+                if (aiSeq.current === seq) setReasoningLoading(false);
+              });
+          }
         } else {
           // Backend respondió pero sin matches IA. Guardamos el reasoning
           // ("Por ahora no encontramos…") para mostrarlo como análisis.
@@ -2127,8 +2155,10 @@ function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
 
   const handleChange = (value) => {
     setQ(value);
+    aiSeq.current += 1;
     setGeminiIds(null);
     setAiResult(null);
+    setReasoningLoading(false);
     if (geminiTimer.current) clearTimeout(geminiTimer.current);
     if (value.trim().length < 2) {
       setLocalResults([]);
@@ -2262,9 +2292,11 @@ function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div className="ai-result-t">Encontramos {filt.length} tours</div>
               <div className="ai-result-b">para &ldquo;{q}&rdquo;</div>
-              {apiReasoning && <div className="ai-result-x">{apiReasoning}</div>}
+              {apiReasoning
+                ? <div className="ai-result-x">{apiReasoning}</div>
+                : reasoningLoading && <div className="ai-result-x">Analizando los mejores tours…</div>}
             </div>
-            <button className="sr-clear" onClick={() => { setGeminiIds(null); setApiReasoning(""); }}><X size={16} strokeWidth={1.5} /></button>
+            <button className="sr-clear" onClick={() => { aiSeq.current += 1; setGeminiIds(null); setApiReasoning(""); setReasoningLoading(false); }}><X size={16} strokeWidth={1.5} /></button>
           </div>
         )}
         <div className="cats">{CATS.map((c) => <button key={c.id} className={`chip ${cat === c.id ? "on" : ""}`} onClick={() => { setCat(c.id); setQ(""); setGeminiIds(null); setAiResult(null); setLocalResults([]); setHasSearched(false); }}><c.ic size={16} strokeWidth={1.5} /> {c.n}</button>)}</div>
