@@ -4635,7 +4635,7 @@ const GUEST_VIEWS = ["home", "catalog", "detail", "login", "welcome"];
 
 // ── MAIN ──────────────────────────────────────────────
 export default function AppDemo() {
-  const { user, loading, isOperator, signOut } = useAuth();
+  const { user, loading, isOperator, operatorResolved, signOut } = useAuth();
   const [view, setView] = useState("login");
   // Modo invitado explícito: sin él, el guard de effectiveView rebotaría al
   // login cualquier vista sin sesión y "Explorar sin cuenta" no navegaría.
@@ -4706,7 +4706,12 @@ export default function AppDemo() {
   // Loader reusable (useCallback): extraído del useEffect de montaje para poder
   // re-invocarlo tras editar el negocio (saveBiz) y reflejar el nombre nuevo sin
   // recargar. Devuelve activos e inactivos.
+  // opToursSeq: guard de respuesta vieja. loadOperatorTours se invoca desde el
+  // efecto Y desde onBusinessSaved; dos corridas cercanas podían aterrizar
+  // fuera de orden (la respuesta lenta pisaba a la nueva).
+  const opToursSeq = useRef(0);
   const loadOperatorTours = useCallback(async () => {
+    const seq = ++opToursSeq.current;
     if (!isOperator) {
       setOpTours([]);
       return;
@@ -4715,6 +4720,7 @@ export default function AppDemo() {
       const r = await authFetch("/api/operators/me/tours");
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
+      if (seq !== opToursSeq.current) return;
       // mapTourFromApi ya normaliza (incl. days/cancellation reales vía
       // LIST_SELECT ampliado); de ahí a la forma que espera el dashboard.
       const mine = (data.tours || []).map(mapTourFromApi);
@@ -4751,25 +4757,27 @@ export default function AppDemo() {
       })));
     } catch (err) {
       console.error("Error cargando tours del operador:", err);
-      setOpTours([]);
+      if (seq === opToursSeq.current) setOpTours([]);
     }
   }, [isOperator]);
 
   // Sub-paso 2.7: opTours = los tours REALES del operador autenticado. Espera a
-  // que useAuth resuelva (loading) antes de decidir; el loader vive fuera del
-  // efecto para reusarse tras editar el negocio (saveBiz).
+  // que useAuth resuelva la sesión (loading) Y el perfil de operador
+  // (operatorResolved) antes de decidir: sin lo segundo, corría con el
+  // isOperator=false transitorio y vaciaba/duplicaba trabajo. El loader vive
+  // fuera del efecto para reusarse tras editar el negocio (saveBiz).
   useEffect(() => {
-    if (loading) return;
+    if (loading || !operatorResolved) return;
     const run = async () => { await loadOperatorTours(); };
     run();
-  }, [loading, loadOperatorTours]);
+  }, [loading, operatorResolved, loadOperatorTours]);
 
   // M3 Sub-paso B: hidrata las reservas del operador (GET /api/operators/me/bookings,
   // filtrado por operatorId del token). Mismo patrón que opTours: espera a que
-  // useAuth resuelva, no operador → vacío, !r.ok → loguea y deja []. Adapta la
-  // forma del API a lo que renderiza la tab (amount = totalSoles/100 en soles).
+  // useAuth resuelva sesión Y operador, no operador → vacío, !r.ok → loguea y
+  // deja []. Adapta la forma del API a lo que renderiza la tab.
   useEffect(() => {
-    if (loading) return;
+    if (loading || !operatorResolved) return;
     let cancel = false;
     const monthsShort = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
     // Los primeros 10 chars del ISO son el yyyy-mm-dd de la reserva; parsearlos
@@ -4812,7 +4820,7 @@ export default function AppDemo() {
     };
     hydrateOpBookings();
     return () => { cancel = true; };
-  }, [isOperator, loading]);
+  }, [isOperator, loading, operatorResolved]);
 
   // M3 Sub-paso 1: hidrata "Mis Viajes" con las reservas REALES del viajero
   // (GET /api/me → bookings, filtradas por userEmail del token). Reemplaza el
@@ -5268,10 +5276,15 @@ export default function AppDemo() {
   //   una vista privada (reservar, viajes, perfil...) sigue cayendo al login.
   // Con sesión, `guest` es irrelevante: la primera rama manda.
   const allowedWithoutSession = guest ? GUEST_VIEWS : ["login", "welcome"];
+  // El panel expulsa a "home" SOLO cuando el perfil de operador ya está
+  // resuelto y dice que no es operador. Mientras resuelve (operatorResolved
+  // false), el render de "dashboard" muestra "Cargando tu panel…" en vez de
+  // decidir con el isOperator=false transitorio (guard derivado, sin flash).
   const effectiveView =
     user && view === "login" ? "home"
       : !user && !allowedWithoutSession.includes(view) ? "login"
-        : view;
+        : view === "dashboard" && operatorResolved && !isOperator ? "home"
+          : view;
   const isAuth = !["login", "welcome"].includes(effectiveView);
   const showNav = isAuth && !["booking", "detail", "new-tour", "trip-detail"].includes(effectiveView);
   const showHeader = isAuth && !["booking", "new-tour"].includes(effectiveView);
@@ -5310,7 +5323,9 @@ export default function AppDemo() {
         {effectiveView === "trips" && <TripsView go={go} onSelectTrip={setCurrentTrip} trips={trips} />}
         {effectiveView === "trip-detail" && <TripDetailView trip={currentTrip} go={go} onReview={handleReview} />}
         {effectiveView === "profile" && <ProfileView go={go} onLogout={handleLogout} />}
-        {effectiveView === "dashboard" && <DashView go={go} opTours={opTours} opBookings={opBookings} onEditTour={handleEditTour} onDeleteTour={handleDeleteTour} onToggleActive={handleToggleTourActive} initialTab={dashTab} onTabConsumed={() => setDashTab("bookings")} onBusinessSaved={async () => { await loadPublicTours(); await loadOperatorTours(); }} />}
+        {effectiveView === "dashboard" && (operatorResolved
+          ? <DashView go={go} opTours={opTours} opBookings={opBookings} onEditTour={handleEditTour} onDeleteTour={handleDeleteTour} onToggleActive={handleToggleTourActive} initialTab={dashTab} onTabConsumed={() => setDashTab("bookings")} onBusinessSaved={async () => { await loadPublicTours(); await loadOperatorTours(); }} />
+          : <div className="fu" style={{ minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--gy)", fontSize: 14, fontWeight: 600 }}>Cargando tu panel…</div>)}
         {effectiveView === "new-tour" && <NewTourView go={go} editingTour={editingTour} onSaveTour={handleSaveTour} onCreateTour={handleCreateTour} onCancel={handleCancelTour} />}
         {showFooter && <Footer go={go} />}
         {showNav && <BNav active={nav} go={navGo} />}
