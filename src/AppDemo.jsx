@@ -2131,7 +2131,9 @@ function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
             fetch("/api/search-reasoning", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ query: value, ids: apiIds, sig: data.sig }),
+              // phase2Tours va de vuelta VERBATIM: la firma cubre esos datos y
+              // cualquier cambio la invalida (la fase 2 rehidrataria de DB).
+              body: JSON.stringify({ query: value, ids: apiIds, sig: data.sig, tours: data.phase2Tours }),
             })
               .then((r2) => (r2.ok ? r2.json() : null))
               .then((d2) => {

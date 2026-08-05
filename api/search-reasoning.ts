@@ -1,10 +1,13 @@
 // api/search-reasoning.ts
-// POST /api/search-reasoning — FASE 2 de la búsqueda: recibe la query y los 3
-// ids que eligió la fase 1 y genera el reasoning en peruano + los filtros
-// detectados. Acá viven las escrituras de SearchLog y FeaturedSearch (vía
-// waitUntil, fuera del camino crítico). El cache compartido solo se escribe si
-// la firma HMAC emitida por la fase 1 verifica; con firma inválida se genera
-// el reasoning igual (no rompe UX) pero NO se cachea.
+// POST /api/search-reasoning — FASE 2 de la búsqueda: recibe la query, los 3
+// ids que eligió la fase 1 y los datos de esos tours (phase2Tours, firmados
+// por la fase 1), y genera el reasoning en peruano + los filtros detectados.
+// Con firma válida usa los datos del body directo (sin tocar la DB: la fase 1
+// los hidrató hace un segundo); con firma inválida o body legacy (solo ids)
+// rehidrata desde la DB. Acá viven las escrituras de SearchLog y
+// FeaturedSearch (vía waitUntil, fuera del camino crítico). El cache
+// compartido solo se escribe si la firma verifica; con firma inválida se
+// genera el reasoning igual (no rompe UX) pero NO se cachea.
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { waitUntil } from "@vercel/functions";
@@ -14,12 +17,30 @@ import { db } from "../lib/db.js";
 import { anthropic, MODEL } from "../lib/anthropic.js";
 import { rateLimit, ipFromRequest } from "../lib/rate-limit.js";
 import { normalizeQuery } from "../lib/search-cache.js";
-import { verifySearchPhase } from "../lib/search-sig.js";
+import {
+  hashPhase2Tours,
+  verifySearchPhase,
+  type Phase2Tour,
+} from "../lib/search-sig.js";
+
+const phase2TourSchema = z.object({
+  id: z.string().min(10).max(40),
+  title: z.string().min(1).max(300),
+  description: z.string().min(1).max(600),
+  category: z.string().min(1).max(40),
+  city: z.string().min(1).max(120),
+  region: z.string().min(1).max(120),
+  priceSoles: z.number().int().nonnegative(),
+  rating: z.number().min(0).max(5),
+});
 
 const bodySchema = z.object({
   query: z.string().trim().min(3).max(500),
   ids: z.array(z.string().min(10).max(40)).length(3),
   sig: z.string().optional(),
+  // Datos firmados por la fase 1. Opcional por compatibilidad con bundles
+  // viejos del frontend, que mandan solo ids (path legacy: rehidrata).
+  tours: z.array(phase2TourSchema).length(3).optional(),
 });
 
 interface FiltrosDetectados {
@@ -87,20 +108,9 @@ const TOOL_REASONING = {
   },
 };
 
-interface TourPrompt {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  city: string;
-  region: string;
-  priceSoles: number;
-  rating: number;
-}
-
 // Mismo formato y truncado a 500 que la fase 1, sin numeración (acá no se
 // elige nada, solo se explica).
-function formatElegidos(tours: TourPrompt[]): string {
+function formatElegidos(tours: Phase2Tour[]): string {
   return tours
     .map(
       (t, i) => `[ranking ${i + 1}]
@@ -149,45 +159,62 @@ export default async function handler(
     return;
   }
 
-  const { query, ids, sig } = parsed.data;
+  const { query, ids, sig, tours } = parsed.data;
   const normalized = normalizeQuery(query);
 
-  // Firma inválida ≠ error de usuario: se responde igual pero sin tocar el
-  // cache compartido. Se loguea sin la query (Ley 29733).
-  const sigOk = verifySearchPhase(normalized, ids, sig);
+  // Verificación: con tours en el body, la firma debe cubrir query + ids +
+  // hash de los datos (y los ids deben coincidir con los de los tours, en el
+  // mismo orden: el orden es el ranking). Sin tours (bundle viejo), fórmula
+  // legacy sobre query + ids. Firma inválida ≠ error de usuario: se responde
+  // igual pero sin confiar en los datos del cliente ni tocar el cache
+  // compartido. Se loguea sin la query (Ley 29733).
+  const toursMatchIds =
+    tours != null && tours.map((t) => t.id).join(",") === ids.join(",");
+  const sigOk = tours
+    ? toursMatchIds && verifySearchPhase(normalized, ids, sig, hashPhase2Tours(tours))
+    : verifySearchPhase(normalized, ids, sig);
   if (!sigOk) {
     console.warn(
-      `[search-sig] firma inválida en fase 2 qlen=${query.length} ids=${ids.length}`
+      `[search-sig] firma inválida en fase 2 qlen=${query.length} ids=${ids.length} tours=${tours ? 1 : 0}`
     );
   }
 
-  // Hidratación para el prompt (y validación implícita: los 3 deben existir y
-  // estar activos). El orden del body es el ranking de la fase 1.
-  s = Date.now();
-  const rows = await db.tour.findMany({
-    where: { id: { in: ids }, active: true },
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      category: true,
-      city: true,
-      region: true,
-      priceSoles: true,
-      rating: true,
-    },
-  });
-  mark("hydration", s);
-
-  const byId = new Map(rows.map((r) => [r.id, r]));
-  const elegidos = ids
-    .map((id) => byId.get(id))
-    .filter((x): x is NonNullable<typeof x> => x != null);
-  if (elegidos.length !== 3) {
-    res.status(409).json({
-      error: "Los tours seleccionados ya no están disponibles",
+  // Datos para el prompt. Camino rápido: firma válida → los datos firmados
+  // del body, cero roundtrips a DB (la fase 1 los hidrató hace un segundo).
+  // Camino lento (firma inválida o body legacy): rehidratar desde la DB por
+  // ids, que también valida que los 3 existan y sigan activos.
+  let elegidos: Phase2Tour[];
+  if (sigOk && tours) {
+    elegidos = tours;
+    t.hydration = 0;
+  } else {
+    s = Date.now();
+    const rows = await db.tour.findMany({
+      where: { id: { in: ids }, active: true },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        category: true,
+        city: true,
+        region: true,
+        priceSoles: true,
+        rating: true,
+      },
     });
-    return;
+    mark("hydration", s);
+
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    const hidratados = ids
+      .map((id) => byId.get(id))
+      .filter((x): x is NonNullable<typeof x> => x != null);
+    if (hidratados.length !== 3) {
+      res.status(409).json({
+        error: "Los tours seleccionados ya no están disponibles",
+      });
+      return;
+    }
+    elegidos = hidratados;
   }
 
   s = Date.now();

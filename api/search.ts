@@ -17,7 +17,11 @@ import { anthropic, MODEL } from "../lib/anthropic.js";
 import { LIST_SELECT, gateOperatorMincetur } from "../lib/tour-select.js";
 import { rateLimit, ipFromRequest } from "../lib/rate-limit.js";
 import { normalizeQuery } from "../lib/search-cache.js";
-import { signSearchPhase } from "../lib/search-sig.js";
+import {
+  hashPhase2Tours,
+  signSearchPhase,
+  type Phase2Tour,
+} from "../lib/search-sig.js";
 
 const bodySchema = z.object({
   query: z.string().trim().min(3).max(500),
@@ -373,10 +377,25 @@ export default async function handler(
   }
 
   // Respuesta normal de fase 1: tours validados (los ids salen de
-  // candidatos[n-1], nunca del modelo), sin reasoning todavía. La firma liga
-  // query normalizada + ids elegidos para que la fase 2 pueda confiar en
-  // ellos al escribir el cache compartido. SearchLog y FeaturedSearch se
-  // escriben en la fase 2, que es quien tiene ids + reasoning coherentes.
+  // candidatos[n-1], nunca del modelo), sin reasoning todavía. phase2Tours
+  // lleva los datos que la fase 2 necesita para su prompt (evita rehidratar);
+  // la firma liga query normalizada + ids + hash de esos datos, así la fase 2
+  // puede confiar en lo que vuelve del cliente al generar y al escribir el
+  // cache compartido. SearchLog y FeaturedSearch se escriben en la fase 2.
+  const byCandId = new Map(candidatos.map((c) => [c.id, c]));
+  const phase2Tours: Phase2Tour[] = chosenIds.map((id) => {
+    const c = byCandId.get(id)!;
+    return {
+      id: c.id,
+      title: c.title,
+      description: c.description.slice(0, 500),
+      category: c.category,
+      city: c.city,
+      region: c.region,
+      priceSoles: c.priceSoles,
+      rating: c.rating,
+    };
+  });
   console.log(
     `[search-timing] phase=1 cache=MISS cache_lookup=${t.cache_lookup}ms embedding=${t.embedding}ms vector=${t.vector}ms model=${t.model}ms hydration=${t.hydration}ms total=${t.total}ms results=${results.length} fallback=0`
   );
@@ -386,6 +405,7 @@ export default async function handler(
     query,
     filters_detected: {},
     fallback: false,
-    sig: signSearchPhase(normalized, results.map((t) => t.id)),
+    phase2Tours,
+    sig: signSearchPhase(normalized, chosenIds, hashPhase2Tours(phase2Tours)),
   });
 }
