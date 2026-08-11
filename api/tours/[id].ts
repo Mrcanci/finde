@@ -6,8 +6,13 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { db } from "../../lib/db.js";
-import { DETAIL_SELECT, gateOperatorMincetur } from "../../lib/tour-select.js";
+import {
+  DETAIL_SELECT,
+  OPERATOR_DETAIL_SELECT,
+  gateOperatorMincetur,
+} from "../../lib/tour-select.js";
 import { requireOperator } from "../../lib/auth.js";
+import { limaDateISO } from "../../lib/inventory.js";
 import { parseTourInput, embedTourSafe } from "../../lib/tour-input.js";
 import { supabaseAdmin } from "../../lib/supabase-admin.js";
 
@@ -264,17 +269,36 @@ async function handleDelete(
   res.status(200).json({ ok: true, id });
 }
 
-// ── PATCH /api/tours/:id — pausar/reanudar un tour propio (M-2) ──
-// Cambia solo el estado `active`. Mismo patrón de propiedad que PUT/DELETE.
-// Un body mínimo { active: boolean } evita re-validar/re-enviar todo el tour
-// solo para pausarlo. El filtro de active en el catálogo/búsqueda/detalle vive
-// en sus respectivos GET; aquí solo se persiste el flag.
+// ── PATCH /api/tours/:id — pausar/reanudar + config de venta (fase panel) ──
+// Body parcial: { active } sigue funcionando idéntico (contrato por adición), y
+// ahora acepta la config del sistema de salidas: salesMode, allotment,
+// minQuorum, closeTime, closeDaysBefore (null = volver al default). Las
+// validaciones corren sobre el estado RESULTANTE (valor entrante ?? actual).
+// Mismo patrón de propiedad que PUT/DELETE.
 //
-// ENDPOINT LEGACY, no mueve contadores de Departure; se reemplaza en la fase
-// de panel. seatsTaken/seatsRequested los mueven SOLO la creación de reservas
-// y la cancelación del sistema nuevo (lib/inventory.ts).
+// Este PATCH NO mueve contadores de Departure: seatsTaken/seatsRequested los
+// mueven SOLO la creación de reservas, la confirmación/rechazo en lote y la
+// cancelación del motor (lib/inventory.ts).
 
-const patchBodySchema = z.object({ active: z.boolean() });
+const patchBodySchema = z
+  .object({
+    active: z.boolean().optional(),
+    salesMode: z.enum(["CUPO_FIJO", "SOLICITUD"]).optional(),
+    allotment: z.number().int().min(1).max(3000).nullable().optional(),
+    minQuorum: z.number().int().min(1).max(3000).nullable().optional(),
+    closeTime: z
+      .string()
+      .regex(
+        /^([01]\d|2[0-3]):[0-5]\d$/,
+        "closeTime debe tener formato HH:MM (24 horas)"
+      )
+      .nullable()
+      .optional(),
+    closeDaysBefore: z.number().int().min(0).max(30).nullable().optional(),
+  })
+  .refine((b) => Object.values(b).some((v) => v !== undefined), {
+    message: "El cuerpo debe incluir al menos un campo para actualizar",
+  });
 
 async function handlePatch(
   req: VercelRequest,
@@ -299,10 +323,19 @@ async function handlePatch(
     return;
   }
 
-  // Verificación de PROPIEDAD: solo el dueño puede cambiar el estado.
+  // Verificación de PROPIEDAD: solo el dueño puede cambiar el estado. El select
+  // trae la config de venta actual para validar el estado RESULTANTE.
   const existing = await db.tour.findUnique({
     where: { id },
-    select: { id: true, operatorId: true },
+    select: {
+      id: true,
+      operatorId: true,
+      salesMode: true,
+      allotment: true,
+      minQuorum: true,
+      closeTime: true,
+      closeDaysBefore: true,
+    },
   });
   if (!existing) {
     res.status(404).json({ error: "Tour no encontrado" });
@@ -313,12 +346,68 @@ async function handlePatch(
     return;
   }
 
-  let tour: Prisma.TourGetPayload<{ select: typeof DETAIL_SELECT }>;
+  // Estado resultante = entrante ?? actual (undefined preserva; null limpia y
+  // vuelve al default del motor).
+  const body = parsed.data;
+  const next = {
+    salesMode: body.salesMode ?? existing.salesMode,
+    allotment: body.allotment === undefined ? existing.allotment : body.allotment,
+    minQuorum: body.minQuorum === undefined ? existing.minQuorum : body.minQuorum,
+  };
+
+  if (next.salesMode === "CUPO_FIJO" && next.allotment == null) {
+    res
+      .status(400)
+      .json({ error: "Configura el cupo para vender con cupo fijo." });
+    return;
+  }
+  if (next.salesMode === "CUPO_FIJO" && next.minQuorum != null) {
+    res.status(400).json({
+      error:
+        "El quórum mínimo solo aplica en modo solicitud. Quítalo para vender con cupo fijo.",
+    });
+    return;
+  }
+
+  // Con CUPO_FIJO, el cupo debe cubrir los asientos YA confirmados de las
+  // salidas vivas (futuras, no canceladas, sin override propio). Cubre tanto
+  // el cambio de modo como bajar el allotment con ventas hechas.
+  if (next.salesMode === "CUPO_FIJO" && next.allotment != null) {
+    const agg = await db.departure.aggregate({
+      _max: { seatsTaken: true },
+      where: {
+        tourId: id,
+        date: { gte: limaDateISO(new Date()) },
+        status: { not: "CANCELADA" },
+        allotmentOverride: null,
+      },
+    });
+    const maxTaken = agg._max.seatsTaken ?? 0;
+    if (next.allotment < maxTaken) {
+      res.status(409).json({
+        error: `Hay salidas próximas con ${maxTaken} asiento${maxTaken === 1 ? "" : "s"} confirmado${maxTaken === 1 ? "" : "s"}. El cupo no puede ser menor a eso.`,
+        maxSeatsTaken: maxTaken,
+      });
+      return;
+    }
+  }
+
+  let tour: Prisma.TourGetPayload<{ select: typeof OPERATOR_DETAIL_SELECT }>;
   try {
     tour = await db.tour.update({
       where: { id },
-      data: { active: parsed.data.active },
-      select: DETAIL_SELECT,
+      // Solo los campos presentes en el body: lo demás se preserva.
+      data: {
+        ...(body.active !== undefined && { active: body.active }),
+        ...(body.salesMode !== undefined && { salesMode: body.salesMode }),
+        ...(body.allotment !== undefined && { allotment: body.allotment }),
+        ...(body.minQuorum !== undefined && { minQuorum: body.minQuorum }),
+        ...(body.closeTime !== undefined && { closeTime: body.closeTime }),
+        ...(body.closeDaysBefore !== undefined && {
+          closeDaysBefore: body.closeDaysBefore,
+        }),
+      },
+      select: OPERATOR_DETAIL_SELECT,
     });
   } catch (error) {
     console.error("Error actualizando estado del tour:", error);
