@@ -87,6 +87,30 @@ export const DETAIL_SELECT = Prisma.validator<Prisma.TourSelect>()({
   },
 });
 
+// Config de venta del sistema de salidas (fase panel). SOLO en respuestas del
+// operador (su dashboard y el PATCH de su tour): los selects públicos de arriba
+// NO la incluyen a propósito, exponer salesMode/allotment al viajero es una
+// decisión de la tanda de UI.
+export const SALE_CONFIG_FIELDS = {
+  salesMode: true,
+  allotment: true,
+  minQuorum: true,
+  closeTime: true,
+  closeDaysBefore: true,
+} as const;
+
+// Listado del dashboard del operador: LIST_SELECT + config de venta.
+export const OPERATOR_LIST_SELECT = Prisma.validator<Prisma.TourSelect>()({
+  ...LIST_SELECT,
+  ...SALE_CONFIG_FIELDS,
+});
+
+// Detalle que responde el PATCH del operador: DETAIL_SELECT + config de venta.
+export const OPERATOR_DETAIL_SELECT = Prisma.validator<Prisma.TourSelect>()({
+  ...DETAIL_SELECT,
+  ...SALE_CONFIG_FIELDS,
+});
+
 // Gatea el N° MINCETUR de un tour: lo anula (null) si el operador NO está
 // verificado, para que el número de un operador en revisión nunca salga en el
 // payload público. Null-safe (operator puede ser null). Devuelve el MISMO tour

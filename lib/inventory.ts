@@ -16,6 +16,19 @@ export const DEFAULT_CLOSE_TIME = "20:00";
 export const DEFAULT_CLOSE_DAYS_BEFORE = 1;
 const H72_MS = 72 * 60 * 60 * 1000;
 
+// yyyy-mm-dd de un instante en hora de Lima (America/Lima, UTC-5 sin DST). El
+// server corre en UTC → se fuerza la zona vía Intl (en-CA da yyyy-mm-dd).
+// api/bookings.ts tiene una copia local previa a este export; unificar en la
+// fase de limpieza de Booking.status.
+export function limaDateISO(d: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Lima",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
 // Mapeo al String legacy de Booking.status (decisión b): el contrato migra por
 // adición, así que toda escritura nueva mantiene ambos campos coherentes.
 // "pending_payment" es el valor histórico que el frontend ya conoce.
@@ -95,6 +108,21 @@ export async function takeSeats(
       AND d."status" = 'ABIERTA'
       AND d."seatsTaken" + ${guests} <= COALESCE(d."allotmentOverride", t."allotment")`;
   return updated === 1;
+}
+
+// Confirmación en lote de la agencia: suma directa a seatsTaken SIN tope. El
+// tope del cupo (takeSeats) rige la VENTA en CUPO_FIJO; cuando la agencia
+// confirma solicitudes decide ella cuántas toma (los tours SOLICITUD suelen no
+// tener allotment y el COALESCE de takeSeats daría siempre falso).
+export async function confirmSeats(
+  db: Db,
+  departureId: string,
+  guests: number
+): Promise<void> {
+  await db.$executeRaw`
+    UPDATE "Departure"
+    SET "seatsTaken" = "seatsTaken" + ${guests}
+    WHERE "id" = ${departureId}`;
 }
 
 // Liberación atómica de cupo confirmado; nunca por debajo de 0.
