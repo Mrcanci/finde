@@ -4703,7 +4703,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           <label className="lbl">¿Cómo vendes este tour?</label>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {[
-              { id: "CUPO_FIJO", label: "Confirmación automática", desc: "Defines cuántos cupos ofreces y las reservas se confirman solas hasta llenarse. Te comprometes a operar la salida aunque vayan pocas personas." },
+              { id: "CUPO_FIJO", label: "Confirmación automática", desc: "Defines cuántos cupos ofreces y las reservas se confirman solas. El tour sale en la fecha reservada." },
               { id: "SOLICITUD", label: "Confirmación manual", desc: "Las reservas te llegan como solicitudes y tú decides si la salida se confirma." },
             ].map((opt) => (
               <div key={opt.id} onClick={() => u("salesMode", opt.id)} style={{
