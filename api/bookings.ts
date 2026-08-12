@@ -46,6 +46,18 @@ const bodySchema = z.object({
   scheduledAt: z
     .string()
     .datetime({ message: "scheduledAt debe ser ISO 8601" }),
+  // DNI, pasaporte o CE. OPCIONAL a propósito aunque el formulario lo exija:
+  // si durante un rollout un navegador con el bundle viejo en caché manda el
+  // POST sin el campo, la reserva se crea igual en vez de fallar con 400.
+  // Alfanumérico para admitir pasaporte y CE, no solo DNI numérico.
+  userDocument: z
+    .string()
+    .trim()
+    .regex(
+      /^[A-Za-z0-9-]{6,20}$/,
+      "userDocument debe tener entre 6 y 20 caracteres alfanuméricos"
+    )
+    .optional(),
 });
 
 function generateBookingCode(): string {
@@ -130,6 +142,7 @@ async function createBookingWithInventory(params: {
   userName: string;
   userEmail: string;
   userPhone: string;
+  userDocument?: string;
   guests: number;
   totalSoles: number;
   scheduledAt: Date;
@@ -200,6 +213,8 @@ async function createBookingWithInventory(params: {
             userName: params.userName,
             userEmail: params.userEmail,
             userPhone: params.userPhone,
+            // undefined (no vino del cliente) queda NULL en la columna.
+            userDocument: params.userDocument,
             guests,
             totalSoles: params.totalSoles,
             scheduledAt: params.scheduledAt,
@@ -462,7 +477,8 @@ export default async function handler(
     return;
   }
 
-  const { tourId, userName, userPhone, guests, scheduledAt } = parsed.data;
+  const { tourId, userName, userPhone, userDocument, guests, scheduledAt } =
+    parsed.data;
 
   // Identidad del comprador desde el token, no del body.
   const userEmail = user.email;
@@ -565,6 +581,7 @@ export default async function handler(
       userName,
       userEmail,
       userPhone,
+      userDocument,
       guests,
       totalSoles,
       scheduledAt: scheduledDate,

@@ -133,6 +133,9 @@ export default async function handler(
           userName: true,
           userPhone: true,
           userEmail: true,
+          // Documento del viajero: SOLO en las vistas del operador dueño del
+          // tour. Fuera de los selects públicos y de GET /api/me a propósito.
+          userDocument: true,
           guests: true,
           totalSoles: true,
           status: true,
@@ -208,6 +211,9 @@ async function handleDeparturesList(
           userName: true,
           userPhone: true,
           userEmail: true,
+          // Documento del viajero: SOLO en las vistas del operador dueño del
+          // tour. Fuera de los selects públicos y de GET /api/me a propósito.
+          userDocument: true,
           guests: true,
           totalSoles: true,
           status: true,

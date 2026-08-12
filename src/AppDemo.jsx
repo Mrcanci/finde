@@ -3012,6 +3012,9 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
           tourId: tour.id,
           userName: name,
           userPhone: phoneClean,
+          // Documento del viajero: hasta ahora el formulario lo pedía, lo
+          // validaba y lo descartaba (nunca salía del navegador).
+          userDocument: docId.trim(),
           guests,
           scheduledAt,
         }),
@@ -3060,7 +3063,11 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
   const nameValid = name.trim().length >= 3;
   const phoneValid = /^\d{8,15}$/.test(phone.replace(/\s/g, ""));
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-  const docIdValid = docId.trim().length >= 6;
+  // MISMA regla que api/bookings.ts (userDocument): alfanumérico de 6 a 20.
+  // Antes era solo length >= 6, así que un documento con espacios o símbolos
+  // pasaba el formulario y moría con 400 en el backend. Mismo error de capas
+  // desalineadas que tenía el teléfono.
+  const docIdValid = /^[A-Za-z0-9-]{6,20}$/.test(docId.trim());
   const step2Valid = nameValid && phoneValid && emailValid && docIdValid;
 
   if (step === VOUCHER_STEP) {
@@ -3209,7 +3216,11 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
         </div>
         <div className="fg">
           <label className="lbl" htmlFor="bkf-doc">DNI, Pasaporte o CE</label>
-          <input id="bkf-doc" className={`inp${touched.doc && !docIdValid ? " inp-err" : ""}`} placeholder="DNI, pasaporte o carnet de extranjería" value={docId} onChange={(e) => setDocId(e.target.value)} onBlur={() => setTouched(t => ({ ...t, doc: true }))} maxLength={20} inputMode="numeric" />
+          {/* inputMode text, no numeric: el label ofrece pasaporte y CE, que
+              llevan letras, y un teclado numérico las escondía. */}
+          <input id="bkf-doc" className={`inp${touched.doc && !docIdValid ? " inp-err" : ""}`} placeholder="DNI, pasaporte o carnet de extranjería" value={docId} onChange={(e) => setDocId(e.target.value)} onBlur={() => setTouched(t => ({ ...t, doc: true }))} maxLength={20} inputMode="text" />
+          {/* Finalidad declarada del dato (Ley 29733): se pide porque se usa. */}
+          <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 6, lineHeight: 1.5 }}>La agencia lo necesita para registrarte como pasajero del tour.</div>
           {touched.doc && !docIdValid && <div className="field-err">Revisa tu número de documento</div>}
         </div>
         {/* Resumen + política movidos aquí desde el ex-step de pago: el viajero
@@ -3670,6 +3681,8 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
     // El backend ya mandaba userEmail y este aplanado lo tiraba: es el canal
     // alternativo cuando el teléfono no sirve para WhatsApp.
     email: b.userEmail || null,
+    // null en las reservas anteriores a la columna: el detalle omite la fila.
+    document: b.userDocument || null,
     date: fmtBookingDate(b.scheduledAt),
     startTime: d.startTime ?? null,
     createdAt: b.createdAt ?? null,
@@ -4022,6 +4035,9 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
                 // Canal de contacto alternativo al WhatsApp. Solo si existe:
                 // nada de filas vacías.
                 ...(b.email ? [["Email", b.email]] : []),
+                // Documento para el registro de pasajeros. Las reservas
+                // anteriores a la columna no lo tienen: se omite la fila.
+                ...(b.document ? [["Documento", b.document]] : []),
               ].map(([l, v]) => (
                 <div key={l} className="sum-r">
                   <span style={{ color: "var(--gy)", flexShrink: 0, marginRight: 12 }}>{l}</span>
@@ -4041,10 +4057,10 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
               </a>
             ) : (
               <div style={{ textAlign: "center", padding: "12px 0", color: "var(--gy)", fontSize: 13, lineHeight: 1.5 }}>
-                {/* Honesto sobre la causa real: el número está, pero no sirve
-                    para armar el enlace. Y deriva al canal que sí existe. */}
+                {/* Describe lo que pasó sin culpar al dato del viajero, y
+                    deriva al canal que sí existe (el email está arriba). */}
                 {b.phone
-                  ? "El teléfono de esta reserva no permite abrir WhatsApp. Escríbele por email."
+                  ? "No pudimos abrir WhatsApp con este número. Escríbele por email."
                   : "Esta reserva no tiene teléfono. Escríbele por email."}
               </div>
             )}

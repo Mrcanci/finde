@@ -183,6 +183,11 @@ model Booking {
   userEmail    String
   userName     String
   userPhone    String?
+  // DNI, pasaporte o CE del viajero (2026-08-12). Nullable: las reservas
+  // anteriores no lo tienen y el formulario lo pedía sin llegar a enviarlo.
+  // NO se llama userDocId para no confundirse con userId, que es el id de
+  // Supabase Auth. Solo se expone en las vistas del operador dueño del tour.
+  userDocument String?
 
   // M1 sub-paso 8: vínculo con Supabase auth.users (nullable: bookings
   // previos al auth quedan sin userId). FK lógica, no la maneja Prisma.
