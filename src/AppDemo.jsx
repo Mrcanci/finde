@@ -1385,9 +1385,14 @@ html{scrollbar-gutter:stable}
 .sal-q{font-size:13px;font-weight:700;color:var(--ch);margin-bottom:8px}
 /* Rechazo de una solicitud suelta: acción secundaria, no compite con las de la salida. */
 .sal-bk-rej{display:block;margin:0 0 10px auto;padding:2px 0;background:none;border:none;color:var(--gy);font-size:12px;font-weight:700;text-decoration:underline;cursor:pointer;font-family:inherit}
-.sal-bk-q{font-size:12.5px;font-weight:700;color:var(--ch);margin-bottom:8px}
+/* La pregunta se lee como parte de SU fila, no como un bloque suelto al final
+   de la card: borde izquierdo + fondo suave la atan a la reserva de arriba. */
+.sal-bk-q-box{margin:0 0 12px;padding:10px 12px;border-left:3px solid var(--tr);background:var(--cr);border-radius:0 10px 10px 0}
+.sal-bk-q{font-size:12.5px;font-weight:700;color:var(--ch);margin-bottom:9px;line-height:1.45}
+/* Botones deliberadamente más chicos que los de la salida (que son flex:1,
+   13px, padding 11px): el alcance de la acción es menor y se tiene que ver. */
 .sal-bk-actions{display:flex;gap:8px}
-.sal-bk-actions .sal-btn{padding:9px 0;font-size:12.5px}
+.sal-bk-actions .sal-btn{flex:0 0 auto;padding:7px 14px;font-size:12px;border-radius:9px}
 /* Cuenta regresiva para confirmar: gris → oro (suave) → terracota (fuerte).
    El oro va oscurecido respecto de --gd para tener contraste sobre blanco. */
 .sal-plazo.soft{color:#8A6A12;font-weight:700}
@@ -3684,6 +3689,13 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
     const personasQuorum = (d.seatsTaken || 0) + vigPersonas;
     const expanded = !!expandedDeps[d.id];
     const pend = pendingAction && pendingAction.depId === d.id ? pendingAction : null;
+    // Exclusividad de decisión: una sola pregunta abierta en pantalla a la vez.
+    // Con la pregunta de una reserva abierta se ocultan las acciones de la
+    // SALIDA, y con la de la salida abierta se ocultan las de cada fila. Sin
+    // esto quedaban cuatro botones juntos sin decir a qué alcance pertenece
+    // cada uno, y rechazar la salida entera creyendo rechazar una sola reserva
+    // es un error irreversible que dispara correos a todos los viajeros.
+    const pendBkCard = pendingBk && pendingBk.depId === d.id ? pendingBk : null;
     const busy = actionBusy === d.id;
     const err = actionError && actionError.depId === d.id ? actionError.msg : "";
     const n = (d.bookings || []).length;
@@ -3727,10 +3739,10 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
               <button className="sal-btn sec" disabled={busy} onClick={() => setPendingAction(null)}>Volver</button>
             </div>
           </div>
-        ) : (
+        ) : !pendBkCard && (
           <div className="sal-actions">
-            <button className="sal-btn pri" onClick={() => { setActionError(null); setPendingAction({ depId: d.id, action: "confirm" }); }}>Confirmar salida</button>
-            <button className="sal-btn sec" onClick={() => { setActionError(null); setPendingAction({ depId: d.id, action: "reject" }); }}>Rechazar</button>
+            <button className="sal-btn pri" onClick={() => { setActionError(null); setPendingBk(null); setPendingAction({ depId: d.id, action: "confirm" }); }}>Confirmar salida</button>
+            <button className="sal-btn sec" onClick={() => { setActionError(null); setPendingBk(null); setPendingAction({ depId: d.id, action: "reject" }); }}>Rechazar</button>
           </div>
         ))}
         {n > 0 && (
@@ -3760,8 +3772,8 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
                 </div>
               </div>
               {bErr && <div className="field-err" style={{ marginBottom: 8 }}>{bErr}</div>}
-              {esVigente && !esPasada && (pendB ? (
-                <div style={{ marginBottom: 10 }}>
+              {esVigente && !esPasada && !pend && (pendB ? (
+                <div className="sal-bk-q-box">
                   <div className="sal-bk-q">¿Rechazas la solicitud de {b.userName}?</div>
                   <div className="sal-bk-actions">
                     <button className="sal-btn sec" disabled={bBusy} onClick={() => fireRejectBooking(d, b)}>
