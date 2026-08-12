@@ -47,6 +47,15 @@ const tourFields = {
   cancellation: true,
   excludedDates: true,
   addedDates: true,
+  // Cierre de venta: el calendario del viajero deja de ofrecer una fecha una vez
+  // pasada la hora de cierre de esa salida, así que necesita los 3 campos para
+  // recalcular en vivo (una fecha mínima precalculada por el backend se queda
+  // vieja si la pestaña cruza esa hora abierta). Es la MISMA regla que valida
+  // POST /api/bookings. allotment y minQuorum siguen fuera de los selects
+  // públicos: son datos comerciales de la agencia.
+  salesMode: true,
+  closeTime: true,
+  closeDaysBefore: true,
   startTime: true,
   active: true,
 } as const;
@@ -87,16 +96,13 @@ export const DETAIL_SELECT = Prisma.validator<Prisma.TourSelect>()({
   },
 });
 
-// Config de venta del sistema de salidas (fase panel). SOLO en respuestas del
-// operador (su dashboard y el PATCH de su tour): los selects públicos de arriba
-// NO la incluyen a propósito, exponer salesMode/allotment al viajero es una
-// decisión de la tanda de UI.
+// Resto de la config de venta, SOLO para respuestas del operador (su dashboard
+// y el PATCH de su tour). salesMode/closeTime/closeDaysBefore ya viven en
+// tourFields porque el calendario del viajero los necesita; acá quedan los dos
+// que siguen siendo privados de la agencia.
 export const SALE_CONFIG_FIELDS = {
-  salesMode: true,
   allotment: true,
   minQuorum: true,
-  closeTime: true,
-  closeDaysBefore: true,
 } as const;
 
 // Listado del dashboard del operador: LIST_SELECT + config de venta.

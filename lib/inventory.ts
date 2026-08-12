@@ -54,9 +54,20 @@ export function departureCloseAt(
   return new Date(Date.UTC(y, m - 1, d - days, hh + 5, mm));
 }
 
-// expiresAt de una solicitud: min(creación + 72h, cierre de su salida).
-// Decisión provisoria (reportada): si el cierre ya pasó al crear, aplica solo
-// el tope de 72h para que la solicitud no nazca vencida.
+// Medianoche Lima previa a la salida = 00:00 del propio día de salida, en UTC.
+// Lima es UTC-5 sin DST → 00:00 Lima del día D son las 05:00 UTC de D.
+export function departureEveMidnight(date: string): Date {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d, 5, 0));
+}
+
+// expiresAt de una solicitud: min(cierre de su salida, creación + 72h,
+// medianoche previa a la salida). El tercer tope es la red de seguridad dura:
+// sin él, una solicitud creada después del cierre caía solo en las 72h y seguía
+// viva después de que el tour ya había salido. Ese caso además ya no entra:
+// createBookingWithInventory rechaza las solicitudes posteriores al cierre
+// (misma hora de cierre, las dos puntas), así que el cierre nunca está en el
+// pasado al crear y ninguna solicitud nace vencida.
 export function solicitudExpiresAt(
   now: Date,
   date: string,
@@ -64,9 +75,9 @@ export function solicitudExpiresAt(
   closeDaysBefore: number | null
 ): Date {
   const close = departureCloseAt(date, closeTime, closeDaysBefore);
-  const cap = new Date(now.getTime() + H72_MS);
-  if (close <= now) return cap;
-  return close < cap ? close : cap;
+  const cap72 = new Date(now.getTime() + H72_MS);
+  const eve = departureEveMidnight(date);
+  return new Date(Math.min(close.getTime(), cap72.getTime(), eve.getTime()));
 }
 
 // Materializa la salida si no existe. IMPORTANTE: INSERT ... ON CONFLICT DO

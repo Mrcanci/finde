@@ -13,6 +13,7 @@ import { rateLimit, ipFromRequest } from "../lib/rate-limit.js";
 import { requireAuth } from "../lib/auth.js";
 import {
   LEGACY_STATUS,
+  departureCloseAt,
   materializeDeparture,
   takeSeats,
   addRequestedSeats,
@@ -234,11 +235,118 @@ async function createBookingWithInventory(params: {
   throw new Error("No se pudo generar bookingCode único tras 3 intentos");
 }
 
+// Fecha larga en hora de Lima, ej. "13 de agosto de 2026".
+function fechaLargaLima(d: Date): string {
+  return new Intl.DateTimeFormat("es-PE", {
+    timeZone: "America/Lima",
+    dateStyle: "long",
+  }).format(d);
+}
+
+// Fecha límite para confirmar, en hora de Lima y con día de la semana:
+// "jueves 13 de agosto, 8:00 pm". Es el dato que dispara la acción de la
+// agencia, así que lleva el día de la semana (no solo el número).
+function fechaLimiteLima(d: Date): string {
+  // Partes por separado: es-PE inserta una coma tras el día de la semana
+  // ("miércoles, 12 de agosto") que sobra cuando la línea ya lleva la hora.
+  const semana = new Intl.DateTimeFormat("es-PE", {
+    timeZone: "America/Lima",
+    weekday: "long",
+  }).format(d);
+  const dia = new Intl.DateTimeFormat("es-PE", {
+    timeZone: "America/Lima",
+    day: "numeric",
+    month: "long",
+  }).format(d);
+  const hora = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Lima",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  })
+    .format(d)
+    .toLowerCase();
+  return `${semana} ${dia}, ${hora}`;
+}
+
+// Aviso a la agencia según el modo de venta del tour.
+// SOLICITUD: la agencia TIENE que decidir → asunto que pide acción y la fecha
+// límite destacada arriba, antes de los datos. CUPO_FIJO: la reserva ya quedó
+// confirmada sola → asunto y tono informativos, sin llamado a confirmar.
+export function buildOperatorEmail(params: {
+  operatorName: string;
+  isSolicitud: boolean;
+  expiresAt: Date | null;
+  tourTitle: string;
+  fechaLarga: string;
+  guests: number;
+  totalSoles: number;
+  bookingCode: string;
+  userName: string;
+  userPhone: string;
+  userEmail: string;
+}): { subject: string; text: string } {
+  const datos = `Tour: ${params.tourTitle}
+Fecha de salida: ${params.fechaLarga}
+Personas: ${params.guests}
+Total: ${formatSoles(params.totalSoles)}
+Código de reserva: ${params.bookingCode}
+
+Datos del viajero:
+Nombre: ${params.userName}
+Teléfono: ${params.userPhone}
+Email: ${params.userEmail}`;
+
+  if (!params.isSolicitud) {
+    return {
+      subject: `Nueva reserva confirmada: ${params.tourTitle}`,
+      text: `Hola ${params.operatorName},
+
+Tienes una nueva reserva en Finde y ya quedó confirmada.
+
+${datos}
+
+No necesitas confirmar nada. Coordina los detalles con el viajero cuando quieras.
+Puedes verla en tu panel: https://finde.pe/demo
+
+El equipo de Finde`,
+    };
+  }
+
+  // El límite siempre existe en modo solicitud (solicitudExpiresAt); el
+  // fallback es defensivo para no mandar un correo roto si llegara null.
+  const limite = params.expiresAt
+    ? `TIENES HASTA EL ${fechaLimiteLima(params.expiresAt).toUpperCase()}`
+    : "TIENES QUE CONFIRMAR ANTES DE LA MEDIANOCHE PREVIA A LA SALIDA";
+
+  return {
+    subject: `Tienes una solicitud por confirmar: ${params.tourTitle}`,
+    text: `Hola ${params.operatorName},
+
+Recibiste una solicitud de reserva y tienes que decidir si confirmas la salida.
+
+============================================
+${limite}
+============================================
+
+Si no confirmas antes de esa hora, la solicitud vence sola y el viajero recibe un aviso.
+
+${datos}
+
+Entra a tu panel a confirmar o rechazar la salida:
+https://finde.pe/demo
+
+El equipo de Finde`,
+  };
+}
+
 // Envía a la agencia el aviso de nueva reserva vía Resend (fetch nativo, sin
 // SDK). NUNCA lanza: todos los caminos de error se loguean y retornan, para que
 // el envío no pueda romper la reserva ya creada.
 async function sendOperatorBookingEmail(params: {
   operator: { email: string; name: string; userId: string | null };
+  isSolicitud: boolean;
+  expiresAt: Date | null;
   tourTitle: string;
   scheduledAt: Date;
   guests: number;
@@ -265,30 +373,19 @@ async function sendOperatorBookingEmail(params: {
 
   // Solo la fecha (sin hora): scheduledAt lleva una hora técnica que no refleja
   // la salida real del tour. Formato largo en español, hora de Lima.
-  const fechaLarga = new Intl.DateTimeFormat("es-PE", {
-    timeZone: "America/Lima",
-    dateStyle: "long",
-  }).format(params.scheduledAt);
-
-  const text = `Hola ${operator.name},
-
-Tienes una nueva reserva en Finde.
-
-Tour: ${params.tourTitle}
-Fecha: ${fechaLarga}
-Personas: ${params.guests}
-Total: ${formatSoles(params.totalSoles)}
-Código de reserva: ${params.bookingCode}
-
-Datos del viajero:
-Nombre: ${params.userName}
-Teléfono: ${params.userPhone}
-Email: ${params.userEmail}
-
-Coordina los detalles con el viajero y gestiona la reserva desde tu panel:
-https://finde.pe/demo
-
-El equipo de Finde`;
+  const { subject, text } = buildOperatorEmail({
+    operatorName: operator.name,
+    isSolicitud: params.isSolicitud,
+    expiresAt: params.expiresAt,
+    tourTitle: params.tourTitle,
+    fechaLarga: fechaLargaLima(params.scheduledAt),
+    guests: params.guests,
+    totalSoles: params.totalSoles,
+    bookingCode: params.bookingCode,
+    userName: params.userName,
+    userPhone: params.userPhone,
+    userEmail: params.userEmail,
+  });
 
   // Timeout duro de 5s: un Resend lento no debe colgar la respuesta al viajero.
   const controller = new AbortController();
@@ -304,7 +401,7 @@ El equipo de Finde`;
         from: "Finde <reservas@finde.pe>",
         to: [operator.email],
         reply_to: params.userEmail,
-        subject: `Nueva reserva ${params.bookingCode}: ${params.tourTitle}`,
+        subject,
         text,
       }),
       signal: controller.signal,
@@ -417,6 +514,28 @@ export default async function handler(
     return;
   }
 
+  // Cierre de venta (solo confirmación manual): la MISMA hora de cierre que
+  // vence el plazo de la agencia cierra también la entrada de solicitudes. Sin
+  // esto, una reserva creada pasada esa hora nace con el plazo ya cumplido y la
+  // agencia recibe un aviso que no puede atender. En CUPO_FIJO no aplica: no
+  // hay nada que confirmar, así que rige solo la anticipación mínima de arriba.
+  // El calendario del front aplica esta regla primero (minBookingISO); acá es
+  // la fuente de verdad, en hora de Lima.
+  if (tour.salesMode === "SOLICITUD") {
+    const closeAt = departureCloseAt(
+      limaDateISO(scheduledDate),
+      tour.closeTime,
+      tour.closeDaysBefore
+    );
+    if (new Date() >= closeAt) {
+      res.status(409).json({
+        error:
+          "Ya pasó la hora límite para reservar esta fecha. Elige otra fecha disponible.",
+      });
+      return;
+    }
+  }
+
   if (guests > tour.capacity) {
     res.status(400).json({
       error: "Excede capacidad disponible",
@@ -469,6 +588,11 @@ export default async function handler(
   // función tras responder.
   await sendOperatorBookingEmail({
     operator: tour.operator,
+    // El modo del tour decide el correo entero (asunto y cuerpo): en SOLICITUD
+    // la agencia tiene que decidir y el expiresAt es el dato que dispara la
+    // acción; en CUPO_FIJO ya está confirmada y el aviso es informativo.
+    isSolicitud: booking.statusNew === "SOLICITUD",
+    expiresAt: booking.expiresAt,
     tourTitle: booking.tour.title,
     scheduledAt: booking.scheduledAt,
     guests: booking.guests,

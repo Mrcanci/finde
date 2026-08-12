@@ -72,11 +72,41 @@ function addDaysISO(iso, days) {
 // api/bookings.ts (MIN_BOOKING_LEAD_DAYS): el calendario de reserva no deja
 // elegir antes de hoy + estos días y el backend valida lo mismo en hora de Lima.
 const MIN_BOOKING_LEAD_DAYS = 1;
-// Fecha mínima reservable (yyyy-mm-dd) = hoy (hora local del dispositivo) +
-// anticipación mínima. En el piloto Perú el dispositivo está en hora de Lima;
-// el gate Lima-correcto definitivo vive en el backend.
-function minBookingISO() {
-  return addDaysISO(todayISO(), MIN_BOOKING_LEAD_DAYS);
+// Defaults de cierre. MANTENER EN SYNC con lib/inventory.ts
+// (DEFAULT_CLOSE_TIME / DEFAULT_CLOSE_DAYS_BEFORE): null en DB = estos valores.
+const DEFAULT_CLOSE_TIME = "20:00";
+const DEFAULT_CLOSE_DAYS_BEFORE = 1;
+// Fecha y hora actuales en Lima (America/Lima, UTC-5 sin DST). El calendario
+// compara contra la hora de cierre de la agencia, así que NO puede usar la hora
+// del dispositivo: un viajero con el reloj en otra zona vería fechas que el
+// backend va a rechazar.
+function limaNow() {
+  const now = new Date();
+  return {
+    date: new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Lima", year: "numeric", month: "2-digit", day: "2-digit",
+    }).format(now),
+    time: new Intl.DateTimeFormat("en-GB", {
+      timeZone: "America/Lima", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    }).format(now),
+  };
+}
+// Fecha mínima reservable (yyyy-mm-dd). Dos pisos, gana el más tardío:
+//   1. anticipación mínima: hoy (Lima) + MIN_BOOKING_LEAD_DAYS
+//   2. cierre de venta, SOLO en confirmación manual: una fecha deja de ofrecerse
+//      pasada la hora de cierre de esa salida. Como el cierre de D cae en
+//      D - closeDaysBefore a closeTime, la primera fecha con cierre todavía
+//      vigente es hoy + closeDaysBefore, o un día más si esa hora ya pasó.
+// En confirmación automática no hay nada que confirmar y solo rige el piso 1.
+// MANTENER EN SYNC con api/bookings.ts, que es la fuente de verdad.
+function minBookingISO(tour) {
+  const { date: hoyLima, time: ahoraLima } = limaNow();
+  const porAnticipacion = addDaysISO(hoyLima, MIN_BOOKING_LEAD_DAYS);
+  if (tour?.salesMode !== "SOLICITUD") return porAnticipacion;
+  const closeTime = tour.closeTime || DEFAULT_CLOSE_TIME;
+  const diasAntes = tour.closeDaysBefore != null ? tour.closeDaysBefore : DEFAULT_CLOSE_DAYS_BEFORE;
+  const porCierre = addDaysISO(hoyLima, diasAntes + (ahoraLima < closeTime ? 0 : 1));
+  return porAnticipacion > porCierre ? porAnticipacion : porCierre;
 }
 function dayCodeFromISO(iso) {
   const [y, m, d] = iso.split("-").map(Number);
@@ -106,6 +136,33 @@ function fmtCloseAt(iso) {
   const day = new Intl.DateTimeFormat("es-PE", { timeZone: "America/Lima", day: "numeric" }).format(d);
   const time = new Intl.DateTimeFormat("en-US", { timeZone: "America/Lima", hour: "numeric", minute: "2-digit", hour12: true }).format(d).toLowerCase();
   return `${wd} ${day}, ${time}`;
+}
+// "viernes 14" desde un yyyy-mm-dd: día de la semana + número del día. Es cómo
+// la agencia nombra una salida cuando habla con su gente.
+function fmtDiaFecha(iso) {
+  if (typeof iso !== "string") return "";
+  const d = Number(iso.slice(8, 10));
+  return `${DAY_LABEL_LONG[dayCodeFromISO(iso)]} ${d}`;
+}
+// Cuenta regresiva del plazo para confirmar una salida, desde el expiresAt más
+// próximo de sus solicitudes vigentes. Se calcula al renderizar (sin
+// temporizador en vivo): el panel se recalcula al actuar o al recargar.
+// level: "" = informativo, "soft" = menos de 24h, "hard" = menos de 3h.
+const PLAZO_HORA = 3600000;
+function plazoConfirmacion(expiresAtIso, nowMs) {
+  const exp = new Date(expiresAtIso);
+  if (isNaN(exp.getTime())) return null;
+  const ms = exp.getTime() - nowMs;
+  if (ms <= 0) return { text: "El plazo venció", level: "" };
+  if (ms >= 24 * PLAZO_HORA) {
+    return { text: `Confirma antes del ${fmtCloseAt(expiresAtIso)}`, level: "" };
+  }
+  if (ms >= 3 * PLAZO_HORA) {
+    const h = Math.floor(ms / PLAZO_HORA);
+    return { text: `Te quedan ${h} hora${h === 1 ? "" : "s"} para confirmar`, level: "soft" };
+  }
+  const min = Math.max(1, Math.floor(ms / 60000));
+  return { text: `Te quedan ${min} minuto${min === 1 ? "" : "s"} para confirmar`, level: "hard" };
 }
 const cap1 = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
 // Estado real de una reserva en el panel: etiqueta + color. Manda bookingState
@@ -184,7 +241,7 @@ function ensureAvailabilityFields(t) {
 }
 
 // Calendario reusable. mode="edit" (wizard) o mode="select" (booking).
-function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excludedDates = [], addedDates = [], onToggleException, minDate }) {
+function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excludedDates = [], addedDates = [], onToggleException, minDate, minDateNote }) {
   const todayStr = todayISO();
   const [todayY, todayM] = todayStr.split("-").map(Number);
   const [view, setView] = useState({ y: todayY, m: todayM });
@@ -272,7 +329,7 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
           }
           const titleAttr = (mode === "select" && !isClickable && !isPast)
             ? (belowMin
-                ? `Requiere al menos ${MIN_BOOKING_LEAD_DAYS} día${MIN_BOOKING_LEAD_DAYS > 1 ? "s" : ""} de anticipación`
+                ? (minDateNote || `Requiere al menos ${MIN_BOOKING_LEAD_DAYS} día${MIN_BOOKING_LEAD_DAYS > 1 ? "s" : ""} de anticipación`)
                 : "Este día la agencia no tiene salidas")
             : undefined;
           return (
@@ -376,12 +433,15 @@ function mapTourFromApi(t) {
     startTime: t.startTime ?? undefined,
     // Estado activo/inactivo real del API (M2.3); default true si no viene.
     active: t.active ?? true,
-    // Config de venta (solo la traen las vistas del operador vía
-    // OPERATOR_*_SELECT; en el catálogo público llega undefined y no se usa).
+    // Config de venta. salesMode/closeTime/closeDaysBefore vienen también en el
+    // catálogo público: el calendario del viajero los necesita para cerrar la
+    // venta a la hora límite (minBookingISO). allotment/minQuorum solo llegan en
+    // las vistas del operador (OPERATOR_*_SELECT); en público quedan en null.
     salesMode: t.salesMode ?? undefined,
     allotment: t.allotment ?? null,
     minQuorum: t.minQuorum ?? null,
     closeTime: t.closeTime ?? null,
+    closeDaysBefore: t.closeDaysBefore ?? null,
     // Fecha de creación (ISO). Se usa para ordenar el catálogo por recencia
     // ahora que no hay ratings que ordenar (ver reset de ratings 2026-06-09).
     createdAt: t.createdAt ?? null,
@@ -1323,6 +1383,12 @@ html{scrollbar-gutter:stable}
 .sal-bk{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid rgba(0,0,0,.05);cursor:pointer}
 .sal-sec-t{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--gy);margin:18px 0 10px}
 .sal-q{font-size:13px;font-weight:700;color:var(--ch);margin-bottom:8px}
+/* Cuenta regresiva para confirmar: gris → oro (suave) → terracota (fuerte).
+   El oro va oscurecido respecto de --gd para tener contraste sobre blanco. */
+.sal-plazo.soft{color:#8A6A12;font-weight:700}
+.sal-plazo.hard{color:var(--tr);font-weight:800}
+/* Aviso informativo de reglas dentro del bloque de confirmación manual. */
+.sale-note{margin-top:-4px;margin-bottom:16px;padding:11px 13px;border-radius:10px;background:var(--cr);color:var(--ch);font-size:11.5px;line-height:1.55}
 
 /* AI Content Creator */
 .ai-cc{margin:0 0 16px 0;padding:20px;background:linear-gradient(135deg,rgba(45,90,61,.06),rgba(45,90,61,.02));border:1.5px solid rgba(45,90,61,.15);border-radius:16px}
@@ -2968,7 +3034,7 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
   const total = tour.price * guests;
   // Disponibilidad en los próximos 90 días: decide si se muestra el aviso de
   // "sin fechas disponibles" ahora que date arranca vacía.
-  const bookingT0 = minBookingISO();
+  const bookingT0 = minBookingISO(tour);
   const hasAvailableDates = getAvailableDatesInRange(tour, bookingT0, addDaysISO(bookingT0, 90)).length > 0;
   // Validación de formato (no sólo trim) para evitar confirmar con datos que el
   // backend rechazará (api/bookings.ts: email format, phone /^\d{8,15}$/).
@@ -3059,7 +3125,10 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
             days={tour.days || DEFAULT_DAYS}
             excludedDates={tour.excludedDates || []}
             addedDates={tour.addedDates || []}
-            minDate={minBookingISO()}
+            minDate={bookingT0}
+            minDateNote={bookingT0 > addDaysISO(limaNow().date, MIN_BOOKING_LEAD_DAYS)
+              ? "Ya pasó la hora límite para reservar esta fecha"
+              : undefined}
           />
           {(() => {
             // Línea informativa solo si el tour NO opera todos los días.
@@ -3531,6 +3600,7 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
   const [actionError, setActionError] = useState(null);     // { depId, msg }
 
   const nowIso = new Date().toISOString();
+  const nowMs = Date.parse(nowIso);
   const hoy = todayISO();
   // Vigentes client-side (mismo criterio que el backend): SOLICITUD sin vencer.
   const salidas = (opDepartures || []).map((d) => ({
@@ -3577,6 +3647,13 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
     const vigTotal = vig.reduce((s, b) => s + (b.totalSoles || 0), 0) / 100;
     const confPersonas = d.confBk.reduce((s, b) => s + (b.guests || 0), 0);
     const confTotal = d.confBk.reduce((s, b) => s + (b.totalSoles || 0), 0) / 100;
+    // expiresAt más próximo entre las vigentes: es el plazo real que le queda a
+    // la agencia para decidir la salida entera (comparación lexicográfica de
+    // ISO, que ordena igual que cronológicamente).
+    const proxExpira = vig.reduce(
+      (min, b) => (b.expiresAt && (!min || b.expiresAt < min) ? b.expiresAt : min),
+      null
+    );
     const esCupoFijo = d.tour?.salesMode === "CUPO_FIJO";
     const cupoEfectivo = d.allotmentOverride ?? d.tour?.allotment ?? null;
     const quorum = !esCupoFijo ? (d.tour?.minQuorum ?? null) : null;
@@ -3601,16 +3678,25 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
           <div className="sal-meta" style={d.isFull ? { color: "var(--tr)", fontWeight: 700 } : undefined}>
             {d.isFull ? "Salida llena · " : ""}{d.seatsTaken} de {cupoEfectivo} cupos tomados
           </div>
-        )) : (d.closeAt && d.closeAt > nowIso && vig.length > 0 && (
-          <div className="sal-meta">Cierra: {fmtCloseAt(d.closeAt)}</div>
-        ))}
+        )) : (proxExpira && (() => {
+          // Cuenta regresiva del plazo para confirmar: siempre visible mientras
+          // haya solicitudes vigentes, no solo cuando está por vencer.
+          const p = plazoConfirmacion(proxExpira, nowMs);
+          if (!p) return null;
+          return <div className={`sal-meta${p.level ? ` sal-plazo ${p.level}` : ""}`}>{p.text}</div>;
+        })())}
         {quorum != null && personasQuorum < quorum && (
           <div className="sal-meta">Tienes {personasQuorum} de {quorum} personas para el mínimo</div>
         )}
         {err && <div className="field-err" style={{ marginTop: 10 }}>{err}</div>}
         {vig.length > 0 && !esPasada && (pend ? (
           <div style={{ marginTop: 12 }}>
-            <div className="sal-q">¿{pend.action === "confirm" ? "Confirmar" : "Rechazar"} esta salida con {vig.length} reserva{vig.length === 1 ? "" : "s"}?</div>
+            {/* Confirmar habla de PERSONAS (el dato con el que la agencia
+                consigue el bus), no de reservas. Rechazar habla de solicitudes,
+                que es lo que realmente se rechaza. */}
+            <div className="sal-q">{pend.action === "confirm"
+              ? `¿Confirmas la salida del ${fmtDiaFecha(d.date)} con ${vigPersonas} persona${vigPersonas === 1 ? "" : "s"}?`
+              : `¿Rechazas ${vig.length === 1 ? "la solicitud" : `las ${vig.length} solicitudes`} de la salida del ${fmtDiaFecha(d.date)}?`}</div>
             <div className="sal-actions" style={{ marginTop: 0 }}>
               <button className={`sal-btn ${pend.action === "confirm" ? "pri" : "sec"}`} disabled={busy} onClick={() => fireAction(d, pend.action)}>
                 {busy ? (pend.action === "confirm" ? "Confirmando…" : "Rechazando…") : (pend.action === "confirm" ? "Sí, confirmar" : "Sí, rechazar")}
@@ -4198,9 +4284,11 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
     title: "", location: "", meetingPoint: "", category: "adventure", duration: "", price: "",
     capacity: "", difficulty: "Moderada", description: "", included: "", excluded: "",
     days: [], excludedDates: [], addedDates: [], startTime: "08:00", cancellation: "flexible",
-    // Default de venta para tour nuevo: confirmación manual (SOLICITUD), el
-    // mismo default del motor. closeTime 20:00 = default de producto.
-    salesMode: "SOLICITUD", allotment: "", closeTime: "20:00", minQuorum: "",
+    // Default de venta para tour NUEVO: confirmación automática (CUPO_FIJO).
+    // No coincide con el default del motor (SOLICITUD) a propósito: ese sigue
+    // rigiendo a los tours existentes, que no cambian de modo. closeTime 20:00
+    // queda precargado por si la agencia elige confirmación manual.
+    salesMode: "CUPO_FIJO", allotment: "", closeTime: "20:00", minQuorum: "",
     images: [], photo: null
   });
   const [aiDesc, setAiDesc] = useState(null);
@@ -4615,7 +4703,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           <label className="lbl">¿Cómo vendes este tour?</label>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {[
-              { id: "CUPO_FIJO", label: "Confirmación automática", desc: "Defines cuántos cupos ofreces y las reservas se confirman solas hasta llenarse." },
+              { id: "CUPO_FIJO", label: "Confirmación automática", desc: "Defines cuántos cupos ofreces y las reservas se confirman solas hasta llenarse. Te comprometes a operar la salida aunque vayan pocas personas." },
               { id: "SOLICITUD", label: "Confirmación manual", desc: "Las reservas te llegan como solicitudes y tú decides si la salida se confirma." },
             ].map((opt) => (
               <div key={opt.id} onClick={() => u("salesMode", opt.id)} style={{
@@ -4646,14 +4734,19 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         )}
         {form.salesMode === "SOLICITUD" && (<>
           <div className="fg">
-            <label className="lbl" htmlFor="nt-close-time">Hora de cierre</label>
+            <label className="lbl" htmlFor="nt-close-time">Hora límite para confirmar</label>
             <input id="nt-close-time" className="inp" type="time" value={form.closeTime} onChange={(e) => u("closeTime", e.target.value)} />
-            <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 6 }}>Hasta esta hora de la víspera recibes solicitudes</div>
+            <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 6, lineHeight: 1.5 }}>El día anterior a la salida, a esta hora, vence tu plazo para confirmar. Las solicitudes también vencen a los 3 días de recibidas, y siempre antes de la medianoche previa a la salida.</div>
           </div>
           <div className="fg">
             <label className="lbl" htmlFor="nt-min-quorum">Mínimo de personas (opcional)</label>
             <input id="nt-min-quorum" className="inp" type="number" min="1" inputMode="numeric" placeholder="Ej. 4" value={form.minQuorum} onChange={(e) => u("minQuorum", e.target.value)} />
             <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 6 }}>Solo informativo: te avisamos si no llegas al mínimo, tú decides si sales</div>
+          </div>
+          {/* Aviso de reglas de vencimiento: informativo (no error), solo bajo
+              confirmación manual, junto a los campos que las gobiernan. */}
+          <div className="sale-note">
+            Tienes hasta 3 días para confirmar cada solicitud, y siempre antes de la medianoche previa a la salida. Si no confirmas, la solicitud vence y el viajero recibe un aviso.
           </div>
         </>)}
         <div className="fg">
