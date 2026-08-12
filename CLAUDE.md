@@ -8,15 +8,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Production: deployed to **finde.pe** via Vercel (project `mrcancis-projects/finde`).
 
-## Estado del proyecto (junio 2026)
+## Estado del proyecto (agosto 2026)
+
+**`main` ya NO tiene solo M1.** Todo lo que sigue está mergeado en `main`:
 
 - Proyecto **`tours-db-i18n` COMPLETADO**: tours migrados de array hardcoded a DB, **40 tours con embeddings Voyage**, 6 categorías UI sincronizadas con el enum DB, skeleton loading en grid y carruseles, dropdown AI_SUGGESTIONS funcional.
-- **M1 (Auth con Supabase Auth) COMPLETADO y EN PRODUCCIÓN** (finde.pe, `main` @ `b214307`): auth real email+password, sesión persistente en localStorage, logout real, reservas y onboarding de operador ligados a la identidad del token, `isOperator` derivado de la DB. Plan: [`docs/m1-auth-plan.md`](docs/m1-auth-plan.md). **`main` tiene solo M1.**
-- **M2 (Tours del operador + medios) COMPLETO y validado, pero EN LA RAMA `feature/m2-operator-tours` — NO mergeado a `main`, NO en producción todavía**: CRUD real de tours del operador (crear/editar/borrar/pausar), upload de imágenes a Supabase Storage (signed URL, subida directa navegador→Storage), y las correcciones de la auditoría aplicadas (publicación honesta sin moderación falsa, onboarding sin datos mock, comisión 15% oculta en etapa piloto). `requireOperator` protege todos los endpoints de escritura; los tours pausados quedan invisibles en catálogo/búsqueda/detalle/booking pero visibles en el dashboard del operador. Todo lo de M2 descrito más abajo (endpoints, libs, Storage, columnas `active`/`startTime`) vive en esta rama, aún sin desplegar.
-- **Próximo:** continuar el MVP end-to-end (M4+). Ver [`docs/roadmap-mvp.md`](docs/roadmap-mvp.md) (fases M1-M6).
-- **Antes de lanzar auth a usuarios reales:** reactivar "Confirm email" en Supabase (desactivado para pruebas) y cargar las credenciales Supabase en Vercel (los 3 entornos).
+- **M1 (Auth con Supabase Auth) COMPLETADO**: auth real email+password, sesión persistente en localStorage, logout real, reservas y onboarding de operador ligados a la identidad del token, `isOperator` derivado de la DB. Plan: [`docs/m1-auth-plan.md`](docs/m1-auth-plan.md).
+- **M2 (Tours del operador + medios) COMPLETADO y mergeado** (commit `e6fa097`; la rama `feature/m2-operator-tours` ya solo vive en `origin`): CRUD real de tours del operador (crear/editar/borrar/pausar), upload de imágenes a Supabase Storage (signed URL, subida directa navegador→Storage), y las correcciones de la auditoría (publicación honesta sin moderación falsa, onboarding sin datos mock, comisión 15% oculta en etapa piloto). `requireOperator` protege todos los endpoints de escritura; los tours pausados quedan invisibles en catálogo/búsqueda/detalle/booking pero visibles en el dashboard del operador.
+- **Búsqueda en dos fases COMPLETADA y mergeada**: fase 2 genera el reasoning sobre los ids ya elegidos, con los datos firmados de fase 1 (`lib/search-sig.ts`). `SEARCH_PHASE_SECRET` ya está cargada en Vercel en los 3 entornos (verificado 2026-08-12).
+- **Sistema de inventario y salidas COMPLETADO y mergeado.** Tres capas:
+  - **Schema** (`docs/migrations/2026-08-05-inventario-salidas.md`): modelo `Departure`, enum `SalesMode` (`CUPO_FIJO` | `SOLICITUD`), enum `BookingStatus` (`SOLICITUD` | `CONFIRMADA` | `VENCIDA` | `RECHAZADA` | `CANCELADA`) en `Booking.statusNew`, y config de venta en `Tour` (`allotment`, `minQuorum`, `closeTime`, `closeDaysBefore`).
+  - **Motor** (`lib/inventory.ts` + `POST /api/bookings`): materialización perezosa de salidas con `INSERT … ON CONFLICT` crudo (atómico bajo concurrencia), toma de cupo atómica, cálculo de `expiresAt` y vencimiento perezoso en las lecturas (no hay cron en Vercel Hobby).
+  - **Panel de salidas** (`GET`/`POST /api/operators/me/departures` + `DashView`): la agencia ve sus salidas agrupadas y confirma o rechaza **en lote**, con dos pasos porque la acción manda correos a los viajeros y no se puede deshacer.
+- **Cierre de venta en las dos puntas (confirmación manual)**: la hora de cierre de una salida cierra los dos extremos. No entran solicitudes nuevas pasada esa hora (409 en el backend, y el calendario del viajero deja de ofrecer la fecha) y `expiresAt = min(cierre, creación + 72h, medianoche previa a la salida)`. `CUPO_FIJO` queda exento: no hay nada que confirmar.
+- **Próximo:** continuar el MVP end-to-end. Ver [`docs/roadmap-mvp.md`](docs/roadmap-mvp.md) (fases M1-M6).
+- **Antes de lanzar a usuarios reales:**
+  - Reactivar "Confirm email" en Supabase (desactivado para pruebas).
+  - **Cargar `RESEND_API_KEY` en Preview y Production** — hoy solo existe en Development (verificado 2026-08-12). Sin ella, `sendOperatorBookingEmail` y `sendDepartureDecisionEmails` loguean "RESEND_API_KEY ausente, skip" y **siguen sin lanzar**: la reserva se crea igual y nadie recibe nada. Con el panel de salidas en juego, eso significa una agencia que nunca se entera de una solicitud y un viajero que nunca sabe que venció.
+  - **Borrar los datos de prueba**: el tour "prueba" y las reservas/salidas de las cuentas `@finde.pe`.
 - **Etapa piloto:** sin comisión (link directo a WhatsApp); el 15% está oculto en la UI y se reactiva cuando se cobre.
 - Auditoría de estado: [`docs/audits/2026-05-20-mvp-readiness-audit.md`](docs/audits/2026-05-20-mvp-readiness-audit.md).
+
+> **Estado de despliegue:** esta sección describe lo que contiene `main`, que es lo verificable desde el repo. Qué commit está efectivamente servido en finde.pe hay que confirmarlo en Vercel, no acá.
+
+> **Ojo con la base:** local y producción comparten la MISMA base de Supabase. Un dato creado en finde.pe aparece en `vercel dev` y viceversa. Cuidado al sembrar o borrar datos de prueba.
 
 ## Archivos protegidos
 
@@ -229,3 +244,4 @@ Config in `eslint.config.js`. Capitalized unused variables are intentionally ign
 - **Tours pausados** (`active:false`): invisibles en catálogo, búsqueda, detalle y booking; visibles solo para su dueño en el dashboard (`GET /api/operators/me/tours`).
 - **Etapa piloto: sin comisión** — el 15% está oculto en la UI (link directo a WhatsApp). Reactivar cuando se cobre.
 - Publicación de tours honesta: sin moderación falsa ni datos mock en el onboarding del operador.
+- **Nunca usar `pkill -f` con patrones amplios** (`vercel dev`, `node`, `vite`): puede matar procesos del usuario en otras terminales. Matar siempre por PID específico.
