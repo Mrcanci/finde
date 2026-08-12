@@ -87,6 +87,54 @@ function formatLongDate(iso) {
   const [y, m, d] = iso.split("-").map(Number);
   return `${DAY_LABEL_LONG[dayCodeFromISO(iso)]} ${d} de ${MONTH_LABELS_LOWER[m - 1]} de ${y}`;
 }
+// Fecha corta de reserva "16 Ago 2026" desde un ISO timestamp. Los primeros 10
+// chars son el yyyy-mm-dd: parsearlos directo evita el drift de zona de
+// new Date() + getters locales (mismo patrón que mapBookingToTrip).
+const MONTHS_SHORT = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+function fmtBookingDate(iso) {
+  if (typeof iso !== "string") return "";
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  if (!y || !m || !d || !MONTHS_SHORT[m - 1]) return "";
+  return `${String(d).padStart(2, "0")} ${MONTHS_SHORT[m - 1]} ${y}`;
+}
+// "sábado 15, 8:00 pm" en hora de Lima desde el closeAt ISO que calcula el
+// backend (cierre de solicitudes de una salida).
+function fmtCloseAt(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const wd = new Intl.DateTimeFormat("es-PE", { timeZone: "America/Lima", weekday: "long" }).format(d);
+  const day = new Intl.DateTimeFormat("es-PE", { timeZone: "America/Lima", day: "numeric" }).format(d);
+  const time = new Intl.DateTimeFormat("en-US", { timeZone: "America/Lima", hour: "numeric", minute: "2-digit", hour12: true }).format(d).toLowerCase();
+  return `${wd} ${day}, ${time}`;
+}
+const cap1 = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "");
+// Estado real de una reserva en el panel: etiqueta + color. Manda bookingState
+// (enum nuevo del API); las reservas legacy sin él caen al status viejo.
+const BK_STATE_UI = {
+  SOLICITUD: { label: "Solicitud recibida", color: "var(--tr)" },
+  CONFIRMADA: { label: "Confirmada", color: "var(--m)" },
+  RECHAZADA: { label: "Rechazada", color: "var(--gy)" },
+  VENCIDA: { label: "Vencida", color: "var(--gy)" },
+  CANCELADA: { label: "Cancelada", color: "var(--gy)" },
+};
+const BK_LEGACY_STATE = { pending_payment: "SOLICITUD", pending: "SOLICITUD", confirmed: "CONFIRMADA", cancelled: "CANCELADA" };
+function bookingStateUI(b) {
+  const key = b?.bookingState || BK_LEGACY_STATE[b?.status] || "SOLICITUD";
+  return BK_STATE_UI[key] || BK_STATE_UI.SOLICITUD;
+}
+// Recuenta los estados de una salida a partir de sus reservas (para actualizar
+// la card tras confirmar/rechazar sin re-fetch).
+function recountDeparture(bookings) {
+  const c = { solicitudes: 0, confirmadas: 0, vencidas: 0, rechazadas: 0, canceladas: 0 };
+  for (const b of bookings || []) {
+    if (b.bookingState === "SOLICITUD") c.solicitudes++;
+    else if (b.bookingState === "CONFIRMADA") c.confirmadas++;
+    else if (b.bookingState === "VENCIDA") c.vencidas++;
+    else if (b.bookingState === "RECHAZADA") c.rechazadas++;
+    else if (b.bookingState === "CANCELADA") c.canceladas++;
+  }
+  return c;
+}
 // Fecha + hora en zona Lima a partir de un ISO timestamp, ej. "20 Jun 2026, 14:32".
 // Usado para Booking.createdAt en el panel del operador. Devuelve "" si el ISO no parsea.
 function fmtDateTime(iso) {
@@ -328,6 +376,12 @@ function mapTourFromApi(t) {
     startTime: t.startTime ?? undefined,
     // Estado activo/inactivo real del API (M2.3); default true si no viene.
     active: t.active ?? true,
+    // Config de venta (solo la traen las vistas del operador vía
+    // OPERATOR_*_SELECT; en el catálogo público llega undefined y no se usa).
+    salesMode: t.salesMode ?? undefined,
+    allotment: t.allotment ?? null,
+    minQuorum: t.minQuorum ?? null,
+    closeTime: t.closeTime ?? null,
     // Fecha de creación (ISO). Se usa para ordenar el catálogo por recencia
     // ahora que no hay ratings que ordenar (ver reset de ratings 2026-06-09).
     createdAt: t.createdAt ?? null,
@@ -1254,6 +1308,21 @@ html{scrollbar-gutter:stable}
 .dsh-bk-r{text-align:right;flex-shrink:0}.dsh-bk-a{font-size:15px;font-weight:800;color:var(--f)}
 .dsh-bk-s{display:inline-block;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-top:4px}
 .st-confirmed{background:rgba(45,90,61,.1);color:var(--m)}.st-pending{background:rgba(212,168,67,.15);color:#B8860B}.st-completed{background:rgba(107,143,113,.15);color:var(--sg)}.st-cancelled{background:rgba(199,97,58,.1);color:var(--tr)}
+/* Salidas agrupadas (panel de la agencia) */
+.sal-card{margin:0 0 12px;padding:16px;background:white;border-radius:14px;border:1px solid rgba(0,0,0,.06);text-align:left}
+.sal-date{font-size:14px;font-weight:800;color:var(--ch)}
+.sal-tour{font-size:12.5px;color:var(--gy);margin-top:2px}
+.sal-line{font-size:12.5px;color:var(--ch);margin-top:8px;font-weight:600}
+.sal-meta{font-size:12px;color:var(--gy);margin-top:4px}
+.sal-actions{display:flex;gap:8px;margin-top:12px}
+.sal-btn{flex:1;padding:11px 0;border-radius:12px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;border:none;transition:.2s;min-width:0}
+.sal-btn.pri{background:var(--f);color:white}
+.sal-btn.sec{background:none;border:1.5px solid var(--lg);color:var(--ch)}
+.sal-btn:disabled{opacity:.55;cursor:default}
+.sal-toggle{display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--f);font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;padding:10px 0 0}
+.sal-bk{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid rgba(0,0,0,.05);cursor:pointer}
+.sal-sec-t{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--gy);margin:18px 0 10px}
+.sal-q{font-size:13px;font-weight:700;color:var(--ch);margin-bottom:8px}
 
 /* AI Content Creator */
 .ai-cc{margin:0 0 16px 0;padding:20px;background:linear-gradient(135deg,rgba(45,90,61,.06),rgba(45,90,61,.02));border:1.5px solid rgba(45,90,61,.15);border-radius:16px}
@@ -3441,12 +3510,11 @@ function ProfileView({ go, onLogout }) {
   );
 }
 
-function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleActive, initialTab = "bookings", onTabConsumed, onBusinessSaved }) {
+function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadDepartures, onDepartureAction, onEditTour, onDeleteTour, onToggleActive, initialTab = "bookings", onTabConsumed, onBusinessSaved }) {
   const [tab, setTab] = useState(initialTab);
   useEffect(() => { if (onTabConsumed) onTabConsumed(); }, []);
   // Reservas reales del operador (GET /api/operators/me/bookings), hidratadas en
   // AppDemo y pasadas como prop. Etapa piloto: solo lectura (sin cambio de estado).
-  const bookings = opBookings;
   // Nombre real del operador logueado (de GET /api/me vía AuthContext), en vez
   // del mock "Andes Trek Perú". DashView solo se renderiza para operadores, así
   // que operator suele estar presente; fallback defensivo por si aún no hidrata.
@@ -3454,6 +3522,131 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
   const operatorName = operator?.name || "Mi negocio";
   const initials = (name) => (name || "?").trim().split(/\s+/).map((n) => n[0]).slice(0, 2).join("").toUpperCase();
   const [selectedBooking, setSelectedBooking] = useState(null);
+
+  // ── Salidas agrupadas (tab Reservas) ──
+  const [expandedDeps, setExpandedDeps] = useState({});
+  const [showPast, setShowPast] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null); // { depId, action }
+  const [actionBusy, setActionBusy] = useState(null);       // depId en vuelo
+  const [actionError, setActionError] = useState(null);     // { depId, msg }
+
+  const nowIso = new Date().toISOString();
+  const hoy = todayISO();
+  // Vigentes client-side (mismo criterio que el backend): SOLICITUD sin vencer.
+  const salidas = (opDepartures || []).map((d) => ({
+    ...d,
+    vigentes: (d.bookings || []).filter((b) => b.bookingState === "SOLICITUD" && (!b.expiresAt || b.expiresAt > nowIso)),
+    confBk: (d.bookings || []).filter((b) => b.bookingState === "CONFIRMADA"),
+  }));
+  const pasadas = salidas.filter((d) => d.date < hoy);
+  const futuras = salidas.filter((d) => d.date >= hoy);
+  // "Todo confirmado" = sin solicitudes vigentes y con confirmadas → sección
+  // aparte debajo. El resto (pendientes, o solo vencidas) va arriba.
+  const confirmadasSec = futuras.filter((d) => d.status === "CONFIRMADA" && d.vigentes.length === 0 && d.confBk.length > 0);
+  const pendientesSec = futuras.filter((d) => !confirmadasSec.includes(d));
+
+  const fireAction = async (d, action) => {
+    setActionBusy(d.id);
+    setActionError(null);
+    const r = await onDepartureAction(d.id, action);
+    setActionBusy(null);
+    setPendingAction(null);
+    if (!r?.ok) setActionError({ depId: d.id, msg: r?.error || "No se pudo completar la acción. Intenta de nuevo." });
+  };
+
+  // Reserva de una salida → shape del detalle individual (reusa la vista con
+  // WhatsApp del panel; el estado real reemplaza a la etiqueta fija).
+  const depBookingToDetail = (d, b) => ({
+    id: b.bookingCode,
+    customer: b.userName,
+    phone: b.userPhone || null,
+    date: fmtBookingDate(b.scheduledAt),
+    startTime: d.startTime ?? null,
+    createdAt: b.createdAt ?? null,
+    guests: b.guests,
+    amount: (b.totalSoles || 0) / 100,
+    tour: d.tour?.title || "",
+    bookingState: b.bookingState,
+    status: b.status,
+  });
+
+  const renderSalida = (d) => {
+    const esPasada = d.date < hoy;
+    const vig = d.vigentes;
+    const vigPersonas = vig.reduce((s, b) => s + (b.guests || 0), 0);
+    const vigTotal = vig.reduce((s, b) => s + (b.totalSoles || 0), 0) / 100;
+    const confPersonas = d.confBk.reduce((s, b) => s + (b.guests || 0), 0);
+    const confTotal = d.confBk.reduce((s, b) => s + (b.totalSoles || 0), 0) / 100;
+    const esCupoFijo = d.tour?.salesMode === "CUPO_FIJO";
+    const cupoEfectivo = d.allotmentOverride ?? d.tour?.allotment ?? null;
+    const quorum = !esCupoFijo ? (d.tour?.minQuorum ?? null) : null;
+    // Personas que viajarían si la agencia confirma hoy: confirmadas + vigentes.
+    const personasQuorum = (d.seatsTaken || 0) + vigPersonas;
+    const expanded = !!expandedDeps[d.id];
+    const pend = pendingAction && pendingAction.depId === d.id ? pendingAction : null;
+    const busy = actionBusy === d.id;
+    const err = actionError && actionError.depId === d.id ? actionError.msg : "";
+    const n = (d.bookings || []).length;
+    return (
+      <div className="sal-card" key={d.id}>
+        <div className="sal-date">{cap1(formatLongDate(d.date))}{d.startTime ? ` · ${d.startTime}` : ""}</div>
+        <div className="sal-tour">{d.tour?.title || ""}</div>
+        {vig.length > 0 && (
+          <div className="sal-line">{vig.length} solicitud{vig.length === 1 ? "" : "es"} · {vigPersonas} persona{vigPersonas === 1 ? "" : "s"} · S/ {vigTotal.toLocaleString("es-PE")}</div>
+        )}
+        {d.confBk.length > 0 && (
+          <div className={vig.length > 0 ? "sal-meta" : "sal-line"}>{d.confBk.length} reserva{d.confBk.length === 1 ? "" : "s"} confirmada{d.confBk.length === 1 ? "" : "s"} · {confPersonas} persona{confPersonas === 1 ? "" : "s"} · S/ {confTotal.toLocaleString("es-PE")}</div>
+        )}
+        {esCupoFijo ? (cupoEfectivo != null && (
+          <div className="sal-meta" style={d.isFull ? { color: "var(--tr)", fontWeight: 700 } : undefined}>
+            {d.isFull ? "Salida llena · " : ""}{d.seatsTaken} de {cupoEfectivo} cupos tomados
+          </div>
+        )) : (d.closeAt && d.closeAt > nowIso && vig.length > 0 && (
+          <div className="sal-meta">Cierra: {fmtCloseAt(d.closeAt)}</div>
+        ))}
+        {quorum != null && personasQuorum < quorum && (
+          <div className="sal-meta">Tienes {personasQuorum} de {quorum} personas para el mínimo</div>
+        )}
+        {err && <div className="field-err" style={{ marginTop: 10 }}>{err}</div>}
+        {vig.length > 0 && !esPasada && (pend ? (
+          <div style={{ marginTop: 12 }}>
+            <div className="sal-q">¿{pend.action === "confirm" ? "Confirmar" : "Rechazar"} esta salida con {vig.length} reserva{vig.length === 1 ? "" : "s"}?</div>
+            <div className="sal-actions" style={{ marginTop: 0 }}>
+              <button className={`sal-btn ${pend.action === "confirm" ? "pri" : "sec"}`} disabled={busy} onClick={() => fireAction(d, pend.action)}>
+                {busy ? (pend.action === "confirm" ? "Confirmando…" : "Rechazando…") : (pend.action === "confirm" ? "Sí, confirmar" : "Sí, rechazar")}
+              </button>
+              <button className="sal-btn sec" disabled={busy} onClick={() => setPendingAction(null)}>Volver</button>
+            </div>
+          </div>
+        ) : (
+          <div className="sal-actions">
+            <button className="sal-btn pri" onClick={() => { setActionError(null); setPendingAction({ depId: d.id, action: "confirm" }); }}>Confirmar salida</button>
+            <button className="sal-btn sec" onClick={() => { setActionError(null); setPendingAction({ depId: d.id, action: "reject" }); }}>Rechazar</button>
+          </div>
+        ))}
+        {n > 0 && (
+          <button className="sal-toggle" onClick={() => setExpandedDeps((p) => ({ ...p, [d.id]: !p[d.id] }))}>
+            <span style={{ fontSize: 10 }}>{expanded ? "▾" : "▸"}</span> {n === 1 ? "Ver la reserva" : `Ver las ${n} reservas`}
+          </button>
+        )}
+        {expanded && (d.bookings || []).map((b) => {
+          const st = bookingStateUI(b);
+          return (
+            <div className="sal-bk" key={b.id} onClick={() => setSelectedBooking(depBookingToDetail(d, b))}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.userName}</div>
+                <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 1 }}>{b.bookingCode} · {b.guests} pers</div>
+              </div>
+              <div style={{ textAlign: "right", flexShrink: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "var(--f)" }}>S/ {((b.totalSoles || 0) / 100).toLocaleString("es-PE")}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: st.color, marginTop: 1 }}>{st.label}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   // Edición del perfil de operador (PATCH /api/operators). Solo los 4 campos
   // editables (name/phone/city/ruc); email y verificación son solo lectura.
@@ -3591,7 +3784,9 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
         <div className="dsh-nm">{operatorName}</div>
         <div className="dsh-sts">
           <div className="dsh-s"><div className="dsh-s-v">{opTours.filter((t) => t.active).length}</div><div className="dsh-s-l">Tours activos</div></div>
-          <div className="dsh-s"><div className="dsh-s-v">{bookings.length}</div><div className="dsh-s-l">Reservas</div></div>
+          {/* Total de reservas del panel: suma sobre las salidas (toda reserva
+              vive en una salida; ver verificación de la fase de inventario). */}
+          <div className="dsh-s"><div className="dsh-s-v">{salidas.reduce((s, d) => s + (d.bookings || []).length, 0)}</div><div className="dsh-s-l">Reservas</div></div>
           {/* Stat "Rating" oculto en la etapa piloto: no hay modelo Review ni ratings
               reales (los del seed son siembra). Reactivar cuando exista reseñas reales. */}
         </div>
@@ -3605,27 +3800,46 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
         ))}
       </div>
 
-      {/* ── RESERVAS ── */}
+      {/* ── RESERVAS (agrupadas por salida) ── */}
       {tab === "bookings" && !selectedBooking && <div className="fu">
-        {bookings.length === 0 ? (
+        {depsLoading ? (
+          <div style={{ textAlign: "center", padding: "48px 24px", color: "var(--gy)", fontSize: 13 }}>Cargando tus salidas…</div>
+        ) : depsError ? (
+          <div style={{ textAlign: "center", padding: "48px 24px" }}>
+            <div style={{ fontSize: 13, color: "var(--tr)", marginBottom: 12 }}>{depsError}</div>
+            <button className="sal-btn sec" style={{ flex: "none", padding: "10px 18px" }} onClick={() => onReloadDepartures?.()}>Reintentar</button>
+          </div>
+        ) : salidas.length === 0 ? (
           <div style={{ textAlign: "center", padding: "48px 24px", color: "var(--gy)" }}>
             <Smartphone size={28} strokeWidth={1.5} style={{ color: "var(--lg)", marginBottom: 12 }} />
             <div style={{ fontWeight: 700, fontSize: 15, color: "var(--ch)", marginBottom: 6 }}>Aún no tienes reservas</div>
             <div style={{ fontSize: 13, lineHeight: 1.5 }}>Cuando un viajero reserve uno de tus tours, aparecerá aquí y podrás coordinar con él por WhatsApp.</div>
           </div>
-        ) : bookings.map((b) => (
-          <div key={b.id} className="dsh-bk" style={{ alignItems: "center", gap: 10, cursor: "pointer" }}
-            onClick={() => setSelectedBooking(b)}>
-            <div className="dsh-bk-av" style={{ background: "var(--m)" }}>{initials(b.customer)}</div>
-            <div className="dsh-bk-i"><div className="dsh-bk-n">{b.customer}</div><div className="dsh-bk-d">{b.tour} · {b.date}{b.startTime ? ` · Salida ${b.startTime}` : ""} · {b.guests} pers</div></div>
-            <div className="dsh-bk-r"><div className="dsh-bk-a">S/ {b.amount.toLocaleString("es-PE")}</div><div className="dsh-bk-s" style={{ color: "var(--gy)" }}>Solicitud recibida</div></div>
-          </div>
-        ))}
+        ) : (
+          <>
+            {pendientesSec.map(renderSalida)}
+            {confirmadasSec.length > 0 && (
+              <>
+                <div className="sal-sec-t">Confirmadas</div>
+                {confirmadasSec.map(renderSalida)}
+              </>
+            )}
+            {pasadas.length > 0 && (
+              <button className="sal-toggle" style={{ paddingTop: 14 }} onClick={() => setShowPast((v) => !v)}>
+                <span style={{ fontSize: 10 }}>{showPast ? "▾" : "▸"}</span> {showPast ? "Ocultar salidas pasadas" : `Ver pasadas (${pasadas.length})`}
+              </button>
+            )}
+            {showPast && pasadas.map(renderSalida)}
+          </>
+        )}
       </div>}
 
       {/* ── DETALLE DE RESERVA ── */}
       {tab === "bookings" && selectedBooking && (() => {
-        const b = bookings.find(x => x.id === selectedBooking.id);
+        // El objeto ya llega completo desde la fila de la salida (no hay lista
+        // plana que buscar); el estado real reemplaza a la etiqueta fija.
+        const b = selectedBooking;
+        const st = bookingStateUI(b);
         return (
           <div className="fu" style={{ padding: "0 16px 32px" }}>
             <button onClick={() => setSelectedBooking(null)}
@@ -3635,7 +3849,9 @@ function DashView({ go, opTours, opBookings, onEditTour, onDeleteTour, onToggleA
                 {initials(b.customer)}
               </div>
               <div style={{ fontWeight: 800, fontSize: 18 }}>{b.customer}</div>
-              <div className="dsh-bk-s" style={{ color: "var(--gy)" }}>Solicitud recibida</div>
+              {/* textTransform none: los textos de estado van tal cual
+                  ("Confirmada", no "CONFIRMADA"); el pill los uppercaseaba. */}
+              <div className="dsh-bk-s" style={{ color: st.color, textTransform: "none", letterSpacing: 0, fontSize: 12 }}>{st.label}</div>
             </div>
             <div className="sum">
               {[
@@ -3967,6 +4183,12 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
     addedDates: editingTour.addedDates || [],
     startTime: editingTour.startTime || "08:00",
     cancellation: editingTour.cancellation || "flexible",
+    // Config de venta (fase panel de salidas): prefill con los valores reales
+    // del tour; los numéricos van como string (patrón price/capacity).
+    salesMode: editingTour.salesMode || "SOLICITUD",
+    allotment: editingTour.allotment != null ? String(editingTour.allotment) : "",
+    closeTime: editingTour.closeTime || "20:00",
+    minQuorum: editingTour.minQuorum != null ? String(editingTour.minQuorum) : "",
     // Galería (sub-paso 3): images[] = fotos en orden; photo = portada (una de
     // ellas). Se cargan del tour existente para que el editor muestre la galería
     // actual con su portada marcada y, si no se toca, el backend la preserve.
@@ -3976,6 +4198,9 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
     title: "", location: "", meetingPoint: "", category: "adventure", duration: "", price: "",
     capacity: "", difficulty: "Moderada", description: "", included: "", excluded: "",
     days: [], excludedDates: [], addedDates: [], startTime: "08:00", cancellation: "flexible",
+    // Default de venta para tour nuevo: confirmación manual (SOLICITUD), el
+    // mismo default del motor. closeTime 20:00 = default de producto.
+    salesMode: "SOLICITUD", allotment: "", closeTime: "20:00", minQuorum: "",
     images: [], photo: null
   });
   const [aiDesc, setAiDesc] = useState(null);
@@ -3986,6 +4211,9 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
   // embedding agrega 1-2s). El modo edición (2.6) sigue siendo síncrono.
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  // Si el POST creó el tour pero falló el PATCH de la config de venta, acá
+  // queda el id creado: el reintento hace solo el PATCH (nunca duplica el POST).
+  const [createdTourId, setCreatedTourId] = useState(null);
   // Sub-paso 3: subida MÚLTIPLE de fotos (Flujo A — cada archivo va directo a
   // Supabase Storage con su propia signed URL que emite el backend). `progress`
   // surfacea "Subiendo X/Y…".
@@ -4381,6 +4609,53 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
       {step === 3 && <div className="fu">
         <div className="bkf-t">Disponibilidad</div>
         <div className="bkf-sub">Paso 3 de 5 · {SHOW_CANCELLATION_POLICY ? "Días, horario y cancelación" : "Días y horario"}</div>
+        {/* Modo de venta (fase panel de salidas): arriba de los días, por diseño.
+            La config viaja por PATCH aparte del POST/PUT (ver patchSaleConfig). */}
+        <div className="fg">
+          <label className="lbl">¿Cómo vendes este tour?</label>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {[
+              { id: "CUPO_FIJO", label: "Confirmación automática", desc: "Defines cuántos cupos ofreces y las reservas se confirman solas hasta llenarse." },
+              { id: "SOLICITUD", label: "Confirmación manual", desc: "Las reservas te llegan como solicitudes y tú decides si la salida se confirma." },
+            ].map((opt) => (
+              <div key={opt.id} onClick={() => u("salesMode", opt.id)} style={{
+                padding: "12px 14px", borderRadius: 12, border: "2px solid",
+                borderColor: form.salesMode === opt.id ? "var(--f)" : "var(--lg)",
+                background: form.salesMode === opt.id ? "rgba(27,58,45,.05)" : "transparent",
+                cursor: "pointer", display: "flex", alignItems: "flex-start", gap: 10
+              }}>
+                <div style={{
+                  width: 20, height: 20, borderRadius: "50%",
+                  background: form.salesMode === opt.id ? "var(--f)" : "var(--lg)",
+                  color: "white", display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 1
+                }}>{form.salesMode === opt.id ? "●" : ""}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ch)" }}>{opt.label}</div>
+                  <div style={{ fontSize: 11, color: "var(--gy)", lineHeight: 1.5, marginTop: 2 }}>{opt.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {form.salesMode === "CUPO_FIJO" && (
+          <div className="fg">
+            <label className="lbl" htmlFor="nt-allotment">Cupos por salida</label>
+            <input id="nt-allotment" className="inp" type="number" min="1" inputMode="numeric" placeholder="Ej. 12" value={form.allotment} onChange={(e) => u("allotment", e.target.value)} />
+          </div>
+        )}
+        {form.salesMode === "SOLICITUD" && (<>
+          <div className="fg">
+            <label className="lbl" htmlFor="nt-close-time">Hora de cierre</label>
+            <input id="nt-close-time" className="inp" type="time" value={form.closeTime} onChange={(e) => u("closeTime", e.target.value)} />
+            <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 6 }}>Hasta esta hora de la víspera recibes solicitudes</div>
+          </div>
+          <div className="fg">
+            <label className="lbl" htmlFor="nt-min-quorum">Mínimo de personas (opcional)</label>
+            <input id="nt-min-quorum" className="inp" type="number" min="1" inputMode="numeric" placeholder="Ej. 4" value={form.minQuorum} onChange={(e) => u("minQuorum", e.target.value)} />
+            <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 6 }}>Solo informativo: te avisamos si no llegas al mínimo, tú decides si sales</div>
+          </div>
+        </>)}
         <div className="fg">
           <label className="lbl">Días que operas</label>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -4494,7 +4769,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
             Configura al menos un día recurrente o agrega fechas específicas en el calendario
           </div>
         )}
-        <button className="mbtn" style={{ marginTop: 8 }} disabled={form.days.length === 0 && form.addedDates.length === 0} onClick={() => setStep(4)}>Siguiente</button>
+        <button className="mbtn" style={{ marginTop: 8 }} disabled={(form.days.length === 0 && form.addedDates.length === 0) || (form.salesMode === "CUPO_FIJO" && !(Number(form.allotment) >= 1))} onClick={() => setStep(4)}>Siguiente</button>
       </div>}
 
       {/* Step 4: Descripción con IA */}
@@ -4615,11 +4890,12 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
             }
             return;
           }
-          const result = await onCreateTour(form);
+          const result = await onCreateTour(form, createdTourId);
           setSubmitting(false);
           if (result?.ok) {
             setPublished(true);
           } else {
+            if (result?.createdTourId) setCreatedTourId(result.createdTourId);
             setSubmitError(result?.error || "No pudimos publicar el tour. Intenta de nuevo.");
           }
         }}>{submitting ? "Guardando…" : (isEditing ? "Guardar cambios" : "Publicar tour")}</button>
@@ -4663,6 +4939,12 @@ export default function AppDemo() {
   // opTours (dashboard del operador) se hidrata aparte, desde
   // /api/operators/me/tours (ver efecto más abajo). Arranca vacío.
   const [opTours, setOpTours] = useState([]);
+  // Salidas agrupadas del panel (GET /api/operators/me/departures) + su
+  // loading/error y el contador que re-hidrata opBookings tras una acción.
+  const [opDepartures, setOpDepartures] = useState([]);
+  const [depsLoading, setDepsLoading] = useState(true);
+  const [depsError, setDepsError] = useState("");
+  const [bkRefresh, setBkRefresh] = useState(0);
 
   // M3 Sub-paso B: reservas reales del operador, desde /api/operators/me/bookings
   // (filtrado por operatorId del token). Reemplaza el mock OP_BK. Arranca vacío.
@@ -4753,6 +5035,12 @@ export default function AppDemo() {
         // legacy sin hora (startTime null).
         startTime: t.startTime || "08:00",
         cancellation: t.cancellation || "flexible",
+        // Config de venta real (OPERATOR_LIST_SELECT): prefill del form de
+        // edición. SOLICITUD es el default del motor para tours sin config.
+        salesMode: t.salesMode || "SOLICITUD",
+        allotment: t.allotment ?? null,
+        minQuorum: t.minQuorum ?? null,
+        closeTime: t.closeTime ?? null,
         photo: null,
       })));
     } catch (err) {
@@ -4782,16 +5070,7 @@ export default function AppDemo() {
     // dev, cambio de deps) aborta el request en vuelo de verdad, en vez de
     // solo descartar la respuesta como hacía el flag `cancel`.
     const ctrl = new AbortController();
-    const monthsShort = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-    // Los primeros 10 chars del ISO son el yyyy-mm-dd de la reserva; parsearlos
-    // directo evita el drift de zona de new Date() + getters locales (mismo
-    // patrón que mapBookingToTrip).
-    const fmtBookingDate = (iso) => {
-      if (typeof iso !== "string") return "";
-      const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
-      if (!y || !m || !d || !monthsShort[m - 1]) return "";
-      return `${String(d).padStart(2, "0")} ${monthsShort[m - 1]} ${y}`;
-    };
+    // fmtBookingDate vive a nivel módulo (la vista de salidas también la usa).
     const hydrateOpBookings = async () => {
       if (!isOperator) {
         if (!ctrl.signal.aborted) setOpBookings([]);
@@ -4825,7 +5104,94 @@ export default function AppDemo() {
     };
     hydrateOpBookings();
     return () => ctrl.abort();
-  }, [isOperator, loading, operatorResolved]);
+    // bkRefresh: contador que fuerza re-hidratar tras confirmar/rechazar una
+    // salida (las notificaciones derivan de opBookings y deben reflejarlo).
+  }, [isOperator, loading, operatorResolved, bkRefresh]);
+
+  // ── Salidas agrupadas del panel (GET /api/operators/me/departures) ──
+  // Un solo fetch con scope=all: el filtro futuras/pasadas y el toggle
+  // "Ver pasadas" son client-side. Guard de secuencia (patrón opToursSeq);
+  // silent = reconciliación en background sin loading visible.
+  const depsSeq = useRef(0);
+  const loadDepartures = useCallback(async (opts = {}) => {
+    const seq = ++depsSeq.current;
+    if (!isOperator) {
+      setOpDepartures([]);
+      setDepsLoading(false);
+      return;
+    }
+    if (!opts.silent) {
+      setDepsLoading(true);
+      setDepsError("");
+    }
+    try {
+      const r = await authFetch("/api/operators/me/departures?scope=all");
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      if (seq !== depsSeq.current) return;
+      setOpDepartures(data.departures || []);
+      setDepsError("");
+    } catch (err) {
+      console.error("Error cargando salidas de la agencia:", err);
+      if (seq === depsSeq.current && !opts.silent) {
+        setDepsError("No pudimos cargar tus salidas. Revisa tu conexión.");
+      }
+    } finally {
+      if (seq === depsSeq.current && !opts.silent) setDepsLoading(false);
+    }
+  }, [isOperator]);
+
+  useEffect(() => {
+    if (loading || !operatorResolved) return;
+    // Wrapper async (patrón del efecto de opTours): el setState del loader no
+    // corre sincrónico en el cuerpo del efecto.
+    const run = async () => { await loadDepartures(); };
+    run();
+  }, [loading, operatorResolved, loadDepartures]);
+
+  // Confirmar/rechazar una salida en lote. Al éxito la card se actualiza SIN
+  // recargar: contadores/estado del response + transición local de las
+  // vigentes (mismas reglas que el backend); después, refetch silencioso para
+  // reconciliar y re-hidratación de opBookings (notificaciones).
+  const handleDepartureAction = async (departureId, action) => {
+    let res;
+    try {
+      res = await authFetch("/api/operators/me/departures", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ departureId, action }),
+      });
+    } catch {
+      return { ok: false, error: "No pudimos conectar. Revisa tu conexión e intenta de nuevo." };
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { ok: false, error: data.error || "No se pudo completar la acción. Intenta de nuevo." };
+    }
+    const nowIso = new Date().toISOString();
+    const target = action === "confirm" ? "CONFIRMADA" : "RECHAZADA";
+    const legacy = action === "confirm" ? "confirmed" : "cancelled";
+    setOpDepartures((prev) => prev.map((d) => {
+      if (d.id !== departureId) return d;
+      const bookings = (d.bookings || []).map((b) =>
+        b.bookingState === "SOLICITUD" && (!b.expiresAt || b.expiresAt > nowIso)
+          ? { ...b, bookingState: target, status: legacy, expiresAt: null }
+          : b
+      );
+      const fresh = data.departure || {};
+      const cupoEf = (fresh.allotmentOverride ?? d.tour?.allotment) ?? null;
+      return {
+        ...d,
+        ...fresh,
+        bookings,
+        counts: recountDeparture(bookings),
+        isFull: d.tour?.salesMode === "CUPO_FIJO" && cupoEf != null && (fresh.seatsTaken ?? 0) >= cupoEf,
+      };
+    }));
+    loadDepartures({ silent: true });
+    setBkRefresh((n) => n + 1);
+    return { ok: true };
+  };
 
   // M3 Sub-paso 1: hidrata "Mis Viajes" con las reservas REALES del viajero
   // (GET /api/me → bookings, filtradas por userEmail del token). Reemplaza el
@@ -5080,6 +5446,34 @@ export default function AppDemo() {
   // verificación de propiedad. Reusa el mismo mapeo form→body que crear (2.5)
   // vía tourFormToApiBody. Devuelve { ok } / { ok:false, error } para que
   // NewTourView muestre "Guardando…" y maneje el error sin navegar.
+  // Config de venta del form → PATCH /api/tours/:id (POST/PUT no la aceptan).
+  // CUPO_FIJO manda el cupo y limpia el quórum; SOLICITUD limpia el cupo y
+  // manda hora de cierre + quórum opcional. closeDaysBefore no se toca (el
+  // motor usa su default: la víspera). Devuelve el tour completo del operador.
+  const patchSaleConfig = async (tourId, f) => {
+    const body = f.salesMode === "CUPO_FIJO"
+      ? { salesMode: "CUPO_FIJO", allotment: Number(f.allotment), minQuorum: null }
+      : {
+          salesMode: "SOLICITUD",
+          allotment: null,
+          closeTime: f.closeTime || "20:00",
+          minQuorum: Number(f.minQuorum) >= 1 ? Number(f.minQuorum) : null,
+        };
+    let res;
+    try {
+      res = await authFetch(`/api/tours/${tourId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } catch {
+      return { ok: false, error: "No pudimos conectar. Revisa tu conexión." };
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: data.error || "No se pudo guardar el modo de venta." };
+    return { ok: true, tour: data.tour };
+  };
+
   const handleSaveTour = async (updated) => {
     // El CUID real vive en tourId (editingTour es un item de opTours, cuyo `id`
     // es solo la clave local de lista). Tours sin CUID (id local numérico) no
@@ -5114,9 +5508,15 @@ export default function AppDemo() {
       return { ok: false, error: describeTourApiError(data, "No pudimos guardar los cambios. Revisa los datos.") };
     }
 
-    // Éxito. mapTourFromApi normaliza el tour real (DETAIL_SELECT ya expone
-    // days/meetingPoint/cancellation/fechas, así que viene completo).
-    const apiTour = ensureAvailabilityFields(mapTourFromApi(data.tour));
+    // Config de venta vía PATCH (el PUT no la acepta). Si falla (p. ej. 409
+    // por cupo menor a lo ya tomado en salidas vivas), el form queda abierto
+    // con el error inline; reintentar re-ejecuta PUT+PATCH (idempotente).
+    const cfg = await patchSaleConfig(cuid, updated);
+    if (!cfg.ok) return { ok: false, error: cfg.error };
+
+    // Éxito. mapTourFromApi normaliza el tour real; la respuesta del PATCH
+    // (OPERATOR_DETAIL_SELECT) trae el shape completo, config incluida.
+    const apiTour = ensureAvailabilityFields(mapTourFromApi(cfg.tour));
 
     // tours: reemplazar la entrada (keyed por CUID) por la versión del API,
     // preservando los day-codes/fechas que el operador dejó en el form.
@@ -5153,9 +5553,17 @@ export default function AppDemo() {
       meetingPoint: apiTour.meetingPoint || updated.meetingPoint || "",
       cancellation: apiTour.cancellation || updated.cancellation || "flexible",
       startTime: updated.startTime || "08:00",
+      // Config de venta fresca del PATCH (prefill del próximo editar).
+      salesMode: apiTour.salesMode || "SOLICITUD",
+      allotment: apiTour.allotment ?? null,
+      minQuorum: apiTour.minQuorum ?? null,
+      closeTime: apiTour.closeTime ?? null,
       photo: updated.photo || null,
       images: Array.isArray(updated.images) ? updated.images : [],
     } : t));
+
+    // La config afecta lo que muestran las cards de salidas (cierre/cupos).
+    loadDepartures({ silent: true });
 
     setEditingTour(null);
     setDashTab("listings");
@@ -5165,35 +5573,48 @@ export default function AppDemo() {
   // Sub-paso 2.5: crea el tour en el backend real (POST /api/tours) en vez de
   // un tour local con id numérico. Devuelve { ok } / { ok:false, error } para
   // que NewTourView muestre "Guardando…" y maneje el error sin navegar.
-  const handleCreateTour = async (formData) => {
-    // Mapeo form→body compartido con editar (2.6) — ver tourFormToApiBody.
-    const body = tourFormToApiBody(formData);
+  const handleCreateTour = async (formData, retryTourId = null) => {
+    // retryTourId: un intento anterior YA creó el tour pero falló el PATCH de
+    // la config de venta → el reintento hace SOLO el PATCH, jamás un segundo
+    // POST (evita tours duplicados).
+    let createdId = retryTourId;
+    if (!createdId) {
+      // Mapeo form→body compartido con editar (2.6) — ver tourFormToApiBody.
+      const body = tourFormToApiBody(formData);
 
-    let res;
-    try {
-      res = await authFetch("/api/tours", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-    } catch {
-      return { ok: false, error: "No pudimos conectar. Revisa tu conexión e intenta de nuevo." };
+      let res;
+      try {
+        res = await authFetch("/api/tours", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      } catch {
+        return { ok: false, error: "No pudimos conectar. Revisa tu conexión e intenta de nuevo." };
+      }
+
+      if (res.status === 403) {
+        return { ok: false, error: "Necesitas un perfil de agencia para publicar tours." };
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return { ok: false, error: describeTourApiError(data, "No pudimos publicar el tour. Revisa los datos.") };
+      }
+      createdId = data.tour?.id;
     }
 
-    if (res.status === 403) {
-      return { ok: false, error: "Necesitas un perfil de agencia para publicar tours." };
+    // Config de venta vía PATCH (el POST no la acepta). Su respuesta
+    // (OPERATOR_DETAIL_SELECT: tour completo, config incluida) alimenta el
+    // merge de abajo, así el display no depende del shape del POST.
+    const cfg = await patchSaleConfig(createdId, formData);
+    if (!cfg.ok) {
+      return {
+        ok: false,
+        createdTourId: createdId,
+        error: `El tour se publicó, pero no pudimos guardar el modo de venta: ${cfg.error} Reintenta.`,
+      };
     }
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      return { ok: false, error: describeTourApiError(data, "No pudimos publicar el tour. Revisa los datos.") };
-    }
-
-    // Éxito (201). mapTourFromApi normaliza el tour real (CUID, no numérico).
-    // El API (DETAIL_SELECT) no devuelve days/meetingPoint/cancellation/fechas,
-    // así que preservamos lo que el operador ingresó en el form para el display
-    // optimista (limitación conocida: al recargar caen a defaults hasta ampliar
-    // tour-select.ts).
-    const apiTour = ensureAvailabilityFields(mapTourFromApi(data.tour));
+    const apiTour = ensureAvailabilityFields(mapTourFromApi(cfg.tour));
     // Respeta una selección vacía deliberada (form.days = [] → solo fechas
     // específicas); no la confundas con "sin valor".
     const formDays = Array.isArray(formData.days) ? formData.days : DEFAULT_DAYS;
@@ -5235,9 +5656,17 @@ export default function AppDemo() {
       addedDates: formData.addedDates || [],
       startTime: formData.startTime || "08:00",
       cancellation: formData.cancellation || "flexible",
+      // Config de venta fresca del PATCH (prefill del próximo editar).
+      salesMode: apiTour.salesMode || "SOLICITUD",
+      allotment: apiTour.allotment ?? null,
+      minQuorum: apiTour.minQuorum ?? null,
+      closeTime: apiTour.closeTime ?? null,
       photo: formData.photo || null,
       images: Array.isArray(formData.images) ? formData.images : [],
     }]);
+
+    // La config afecta lo que muestran las cards de salidas (cierre/cupos).
+    loadDepartures({ silent: true });
 
     setDashTab("listings");
     return { ok: true };
@@ -5329,7 +5758,7 @@ export default function AppDemo() {
         {effectiveView === "trip-detail" && <TripDetailView trip={currentTrip} go={go} onReview={handleReview} />}
         {effectiveView === "profile" && <ProfileView go={go} onLogout={handleLogout} />}
         {effectiveView === "dashboard" && (operatorResolved
-          ? <DashView go={go} opTours={opTours} opBookings={opBookings} onEditTour={handleEditTour} onDeleteTour={handleDeleteTour} onToggleActive={handleToggleTourActive} initialTab={dashTab} onTabConsumed={() => setDashTab("bookings")} onBusinessSaved={async () => { await loadPublicTours(); await loadOperatorTours(); }} />
+          ? <DashView go={go} opTours={opTours} opDepartures={opDepartures} depsLoading={depsLoading} depsError={depsError} onReloadDepartures={loadDepartures} onDepartureAction={handleDepartureAction} onEditTour={handleEditTour} onDeleteTour={handleDeleteTour} onToggleActive={handleToggleTourActive} initialTab={dashTab} onTabConsumed={() => setDashTab("bookings")} onBusinessSaved={async () => { await loadPublicTours(); await loadOperatorTours(); }} />
           : <div className="fu" style={{ minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--gy)", fontSize: 14, fontWeight: 600 }}>Cargando tu panel…</div>)}
         {effectiveView === "new-tour" && <NewTourView go={go} editingTour={editingTour} onSaveTour={handleSaveTour} onCreateTour={handleCreateTour} onCancel={handleCancelTour} />}
         {showFooter && <Footer go={go} />}
