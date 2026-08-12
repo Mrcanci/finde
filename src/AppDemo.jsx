@@ -1169,6 +1169,9 @@ html{scrollbar-gutter:stable}
 .sum-r{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.06);font-size:14px}
 .sum-r:last-child{border-bottom:none}
 .sum-t{display:flex;justify-content:space-between;padding:12px 0 4px;font-size:16px;font-weight:800;color:var(--f)}
+/* Bloques del detalle de reserva: separador entre tour, viajero y pago. */
+.sum-g{border-top:1px solid rgba(0,0,0,.1);margin-top:6px;padding-top:6px}
+.sum-h{font-size:10.5px;font-weight:700;color:var(--gy);letter-spacing:.05em;text-transform:uppercase;padding:4px 0 2px}
 .mbtn{width:100%;padding:16px;border-radius:14px;background:var(--f);color:white;font-weight:700;font-size:15px;border:none;cursor:pointer;font-family:inherit;transition:.2s}
 .mbtn:hover{background:var(--m)}
 .mbtn:disabled{opacity:.4;cursor:not-allowed}
@@ -4025,25 +4028,41 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
               <div className="dsh-bk-s" style={{ color: st.color, textTransform: "none", letterSpacing: 0, fontSize: 12 }}>{st.label}</div>
             </div>
             <div className="sum">
+              {/* Tres bloques: la salida, quién viaja, y el registro/pago.
+                  Los datos del viajero van juntos y rotulados porque son los
+                  que la agencia copia al registro de pasajeros. Toda fila sin
+                  dato se omite (reservas anteriores a la columna documento). */}
               {[
-                ["Código", b.id],
-                ["Tour", b.tour],
-                ["Fecha", b.date],
-                ...(b.startTime ? [["Hora de salida", b.startTime]] : []),
-                ["Personas", `${b.guests} personas`],
-                ...(b.createdAt ? [["Reservado el", fmtDateTime(b.createdAt)]] : []),
-                // Canal de contacto alternativo al WhatsApp. Solo si existe:
-                // nada de filas vacías.
-                ...(b.email ? [["Email", b.email]] : []),
-                // Documento para el registro de pasajeros. Las reservas
-                // anteriores a la columna no lo tienen: se omite la fila.
-                ...(b.document ? [["Documento", b.document]] : []),
-              ].map(([l, v]) => (
-                <div key={l} className="sum-r">
-                  <span style={{ color: "var(--gy)", flexShrink: 0, marginRight: 12 }}>{l}</span>
-                  {/* break-word + minWidth 0: un email largo envuelve dentro de
-                      la fila en vez de empujarla fuera del ancho del móvil. */}
-                  <span style={{ fontWeight: 600, minWidth: 0, textAlign: "right", wordBreak: "break-word" }}>{v}</span>
+                { rows: [
+                  ["Código", b.id],
+                  ["Tour", b.tour],
+                  ["Fecha", b.date],
+                  ...(b.startTime ? [["Hora de salida", b.startTime]] : []),
+                  ["Personas", `${b.guests} personas`],
+                ] },
+                { title: "Datos del viajero", rows: [
+                  ...(b.customer ? [["Nombre completo", b.customer]] : []),
+                  ...(b.document ? [["Documento", b.document]] : []),
+                  // Tal cual lo escribió el viajero: el normalizado con
+                  // prefijo de país existe solo para el enlace de wa.me.
+                  ...(b.phone ? [["Teléfono", b.phone]] : []),
+                  ...(b.email ? [["Email", b.email]] : []),
+                ] },
+                { rows: [
+                  ...(b.createdAt ? [["Reservado el", fmtDateTime(b.createdAt)]] : []),
+                ] },
+              ].filter((g) => g.rows.length > 0).map((g, gi) => (
+                <div key={g.title || gi} className={gi > 0 ? "sum-g" : undefined}>
+                  {g.title && <div className="sum-h">{g.title}</div>}
+                  {g.rows.map(([l, v]) => (
+                    <div key={l} className="sum-r">
+                      <span style={{ color: "var(--gy)", flexShrink: 0, marginRight: 12 }}>{l}</span>
+                      {/* break-word + minWidth 0: un email o documento largo
+                          envuelve dentro de la fila en vez de empujarla fuera
+                          del ancho del móvil. */}
+                      <span style={{ fontWeight: 600, minWidth: 0, textAlign: "right", wordBreak: "break-word" }}>{v}</span>
+                    </div>
+                  ))}
                 </div>
               ))}
               <div className="sum-t"><span>Total</span><span>S/ {b.amount.toLocaleString("es-PE")}</span></div>
