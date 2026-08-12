@@ -2737,12 +2737,21 @@ function tripDateISO(trip) {
 // '+'). Asume Perú: un móvil de 9 dígitos se prefija con 51; un número que ya
 // viene en internacional (empieza con 51 y largo 11+) se usa tal cual. Devuelve
 // null si no hay un teléfono utilizable (→ el botón de WhatsApp no se muestra).
+// Normaliza un teléfono a formato internacional para armar links wa.me.
+// Acepta cualquier número de 8 a 15 dígitos, la misma ventana que validan el
+// formulario y el backend (/^\d{8,15}$/). La versión anterior solo aceptaba 9
+// u 11+, así que los de 8 y 10 dígitos (fijos, extranjeros) morían acá y el
+// panel decía "El viajero no dejó un teléfono" teniéndolo guardado.
+// Solo se prefija 51 al celular peruano de 9 dígitos; el resto va tal cual,
+// porque adivinar el país de un número ajeno genera links a otra persona.
+// 15 es el máximo de E.164: por encima no hay número marcable, así que null.
 function toIntlPhone(raw) {
   if (!raw) return null;
   const digits = String(raw).replace(/\D/g, "");
+  if (digits.length < 8 || digits.length > 15) return null;
   if (digits.startsWith("51") && digits.length >= 11) return digits;
   if (digits.length === 9) return `51${digits}`;
-  return digits.length >= 11 ? digits : null;
+  return digits;
 }
 
 // Construye el link wa.me para coordinar con la agencia (M4): teléfono REAL del
@@ -3658,6 +3667,9 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
     id: b.bookingCode,
     customer: b.userName,
     phone: b.userPhone || null,
+    // El backend ya mandaba userEmail y este aplanado lo tiraba: es el canal
+    // alternativo cuando el teléfono no sirve para WhatsApp.
+    email: b.userEmail || null,
     date: fmtBookingDate(b.scheduledAt),
     startTime: d.startTime ?? null,
     createdAt: b.createdAt ?? null,
@@ -4007,8 +4019,16 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
                 ...(b.startTime ? [["Hora de salida", b.startTime]] : []),
                 ["Personas", `${b.guests} personas`],
                 ...(b.createdAt ? [["Reservado el", fmtDateTime(b.createdAt)]] : []),
+                // Canal de contacto alternativo al WhatsApp. Solo si existe:
+                // nada de filas vacías.
+                ...(b.email ? [["Email", b.email]] : []),
               ].map(([l, v]) => (
-                <div key={l} className="sum-r"><span style={{ color: "var(--gy)" }}>{l}</span><span style={{ fontWeight: 600 }}>{v}</span></div>
+                <div key={l} className="sum-r">
+                  <span style={{ color: "var(--gy)", flexShrink: 0, marginRight: 12 }}>{l}</span>
+                  {/* break-word + minWidth 0: un email largo envuelve dentro de
+                      la fila en vez de empujarla fuera del ancho del móvil. */}
+                  <span style={{ fontWeight: 600, minWidth: 0, textAlign: "right", wordBreak: "break-word" }}>{v}</span>
+                </div>
               ))}
               <div className="sum-t"><span>Total</span><span>S/ {b.amount.toLocaleString("es-PE")}</span></div>
             </div>
@@ -4020,8 +4040,12 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
                 <Smartphone size={16} strokeWidth={1.5} /> Contactar por WhatsApp
               </a>
             ) : (
-              <div style={{ textAlign: "center", padding: "12px 0", color: "var(--gy)", fontSize: 13 }}>
-                El viajero no dejó un teléfono de contacto.
+              <div style={{ textAlign: "center", padding: "12px 0", color: "var(--gy)", fontSize: 13, lineHeight: 1.5 }}>
+                {/* Honesto sobre la causa real: el número está, pero no sirve
+                    para armar el enlace. Y deriva al canal que sí existe. */}
+                {b.phone
+                  ? "El teléfono de esta reserva no permite abrir WhatsApp. Escríbele por email."
+                  : "Esta reserva no tiene teléfono. Escríbele por email."}
               </div>
             )}
           </div>
