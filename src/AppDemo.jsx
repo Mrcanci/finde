@@ -1383,6 +1383,11 @@ html{scrollbar-gutter:stable}
 .sal-bk{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid rgba(0,0,0,.05);cursor:pointer}
 .sal-sec-t{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--gy);margin:18px 0 10px}
 .sal-q{font-size:13px;font-weight:700;color:var(--ch);margin-bottom:8px}
+/* Rechazo de una solicitud suelta: acción secundaria, no compite con las de la salida. */
+.sal-bk-rej{display:block;margin:0 0 10px auto;padding:2px 0;background:none;border:none;color:var(--gy);font-size:12px;font-weight:700;text-decoration:underline;cursor:pointer;font-family:inherit}
+.sal-bk-q{font-size:12.5px;font-weight:700;color:var(--ch);margin-bottom:8px}
+.sal-bk-actions{display:flex;gap:8px}
+.sal-bk-actions .sal-btn{padding:9px 0;font-size:12.5px}
 /* Cuenta regresiva para confirmar: gris → oro (suave) → terracota (fuerte).
    El oro va oscurecido respecto de --gd para tener contraste sobre blanco. */
 .sal-plazo.soft{color:#8A6A12;font-weight:700}
@@ -3598,6 +3603,12 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
   const [pendingAction, setPendingAction] = useState(null); // { depId, action }
   const [actionBusy, setActionBusy] = useState(null);       // depId en vuelo
   const [actionError, setActionError] = useState(null);     // { depId, msg }
+  // Rechazo de UNA solicitud dentro del expandible. Estado propio (no el de la
+  // salida) para que la fila muestre su pregunta, su "Rechazando…" y su error
+  // sin bloquear el resto de la card.
+  const [pendingBk, setPendingBk] = useState(null);         // { depId, bookingId }
+  const [bkBusy, setBkBusy] = useState(null);               // bookingId en vuelo
+  const [bkError, setBkError] = useState(null);             // { bookingId, msg }
 
   const nowIso = new Date().toISOString();
   const nowMs = Date.parse(nowIso);
@@ -3622,6 +3633,18 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
     setActionBusy(null);
     setPendingAction(null);
     if (!r?.ok) setActionError({ depId: d.id, msg: r?.error || "No se pudo completar la acción. Intenta de nuevo." });
+  };
+
+  // Rechazo individual: la misma acción "reject" acotada a una reserva. La
+  // salida queda ABIERTA; si era la última vigente, los botones de salida
+  // desaparecen solos porque `vig` se recalcula de d.bookings.
+  const fireRejectBooking = async (d, b) => {
+    setBkBusy(b.id);
+    setBkError(null);
+    const r = await onDepartureAction(d.id, "reject", b.id);
+    setBkBusy(null);
+    setPendingBk(null);
+    if (!r?.ok) setBkError({ bookingId: b.id, msg: r?.error || "No se pudo rechazar la solicitud. Intenta de nuevo." });
   };
 
   // Reserva de una salida → shape del detalle individual (reusa la vista con
@@ -3717,16 +3740,41 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
         )}
         {expanded && (d.bookings || []).map((b) => {
           const st = bookingStateUI(b);
+          // Solo las VIGENTES se pueden rechazar de a una (mismo criterio que
+          // usa la card y que aplica el backend). Las confirmadas, vencidas,
+          // rechazadas y canceladas no muestran el botón.
+          const esVigente = vig.some((v) => v.id === b.id);
+          const pendB = pendingBk && pendingBk.bookingId === b.id ? pendingBk : null;
+          const bBusy = bkBusy === b.id;
+          const bErr = bkError && bkError.bookingId === b.id ? bkError.msg : "";
           return (
-            <div className="sal-bk" key={b.id} onClick={() => setSelectedBooking(depBookingToDetail(d, b))}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.userName}</div>
-                <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 1 }}>{b.bookingCode} · {b.guests} pers</div>
+            <div key={b.id}>
+              <div className="sal-bk" onClick={() => setSelectedBooking(depBookingToDetail(d, b))}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.userName}</div>
+                  <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 1 }}>{b.bookingCode} · {b.guests} pers</div>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "var(--f)" }}>S/ {((b.totalSoles || 0) / 100).toLocaleString("es-PE")}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: st.color, marginTop: 1 }}>{st.label}</div>
+                </div>
               </div>
-              <div style={{ textAlign: "right", flexShrink: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: "var(--f)" }}>S/ {((b.totalSoles || 0) / 100).toLocaleString("es-PE")}</div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: st.color, marginTop: 1 }}>{st.label}</div>
-              </div>
+              {bErr && <div className="field-err" style={{ marginBottom: 8 }}>{bErr}</div>}
+              {esVigente && !esPasada && (pendB ? (
+                <div style={{ marginBottom: 10 }}>
+                  <div className="sal-bk-q">¿Rechazas la solicitud de {b.userName}?</div>
+                  <div className="sal-bk-actions">
+                    <button className="sal-btn sec" disabled={bBusy} onClick={() => fireRejectBooking(d, b)}>
+                      {bBusy ? "Rechazando…" : "Sí, rechazar"}
+                    </button>
+                    <button className="sal-btn sec" disabled={bBusy} onClick={() => setPendingBk(null)}>Volver</button>
+                  </div>
+                </div>
+              ) : (
+                <button className="sal-bk-rej" onClick={() => { setBkError(null); setPendingAction(null); setPendingBk({ depId: d.id, bookingId: b.id }); }}>
+                  Rechazar esta solicitud
+                </button>
+              ))}
             </div>
           );
         })}
@@ -5246,13 +5294,15 @@ export default function AppDemo() {
   // recargar: contadores/estado del response + transición local de las
   // vigentes (mismas reglas que el backend); después, refetch silencioso para
   // reconciliar y re-hidratación de opBookings (notificaciones).
-  const handleDepartureAction = async (departureId, action) => {
+  // bookingId opcional: rechazo de UNA solicitud (la confirmación siempre es de
+  // la salida entera; el backend responde 400 si se intenta confirmar una sola).
+  const handleDepartureAction = async (departureId, action, bookingId) => {
     let res;
     try {
       res = await authFetch("/api/operators/me/departures", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ departureId, action }),
+        body: JSON.stringify({ departureId, action, ...(bookingId ? { bookingId } : {}) }),
       });
     } catch {
       return { ok: false, error: "No pudimos conectar. Revisa tu conexión e intenta de nuevo." };
@@ -5266,10 +5316,15 @@ export default function AppDemo() {
     const legacy = action === "confirm" ? "confirmed" : "cancelled";
     setOpDepartures((prev) => prev.map((d) => {
       if (d.id !== departureId) return d;
+      // transitionedIds del backend = lo que realmente cambió. Se usa como
+      // fuente cuando viene (rechazo individual: una sola fila); si faltara,
+      // se cae a la misma regla de vigentes que aplica el backend en lote.
+      const ids = Array.isArray(data.transitionedIds) ? new Set(data.transitionedIds) : null;
+      const cambia = (b) => ids
+        ? ids.has(b.id)
+        : b.bookingState === "SOLICITUD" && (!b.expiresAt || b.expiresAt > nowIso);
       const bookings = (d.bookings || []).map((b) =>
-        b.bookingState === "SOLICITUD" && (!b.expiresAt || b.expiresAt > nowIso)
-          ? { ...b, bookingState: target, status: legacy, expiresAt: null }
-          : b
+        cambia(b) ? { ...b, bookingState: target, status: legacy, expiresAt: null } : b
       );
       const fresh = data.departure || {};
       const cupoEf = (fresh.allotmentOverride ?? d.tour?.allotment) ?? null;

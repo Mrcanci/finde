@@ -4,7 +4,8 @@
 //   GET  /api/operators/me/tours      → { tours }        (con config de venta)
 //   GET  /api/operators/me/bookings   → { bookings }     (lista plana, legacy)
 //   GET  /api/operators/me/departures → { departures }   (agrupadas por salida)
-//   POST /api/operators/me/departures → confirmar/rechazar una salida en lote
+//   POST /api/operators/me/departures → confirmar/rechazar una salida en lote,
+//                                        o rechazar UNA solicitud (bookingId)
 // requireOperator siempre (operatorId del token, nunca del cliente). El POST
 // lleva la acción en el body ({ departureId, action }) porque [resource] captura
 // un solo segmento de URL: /departures/:id/confirm exigiría un catch-all.
@@ -37,10 +38,22 @@ class DepartureActionError extends Error {
   }
 }
 
-const postBodySchema = z.object({
-  departureId: z.string().min(1),
-  action: z.enum(["confirm", "reject"]),
-});
+// bookingId opcional = rechazo de UNA solicitud puntual (caso real: llegan 3
+// solicitudes por 20 personas y la van tiene 15). Sin bookingId, la acción es
+// sobre la salida entera, como siempre.
+// El refine deja la regla de producto en el contrato y no solo en la UI: la
+// CONFIRMACIÓN es siempre a nivel de salida (la agencia confirma que el tour
+// sale, y si sale van todos), así que confirmar una sola es 400.
+const postBodySchema = z
+  .object({
+    departureId: z.string().min(1),
+    action: z.enum(["confirm", "reject"]),
+    bookingId: z.string().min(1).optional(),
+  })
+  .refine((b) => !(b.bookingId && b.action === "confirm"), {
+    message: "La confirmación es siempre a nivel de salida",
+    path: ["bookingId"],
+  });
 
 // Shape de los contadores/estado de una salida que devuelve el POST (y que el
 // GET extiende con tour, counts y bookings).
@@ -254,11 +267,18 @@ async function handleDeparturesList(
   res.status(200).json({ departures: payload });
 }
 
-// ── POST /api/operators/me/departures — confirmar/rechazar la salida en lote ──
+// ── POST /api/operators/me/departures — decisión de la agencia ──
 // Confirmar = todas las solicitudes VIGENTES pasan a CONFIRMADA (las VENCIDAS
 // no se tocan) y la salida queda CONFIRMADA. Rechazar = vigentes a RECHAZADA
 // con mensaje neutro; la salida QUEDA ABIERTA (puede recibir solicitudes
 // nuevas). Todo transaccional; emails a los viajeros vía waitUntil después.
+//
+// Con `bookingId` el rechazo se acota a UNA solicitud. No es un camino
+// paralelo: es el MISMO flujo con la consulta de vigentes filtrada por ese id,
+// así que transiciones, contadores y correos no pueden desincronizarse del
+// lote. La salida queda ABIERTA igual, y si era la última vigente el panel
+// deja de ofrecer las acciones de salida (derivado en el front, sin estado
+// nuevo acá).
 
 async function handleDepartureAction(
   req: VercelRequest,
@@ -272,7 +292,7 @@ async function handleDepartureAction(
       .json({ error: "Cuerpo inválido", details: parsed.error.issues });
     return;
   }
-  const { departureId, action } = parsed.data;
+  const { departureId, action, bookingId } = parsed.data;
 
   try {
     // Propiedad ESTRICTA: la salida debe existir y ser de un tour del operador
@@ -314,11 +334,16 @@ async function handleDepartureAction(
     const result = await db.$transaction(async (tx) => {
       // Vigentes: SOLICITUD sin vencer. expiresAt null cuenta como vigente
       // (las del backfill no tienen vencimiento retroactivo, por diseño).
+      // El bookingId va DENTRO de este where, no en una consulta aparte: la
+      // salida ya pasó la verificación de propiedad, así que una reserva de
+      // otra agencia (o de otra salida, o ya decidida) simplemente no matchea
+      // y cae en el mismo 409 de abajo. Sin ruta de autorización nueva.
       const vigentes = await tx.booking.findMany({
         where: {
           departureId: dep.id,
           statusNew: "SOLICITUD",
           OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+          ...(bookingId ? { id: bookingId } : {}),
         },
         select: {
           id: true,
@@ -330,7 +355,9 @@ async function handleDepartureAction(
       });
       if (vigentes.length === 0) {
         throw new DepartureActionError(
-          "No hay solicitudes vigentes en esta salida.",
+          bookingId
+            ? "Esta solicitud ya no está vigente. Puede haber vencido o haber sido decidida."
+            : "No hay solicitudes vigentes en esta salida.",
           409
         );
       }
@@ -401,6 +428,9 @@ async function handleDepartureAction(
       ok: true,
       action,
       transitioned: result.transitioned.length,
+      // Ids exactos de lo que cambió: el front actualiza la card sin inferir
+      // qué reservas tocó (importa en el rechazo individual).
+      transitionedIds: result.transitioned.map((b) => b.id),
       skippedVencidas: result.vencidas,
       departure: result.fresh,
     });
