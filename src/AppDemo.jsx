@@ -331,12 +331,25 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
           let bg = "transparent", color = "var(--ch)", textDecoration = "none";
           let cursor = "pointer", opacity = 1, isClickable = true;
           let border = "1.5px solid transparent";
+          // Cupos bajos (1-3) de la fecha: el número exacto o, para fechas sin
+          // salida materializada, el cupo total del tour si ya es <= 3.
+          const lowRaw = mode === "select" && lowDates
+            ? (lowDates[iso] != null
+                ? lowDates[iso]
+                : (lowBase != null && !(fullDates && fullDates.has(iso)) ? lowBase : undefined))
+            : undefined;
           if (mode === "select") {
             // Fecha sin cupo (CUPO_FIJO): mismo tratamiento visual que un día
             // no operativo, con su propio tooltip "Sin cupos".
             const isFull = !!(fullDates && fullDates.has(iso));
             const available = !belowMin && !isFull && (state === "added" || state === "pattern");
             if (isSelected) { bg = "var(--f)"; color = "white"; border = "1.5px solid var(--f)"; }
+            else if (available && lowRaw >= 1 && lowRaw <= 3) {
+              // Escasez DESTACADA (jerarquía al escanear el mes): tinte
+              // terracota de fondo + número y aviso en el acento del producto,
+              // nunca el gris de lo secundario/deshabilitado.
+              bg = "rgba(199,97,58,.12)"; color = "var(--tr)";
+            }
             else if (available) { bg = "var(--cr)"; color = "var(--f)"; }
             else { color = "var(--lg)"; opacity = 0.5; cursor = "not-allowed"; isClickable = false; }
           } else {
@@ -353,15 +366,9 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
                 ? (minDateNote || `Requiere al menos ${MIN_BOOKING_LEAD_DAYS} día${MIN_BOOKING_LEAD_DAYS > 1 ? "s" : ""} de anticipación`)
                 : "Este día la agencia no tiene salidas")
             : undefined;
-          // Cupos bajos (1-3) EN la celda, donde la persona está mirando: el
-          // número exacto de la fecha o, para fechas sin salida materializada,
-          // el cupo total del tour si ya es <= 3 (lowBase). Solo en fechas
-          // elegibles; la celda no cambia de tamaño (minHeight/aspectRatio).
-          const lowN = mode === "select" && isClickable && lowDates
-            ? (lowDates[iso] != null
-                ? lowDates[iso]
-                : (lowBase != null && !(fullDates && fullDates.has(iso)) ? lowBase : undefined))
-            : undefined;
+          // El aviso solo se pinta en fechas elegibles; la celda no cambia de
+          // tamaño (minHeight/aspectRatio fijos, la fila no crece).
+          const lowN = isClickable ? lowRaw : undefined;
           return (
             <button
               key={i}
@@ -383,7 +390,7 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
               {lowN >= 1 && lowN <= 3 ? (
                 <span style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", lineHeight: 1.05 }}>
                   <span>{d}</span>
-                  <span style={{ fontSize: 8, fontWeight: 700 }}>{lowN === 1 ? "1 cupo" : `${lowN} cupos`}</span>
+                  <span data-low-label style={{ fontSize: 8, fontWeight: 700, whiteSpace: "nowrap" }}>{lowN === 1 ? "Último cupo" : `${lowN} cupos`}</span>
                 </span>
               ) : (
                 d
@@ -3327,20 +3334,9 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
           })()}
           {date ? (
             <div style={{ marginTop: 10, fontSize: 12, color: "var(--gy)" }}>
+              {/* Sin refuerzo de cupos acá: la señal vive EN la celda (revisión
+                  de diseño); repetirla debajo era ruido entre tres líneas. */}
               Fecha seleccionada: <strong style={{ color: "var(--f)" }}>{formatLongDate(date)}</strong>
-              {(() => {
-                // Escasez honesta (CUPO_FIJO): solo cuando el dato existe y es
-                // 1-3. low = fechas con salida; base = tour cuyo cupo total ya
-                // es <= 3 (fechas sin salida materializada).
-                if (tour.salesMode !== "CUPO_FIJO") return null;
-                const n = avail.low[date] ?? (avail.full.has(date) ? null : avail.base);
-                if (!n || n < 1 || n > 3) return null;
-                return (
-                  <div style={{ marginTop: 6, color: "var(--tr)", fontWeight: 700 }}>
-                    {n === 1 ? "Último cupo" : `Últimos ${n} cupos`}
-                  </div>
-                );
-              })()}
             </div>
           ) : !hasAvailableDates ? (
             <div style={{ marginTop: 10, padding: 10, background: "rgba(199,97,58,.08)", borderRadius: 10, fontSize: 12, color: "var(--tr)", lineHeight: 1.5 }}>
