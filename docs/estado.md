@@ -40,6 +40,10 @@ Estos dos ítems vienen del **título de una tanda del 2026-08-13, "Refina gener
 
 Ninguno registrado.
 
+Pendientes menores (no justifican tocar nada por sí solos):
+
+- `src/Landing.jsx:575` tiene un comentario que nombra `App.css`, archivo borrado en `c96bd05` por ser código muerto sin importar. El comentario quedó desactualizado. `Landing.jsx` es archivo protegido, así que **no se toca por esto**: corregirlo cuando haya un motivo real para editar la landing y aprovechar el viaje.
+
 Cerrados y verificados (no reabrir):
 
 - Gate de `operatorResolved` en `ProfileView` y `TopNav`: cerrado en `9a928c2`. Ambos lo consumen hoy (`AppDemo.jsx:3744` y `:1865`).
