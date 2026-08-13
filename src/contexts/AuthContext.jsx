@@ -37,7 +37,11 @@ export function AuthProvider({ children }) {
     if (!force && opInFlight.current) return opInFlight.current;
     const seq = ++opSeq.current;
     const attempt = async () => {
-      const r = await authFetch("/api/me");
+      // scope=operator: camino liviano del backend (auth + findUnique), sin la
+      // query pesada de bookings ni el vencimiento perezoso. El botón del
+      // panel deja de esperar datos que no necesita; "Mis viajes" sigue con
+      // /api/me completo.
+      const r = await authFetch("/api/me?scope=operator");
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return r.json();
     };

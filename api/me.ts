@@ -20,6 +20,31 @@ export default async function handler(
     return; // requireAuth ya respondió 401
   }
 
+  // ── Camino LIVIANO: /api/me?scope=operator (contrato por adición) ──
+  // Resuelve SOLO la identidad de agencia (AuthContext → botón del panel):
+  // auth + un findUnique indexado, sin el vencimiento perezoso ni la query
+  // pesada de bookings. Vencer solicitudes es asunto de LECTURAS de reservas,
+  // no de resolver identidad; el camino completo de abajo queda intacto y
+  // sigue normalizando antes de leer.
+  const s = req.query.scope;
+  const scope = Array.isArray(s) ? s[0] : s;
+  if (scope === "operator") {
+    try {
+      const operator = await db.operator.findUnique({
+        where: { userId: user.id },
+        select: { id: true, name: true, verified: true, city: true, ruc: true, phone: true, email: true, mincetur: true },
+      });
+      res.status(200).json({
+        user: { id: user.id, email: user.email },
+        operator: operator ?? null,
+      });
+    } catch (error) {
+      console.error("Error en GET /api/me?scope=operator:", error);
+      res.status(500).json({ error: "Error interno" });
+    }
+    return;
+  }
+
   // Vencimiento PEREZOSO: antes de leer, persistir como VENCIDA toda solicitud
   // del usuario con expiresAt en el pasado (y liberar su seatsRequested). Un
   // fallo acá no debe romper la lectura: se loguea y se sigue.
