@@ -138,7 +138,7 @@ Salida **materializada perezosamente**: la fila existe solo cuando hubo un event
 - `seatsTaken` (confirmados) y `seatsRequested` (en solicitud pendiente) son contadores separados. Solo mutan por update condicional atómico.
 - `date` es un `String` `"YYYY-MM-DD"` en fecha Lima, misma convención que `excludedDates`.
 
-Detalle del motor en `docs/rules/reservas.md`.
+Detalle del motor en `.claude/rules/reservas.md`.
 
 ### Contrato por adición: `status` y `statusNew`
 
@@ -185,6 +185,6 @@ Al agregar un campo de este tipo: agregar, no reemplazar; mapear el nombre públ
 
 El frontend es una SPA **sin router library**. Esos rewrites hacen que cualquier URL bajo `/demo/*` y `/app/*` sirva el `index.html` de la raíz, y de ahí el switch de vistas de `AppDemo.jsx` decide qué renderizar. Consecuencias:
 
-- **Agregar una ruta de página no se hace acá.** Se hace en el switch de `src/AppDemo.jsx` (ver `docs/rules/frontend.md`).
+- **Agregar una ruta de página no se hace acá.** Se hace en el switch de `src/AppDemo.jsx` (ver `.claude/rules/frontend.md`).
 - Si algún día se agrega un prefijo de URL nuevo, hay que sumar el rewrite o va a dar 404 en producción y funcionar en `npm run dev`.
 - `framework: null` y `buildCommand: "vite build"`: Vercel no autodetecta nada. Cambiar el build se hace en este archivo.

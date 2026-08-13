@@ -79,7 +79,7 @@ La agencia confirma o rechaza **en lote** (toda la salida) o **puntualmente** (u
 | `RECHAZADA` | `cancelled` |
 | `CANCELADA` | `cancelled` |
 
-En las respuestas de la API el nombre canónico es **`bookingState`**, no `statusNew`. Ver `docs/rules/api-y-schema.md`.
+En las respuestas de la API el nombre canónico es **`bookingState`**, no `statusNew`. Ver `.claude/rules/api-y-schema.md`.
 
 ## Correos (`lib/traveler-emails.ts` y `sendOperatorBookingEmail`)
 

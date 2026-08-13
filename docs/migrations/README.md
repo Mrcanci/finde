@@ -2,7 +2,7 @@
 
 Cambios de schema aplicados con **`prisma db push`**, nunca `migrate dev` (drift con las extensiones de Supabase). Cada fila enlaza al documento con el detalle y la razón.
 
-**Al agregar una migración: crear `YYYY-MM-DD-<descripcion>.md` y sumar la fila acá, en el mismo commit.** El procedimiento completo (backup con el `pg_dump` v17, `db push`, `db:generate`) está en `docs/rules/api-y-schema.md`.
+**Al agregar una migración: crear `YYYY-MM-DD-<descripcion>.md` y sumar la fila acá, en el mismo commit.** El procedimiento completo (backup con el `pg_dump` v17, `db push`, `db:generate`) está en `.claude/rules/api-y-schema.md`.
 
 | Fecha | Cambio | Qué hizo |
 |---|---|---|

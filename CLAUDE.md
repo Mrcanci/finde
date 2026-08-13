@@ -106,6 +106,7 @@ El effort controla cuánto piensa, no cuán largo responde. El largo se pide apa
 ## Estructura de carpetas
 
 ```
+/.claude/rules/ Reglas con alcance, se cargan solas por path. Se commitean.
 /api/          Funciones serverless de Vercel (TypeScript). Un archivo = una ruta. Máximo 12.
 /lib/          Singletons y lógica compartida del backend (Prisma, Anthropic, Voyage, auth, inventario)
 /prisma/       schema.prisma + seed
@@ -113,7 +114,7 @@ El effort controla cuánto piensa, no cuán largo responde. El largo se pide apa
 /src/          Frontend React (Vite)
 /public/       Estáticos servidos tal cual
 /data/track-b/ Snapshots de DB usados como fuente de mocks
-/backups/      Dumps de la base (usar el pg_dump v17, ver docs/rules/api-y-schema.md)
+/backups/      Dumps de la base (usar el pg_dump v17, ver .claude/rules/api-y-schema.md)
 /docs/         Documentación (ver abajo)
 ```
 
@@ -152,10 +153,14 @@ Trampa conocida: `DATABASE_URL`, `DIRECT_URL`, `ANTHROPIC_API_KEY` y `VOYAGE_API
 
 ### Reglas con alcance
 
-Viven en `docs/rules/` y llevan en el frontmatter los `paths` que cubren. Leé la que corresponda **antes** de tocar esos archivos:
+Viven en `.claude/rules/`. Claude Code descubre esa carpeta de forma recursiva y **carga cada regla sola** cuando se toca un archivo que matchea los `paths` de su frontmatter. No hay que abrirlas a mano.
 
-| Regla | Cubre |
+| Regla | Se carga al tocar |
 |---|---|
-| `docs/rules/api-y-schema.md` | `api/**`, `lib/**`, `prisma/schema.prisma` |
-| `docs/rules/reservas.md` | `api/bookings.ts`, `api/operators/me/[resource].ts`, `lib/inventory.ts`, `lib/traveler-emails.ts` |
-| `docs/rules/frontend.md` | `src/**` |
+| `.claude/rules/api-y-schema.md` | `api/**`, `lib/**`, `prisma/schema.prisma`, `vercel.json` |
+| `.claude/rules/reservas.md` | `api/bookings.ts`, `api/operators/me/[resource].ts`, `lib/inventory.ts`, `lib/traveler-emails.ts` |
+| `.claude/rules/frontend.md` | `src/**` |
+
+**`.claude/rules/` se commitea.** `.gitignore` ignora `.claude/*` (la config local, como `settings.local.json`) pero tiene una negación explícita `!.claude/rules/` para que las reglas viajen con el repo y las herede todo el equipo. Si alguna vez volvés a ignorar `.claude/` entero, las reglas dejan de existir para los demás.
+
+Al agregar una regla: crear el `.md` en `.claude/rules/` con el frontmatter `paths`, y sumar la fila a esta tabla. **Verificá que los `paths` matcheen archivos que existen de verdad**; un patrón que no matchea nada falla en silencio y la regla nunca se carga.

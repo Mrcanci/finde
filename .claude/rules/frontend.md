@@ -29,7 +29,7 @@ login ─┬─► welcome ──► home
 
 Estados del switch: `login`, `welcome`, `home`, `catalog`, `detail`, `booking`, `notifications`, `trips`, `trip-detail`, `profile`, `dashboard`, `new-tour`.
 
-**Agregar una pantalla se hace acá, no en `vercel.json`.** Los rewrites de `/demo/*` y `/app/*` ya mandan todo al `index.html` de la raíz. Ver `docs/rules/api-y-schema.md`.
+**Agregar una pantalla se hace acá, no en `vercel.json`.** Los rewrites de `/demo/*` y `/app/*` ya mandan todo al `index.html` de la raíz. Ver `.claude/rules/api-y-schema.md`.
 
 Al cambiar de vista hay un reset manual de scroll (window y contenedor), porque en una SPA cambiar de `view` no es navegación real y el usuario aterrizaba a media página.
 
