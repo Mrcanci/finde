@@ -76,6 +76,17 @@ Local, dev.finde.pe y producción usan **la misma base**. Estos son los números
 
 Integración de **Culqi** como feature de lanzamiento. Al integrarla se reactiva la pestaña "Ingresos" del dashboard de la agencia, hoy oculta (`AppDemo.jsx:4211`). Ver `docs/decisiones.md`.
 
+## Material de postulaciones
+
+Emprende Turismo TEC 2026 ya terminó, pero el material quedó y sirve de base para la próxima postulación:
+
+- `docs/pitch-demoday-eturismo-tec-2026.md`: guion palabra por palabra de 7 beats, estructura y contenido del deck, y un banco de cerca de 18 preguntas de Q&A.
+- `docs/finde-onepager.html`: leave-behind de una página en la marca. Para exportarlo: abrir en el navegador → Cmd+P → PDF, con la opción de gráficos de fondo activada.
+
+**Equipo:** Jose Cancino (CEO, ex-LATAM Airlines) y Franco Romaní (CTO, 8 años de ingeniería).
+
+**Ojo con los números:** los dos archivos citan 40 tours y 13 agencias, heredado del PRD. Está desactualizado e inflado. Los números salen de este documento, no del PRD. Ver la entrada del 2026-08-13 en `docs/decisiones.md`.
+
 ## Estado de los datos: real vs mock
 
 Casi todo lo que antes era mock ya se eliminó. Lo que queda:

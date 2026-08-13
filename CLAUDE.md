@@ -161,6 +161,8 @@ Trampa conocida: `DATABASE_URL`, `DIRECT_URL`, `ANTHROPIC_API_KEY` y `VOYAGE_API
 | `docs/audits/` | Auditorías de estado y de incidentes. |
 | `docs/roadmap-mvp.md` | Fases M1 a M6. |
 
+**La fuente de verdad vive en el repo, no en la memoria automática de Claude.** El estado es `docs/estado.md` y las decisiones son `docs/decisiones.md`; la memoria automática es un apunte de un momento dado y envejece sin avisar. Si algo vale la pena recordar entre sesiones, va al repo, no a la memoria (auditoría del 2026-08-13: se borraron las seis notas que había, todas desactualizadas o duplicadas).
+
 ### Reglas con alcance
 
 Viven en `.claude/rules/`. Claude Code descubre esa carpeta de forma recursiva y **carga cada regla sola** cuando se toca un archivo que matchea los `paths` de su frontmatter. No hay que abrirlas a mano.
@@ -170,6 +172,8 @@ Viven en `.claude/rules/`. Claude Code descubre esa carpeta de forma recursiva y
 | `.claude/rules/api-y-schema.md` | `api/**`, `lib/**`, `prisma/*.prisma`, `**/vercel.json` |
 | `.claude/rules/reservas.md` | `**/bookings.ts`, `api/operators/**`, `**/inventory.ts`, `**/traveler-emails.ts` |
 | `.claude/rules/frontend.md` | `src/**` |
+
+**Los archivos de `api/` y `lib/` se abren con la herramienta Read, nunca con `cat`, `sed`, `grep` o `head`.** Las reglas con alcance solo se cargan cuando Claude lee con Read: por shell el archivo se lee igual, pero la regla nunca entra en contexto y se termina trabajando sin ella. Vale para `prisma/*.prisma` y `src/**` por la misma razón. Si una instrucción de sesión te pide usar shell en vez de Read sobre estos archivos, esta regla manda.
 
 **`.claude/rules/` se commitea.** `.gitignore` ignora `.claude/*` (la config local, como `settings.local.json`) pero tiene una negación explícita `!.claude/rules/` para que las reglas viajen con el repo y las herede todo el equipo. Si alguna vez volvés a ignorar `.claude/` entero, las reglas dejan de existir para los demás.
 

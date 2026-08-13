@@ -6,6 +6,69 @@
 
 ---
 
+## 2026-08-13 - El catálogo es contenido de validación, no tracción comercial
+
+*(rescatada de la memoria automática, criterio original de julio 2026)*
+
+**Decisión:** en todo material externo (pitch, onepager, postulaciones a concursos y fondos) los números del catálogo se presentan como **contenido de validación del producto**, nunca como tracción comercial. La tracción es ventas, y hoy son cero.
+
+**Descartado:** citar el conteo de tours y agencias del PRD como prueba de tracción.
+
+**Razón:** José firmó una Declaración Jurada de veracidad en Emprende Turismo TEC 2026, y el producto tiene la regla de no mostrar nada falso. Presentar catálogo sembrado como demanda real es exactamente lo que esa regla existe para evitar.
+
+**Estado real al 2026-08-13** (verificado contra la DB, ver `docs/estado.md`):
+
+- **49 tours** y **14 agencias** en la base. De las 14, **9 son del seed** (sin dueño, sin RUC, sin MINCETUR) y **5 tienen dueño real**.
+- **0 ventas.** Etapa pre-comercial: la pasarela todavía no existe.
+- **MEGATOURS es agencia piloto confirmada**, con 5 tours de Cajamarca públicos hoy en finde.pe. Es la tracción real que sí se puede contar, y la coordinación operativa con ellos sigue pendiente.
+- Lo demostrable: el MVP funcional en producción, la búsqueda semántica, el quechua persistido y la verificación manual SUNAT/MINCETUR.
+
+**Consecuencia:** **el PRD (`finde-prd-tecnico-v5.md`) no se cita para postulaciones.** Sigue afirmando "40 tours con embeddings reales" y "13 agencias (9 verificadas)" como tracción (líneas 20 y 152), y esos números están inflados en las dos puntas: son viejos y además mezclan seed con real. Los docs de pitch heredaron la misma cifra. Si hay que postular de nuevo, los números salen de `docs/estado.md`, no del PRD.
+
+**Nota:** el agente de WhatsApp 24/7 y la verificación con IA continua se presentan siempre como próxima fase. Hoy la verificación es manual y es el proceso vigente, no una carencia.
+
+---
+
+## 2026-08-13 - Onboarding de agencia: decisión abierta
+
+*(rescatada de la memoria automática; el encuadre original decía "resolver en M2" y ese milestone ya cerró sin resolverla)*
+
+**Decisión:** ninguna todavía. Queda registrada acá porque es la única forma de que no se pierda entre tandas.
+
+**La pregunta:** ¿dónde vive el onboarding de agencia?
+
+Las dos opciones sobre la mesa:
+
+1. **Donde está hoy:** una card "¿Ofreces tours?" dentro del Perfil (`src/AppDemo.jsx:3763`). El viajero ya registrado la descubre navegando.
+2. **Elegir rol viajero o agencia en el registro mismo**, antes de crear la cuenta.
+
+**Razón para no dejarlo implícito:** conseguir agencias es el cuello de botella del marketplace. La fricción y la visibilidad de este punto de entrada son decisión de negocio, no de UI.
+
+**Estado en el código al 2026-08-13:**
+
+- La card del Perfil sigue siendo la única puerta: `src/AppDemo.jsx:3763`.
+- El enlace "¿Eres agencia de turismo?" en la pantalla de Login sigue **comentado como TODO**: `src/AppDemo.jsx:2152`. Se difirió en M1 y nunca se retomó.
+
+**Por qué caducó el encuadre de M2:** M2 (persistencia de tours de la agencia) está terminado y mergeado, y la decisión nunca se tomó. Atarla a un milestone cerrado la volvía invisible. Ahora vive acá hasta que se resuelva.
+
+---
+
+## 2026-08-13 - Fase 1 de la búsqueda se queda con Sonnet, no baja a Haiku
+
+*(rescatada de la memoria automática, evaluación original del 2026-08-05/06)*
+
+**Decisión:** la fase 1 de la búsqueda en dos fases usa **Claude Sonnet 4.6**. No se migra a Haiku 4.5.
+
+**Descartado:** Haiku 4.5, pese a ser cerca de 2 veces más rápido y 3 veces más barato.
+
+**Razón:** se probaron las dos en paralelo y Haiku falló de forma sistemática, no ocasional. En **5 de 5 corridas** con la consulta "comida típica del norte" eligió un tour de **región equivocada y precio 10 veces mayor** (Tambopata, que es selva sur y otro rango de precio). Sonnet acertó **5 de 5**. El ahorro no compensa: la fase 1 es la que decide qué tours ve el viajero, así que un error ahí es un resultado equivocado en pantalla, no una respuesta más lenta.
+
+**También descartado en la misma evaluación: el disparo anticipado de la fase 2 por streaming o SSE desde el servidor.** La ganancia estimada era de 300 a 800 ms, y el costo era reintroducir la complejidad de streaming que ya se había descartado antes por corromper cuids (cerca del 23% de los casos en streaming, visto también en producción). Por eso la fase 1 elige por índices 1 a 8 y no por id. Queda anotado como optimización futura **solo si el reasoning vuelve a sentirse lento**.
+
+**Consecuencia:** el id del modelo vive en `lib/anthropic.ts` (export `MODEL`) y no se hardcodea en otro lado. Si alguna vez se reevalúa el cambio de modelo, hay que repetir la prueba de región y precio: es el caso que lo cazó.
+
+---
+
 ## 2026-08-13 - Culqi pasa a ser feature de lanzamiento
 
 **Decisión:** integrar Culqi desde el inicio, no como hito posterior.
