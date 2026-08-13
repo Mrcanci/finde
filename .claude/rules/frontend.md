@@ -70,7 +70,9 @@ Otras del mismo bloque: `--sg`, `--sd`, `--cr`, `--wh`, `--trl`, `--ch`, `--gy`,
 `src/index.css` tiene un `:root` **distinto** (`--text`, `--bg`, `--border`, `--accent`, `--shadow`, `--sans`, `--heading`, `--mono`) con bloque de dark mode. Son dos sistemas separados: no mezclarlos ni asumir que una variable de uno existe en el otro.
 
 - Tipografías: **DM Serif Display** (títulos), **Plus Jakarta Sans** (cuerpo).
-- Ancho máximo del contenedor: **430px** (mobile-first).
+- Ancho del contenedor: **1126px** en desktop, con `max-width:100%` por debajo. El contenido interno usa `max-width` por sección (1280, 1080, 680, 640, 520px). No hay ningún 430px en el código: ese valor estaba mal documentado acá.
+
+  **Ojo: ese ancho no lo declara el CSS del demo.** Sale del bloque `.app-demo` de `src/index.css` (plantilla de Vite renombrada), igual que el centrado, el tamaño de texto del root y el interlineado base. `.app` no declara ancho propio, así que gana `index.css` por defecto, no por empate de cascada. **Este valor va a cambiar cuando la Fase 4 de `docs/plans/2026-08-13-plan-tipografia.md` elimine ese bloque:** ahí hay que decidir a propósito qué ancho se replica en `.app`.
 - Sin em-dashes en ningún copy, tampoco en el texto que genera la IA dentro del producto.
 
 ## Datos: qué es real y qué no
