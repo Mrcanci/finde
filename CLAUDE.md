@@ -38,6 +38,20 @@ Production: deployed to **finde.pe** via Vercel (project `mrcancis-projects/find
 - **`src/Landing.jsx`** — NO modificar bajo ninguna circunstancia. Si una tarea requiere tocarlo, confirmar **explícitamente** con el usuario antes de cualquier edición.
 - **`prisma/schema.prisma`** — solo modificar vía migraciones planeadas. Para cambios de schema usar `prisma db push` (NO `migrate dev`, por drift con extensiones Supabase) y documentar el cambio en `docs/migrations/`.
 
+## Flujo de despliegue: dev → QA → prod (OBLIGATORIO)
+
+- Rama de trabajo: `dev`. NUNCA trabajar directo sobre `main`.
+- Antes de cualquier cambio, verificar con `git branch --show-current` que estamos en `dev`. Si no, hacer checkout a `dev` primero.
+- `main` = producción (finde.pe). `dev` = ambiente de QA (dev.finde.pe, auto-deploy en ~2 min tras push).
+- Flujo obligatorio para todo cambio:
+  1. Implementar en `dev` local, validar en localhost:3000
+  2. Commit atómico y push a `dev`
+  3. DETENERSE y pedir a José que haga QA en dev.finde.pe (indicar qué validar exactamente: páginas, flujos, casos borde)
+  4. Solo mergear a `main` cuando José confirme explícitamente que el QA en dev.finde.pe pasó
+- NUNCA mergear a `main` ni pushear a `main` sin confirmación explícita de José post-QA.
+- Al pedir QA, listar los puntos concretos a verificar en dev.finde.pe (checklist corto y específico, no genérico).
+- dev.finde.pe comparte la base de datos de PRODUCCIÓN. Si el QA requiere crear datos (reservas, tours de prueba), usar solo la cuenta demo (demo@finde.pe) y eliminarlos al terminar. Nunca crear datos de prueba con agencias reales.
+
 ## Stack
 
 - **Frontend**: Vite 8 + React 19 (SPA, mobile-first, no router library)
