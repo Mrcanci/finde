@@ -251,7 +251,7 @@ function ensureAvailabilityFields(t) {
 }
 
 // Calendario reusable. mode="edit" (wizard) o mode="select" (booking).
-function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excludedDates = [], addedDates = [], onToggleException, minDate, minDateNote, fullDates, onMonthChange }) {
+function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excludedDates = [], addedDates = [], onToggleException, minDate, minDateNote, fullDates, lowDates, lowBase, onMonthChange }) {
   const todayStr = todayISO();
   const [todayY, todayM] = todayStr.split("-").map(Number);
   const [view, setView] = useState({ y: todayY, m: todayM });
@@ -353,6 +353,15 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
                 ? (minDateNote || `Requiere al menos ${MIN_BOOKING_LEAD_DAYS} día${MIN_BOOKING_LEAD_DAYS > 1 ? "s" : ""} de anticipación`)
                 : "Este día la agencia no tiene salidas")
             : undefined;
+          // Cupos bajos (1-3) EN la celda, donde la persona está mirando: el
+          // número exacto de la fecha o, para fechas sin salida materializada,
+          // el cupo total del tour si ya es <= 3 (lowBase). Solo en fechas
+          // elegibles; la celda no cambia de tamaño (minHeight/aspectRatio).
+          const lowN = mode === "select" && isClickable && lowDates
+            ? (lowDates[iso] != null
+                ? lowDates[iso]
+                : (lowBase != null && !(fullDates && fullDates.has(iso)) ? lowBase : undefined))
+            : undefined;
           return (
             <button
               key={i}
@@ -371,7 +380,14 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
                 transition: "background .15s", padding: 0,
               }}
             >
-              {d}
+              {lowN >= 1 && lowN <= 3 ? (
+                <span style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", lineHeight: 1.05 }}>
+                  <span>{d}</span>
+                  <span style={{ fontSize: 8, fontWeight: 700 }}>{lowN === 1 ? "1 cupo" : `${lowN} cupos`}</span>
+                </span>
+              ) : (
+                d
+              )}
             </button>
           );
         })}
@@ -3068,6 +3084,24 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
     run();
   }, [date, avail]);
 
+  // Cupo conocido (1-3) de la fecha elegida: tope del selector de personas
+  // (solo CUPO_FIJO; en manual no hay límite). Con más de 3 restantes no hay
+  // dato (a propósito) y rige la capacidad del tour, como siempre.
+  const cupoFecha = availSalesMode === "CUPO_FIJO" && date
+    ? (avail.low[date] ?? (avail.full.has(date) ? 0 : avail.base))
+    : null;
+  const maxGuests = cupoFecha != null && cupoFecha >= 1 && cupoFecha <= 3
+    ? Math.min(cupoFecha, tour.capacity)
+    : tour.capacity;
+
+  // Si al cambiar de fecha el valor elegido supera el cupo, baja solo al máximo.
+  useEffect(() => {
+    if (maxGuests >= 1 && guests > maxGuests) {
+      const run = async () => { setGuests(maxGuests); };
+      run();
+    }
+  }, [guests, maxGuests]);
+
   useEffect(() => {
     if (typeof window !== "undefined") window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, [step]);
@@ -3272,6 +3306,8 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
               ? "Ya pasó la hora límite para reservar esta fecha"
               : undefined}
             fullDates={tour.salesMode === "CUPO_FIJO" ? avail.full : undefined}
+            lowDates={tour.salesMode === "CUPO_FIJO" ? avail.low : undefined}
+            lowBase={tour.salesMode === "CUPO_FIJO" ? avail.base : undefined}
             onMonthChange={tour.salesMode === "CUPO_FIJO" ? loadMonthAvailability : undefined}
           />
           {(() => {
@@ -3312,7 +3348,9 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
             </div>
           ) : null}
         </div>
-        <div className="fg"><label className="lbl">Personas</label><div className="gctr" role="group" aria-label="Cantidad de personas"><button type="button" className="gbtn" onClick={() => setGuests(Math.max(1, guests - 1))} disabled={guests <= 1} aria-label="Disminuir número de personas">−</button><div className="gcnt" aria-live="polite">{guests}</div><button type="button" className="gbtn" onClick={() => setGuests(Math.min(tour.capacity, guests + 1))} disabled={guests >= tour.capacity} aria-label="Aumentar número de personas">+</button></div></div>
+        {/* El "+" respeta el cupo conocido de la fecha (maxGuests): con 1 cupo
+            no se puede armar una reserva de 2 que después falla en el POST. */}
+        <div className="fg"><label className="lbl">Personas</label><div className="gctr" role="group" aria-label="Cantidad de personas"><button type="button" className="gbtn" onClick={() => setGuests(Math.max(1, guests - 1))} disabled={guests <= 1} aria-label="Disminuir número de personas">−</button><div className="gcnt" aria-live="polite">{guests}</div><button type="button" className="gbtn" onClick={() => setGuests(Math.min(maxGuests, guests + 1))} disabled={guests >= maxGuests} aria-label="Aumentar número de personas">+</button></div></div>
         <div className="sum"><div className="sum-r"><span>S/ {tour.price} × {guests}</span><span>S/ {total.toFixed(2)}</span></div><div className="sum-t"><span>Total</span><span>S/ {total.toFixed(2)}</span></div></div>
         {SHOW_CANCELLATION_POLICY && !DEMO_PAYMENT_FLOW && (() => {
           const pol = getCancelPolicy(tour.cancellation);
