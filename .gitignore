@@ -30,8 +30,10 @@ dist-ssr
 # DB backups (contienen datos sensibles, secretos en strings, etc.)
 backups/
 
-# Configuración local de Claude Code (no commitear)
-.claude/
+# Configuración local de Claude Code (no commitear), MENOS las reglas con
+# alcance: .claude/rules/ viaja con el repo para que lo herede todo el equipo.
+.claude/*
+!.claude/rules/
 
 # Backups de schema y scripts de prueba locales
 prisma/*.backup-*
