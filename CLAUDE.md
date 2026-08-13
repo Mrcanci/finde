@@ -1,261 +1,161 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guía para Claude Code en este repositorio.
 
-## Overview
+## Qué es Finde
 
-**Finde** is a mobile-first marketplace for Peru tourism experiences with AI-powered semantic search and Quechua language support. The project is in pre-launch and being submitted to MINCETUR / Emprende TEC / ProInnóvate / Startup Perú contests.
+Marketplace mobile-first de tours en Perú con búsqueda semántica por IA y soporte de quechua. Conecta viajeros con agencias formales peruanas. Producción: **finde.pe** (Vercel, proyecto `mrcancis-projects/finde`). QA: **dev.finde.pe** (rama `dev`).
 
-Production: deployed to **finde.pe** via Vercel (project `mrcancis-projects/finde`).
+**Qué hace hoy el código respecto a la verificación de agencias** (importante, porque el copy promete más):
 
-## Estado del proyecto (agosto 2026)
+- El onboarding valida que el RUC tenga **11 dígitos**. Nada más. No hay llamada a SUNAT ni a MINCETUR.
+- `Operator.verified` es un booleano que se setea a mano. Ningún proceso automático lo toca.
+- `Operator.mincetur` es un número que la agencia declara. `gateOperatorMincetur` (`lib/tour-select.ts`) solo lo muestra al público si `verified` es true.
+- `src/Landing.jsx` promete "validamos el RUC en SUNAT y el registro en MINCETUR". Eso es **promesa de producto, no comportamiento implementado**. No lo repitas como hecho técnico ni lo uses para justificar una decisión de código.
 
-**`main` ya NO tiene solo M1.** Todo lo que sigue está mergeado en `main`:
+Estado actual del trabajo: leer `docs/estado.md` antes de empezar cualquier tanda.
 
-- Proyecto **`tours-db-i18n` COMPLETADO**: tours migrados de array hardcoded a DB, **40 tours con embeddings Voyage**, 6 categorías UI sincronizadas con el enum DB, skeleton loading en grid y carruseles, dropdown AI_SUGGESTIONS funcional.
-- **M1 (Auth con Supabase Auth) COMPLETADO**: auth real email+password, sesión persistente en localStorage, logout real, reservas y onboarding de operador ligados a la identidad del token, `isOperator` derivado de la DB. Plan: [`docs/m1-auth-plan.md`](docs/m1-auth-plan.md).
-- **M2 (Tours del operador + medios) COMPLETADO y mergeado** (commit `e6fa097`; la rama `feature/m2-operator-tours` ya solo vive en `origin`): CRUD real de tours del operador (crear/editar/borrar/pausar), upload de imágenes a Supabase Storage (signed URL, subida directa navegador→Storage), y las correcciones de la auditoría (publicación honesta sin moderación falsa, onboarding sin datos mock, comisión 15% oculta en etapa piloto). `requireOperator` protege todos los endpoints de escritura; los tours pausados quedan invisibles en catálogo/búsqueda/detalle/booking pero visibles en el dashboard del operador.
-- **Búsqueda en dos fases COMPLETADA y mergeada**: fase 2 genera el reasoning sobre los ids ya elegidos, con los datos firmados de fase 1 (`lib/search-sig.ts`). `SEARCH_PHASE_SECRET` ya está cargada en Vercel en los 3 entornos (verificado 2026-08-12).
-- **Sistema de inventario y salidas COMPLETADO y mergeado.** Tres capas:
-  - **Schema** (`docs/migrations/2026-08-05-inventario-salidas.md`): modelo `Departure`, enum `SalesMode` (`CUPO_FIJO` | `SOLICITUD`), enum `BookingStatus` (`SOLICITUD` | `CONFIRMADA` | `VENCIDA` | `RECHAZADA` | `CANCELADA`) en `Booking.statusNew`, y config de venta en `Tour` (`allotment`, `minQuorum`, `closeTime`, `closeDaysBefore`).
-  - **Motor** (`lib/inventory.ts` + `POST /api/bookings`): materialización perezosa de salidas con `INSERT … ON CONFLICT` crudo (atómico bajo concurrencia), toma de cupo atómica, cálculo de `expiresAt` y vencimiento perezoso en las lecturas (no hay cron en Vercel Hobby).
-  - **Panel de salidas** (`GET`/`POST /api/operators/me/departures` + `DashView`): la agencia ve sus salidas agrupadas y confirma o rechaza **en lote**, con dos pasos porque la acción manda correos a los viajeros y no se puede deshacer.
-- **Cierre de venta en las dos puntas (confirmación manual)**: la hora de cierre de una salida cierra los dos extremos. No entran solicitudes nuevas pasada esa hora (409 en el backend, y el calendario del viajero deja de ofrecer la fecha) y `expiresAt = min(cierre, creación + 72h, medianoche previa a la salida)`. `CUPO_FIJO` queda exento: no hay nada que confirmar.
-- **Próximo:** continuar el MVP end-to-end. Ver [`docs/roadmap-mvp.md`](docs/roadmap-mvp.md) (fases M1-M6).
-- **Antes de lanzar a usuarios reales:**
-  - Reactivar "Confirm email" en Supabase (desactivado para pruebas).
-  - **Cargar `RESEND_API_KEY` en Preview y Production** — hoy solo existe en Development (verificado 2026-08-12). Sin ella, `sendOperatorBookingEmail` y `sendDepartureDecisionEmails` loguean "RESEND_API_KEY ausente, skip" y **siguen sin lanzar**: la reserva se crea igual y nadie recibe nada. Con el panel de salidas en juego, eso significa una agencia que nunca se entera de una solicitud y un viajero que nunca sabe que venció.
-  - **Borrar los datos de prueba**: el tour "prueba" y las reservas/salidas de las cuentas `@finde.pe`.
-- **Etapa piloto:** sin comisión (link directo a WhatsApp); el 15% está oculto en la UI y se reactiva cuando se cobre.
-- Auditoría de estado: [`docs/audits/2026-05-20-mvp-readiness-audit.md`](docs/audits/2026-05-20-mvp-readiness-audit.md).
+## Cómo comunicarte conmigo
 
-> **Estado de despliegue:** esta sección describe lo que contiene `main`, que es lo verificable desde el repo. Qué commit está efectivamente servido en finde.pe hay que confirmarlo en Vercel, no acá.
+José no es técnico. La comunicación se ajusta a eso:
 
-> **Ojo con la base:** local y producción comparten la MISMA base de Supabase. Un dato creado en finde.pe aparece en `vercel dev` y viceversa. Cuidado al sembrar o borrar datos de prueba.
+- Español peruano, casual y directo. Conclusiones primero.
+- Explicá en términos de negocio, no de implementación, salvo que se pida el detalle.
+- Nada de em-dashes en ningún texto que generes.
+- Antes de cambiar código en algo no trivial, explicá en palabras simples qué vas a hacer y por qué, y esperá el visto bueno.
+- Al cerrar una tanda, incluí siempre la salida literal de `git log --oneline -6` y el nombre de la rama activa.
+
+## Alcance
+
+- Hacé exactamente lo que se pidió. Ni más, ni menos.
+- No refactorices código que no sea parte de la tarea, aunque veas cómo mejorarlo. Si encontrás algo, mencionalo al final sin tocarlo.
+- Si la tarea toca más de un archivo o parece requerir cambios de arquitectura, pará y proponé un plan antes de escribir.
+- Corregí solo lo que se señaló. No arregles de paso otras cosas del mismo archivo.
+- No delegues a subagentes tareas que resolvés con Read o Grep directo.
+
+## Verbosidad
+
+Respuestas breves por defecto. Cuando escribas un documento a disco, mantenelo compacto salvo que se pida largo explícitamente.
+
+## Terminología (innegociable en texto visible al usuario)
+
+- **agencia / agencias**, nunca "operador" ni "operadores"
+- **tour / tours**, nunca "experiencia" como sustantivo del producto
+- Segunda persona ("tú"), español peruano, sin vocabulario ibérico
+- Sin em-dashes, tampoco en texto generado por IA dentro del producto
+
+Excepción: en el código existen `Operator`, `/api/operators`, `requireOperator`. Eso es deuda de nomenclatura interna y **se queda**. La regla aplica solo a copy visible.
+
+## Reglas de negocio que no se rompen
+
+- Sin RUC una agencia no puede vender. No hay excepción.
+- Todo tour necesita política de cancelación visible **antes** de pagar (exigencia INDECOPI).
+- Nada falso visible al usuario real: sin ratings inventados, sin datos mock, sin moderación simulada.
+- La búsqueda IA no puede afirmar datos geográficos, distancias ni tiempos de viaje que no estén en los datos del tour.
+
+Detalle completo en **`finde-reglas-negocio-v1_3.md`** (raíz del repo). No lo muevas.
 
 ## Archivos protegidos
 
-- **`src/Landing.jsx`** — NO modificar bajo ninguna circunstancia. Si una tarea requiere tocarlo, confirmar **explícitamente** con el usuario antes de cualquier edición.
-- **`prisma/schema.prisma`** — solo modificar vía migraciones planeadas. Para cambios de schema usar `prisma db push` (NO `migrate dev`, por drift con extensiones Supabase) y documentar el cambio en `docs/migrations/`.
+- **`src/Landing.jsx`**: NO modificar bajo ninguna circunstancia. Requiere la frase explícita "EXCEPCIÓN AUTORIZADA" del usuario.
+- **`prisma/schema.prisma`**: solo vía `prisma db push`, **nunca** `migrate dev` (causa drift con extensiones Supabase). Documentar cada cambio en `docs/migrations/` y actualizar `docs/migrations/README.md`.
 
-## Flujo de despliegue: dev → QA → prod (OBLIGATORIO)
+## Flujo dev → QA → prod (OBLIGATORIO)
 
-- Rama de trabajo: `dev`. NUNCA trabajar directo sobre `main`.
-- Antes de cualquier cambio, verificar con `git branch --show-current` que estamos en `dev`. Si no, hacer checkout a `dev` primero.
-- `main` = producción (finde.pe). `dev` = ambiente de QA (dev.finde.pe, auto-deploy en ~2 min tras push).
-- Flujo obligatorio para todo cambio:
-  1. Implementar en `dev` local, validar en localhost:3000
-  2. Commit atómico y push a `dev`
-  3. DETENERSE y pedir a José que haga QA en dev.finde.pe (indicar qué validar exactamente: páginas, flujos, casos borde)
-  4. Solo mergear a `main` cuando José confirme explícitamente que el QA en dev.finde.pe pasó
-- NUNCA mergear a `main` ni pushear a `main` sin confirmación explícita de José post-QA.
-- Al pedir QA, listar los puntos concretos a verificar en dev.finde.pe (checklist corto y específico, no genérico).
-- dev.finde.pe comparte la base de datos de PRODUCCIÓN. Si el QA requiere crear datos (reservas, tours de prueba), usar solo la cuenta demo (demo@finde.pe) y eliminarlos al terminar. Nunca crear datos de prueba con agencias reales.
+1. Verificar con `git branch --show-current` que estamos en `dev`. Nunca trabajar sobre `main`.
+2. Implementar y validar en localhost:3000.
+3. Commit atómico y push a `dev`.
+4. **DETENERSE** y pedir QA en dev.finde.pe, con checklist corto y específico de qué validar (páginas, flujos, casos borde). Nunca genérico.
+5. Mergear a `main` solo con confirmación explícita de José post-QA.
 
-## Stack
+### Advertencia sobre el QA en dev.finde.pe
 
-- **Frontend**: Vite 8 + React 19 (SPA, mobile-first, no router library)
-- **Backend**: Vercel Serverless Functions in `/api/` (TypeScript, `@vercel/node`)
-- **Database**: Supabase Postgres with `pgvector` and `pg_trgm` extensions
-- **ORM**: Prisma 6 (`previewFeatures = ["postgresqlExtensions"]`)
-- **AI**: Claude Sonnet 4.6 (`@anthropic-ai/sdk`, model id `claude-sonnet-4-6` — fuente de verdad: `lib/anthropic.ts`) para búsqueda en lenguaje natural y generación de contenido para operadores
-- **Embeddings**: Voyage AI (`voyageai`, 1024-dim vectors) for semantic search via `pgvector`
-- **Validation**: `zod`
+**dev.finde.pe corre contra la base de datos de PRODUCCIÓN, y `RESEND_API_KEY` está cargada en los tres entornos (Development, Preview y Production).** Las dos cosas juntas significan que:
 
-## Commands
+- Un QA que confirma o rechaza una salida en dev.finde.pe **manda correos reales** a las direcciones reales de los viajeros de esa salida. `sendDepartureDecisionEmails` no distingue entorno.
+- Un QA que crea una reserva sobre el tour de una agencia real **le manda un correo real a esa agencia**.
+- Nada de esto se puede deshacer.
 
-```bash
-npm run dev              # Vite dev server (frontend only, HMR)
-vercel dev               # Full stack local: Vite + /api/ functions (use this for backend work)
-npm run build            # Production build of frontend (outputs to dist/)
-npm run preview          # Preview production build locally
-npm run lint             # Run ESLint
+Por eso: **el QA se hace solo con la cuenta demo (`demo@finde.pe`) y sobre tours de cuentas `@finde.pe`.** Nunca sobre tours ni reservas de agencias reales. Los datos que crees, borralos al terminar.
 
-npm run db:generate      # prisma generate (regenerate client after schema changes)
-npm run db:migrate       # prisma migrate dev (NO usar por drift con extensiones Supabase — preferir `prisma db push`)
-npm run db:migrate:deploy# prisma migrate deploy (apply pending migrations in CI/prod)
-npm run db:studio        # prisma studio (DB GUI)
-npm run db:seed          # tsx prisma/seed.ts (seed sample tours/operators)
+Local y producción también comparten la misma base de Supabase. Cuidado al sembrar o borrar.
+
+## Nivel de effort (Opus 5)
+
+| Nivel | Cuándo |
+|---|---|
+| `low` | Copy, una línea, lecturas simples |
+| `medium` | Sub-pasos de un solo archivo, bugs acotados |
+| `high` (default) | Investigación, feature de un componente, debugging normal |
+| `xhigh` | Refactors multiarchivo, integraciones completas, migraciones de esquema |
+
+El effort controla cuánto piensa, no cuán largo responde. El largo se pide aparte.
+
+## Convenciones de código
+
+- Logs en **español**, código e identificadores en **inglés**.
+- TypeScript estricto en `/api/`, `/lib/`, `/scripts/`. Frontend queda en JSX.
+- Imports en `/api/` y `/lib/` **con extensión `.js`** (Node ESM). Sin la extensión, la función falla en runtime.
+- Validar todo body con `zod` antes de tocar la DB.
+- Usar los singletons de `/lib/`, nunca instanciar Prisma, Anthropic o Voyage ad-hoc.
+- Una función serverless por archivo. Siempre manejar 405.
+- **Límite Vercel Hobby: 12 funciones. Hoy hay exactamente 12.** No se puede agregar un archivo a `/api/` sin sacar otro. Consolidar en una ruta dinámica existente (ver `api/operators/me/[resource].ts`).
+- Variables de entorno en Vercel: cargarlas en **All Environments**, y por el dashboard, no por CLI (el flag `--sensitive` guarda valores vacíos).
+- **Nunca `pkill -f`** con patrones amplios (`node`, `vite`, `vercel dev`): mata procesos del usuario en otras terminales. Matar por PID.
+
+## Estructura de carpetas
+
+```
+/api/          Funciones serverless de Vercel (TypeScript). Un archivo = una ruta. Máximo 12.
+/lib/          Singletons y lógica compartida del backend (Prisma, Anthropic, Voyage, auth, inventario)
+/prisma/       schema.prisma + seed
+/scripts/      Scripts sueltos (seed, embeddings, backfills), se corren con tsx
+/src/          Frontend React (Vite)
+/public/       Estáticos servidos tal cual
+/data/track-b/ Snapshots de DB usados como fuente de mocks
+/backups/      Dumps de la base (usar el pg_dump v17, ver docs/rules/api-y-schema.md)
+/docs/         Documentación (ver abajo)
 ```
 
-Para cambios de schema, en lugar de `migrate dev` usar:
+## Comandos
 
 ```bash
-npx dotenv-cli -e .env.local -- npx prisma db push
-```
+npm run dev              # solo frontend, HMR
+npm run build            # build de producción
+npm run lint             # ESLint
 
-y documentar el cambio en `docs/migrations/YYYY-MM-DD-<descripcion>.md`.
-
-Para backend/auth en local, correr:
-
-```bash
+# backend en local (el wrapper de dotenv es necesario)
 npx dotenv-cli -e .env.local -- vercel dev
+
+# cambios de schema
+npx dotenv-cli -e .env.local -- npx prisma db push
+
+npm run db:generate      # prisma generate
+npm run db:studio        # GUI de la DB
+npm run db:seed          # sembrar datos
 ```
 
-Ojo con el origen real de cada variable en las funciones `/api/*` (verificado 2026-08-04):
+No hay suite de tests configurada. Cuando un doc dice "verificado con test", fue verificación manual.
 
-- **`DATABASE_URL`, `DIRECT_URL`, `ANTHROPIC_API_KEY` y `VOYAGE_API_KEY` vienen del entorno Development del dashboard de Vercel** (proyecto `finde`), que `vercel dev` inyecta pisando lo que haya en `.env.local` o en el env del shell. Cambiarlas en `.env.local` NO afecta al backend local; hay que cambiarlas con `vercel env` (o probar vía código, ej. `datasourceUrl` en `lib/db.ts`).
-- Las 3 de Supabase (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) NO están en Development, así que esas sí salen de `.env.local` vía `dotenv-cli` — por eso el wrapper sigue siendo necesario.
-- Además, en `vercel dev` cada request de función corre en un proceso nuevo (sin conexiones calientes entre requests): las latencias de DB locales no son representativas de producción.
+Trampa conocida: `DATABASE_URL`, `DIRECT_URL`, `ANTHROPIC_API_KEY` y `VOYAGE_API_KEY` vienen del entorno **Development de Vercel** y pisan lo que haya en `.env.local`. Las tres de Supabase (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) no están en Development, así que esas sí salen de `.env.local` vía `dotenv-cli`. En `vercel dev` cada request corre en proceso nuevo, así que las latencias locales no son representativas.
 
-There is no test suite configured.
+## Documentación
 
-## Folder Structure
+| Archivo | Qué es |
+|---|---|
+| `docs/estado.md` | Dónde quedó el trabajo. **Leer al empezar cada tanda, actualizar en el mismo commit al cerrarla.** |
+| `docs/decisiones.md` | Por qué se decidió cada cosa. Solo se agrega, nunca se borra. |
+| `finde-reglas-negocio-v1_3.md` | Comisiones, cancelaciones, verificación, compliance. En la raíz. |
+| `docs/migrations/` | Historial de cambios de schema con su razón. Índice en `docs/migrations/README.md`. |
+| `docs/audits/` | Auditorías de estado y de incidentes. |
+| `docs/roadmap-mvp.md` | Fases M1 a M6. |
 
-```
-/api/         Vercel Serverless Functions (TypeScript). One file = one route.
-              Subfolders: api/ai/, api/tours/, api/operators/, api/uploads/
-/lib/         Shared backend singletons (Prisma client, Anthropic, Voyage)
-/prisma/      schema.prisma + migrations/
-/scripts/     One-off scripts (seed, embeddings, prebuild de cache, etc.) run via `tsx`
-/src/         Frontend React code (Vite)
-/public/      Static assets served as-is
-/data/track-b/ Snapshots de DB usados como fuente de mocks (ej. tours-db-snapshot.json)
-/docs/audits/  Auditorías de estado y de incidentes
-/docs/migrations/ Historial de cambios de schema (db push) con su razón
-```
+### Reglas con alcance
 
-## Frontend Architecture
+Viven en `docs/rules/` y llevan en el frontmatter los `paths` que cubren. Leé la que corresponda **antes** de tocar esos archivos:
 
-`src/main.jsx` mounts `<App />`. `src/App.jsx` is the top-level entry that gates between two screens:
-
-- **`src/Landing.jsx`** — public landing page (finde.pe homepage)
-- **`src/AppDemo.jsx`** — interactive demo of the mobile app (password-gated; toggled via state in `App.jsx`)
-
-There is no routing library. `AppDemo.jsx` internally renders different "screens" via a `useState` switch (`view`). Los estados reales del switch hoy (`AppDemo.jsx` ~líneas 3982-3994):
-
-```
-login → welcome → home
-                  ├─► catalog (búsqueda)
-                  ├─► detail (tourDetail) → booking → bookingSuccess (step 4 dentro de BookingView)
-                  ├─► notifications
-                  ├─► trips → trip-detail
-                  ├─► profile
-                  └─► dashboard (panel del operador) → new-tour (crear/editar tour)
-```
-
-La sesión es real (Supabase Auth). `src/main.jsx` envuelve `<App />` con `<AuthProvider>` (`src/contexts/AuthContext.jsx`); `useAuth()` es la fuente de verdad de `user`/`session`/`isOperator`. `LoginView` usa email+password (pestañas signin/signup); `OTPView` fue eliminada. El "gate" de password de `App.jsx` (acceso al demo) es independiente de la sesión de Supabase.
-
-## Estado de datos (qué es real vs mock)
-
-### Datos REALES (del API / DB)
-
-- **Auth** — Supabase Auth (email+password) vía `src/contexts/AuthContext.jsx` (`useAuth`). Sesión persistente en localStorage; el backend valida el `Bearer` token con `lib/auth.ts`. `isOperator` se deriva de `GET /api/me`.
-- **Tours (catálogo)** — `fetch('/api/tours?limit=50')` en el mount de `AppDemo`. 40 tours en DB con embeddings Voyage. El GET público filtra `active:true` (tours pausados no aparecen).
-- **Tours del operador (CRUD)** — crear/editar/borrar/pausar conectados a endpoints reales (`POST /api/tours`, `PUT/DELETE/PATCH /api/tours/[id]`). `opTours` se hidrata desde `GET /api/operators/me/tours` (ya no es mock); muestra activos e inactivos.
-- **Upload de imágenes** — `POST /api/uploads/tour-image` emite una signed upload URL (tras `requireOperator`); el navegador sube la foto **directo** a Supabase Storage (bucket `tour-images`), esquivando el límite ~4.5MB de Vercel. La `publicUrl` resultante se guarda en `Tour.imageUrl`.
-- **Búsqueda IA** — `POST /api/search` (Voyage embeddings + pgvector + Claude Sonnet 4.6, con cache `FeaturedSearch`). Filtra `active:true` en sus 3 queries (cache, pgvector, hidratación).
-- **Bookings** — `POST /api/bookings` persiste en DB (status inicial `pending_payment`; no transiciona hasta que se implemente la pasarela). Requiere sesión (`requireAuth`); el `userEmail`/identidad sale del token, no del body. Rechaza reservas de tours pausados (409).
-- **Operadores (onboarding)** — `POST /api/operators` requiere sesión; crea row con `verified: false`, ligado a `Operator.userId` del token, persiste `ruc`; responde 409 si el usuario ya es operador.
-- **Geo** — `GET /api/geo` resuelve ciudad desde headers `x-vercel-ip-*` con fallback Lima.
-- **AI B2B** — `POST /api/ai/generate-description` y `POST /api/ai/generate-quechua` están listos en backend (todavía no enchufados a la UI de `NewTourView`).
-
-### Datos que siguen MOCK (pendientes en el roadmap MVP)
-
-- **`NOTIFS`** — notificaciones in-app, constante hardcoded.
-- **`OP_BK`, `EARN`, `biz`** — datos del dashboard del operador (`DashView`): reservas, ingresos semanales, datos comerciales (RUC/MINCETUR/CCI).
-- **Reviews** — `generateMockReviews(tour)` produce 3-4 reseñas determinísticas por hash del tour. No existe modelo `Review` en DB.
-- **`MY_TRIPS`** — semi-mock: 2 trips fijos con CUIDs reales de DB (`data/track-b/tours-db-snapshot.json`).
-
-## Backend Architecture
-
-Endpoints live in `/api/` as TypeScript files using `@vercel/node` types (`VercelRequest`, `VercelResponse`). Each file maps to a route (e.g. `api/health.ts` → `/api/health`).
-
-Shared clients are singletons in `/lib/` to avoid reconnecting on every invocation in dev:
-
-- `lib/db.ts` — Prisma client (cached on `globalThis` in non-prod)
-- `lib/anthropic.ts` — Anthropic SDK client (export `MODEL = "claude-sonnet-4-6"`)
-- `lib/voyage.ts` — Voyage embeddings client
-- `lib/rate-limit.ts` — rate limiter por IP + bucket
-- `lib/search-cache.ts` — normalización de queries para cache `FeaturedSearch`
-- `lib/tour-select.ts` — `LIST_SELECT` y `DETAIL_SELECT` reusables (`tourFields` incluye `days`, `meetingPoint`, `cancellation`, `excludedDates`, `addedDates`, `startTime`, `active`)
-- `lib/tour-input.ts` — mapeo compartido form→schema para crear/editar tours: `tourInputSchema` (zod), `parseTourInput`, `embedTourSafe` (embedding on-write Voyage, Opción A), `CANCEL_MAP`, `parseDurationHours` ("full day"→8h, "medio día"→4h). Semántica `undefined` para `imageUrl` y `startTime` (preserva el valor existente en update). Mensajes de error que nombran el campo (`FIELD_LABELS`). `capacity` int 1-3000 (requerido)
-- `lib/geo.ts` — mapeo de ciudad/región a ciudad soportada
-- `lib/supabase-admin.ts` — cliente Supabase con **service role** (stateless, cacheado en `globalThis`); valida tokens y emite signed upload URLs de Storage
-- `lib/auth.ts` — `requireAuth(req, res)` / `getAuthUser(req)`: extraen y validan el `Bearer` token vía `supabase-admin`. `requireOperator(req, res)` se monta sobre `requireAuth`: resuelve el `Operator` por `userId`, responde 403 si la cuenta no es operador, y devuelve `{ user, operator: { id, name, verified } }` (lanza `AuthRequiredError` en 401 y 403 para que el `catch { return }` de los handlers funcione igual)
-
-Endpoints autenticados (vía `requireAuth`): `GET /api/me` (devuelve `{ user, operator | null }`), `POST /api/bookings`, `POST /api/operators`. La identidad (email/`userId`) se toma del token, nunca del body.
-
-Endpoints de operador (vía `requireOperator`; `operatorId` sale del token, nunca del body):
-
-- `POST /api/tours` — crear un tour (mapeo form→schema vía `lib/tour-input.ts`, embedding on-write). Devuelve 201.
-- `PUT /api/tours/[id]` — editar un tour propio (verificación de propiedad, re-embed; preserva `imageUrl`/`startTime` si no se mandan — semántica `undefined`; omite `language` para no clobbear tours multi-idioma).
-- `DELETE /api/tours/[id]` — borrar un tour propio (hard delete) + su foto en Storage. Borra la DB primero; solo toca Storage si la `imageUrl` vive en el bucket `tour-images` (las URLs externas del seed se dejan intactas); un fallo de Storage no rompe el borrado (foto huérfana, se loguea).
-- `PATCH /api/tours/[id]` — pausar/reactivar (body `{ active: boolean }`, verificación de propiedad).
-- `GET /api/operators/me/tours` — lista los tours del operador para el dashboard (NO filtra `active`: muestra activos e inactivos).
-- `POST /api/uploads/tour-image` — emite una signed upload URL para Supabase Storage (valida `contentType` jpeg/png; ruta `{operatorId}/{uuid}.{ext}`; devuelve `token`, `path`, `publicUrl`).
-
-`GET /api/tours` y `GET /api/tours/[id]` son públicos pero filtran `active:true` (un tour pausado no aparece en el catálogo y su detalle responde 404).
-
-### Almacenamiento de imágenes (Supabase Storage)
-
-Bucket **`tour-images`** (lectura pública, límite 5MB, MIME `image/jpeg`/`image/png`, **sin INSERT público** — las subidas van por signed URL). Flujo A: el backend (`requireOperator`) emite la signed upload URL en `POST /api/uploads/tour-image` y el navegador sube el archivo **directo** a Storage (nunca pasa por la función → esquiva el límite ~4.5MB de Vercel). La `publicUrl` se guarda en `Tour.imageUrl`.
-
-### Data model (see `prisma/schema.prisma`)
-
-- **Operator** — tour providers (`verified` flag, `city`, `email` único, `phone`), más `userId` (único, FK **lógica** a `auth.users` de Supabase — no la maneja Prisma) y `ruc`. `userId` es nullable: los 9 operadores del seed quedan sin dueño (catálogo).
-- **Tour** — listings con `embedding vector(1024)` para búsqueda semántica, más:
-  - básicos: `title`, `description`, `category`, `difficulty`, `city`, `region`, `durationHours`, `priceSoles` (en céntimos), `capacity`, `language[]`, `included[]`, `excluded[]`, `imageUrl`, `rating`, `reviewsCount`
-  - editoriales: `shortPitch`, `aiSummary`, `altTour` (Json), `tags` (String[]), `badge`, `cancellation` (enum), `meetingPoint`, `altitude`
-  - disponibilidad: `days` (Boolean[7] — patrón semanal), `excludedDates` (String[]), `addedDates` (String[]), `startTime` (String? — hora de salida "HH:MM" 24h, nullable; null = legacy/sin definir)
-  - estado: `active` (Boolean `@default(true)` — el operador pausa/reanuda; el catálogo público filtra `active=true`)
-- **Booking** — reservas con `bookingCode` único, `status` (string), `scheduledAt`, datos del viajero (`userName`, `userEmail`, `userPhone`) y `userId` (nullable, FK lógica a `auth.users`).
-- **SearchLog** — log de queries en lenguaje natural (`query`, `resultIds[]`, `reasoning`).
-- **FeaturedSearch** — cache de queries famosas pre-procesadas (Voyage + Claude). Salta el flujo completo y responde en <100ms para queries normalizadas presentes en cache.
-
-Enums:
-
-- **`Category`**: `adventure | cultural | gastronomy | nature | mystic`
-- **`CancellationPolicy`**: `Flexible | Moderada | Estricta | NoReembolsable`
-
-Idiomas (campo `language` en `Tour`): `es | en | qu`.
-
-## Environment Variables
-
-Required in `.env.local` (gitignored). Never commit.
-
-| Variable | Purpose |
-|----------|---------|
-| `DATABASE_URL` | Supabase pooled connection (used at runtime by Prisma client) |
-| `DIRECT_URL` | Supabase direct connection (used by `prisma migrate` / `db push`) |
-| `ANTHROPIC_API_KEY` | Claude Sonnet 4.6 — búsqueda + generación de contenido |
-| `VOYAGE_API_KEY` | Voyage embeddings (1024-dim) for `pgvector` |
-| `VITE_SUPABASE_URL` | Supabase project URL — usada por el cliente del navegador (`src/lib/supabase.js`) **y** por el admin del backend (`lib/supabase-admin.ts`) |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anon/publishable key — cliente del navegador |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role — **solo backend** (`lib/supabase-admin.ts`); valida tokens. Nunca exponer al cliente |
-
-Mirror these in Vercel via `vercel env add` for preview/production.
-
-> M1 (Auth) ya consume estas 3 variables. Nota: el backend lee `VITE_SUPABASE_URL` (con prefijo `VITE_`) — intencional hoy; revisar al normalizar para producción. **Pendiente:** cargarlas en Vercel (preview + production) antes de desplegar M1.
-
-## Styling
-
-CSS variables defined in `src/index.css` (`:root`):
-
-| Variable | Value | Role |
-|----------|-------|------|
-| `--f` | `#1B3A2D` | Primary dark green |
-| `--m` | `#2D5A3D` | Secondary green |
-| `--tr` | `#C7613A` | Terracotta accent |
-| `--gd` | `#D4A843` | Gold |
-| `--yp` | `#6B2FA0` | Purple |
-
-Fonts: **DM Serif Display** (headings), **Plus Jakarta Sans** (body). Max container width is `430px` (mobile-first).
-
-## ESLint
-
-Config in `eslint.config.js`. Capitalized unused variables are intentionally ignored (React components). React Hooks rules are enforced.
-
-## Conventions
-
-- Logs in **Spanish**, code and identifiers in **English**.
-- TypeScript strict in `/api/`, `/lib/`, `/scripts/`. Frontend stays JSX.
-- One Vercel Serverless Function per file in `/api/`. Always handle 405 for unsupported methods.
-- Validate all request bodies with `zod` before touching the DB.
-- Use the `/lib/` singletons — never instantiate Prisma/Anthropic/Voyage clients ad-hoc inside endpoints.
-- Cambios de schema: `prisma db push` (no `migrate dev`) + documentar en `docs/migrations/`.
-- Endpoints de escritura del operador: proteger con `requireOperator` y verificar **propiedad** (`tour.operatorId === operator.id`) antes de mutar; el `operatorId`/identidad sale del token, nunca del body.
-- **Tours pausados** (`active:false`): invisibles en catálogo, búsqueda, detalle y booking; visibles solo para su dueño en el dashboard (`GET /api/operators/me/tours`).
-- **Etapa piloto: sin comisión** — el 15% está oculto en la UI (link directo a WhatsApp). Reactivar cuando se cobre.
-- Publicación de tours honesta: sin moderación falsa ni datos mock en el onboarding del operador.
-- **Nunca usar `pkill -f` con patrones amplios** (`vercel dev`, `node`, `vite`): puede matar procesos del usuario en otras terminales. Matar siempre por PID específico.
+| Regla | Cubre |
+|---|---|
+| `docs/rules/api-y-schema.md` | `api/**`, `lib/**`, `prisma/schema.prisma` |
+| `docs/rules/reservas.md` | `api/bookings.ts`, `api/operators/me/[resource].ts`, `lib/inventory.ts`, `lib/traveler-emails.ts` |
+| `docs/rules/frontend.md` | `src/**` |
