@@ -6,12 +6,18 @@ Guía para Claude Code en este repositorio.
 
 Marketplace mobile-first de tours en Perú con búsqueda semántica por IA y soporte de quechua. Conecta viajeros con agencias formales peruanas. Producción: **finde.pe** (Vercel, proyecto `mrcancis-projects/finde`). QA: **dev.finde.pe** (rama `dev`).
 
-**Qué hace hoy el código respecto a la verificación de agencias** (importante, porque el copy promete más):
+### Cómo se verifica una agencia: proceso manual
 
-- El onboarding valida que el RUC tenga **11 dígitos**. Nada más. No hay llamada a SUNAT ni a MINCETUR.
-- `Operator.verified` es un booleano que se setea a mano. Ningún proceso automático lo toca.
-- `Operator.mincetur` es un número que la agencia declara. `gateOperatorMincetur` (`lib/tour-select.ts`) solo lo muestra al público si `verified` es true.
-- `src/Landing.jsx` promete "validamos el RUC en SUNAT y el registro en MINCETUR". Eso es **promesa de producto, no comportamiento implementado**. No lo repitas como hecho técnico ni lo uses para justificar una decisión de código.
+La verificación contra SUNAT y MINCETUR **existe y está vigente, pero la hace José a mano**, no el código. Así funciona hoy:
+
+1. La agencia se da de alta. El onboarding valida que el RUC tenga **11 dígitos**, nada más: no hay llamada a SUNAT ni a MINCETUR.
+2. José valida el RUC contra SUNAT y el registro contra MINCETUR por fuera del sistema.
+3. Si pasa, José marca `Operator.verified = true` en Supabase a mano. Ningún proceso automático toca ese campo.
+4. `Operator.mincetur` es el número que la agencia declara. `gateOperatorMincetur` (`lib/tour-select.ts`) lo muestra al público solo si `verified` es true.
+
+**Esto es el proceso vigente, no una carencia.** Automatizarlo no es prioridad y **no es deuda técnica**: al volumen actual el paso manual alcanza y da mejor criterio que una API. No propongas automatizarlo ni lo listes como pendiente.
+
+Lo que sí importa al escribir: cuando el copy dice "validamos el RUC en SUNAT", eso describe **el proceso**, no una integración. No lo cites como comportamiento del código.
 
 Estado actual del trabajo: leer `docs/estado.md` antes de empezar cualquier tanda.
 
@@ -68,15 +74,19 @@ Detalle completo en **`finde-reglas-negocio-v1_3.md`** (raíz del repo). No lo m
 4. **DETENERSE** y pedir QA en dev.finde.pe, con checklist corto y específico de qué validar (páginas, flujos, casos borde). Nunca genérico.
 5. Mergear a `main` solo con confirmación explícita de José post-QA.
 
-### Advertencia sobre el QA en dev.finde.pe
+### Por qué el QA usa solo `demo@finde.pe`
 
-**dev.finde.pe corre contra la base de datos de PRODUCCIÓN, y `RESEND_API_KEY` está cargada en los tres entornos (Development, Preview y Production).** Las dos cosas juntas significan que:
+**dev.finde.pe corre contra la base de datos de PRODUCCIÓN, y `RESEND_API_KEY` está cargada en los tres entornos (Development, Preview y Production). Las dos cosas son a propósito.**
 
-- Un QA que confirma o rechaza una salida en dev.finde.pe **manda correos reales** a las direcciones reales de los viajeros de esa salida. `sendDepartureDecisionEmails` no distingue entorno.
-- Un QA que crea una reserva sobre el tour de una agencia real **le manda un correo real a esa agencia**.
+Los correos desde dev **son intencionales**: sin ellos no se puede probar el flujo completo de reservas y salidas, que termina justamente en un correo. Un QA que no manda correos no prueba nada. **Apagar Resend en dev rompería las pruebas, así que no se apaga.** No lo trates como defecto ni propongas "arreglarlo" con un flag de entorno.
+
+La contrapartida es que el envío es real y no distingue destinatario:
+
+- Confirmar o rechazar una salida en dev.finde.pe **manda correos reales** a las direcciones reales de los viajeros de esa salida.
+- Crear una reserva sobre el tour de una agencia real **le manda un correo real a esa agencia**.
 - Nada de esto se puede deshacer.
 
-Por eso: **el QA se hace solo con la cuenta demo (`demo@finde.pe`) y sobre tours de cuentas `@finde.pe`.** Nunca sobre tours ni reservas de agencias reales. Los datos que crees, borralos al terminar.
+**Por eso el QA se hace solo con la cuenta demo (`demo@finde.pe`) y sobre tours de cuentas `@finde.pe`.** Esa es la contención: no se apaga el envío, se controla sobre quién cae. Nunca sobre tours ni reservas de agencias reales. Los datos que crees, borralos al terminar.
 
 Local y producción también comparten la misma base de Supabase. Cuidado al sembrar o borrar.
 

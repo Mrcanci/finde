@@ -92,15 +92,19 @@ Lo que hay que saber antes de tocar cualquier cosa que dispare un correo:
 - El texto de rechazo es neutro a propósito: no culpa a la agencia.
 - Si falta `RESEND_API_KEY`, loguea `"[email] RESEND_API_KEY ausente, skip"` y **sigue sin lanzar**: la reserva se crea igual y nadie recibe nada.
 
-### Advertencia de entorno (leer antes de cualquier QA)
+### Entorno: el envío desde dev es intencional
 
-**`RESEND_API_KEY` está cargada en los tres entornos de Vercel (Development, Preview y Production), y dev.finde.pe corre contra la base de PRODUCCIÓN.** El código no distingue entorno. Entonces:
+**`RESEND_API_KEY` está cargada en los tres entornos de Vercel (Development, Preview y Production), y dev.finde.pe corre contra la base de PRODUCCIÓN. Es a propósito.**
+
+El flujo de reservas y salidas termina en un correo, así que sin envío real desde dev no hay forma de probarlo de punta a punta. **Apagar Resend en dev, o meter un guard por `NODE_ENV`, rompería las pruebas.** No lo hagas y no lo propongas como mejora.
+
+La contrapartida es que el código no distingue destinatario:
 
 - Confirmar o rechazar una salida desde dev.finde.pe **manda correos reales a los viajeros reales de esa salida**.
 - Crear una reserva sobre el tour de una agencia real **le manda un correo real a esa agencia**.
 - No hay forma de deshacerlo.
 
-QA solo con `demo@finde.pe` y sobre tours de cuentas `@finde.pe`. Nunca sobre agencias reales.
+La contención no es apagar el envío, es controlar sobre quién cae: **QA solo con `demo@finde.pe` y sobre tours de cuentas `@finde.pe`.** Nunca sobre agencias reales.
 
 ## Identidad
 

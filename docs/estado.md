@@ -25,10 +25,14 @@
 
 ## En curso
 
-Nada arrancado. Dos ítems quedaron anotados sin síntoma ni alcance definido:
+Nada arrancado.
 
-- Refinar el generador de descripciones con IA. **Falta que José defina qué refinar** antes de tocar nada.
-- Un bug de fecha en el demo. **Falta que José describa el síntoma y en qué pantalla.** Sin eso no hay nada que buscar.
+Estos dos ítems vienen del **título de una tanda del 2026-08-13, "Refina generador de IA y fix de fecha en demo"**. La tanda nunca se detalló: no quedó escrito qué había que refinar ni cuál era el bug. Son el título y nada más.
+
+- **Refinar el generador de descripciones con IA.** Se refiere a `POST /api/ai/generate-description` (y probablemente a `generate-quechua`), que están listos en backend pero todavía no enchufados a la UI de `NewTourView`. No se sabe si "refinar" significaba mejorar el prompt, conectarlo a la UI, o las dos cosas.
+- **Fix de fecha en el demo.** No hay síntoma registrado ni pantalla identificada. Hay varios candidatos posibles (el calendario de reserva, `scheduledAt`, las fechas Lima de las salidas), y sin el síntoma no se puede saber cuál era.
+
+**Los dos hay que definirlos o eliminarlos.** Si al leer esto nadie recuerda a qué se referían, borralos: un pendiente que nadie puede accionar solo genera ruido en cada tanda.
 
 ## Bugs abiertos
 
@@ -57,11 +61,11 @@ Local, dev.finde.pe y producción usan **la misma base**. Estos son los números
 - [ ] **Revisar "Descubre el Perú" (`demo@finde.pe`).** Está `verified: true` con RUC `20601234567` y MINCETUR `REG12345`, que son valores de demo, no reales. Es la cuenta de presentaciones, pero sus 5 tours están en el catálogo público con el sello de verificada.
 - [ ] **Borrar los datos de prueba.** Inventario concreto:
   - Tours de `hola@finde.pe` ("Tour Prueba", sin verificar): **dos**, `"prueba"` (2026-07-28) y `"prueba manual"` (2026-08-13). Los dos están activos y visibles en el catálogo público.
-  - Las **37 reservas** son de prueba salvo revisión caso por caso. Cuentas involucradas: `hola@finde.pe`, `test@finde.pe`, `demo@finde.pe`, `megatours@finde.pe` y **`totemhubapp@gmail.com`** (ojo: esta no es `@finde.pe`, el criterio de "cuentas @finde.pe" la deja afuera).
+  - Las **37 reservas** son de prueba salvo revisión caso por caso. Cuentas que las crearon: `hola@finde.pe`, `test@finde.pe`, `demo@finde.pe`, `megatours@finde.pe` y **`totemhubapp@gmail.com`** (ojo: esta no es `@finde.pe`, el criterio de "cuentas @finde.pe" la deja afuera). **La agencia MEGATOURS no se toca** (ver abajo); lo que se borra son las reservas de prueba hechas desde esa cuenta y las que caen sobre sus tours.
   - Las **25 salidas**, incluidas 7 del tour "prueba".
   - Agencias sin tours creadas en pruebas: `test@finde.pe` (jose luis cancino cuellar), `op-test@finde.pe` (Tours Test), `totemhubapp@gmail.com` (Totem Travels).
   - Borrar reservas antes que tours: el FK `Booking.tourId` es `onDelete: Restrict` y el DELETE responde 409 si el tour tiene reservas.
-- [ ] **Decidir qué pasa con MEGATOURS** (`megatours@finde.pe`, 5 tours de Cajamarca, verificada, con RUC y MINCETUR cargados). Está sirviéndose hoy en finde.pe. Hay que confirmar si es agencia piloto real o dato de prueba.
+- [ ] **Coordinar la operación con MEGATOURS antes de que entre una reserva real.** `megatours@finde.pe` es **agencia piloto confirmada, no dato de prueba**: no se borra. Sus 5 tours de Cajamarca (City Tour, Cumbe Mayo, Granja Porcón, Otuzco, Namora) están **públicos hoy en finde.pe**, pero la coordinación operativa con la agencia todavía está pendiente. O sea: si un viajero reserva hoy, le llega un correo a alguien que no lo está esperando y no sabe qué hacer con eso. Hay que cerrar la coordinación, o pausar los tours mientras tanto.
 - [ ] **Sacar el mock `USER`** de `src/AppDemo.jsx:921` ("Alejandra Quispe"). Ya no se usa para el saludo, pero sigue siendo el fallback del nombre del cliente (`:2908`, `:6194`) y el autor de las reseñas de sesión (`:5812`). Si alguna vez cae en ese fallback, el usuario ve un nombre inventado.
 
 ## Próximo

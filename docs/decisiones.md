@@ -21,7 +21,7 @@
 
 **Corrección respecto de la versión anterior de esta entrada:** decía que la política de cancelación estaba oculta en la UI. **Es falso.** `getCancelPolicy(tour.cancellation)` se renderiza en cinco puntos de `src/AppDemo.jsx` (`:2795`, `:3045`, `:3406`, `:3457`, `:3497`), incluido el flujo de reserva. La exigencia INDECOPI de mostrarla antes de pagar ya está cumplida y no depende de Culqi.
 
-**Pendiente de la decisión:** confirmar si la comisión visible es 15% o 20%.
+**Pendiente de la decisión:** el porcentaje de comisión (15% o 20%) **queda sin definir hasta la integración de Culqi**. No hace falta resolverlo antes: mientras no haya cobro, la UI no muestra ningún porcentaje. Se define al integrar.
 
 ---
 
@@ -37,7 +37,9 @@
 
 **Consecuencia (verificada contra el código el 2026-08-13):** **no hay nada que unificar en el producto.** La UI no muestra ninguna comisión: no existen `15%`, `20%`, `0.15` ni `0.20` en `src/`, `api/` ni `lib/`. La etapa piloto va sin comisión, con link directo a WhatsApp. El único lugar que afirmaba 15% era el `CLAUDE.md` viejo, ya reescrito.
 
-La decisión queda como número de referencia para cuando se active el cobro con Culqi. En ese momento hay que definir el porcentaje final y recién ahí aparece en la UI. La entrada anterior decía "el CLAUDE.md y la UI todavía mencionan 15%, hay que unificar"; eso ya no describe el estado del repo.
+**El número final queda pendiente hasta la integración de Culqi.** El 20% es la referencia que salió del modelo financiero, pero no está cerrado y no hay que cerrarlo ahora: mientras no haya cobro, la UI no muestra ningún porcentaje y nada depende de esto. Se define al integrar la pasarela, y recién ahí aparece en el producto.
+
+La entrada anterior decía "el CLAUDE.md y la UI todavía mencionan 15%, hay que unificar"; eso ya no describe el estado del repo.
 
 ---
 
