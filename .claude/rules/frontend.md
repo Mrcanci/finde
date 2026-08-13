@@ -67,10 +67,16 @@ Además: un 200 con `operator: null` **no** degrada un operador ya resuelto. El 
 
 Otras del mismo bloque: `--sg`, `--sd`, `--cr`, `--wh`, `--trl`, `--ch`, `--gy`, `--gy-soft`, `--lg`, `--pl`, `--ai`, `--focus`.
 
-`src/index.css` tiene un `:root` **distinto** (`--text`, `--bg`, `--border`, `--accent`, `--shadow`, `--sans`, `--heading`, `--mono`) con bloque de dark mode. Son dos sistemas separados: no mezclarlos ni asumir que una variable de uno existe en el otro.
+`src/index.css` tiene un juego de variables **distinto** (`--text`, `--text-h`, `--bg`, `--border`, `--accent`, `--shadow`, `--sans`, `--heading`, `--mono`) con bloque de dark mode. Son dos sistemas separados: no mezclarlos ni asumir que una variable de uno existe en el otro.
+
+**Ojo con dónde vive ese juego: no es `:root`, es `.app-demo`.** La distinción importa y ya costó dos bugs. Si fuera `:root` sería un default global que cualquier regla del demo pisa sin esfuerzo. Pero `.app-demo` es una clase que **el root del demo lleva puesta** (`<div className="app app-demo">`, `AppDemo.jsx:6257`), así que ese bloque no es un fallback: **gobierna el demo de igual a igual con `.app`**, y le gana en todo lo que `.app` no declara (ancho, centrado, tamaño de texto del root, interlineado base, espaciado entre letras, `font-synthesis`) y empata en lo que sí (`font-family`, `color`, `background`), resolviéndose por orden de documento.
+
+De ahí salieron los dos títulos que desaparecían en modo oscuro (`c171347` y `e818d8e`): heredaban `--text-h` de `.app-demo` porque no le ganaban la cascada a `.app-demo h2`. La pregunta correcta frente a esta herencia nunca es "¿declara la propiedad?" sino "¿le gana a `.app-demo`?". Ver `docs/plans/2026-08-13-plan-tipografia.md`, Fase 4.
 
 - Tipografías: **DM Serif Display** (títulos), **Plus Jakarta Sans** (cuerpo).
-- Ancho máximo del contenedor: **430px** (mobile-first).
+- Ancho del contenedor: **1126px** en desktop, con `max-width:100%` por debajo. El contenido interno usa `max-width` por sección (1280, 1080, 680, 640, 520px). No hay ningún 430px en el código: ese valor estaba mal documentado acá.
+
+  **Ojo: ese ancho no lo declara el CSS del demo.** Sale del bloque `.app-demo` de `src/index.css` (plantilla de Vite renombrada), igual que el centrado, el tamaño de texto del root y el interlineado base. `.app` no declara ancho propio, así que gana `index.css` por defecto, no por empate de cascada. **Este valor va a cambiar cuando la Fase 4 de `docs/plans/2026-08-13-plan-tipografia.md` elimine ese bloque:** ahí hay que decidir a propósito qué ancho se replica en `.app`.
 - Sin em-dashes en ningún copy, tampoco en el texto que genera la IA dentro del producto.
 
 ## Datos: qué es real y qué no
