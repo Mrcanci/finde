@@ -27,6 +27,8 @@
 
 Nada arrancado.
 
+- **Auditoría tipográfica del demo, completada el 2026-08-13** (`docs/audits/2026-08-13-typography-audit.md`). Investigación read-only: **21 hallazgos (8 alta, 10 media, 3 baja), ninguno aplicado.** El hallazgo principal es un bloque muerto de la plantilla de Vite en `src/index.css:6-45` que hoy controla el `font-size` del root, el interlineado base, el `letter-spacing` global y el color de los `h2` del demo (el color viene del mismo bloque `.app-demo`, unas líneas más abajo). Aplicar cualquier cosa toca `src/index.css` y `src/AppDemo.jsx`, y el documento lista 10 riesgos de regresión: leerlos antes de arrancar.
+
 Estos dos ítems vienen del **título de una tanda del 2026-08-13, "Refina generador de IA y fix de fecha en demo"**. La tanda nunca se detalló: no quedó escrito qué había que refinar ni cuál era el bug. Son el título y nada más.
 
 - **Refinar el generador de descripciones con IA.** Se refiere a `POST /api/ai/generate-description` (y probablemente a `generate-quechua`), que están listos en backend pero todavía no enchufados a la UI de `NewTourView`. No se sabe si "refinar" significaba mejorar el prompt, conectarlo a la UI, o las dos cosas.
