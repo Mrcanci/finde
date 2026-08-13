@@ -1,18 +1,26 @@
 ---
 paths:
-  - 'api/bookings.ts'
-  - 'api/operators/me/[resource].ts'
-  - 'lib/inventory.ts'
-  - 'lib/traveler-emails.ts'
+  - '**/bookings.ts'
+  - 'api/operators/**'
+  - '**/inventory.ts'
+  - '**/traveler-emails.ts'
 ---
 
 # Reservas e inventario
 
-> Los `paths` de arriba son los cuatro archivos que existen de verdad. La versión
-> anterior de esta regla apuntaba a `api/bookings/**` (no existe ese directorio) y a
-> `api/operators/me/departures*` (no existe ese archivo: `departures` es un valor de
-> `req.query.resource` dentro de `api/operators/me/[resource].ts`). Con esos patrones
-> la regla no se cargaba justo al tocar el panel de salidas.
+> **Historia de estos `paths`, para que no se vuelvan a romper.** Cubren los mismos
+> cuatro archivos de siempre (`api/bookings.ts`, `api/operators/me/[resource].ts`,
+> `lib/inventory.ts`, `lib/traveler-emails.ts`), pero escritos como globs.
+>
+> Dos versiones anteriores fallaron. La primera apuntaba a `api/bookings/**` (no
+> existe ese directorio) y a `api/operators/me/departures*` (no existe ese archivo:
+> `departures` es un valor de `req.query.resource`). La segunda usaba rutas literales
+> más `api/operators/me/[resource].ts`, y **los corchetes son el error**: en glob,
+> `[resource]` es una expresión de corchetes que matchea **un solo carácter** del
+> conjunto `{r,e,s,o,u,c}`, así que nunca matchea el archivo real.
+>
+> Regla práctica: **usá siempre comodines y nunca corchetes sin escapar.** Detalle en
+> la sección "Reglas con alcance" del `CLAUDE.md`.
 
 ## Concurrencia (crítico)
 

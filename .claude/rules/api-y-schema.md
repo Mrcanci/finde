@@ -2,8 +2,8 @@
 paths:
   - 'api/**'
   - 'lib/**'
-  - 'prisma/schema.prisma'
-  - 'vercel.json'
+  - 'prisma/*.prisma'
+  - '**/vercel.json'
 ---
 
 # API y schema

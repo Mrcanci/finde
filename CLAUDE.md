@@ -165,12 +165,30 @@ Trampa conocida: `DATABASE_URL`, `DIRECT_URL`, `ANTHROPIC_API_KEY` y `VOYAGE_API
 
 Viven en `.claude/rules/`. Claude Code descubre esa carpeta de forma recursiva y **carga cada regla sola** cuando se toca un archivo que matchea los `paths` de su frontmatter. No hay que abrirlas a mano.
 
-| Regla | Se carga al tocar |
+| Regla | Patrones |
 |---|---|
-| `.claude/rules/api-y-schema.md` | `api/**`, `lib/**`, `prisma/schema.prisma`, `vercel.json` |
-| `.claude/rules/reservas.md` | `api/bookings.ts`, `api/operators/me/[resource].ts`, `lib/inventory.ts`, `lib/traveler-emails.ts` |
+| `.claude/rules/api-y-schema.md` | `api/**`, `lib/**`, `prisma/*.prisma`, `**/vercel.json` |
+| `.claude/rules/reservas.md` | `**/bookings.ts`, `api/operators/**`, `**/inventory.ts`, `**/traveler-emails.ts` |
 | `.claude/rules/frontend.md` | `src/**` |
 
 **`.claude/rules/` se commitea.** `.gitignore` ignora `.claude/*` (la config local, como `settings.local.json`) pero tiene una negación explícita `!.claude/rules/` para que las reglas viajen con el repo y las herede todo el equipo. Si alguna vez volvés a ignorar `.claude/` entero, las reglas dejan de existir para los demás.
 
-Al agregar una regla: crear el `.md` en `.claude/rules/` con el frontmatter `paths`, y sumar la fila a esta tabla. **Verificá que los `paths` matcheen archivos que existen de verdad**; un patrón que no matchea nada falla en silencio y la regla nunca se carga.
+#### Sintaxis de `paths`: qué funciona y qué no
+
+Aprendido a los golpes, dos veces. Los `paths` usan **glob**, y un patrón mal escrito **falla en silencio**: la regla simplemente nunca se carga y nadie se entera.
+
+| Escribí así | No escribas así | Por qué |
+|---|---|---|
+| `api/**`, `lib/**`, `src/**` | | Comodines. Es la forma probada, funciona. |
+| `**/inventory.ts` | `lib/inventory.ts` | Usá siempre comodín. Las rutas literales sin comodín no son la forma documentada. |
+| `prisma/*.prisma` | `prisma/schema.prisma` | Igual que arriba. |
+| `api/operators/**` | `api/operators/me/[resource].ts` | **Los corchetes son el error clásico.** En glob, `[resource]` es una expresión de corchetes: matchea **un solo carácter** del conjunto `{r,e,s,o,u,c}`, nunca el nombre literal. Nuestro endpoint consolidado tiene corchetes en el nombre, así que hay que cubrirlo por directorio. Si de verdad necesitás el literal, escapalo: `api/operators/me/\[resource\].ts`. |
+
+**El disparador es la herramienta Read, nunca bash.** Las reglas con `paths` se cargan cuando Claude **lee un archivo** que matchea. Un `cat`, `sed`, `grep`, `head` o cualquier comando de shell **no dispara nada**: el archivo se lee igual, pero la regla no entra en contexto. Si vas a trabajar sobre un archivo cubierto por una regla, abrilo con Read, no con shell.
+
+Dos consecuencias más:
+
+- Después de un `/compact`, las reglas con `paths` **no se re-inyectan solas**. Vuelven a cargar recién la próxima vez que se lea un archivo que matchee.
+- **Editar el frontmatter de una regla no surte efecto en la sesión en curso.** Si cambiás los `paths`, verificalo en una sesión nueva: con `/context` (mirá **Memory files**) o leyendo con Read un archivo que deba matchear.
+
+Al agregar una regla: crear el `.md` en `.claude/rules/`, usar patrones con comodín, sumar la fila a esta tabla, y **verificar en una sesión nueva que efectivamente carga**. No des por hecho que un patrón anda solo porque parece correcto.
