@@ -52,7 +52,13 @@ export function AuthProvider({ children }) {
           data = await attempt();
         }
         if (seq !== opSeq.current) return;
-        setOperator(data.operator ?? null);
+        // Un 200 con operator null NO degrada un operador ya resuelto: solo
+        // escribe null si no había ninguno. El catch de abajo ya cubría el
+        // fallo duro, pero esta rama (éxito con payload vacío) lo esquivaba y
+        // podía vaciar el panel de una agencia real.
+        // El reset legítimo (logout, cambio de usuario) NO pasa por acá: lo
+        // hace resolveOperatorFor con setOperator(null) antes de refetchear.
+        setOperator((prev) => data.operator ?? prev ?? null);
       } catch {
         // Falla definitiva: conservar el último operador bueno (o null).
       } finally {

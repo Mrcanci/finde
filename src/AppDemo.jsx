@@ -1347,6 +1347,16 @@ html{scrollbar-gutter:stable}
 .pf-ver{text-align:center;padding:16px;font-size:11px;color:var(--lg)}
 .pf-op-card{margin:0 20px 20px;padding:18px 20px;background:var(--f);border-radius:14px;color:white;display:flex;align-items:center;justify-content:space-between;cursor:pointer;transition:.2s;min-height:80px}
 .pf-op-card:hover{opacity:.9}
+/* Placeholder mientras /api/me resuelve si el usuario es agencia: mismo alto
+   que la card real, en gris neutro para no afirmar ni negar nada. */
+.pf-op-skel{background:var(--cr);cursor:default}
+.pf-op-skel:hover{opacity:1}
+.pf-skel-b{background:rgba(0,0,0,.07)}
+.pf-skel-l{height:13px;border-radius:6px;background:rgba(0,0,0,.07)}
+@media (prefers-reduced-motion:no-preference){
+  .pf-op-skel .pf-skel-b,.pf-op-skel .pf-skel-l{animation:pfskel 1.2s ease-in-out infinite}
+}
+@keyframes pfskel{0%,100%{opacity:1}50%{opacity:.55}}
 .pf-op-left{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
 .pf-op-left>div:last-child{min-width:0;flex:1}
 .pf-op-ic{width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white}
@@ -1732,7 +1742,7 @@ function NotifBell({ notifs, unread, onSelect, onMarkAll }) {
   );
 }
 
-function TopNav({ onHome, onDash, notifs, unread, onNotifSelect, onMarkAll, view, isOperator, navActive, onNavClick }) {
+function TopNav({ onHome, onDash, notifs, unread, onNotifSelect, onMarkAll, view, isOperator, operatorResolved, navActive, onNavClick }) {
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     const h = () => setScrolled(window.scrollY > 40);
@@ -1750,7 +1760,7 @@ function TopNav({ onHome, onDash, notifs, unread, onNotifSelect, onMarkAll, view
           ))}
         </div>
         <div className="tn-r">
-          <button className={`tn-btn ${view === "dashboard" ? "on" : ""}`} onClick={onDash} aria-label={view === "dashboard" || view === "new-tour" ? "Inicio" : "Dashboard"} type="button" style={{ visibility: isOperator ? 'visible' : 'hidden' }}>{view === "dashboard" || view === "new-tour" ? <Home size={18} strokeWidth={1.5} /> : <BarChart3 size={18} strokeWidth={1.5} />}</button>
+          <button className={`tn-btn ${view === "dashboard" ? "on" : ""}`} onClick={onDash} aria-label={view === "dashboard" || view === "new-tour" ? "Inicio" : "Dashboard"} type="button" style={{ visibility: operatorResolved && isOperator ? 'visible' : 'hidden' }}>{view === "dashboard" || view === "new-tour" ? <Home size={18} strokeWidth={1.5} /> : <BarChart3 size={18} strokeWidth={1.5} />}</button>
           <NotifBell notifs={notifs} unread={unread} onSelect={onNotifSelect} onMarkAll={onMarkAll} />
           <button className="tn-btn tn-profile" onClick={() => onNavClick("profile")} aria-label="Perfil" type="button"><User size={18} strokeWidth={1.5} /></button>
         </div>
@@ -3433,7 +3443,11 @@ function TripDetailView({ trip, go, onReview }) {
 }
 
 function ProfileView({ go, onLogout }) {
-  const { user, isOperator, refreshOperator } = useAuth();
+  // operatorResolved, NO solo isOperator: mientras /api/me está en vuelo
+  // isOperator es false y el ternario de abajo caía en "¿Ofreces tours?",
+  // invitando a registrarse a quien YA es agencia. Un estado falso que parece
+  // legítimo es peor que esperar, y por eso la agencia recargaba.
+  const { user, isOperator, operatorResolved, refreshOperator } = useAuth();
   // Opción 1 (mínimo honesto): solo datos reales. El email es el identificador
   // principal; joinLabel sale de created_at si existe; no se finge nombre.
   const joinLabel = user?.created_at
@@ -3512,7 +3526,19 @@ function ProfileView({ go, onLogout }) {
         <div className="pf-av">{avatarInitials}</div><div className="pf-name">{user?.email || "—"}</div>
         {joinLabel && <div className="pf-since">Miembro desde {joinLabel}</div>}
       </div>
-      {!isOperator && !showOpForm ? (
+      {!operatorResolved ? (
+        // Placeholder neutro del MISMO alto que la card real: sin él, resolver
+        // el operador empuja el resto del perfil hacia abajo.
+        <div className="pf-op-card pf-op-skel" aria-busy="true" aria-label="Cargando tu perfil de agencia">
+          <div className="pf-op-left">
+            <div className="pf-op-ic pf-skel-b" />
+            <div>
+              <div className="pf-skel-l" style={{ width: 120 }} />
+              <div className="pf-skel-l" style={{ width: 168, height: 10, marginTop: 6 }} />
+            </div>
+          </div>
+        </div>
+      ) : !isOperator && !showOpForm ? (
         <div className="pf-op-card" onClick={() => setShowOpForm(true)}>
           <div className="pf-op-left">
             <div className="pf-op-ic">
@@ -5325,7 +5351,13 @@ export default function AppDemo() {
   // "Ver pasadas" son client-side. Guard de secuencia (patrón opToursSeq);
   // silent = reconciliación en background sin loading visible.
   const depsSeq = useRef(0);
+  // Un refetch silencioso en vuelo bloquea a otro silencioso: los disparos de
+  // background (entrar al panel, volver el foco) pueden coincidir y cada
+  // request cuesta ~870ms. Los NO silenciosos (carga inicial, reintento
+  // manual) siempre pasan: son intencionales del usuario.
+  const depsSilentInFlight = useRef(false);
   const loadDepartures = useCallback(async (opts = {}) => {
+    if (opts.silent && depsSilentInFlight.current) return;
     const seq = ++depsSeq.current;
     if (!isOperator) {
       setOpDepartures([]);
@@ -5335,6 +5367,8 @@ export default function AppDemo() {
     if (!opts.silent) {
       setDepsLoading(true);
       setDepsError("");
+    } else {
+      depsSilentInFlight.current = true;
     }
     try {
       const r = await authFetch("/api/operators/me/departures?scope=all");
@@ -5349,7 +5383,12 @@ export default function AppDemo() {
         setDepsError("No pudimos cargar tus salidas. Revisa tu conexión.");
       }
     } finally {
-      if (seq === depsSeq.current && !opts.silent) setDepsLoading(false);
+      if (opts.silent) depsSilentInFlight.current = false;
+      // El run MÁS RECIENTE (silencioso o no) apaga el loading. Si solo lo
+      // apagara el no-silencioso, un refetch silencioso que le robó el seq a
+      // una carga visible lenta dejaría el spinner eterno sobre datos ya
+      // frescos (lo cazó el QA de esta tanda con el server frío).
+      if (seq === depsSeq.current) setDepsLoading(false);
     }
   }, [isOperator]);
 
@@ -5360,6 +5399,33 @@ export default function AppDemo() {
     const run = async () => { await loadDepartures(); };
     run();
   }, [loading, operatorResolved, loadDepartures]);
+
+  // Refetch al ENTRAR al panel. Sin esto las salidas solo se cargaban al montar
+  // la app: una solicitud nueva no aparecía hasta recargar la página, porque
+  // DashView se monta y desmuta pero los datos viven acá y llegan por props.
+  // Silencioso: reconcilia bajo datos ya en pantalla, sin spinner ni parpadeo.
+  // Dispara al TRANSICIONAR a "dashboard" (el guard de view), no en cada
+  // render; el resto de las deps ya está estable cuando el operador resolvió.
+  useEffect(() => {
+    if (view !== "dashboard") return;
+    if (loading || !operatorResolved || !isOperator) return;
+    // Wrapper async (patrón del efecto de opTours): sin setState sincrónico
+    // en el cuerpo del efecto.
+    const run = async () => { await loadDepartures({ silent: true }); };
+    run();
+  }, [view, loading, operatorResolved, isOperator, loadDepartures]);
+
+  // Refetch al volver el foco a la pestaña, para la agencia que deja el panel
+  // abierto: sin esto nunca ve una solicitud nueva. Solo si está parada en el
+  // panel; en otras vistas las salidas no se muestran y el request sobraría.
+  useEffect(() => {
+    if (view !== "dashboard" || !isOperator) return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") loadDepartures({ silent: true });
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [view, isOperator, loadDepartures]);
 
   // Confirmar/rechazar una salida en lote. Al éxito la card se actualiza SIN
   // recargar: contadores/estado del response + transición local de las
@@ -5965,7 +6031,7 @@ export default function AppDemo() {
     <>
       <style>{CSS}</style>
       <div className="app app-demo" ref={ref}>
-        {showHeader && <TopNav onHome={() => go("home")} onDash={() => go(view === "dashboard" ? "home" : "dashboard")} notifs={notifs} unread={unread} onNotifSelect={handleNotifSelect} onMarkAll={() => markNotifsSeen(notifs.map((n) => n.id))} view={view} isOperator={isOperator} navActive={nav} onNavClick={navGo} />}
+        {showHeader && <TopNav onHome={() => go("home")} onDash={() => go(view === "dashboard" ? "home" : "dashboard")} notifs={notifs} unread={unread} onNotifSelect={handleNotifSelect} onMarkAll={() => markNotifsSeen(notifs.map((n) => n.id))} view={view} isOperator={isOperator} operatorResolved={operatorResolved} navActive={nav} onNavClick={navGo} />}
         {effectiveView === "login" && <LoginView go={go} loginMsg={loginMsg} onGuest={handleGuest} />}
         {effectiveView === "welcome" && <WelcomeView go={go} />}
         {effectiveView === "home" && <HomeView go={go} pick={setTour} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} selectedCity={selectedCity} setSelectedCity={pickCity} geoSource={geoSource} />}
