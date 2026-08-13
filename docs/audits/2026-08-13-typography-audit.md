@@ -618,6 +618,20 @@ En modo claro eso da `#08060d` (casi negro, apenas distinto de `--ch`, impercept
 
 Es un bug de accesibilidad real, presente en producción, para cualquier usuario con el sistema en modo oscuro. Los otros dos `h2` se salvan solo porque alguien les puso `color` por otro motivo.
 
+> **Nota al pie agregada el 2026-08-13, después de aplicar el arreglo. La tabla de arriba tiene un error y se deja tal cual para que quede el registro.**
+>
+> **`.tdet-h` ("Tu reserva") NO estaba protegido.** La auditoría lo dio por salvado porque declara `color: var(--ch)`, y **declarar color no alcanza: hay que ganar la cascada.**
+>
+> - `.app-demo h2` es clase + elemento → **(0,1,1)**.
+> - `.npage-h h2` y `.tp-h h2` también son clase + elemento → **(0,1,1)**. Empatan, y ganan por orden de documento, porque el `<style>` de React se inyecta en el `<body>`, después del `<link>` del `<head>`.
+> - **`.tdet-h` es una clase sobre el propio `h2` → (0,1,0). Pierde.** Su `color` nunca se aplicó, ni siquiera en modo claro: medido en vivo daba `#08060d` (el `--text-h` claro) en vez de `#2C2C2A`. En claro la diferencia es imperceptible, los dos son casi negros, y por eso nadie lo notó nunca. En modo oscuro pasaba exactamente lo mismo que en Notificaciones: `#f3f4f6` sobre fondo `#FAFAF7`, **1.05:1**, título invisible.
+>
+> O sea que los `h2` afectados eran **dos**, no uno, y el segundo es la pantalla de detalle de una reserva ya hecha.
+>
+> **El error de análisis a no repetir:** la pregunta correcta no es "¿declara `color`?" sino "¿le gana a `.app-demo h2`?". Cualquier revisión futura de esta herencia tiene que comparar especificidad, no presencia de la propiedad.
+>
+> **Universo verificado y cerrado:** el demo tiene exactamente **tres `h2` y un `h1`**, sin HTML inyectado ni `h2` generados dinámicamente. `.npage-h h2` y `.tdet-h` se arreglaron (commits `c171347` y el siguiente); `.tp-h h2` gana hoy, pero por orden de documento, no por especificidad, así que sigue expuesto al riesgo #8 de esta misma auditoría. El `h1` `.det-tl-desktop` hereda `--text-h` igual que los demás, pero es `display:none` en sus dos declaraciones (`AppDemo.jsx:1227` y `:1718`), así que hoy no se ve: **si alguien lo muestra alguna vez, arrastra el mismo bug.**
+
 Además, los tres `h2` reciben `font-weight: 500` y `margin: 0 0 8px` de `index.css` — pesos y márgenes que el sistema de `AppDemo` nunca declaró.
 
 ### 10b · Selectores donde subir font-size puede romper layout

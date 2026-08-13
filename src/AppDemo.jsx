@@ -1334,7 +1334,12 @@ html{scrollbar-gutter:stable}
 /* Trip detail page */
 .tdet-page{padding:16px 16px 100px}
 .tdet-back{margin-bottom:8px}
-.tdet-h{font-family:'DM Serif Display',Georgia,serif;font-size:24px;color:var(--ch);margin-bottom:14px}
+/* Va calificado con .tdet-page a proposito: declarar color no alcanza. Este h2
+   compite con .app-demo h2 de index.css (clase + elemento), y .tdet-h sola es
+   solo una clase, asi que perdia y heredaba --text-h. En modo oscuro eso lo
+   volvia casi blanco sobre el fondo claro del demo. No le bajes la especificidad
+   hasta que se limpie ese bloque de index.css. */
+.tdet-page .tdet-h{font-family:'DM Serif Display',Georgia,serif;font-size:24px;color:var(--ch);margin-bottom:14px}
 .tdet-actions{display:flex;flex-direction:column;gap:8px;margin-top:4px}
 .tdet-act-prim{padding:13px 16px;border-radius:14px;background:var(--ch);color:white;font-weight:700;font-size:14px;border:none;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;transition:.2s}
 .tdet-act-prim:hover{background:#000}
