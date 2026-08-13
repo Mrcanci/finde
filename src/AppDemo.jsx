@@ -1357,7 +1357,11 @@ html{scrollbar-gutter:stable}
 /* ── Notifs ── */
 .npage{padding:20px 0 100px}
 .npage-h{display:flex;justify-content:space-between;align-items:center;padding:0 20px 16px}
-.npage-h h2{font-family:'DM Serif Display',Georgia,serif;font-size:24px}
+/* El color es obligatorio, no decorativo: sin el, este h2 hereda --text-h del
+   bloque .app-demo de index.css (plantilla de Vite) y en modo oscuro del sistema
+   queda casi blanco sobre el fondo claro del demo. Los otros h2 se salvan porque
+   ya declaraban color. No lo saques hasta que ese bloque de index.css se limpie. */
+.npage-h h2{font-family:'DM Serif Display',Georgia,serif;font-size:24px;color:var(--ch)}
 .npage-h button{font-size:12px;font-weight:600;color:var(--tr);background:none;border:none;cursor:pointer;font-family:inherit}
 .ni-item{display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-bottom:1px solid rgba(0,0,0,.04);cursor:pointer;transition:.15s;position:relative}
 .ni-item:hover{background:var(--cr)}
