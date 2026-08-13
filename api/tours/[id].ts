@@ -76,6 +76,28 @@ export default async function handler(
 
   const { id } = parsed.data;
 
+  // Rango opcional ?from=&to= (YYYY-MM-DD, máx 62 días): disponibilidad de
+  // cupos para el calendario del viajero. Ambos o ninguno.
+  const fq = req.query.from;
+  const tq = req.query.to;
+  const from = Array.isArray(fq) ? fq[0] : fq;
+  const to = Array.isArray(tq) ? tq[0] : tq;
+  let range: { from: string; to: string } | null = null;
+  if (from || to) {
+    const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+    if (!from || !to || !DATE_RE.test(from) || !DATE_RE.test(to) || to < from) {
+      res.status(400).json({ error: "Rango de fechas inválido (from y to en formato YYYY-MM-DD)" });
+      return;
+    }
+    const days =
+      (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000;
+    if (days > 62) {
+      res.status(400).json({ error: "El rango máximo es de 62 días" });
+      return;
+    }
+    range = { from, to };
+  }
+
   try {
     const tour = await db.tour.findUnique({
       where: { id },
@@ -89,13 +111,52 @@ export default async function handler(
       return;
     }
 
+    const availability = range
+      ? await computeAvailability(id, range.from, range.to)
+      : null;
+
     // Gateo: el mincetur de un operador no verificado nunca sale en el payload.
     gateOperatorMincetur(tour);
-    res.status(200).json({ tour });
+    res.status(200).json(availability ? { tour, availability } : { tour });
   } catch (error) {
     console.error(`Error en GET /api/tours/${id}:`, error);
     res.status(500).json({ error: "Error interno" });
   }
+}
+
+// Disponibilidad pública de un rango: fechas SIN cupo (full) y fechas con 1-3
+// restantes (low). El allotment se consulta ACÁ server-side y JAMÁS viaja en
+// el payload: la respuesta solo revela números cuando son 0-3, que es la
+// información de escasez permitida ("Sin cupos" / "Últimos N cupos"). base =
+// restante por defecto para fechas sin salida materializada, solo cuando el
+// cupo total del tour ya es <= 3 (si no, null y el total es indeducible).
+// Solo aplica a CUPO_FIJO con cupo configurado; en SOLICITUD devuelve null y
+// el campo no viaja.
+async function computeAvailability(
+  tourId: string,
+  from: string,
+  to: string
+): Promise<{ from: string; to: string; full: string[]; low: Record<string, number>; base: number | null } | null> {
+  const config = await db.tour.findUnique({
+    where: { id: tourId },
+    select: { salesMode: true, allotment: true },
+  });
+  if (!config || config.salesMode !== "CUPO_FIJO" || config.allotment == null) {
+    return null;
+  }
+  const departures = await db.departure.findMany({
+    where: { tourId, date: { gte: from, lte: to } },
+    select: { date: true, status: true, seatsTaken: true, allotmentOverride: true },
+  });
+  const full: string[] = [];
+  const low: Record<string, number> = {};
+  for (const dep of departures) {
+    const cupo = dep.allotmentOverride ?? config.allotment;
+    const left = dep.status === "CANCELADA" ? 0 : Math.max(cupo - dep.seatsTaken, 0);
+    if (left <= 0) full.push(dep.date);
+    else if (left <= 3) low[dep.date] = left;
+  }
+  return { from, to, full, low, base: config.allotment <= 3 ? config.allotment : null };
 }
 
 // ── PUT /api/tours/:id — editar un tour propio del operador autenticado ──

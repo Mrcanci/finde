@@ -175,6 +175,16 @@ const BK_STATE_UI = {
   CANCELADA: { label: "Cancelada", color: "var(--gy)" },
 };
 const BK_LEGACY_STATE = { pending_payment: "SOLICITUD", pending: "SOLICITUD", confirmed: "CONFIRMADA", cancelled: "CANCELADA" };
+// Estados para el VIAJERO (Mis reservas): textos propios, distintos del panel.
+// RECHAZADA y VENCIDA se unifican en "No confirmada": al viajero no le sirve
+// la interna de la agencia y "rechazada" suena a que hizo algo mal.
+const TRIP_STATE_UI = {
+  SOLICITUD: { label: "Solicitud enviada", bg: "rgba(199,97,58,.12)", color: "var(--tr)" },
+  CONFIRMADA: { label: "Confirmada", bg: "rgba(45,90,61,.1)", color: "var(--m)" },
+  RECHAZADA: { label: "No confirmada", bg: "rgba(0,0,0,.06)", color: "var(--gy)" },
+  VENCIDA: { label: "No confirmada", bg: "rgba(0,0,0,.06)", color: "var(--gy)" },
+  CANCELADA: { label: "Cancelada", bg: "rgba(0,0,0,.06)", color: "var(--gy)" },
+};
 function bookingStateUI(b) {
   const key = b?.bookingState || BK_LEGACY_STATE[b?.status] || "SOLICITUD";
   return BK_STATE_UI[key] || BK_STATE_UI.SOLICITUD;
@@ -241,7 +251,7 @@ function ensureAvailabilityFields(t) {
 }
 
 // Calendario reusable. mode="edit" (wizard) o mode="select" (booking).
-function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excludedDates = [], addedDates = [], onToggleException, minDate, minDateNote }) {
+function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excludedDates = [], addedDates = [], onToggleException, minDate, minDateNote, fullDates, onMonthChange }) {
   const todayStr = todayISO();
   const [todayY, todayM] = todayStr.split("-").map(Number);
   const [view, setView] = useState({ y: todayY, m: todayM });
@@ -257,6 +267,12 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
     if (!canNext) return;
     setView(v => v.m === 12 ? { y: v.y + 1, m: 1 } : { y: v.y, m: v.m + 1 });
   };
+  // Avisa el mes visible (montaje + navegación): el flujo de reserva carga la
+  // disponibilidad de cupos del mes con UN request (fechas llenas/cupos bajos).
+  // El caller debe pasar un callback estable (useCallback) para no re-disparar.
+  useEffect(() => {
+    if (onMonthChange) onMonthChange(view.y, view.m);
+  }, [onMonthChange, view.y, view.m]);
   const firstDayUtc = new Date(Date.UTC(view.y, view.m - 1, 1));
   const lastDayUtc = new Date(Date.UTC(view.y, view.m, 0));
   const numDays = lastDayUtc.getUTCDate();
@@ -316,7 +332,10 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
           let cursor = "pointer", opacity = 1, isClickable = true;
           let border = "1.5px solid transparent";
           if (mode === "select") {
-            const available = !belowMin && (state === "added" || state === "pattern");
+            // Fecha sin cupo (CUPO_FIJO): mismo tratamiento visual que un día
+            // no operativo, con su propio tooltip "Sin cupos".
+            const isFull = !!(fullDates && fullDates.has(iso));
+            const available = !belowMin && !isFull && (state === "added" || state === "pattern");
             if (isSelected) { bg = "var(--f)"; color = "white"; border = "1.5px solid var(--f)"; }
             else if (available) { bg = "var(--cr)"; color = "var(--f)"; }
             else { color = "var(--lg)"; opacity = 0.5; cursor = "not-allowed"; isClickable = false; }
@@ -328,7 +347,9 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
             else { color = "var(--gy)"; }
           }
           const titleAttr = (mode === "select" && !isClickable && !isPast)
-            ? (belowMin
+            ? (fullDates && fullDates.has(iso) && !belowMin && (state === "added" || state === "pattern")
+                ? "Sin cupos"
+                : belowMin
                 ? (minDateNote || `Requiere al menos ${MIN_BOOKING_LEAD_DAYS} día${MIN_BOOKING_LEAD_DAYS > 1 ? "s" : ""} de anticipación`)
                 : "Este día la agencia no tiene salidas")
             : undefined;
@@ -468,6 +489,9 @@ function mapBookingToTrip(b) {
     guests: b.guests,
     total: (b.totalSoles || 0) / 100,
     status: isoDate >= todayISO() ? "upcoming" : "completed",
+    // Estado real del inventario (/api/me ya lo manda). null para reservas
+    // legacy o trips locales del demo → el badge cae al temporal de siempre.
+    bookingState: b.bookingState ?? null,
     code: b.bookingCode,
     customerName: b.userName || "",
     customerPhone: b.userPhone || "",
@@ -545,7 +569,7 @@ function buildTravelerNotifs(trips) {
     .sort((a, b) => (a.dateISO || "").localeCompare(b.dateISO || ""))
     .map((t) => {
       const isToday = t.dateISO === today;
-      const title = t.tour?.title || "tu experiencia";
+      const title = t.tour?.title || "tu tour";
       return {
         id: `remind-${t.code}`,
         type: "reminder",
@@ -559,21 +583,30 @@ function buildTravelerNotifs(trips) {
 
   const confirmed = trips
     .filter((t) => t.createdAt && now - new Date(t.createdAt).getTime() <= NOTIF_RECENT_MS)
+    // Reservas ya decididas en contra (no confirmada/cancelada): sin
+    // notificación de celebración; el email de la decisión ya avisó.
+    .filter((t) => !["RECHAZADA", "VENCIDA", "CANCELADA"].includes(t.bookingState))
     // Orden por recencia (createdAt desc) ANTES de cortar, con comparación
     // numérica de timestamp (robusta ante formatos de fecha no uniformes).
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 5)
-    .map((t) => ({
-      id: `confirm-${t.code}`,
-      type: "booking",
-      title: "Reserva confirmada",
-      body: `${t.tour?.title || "Tu experiencia"} · ${t.date}`,
-      time: relativeTimeLabel(t.createdAt),
-      icon: CheckCircle,
-      target: "trips",
-      // ts: orden por recencia en la lista combinada (viajero + operador).
-      ts: new Date(t.createdAt).getTime(),
-    }));
+    .map((t) => {
+      // Mismo criterio que el voucher: en modo manual la reserva nace como
+      // SOLICITUD y "Reserva confirmada" sería falso. Sin estado (legacy,
+      // trip local del demo) se conserva el texto de siempre.
+      const esSolicitud = t.bookingState === "SOLICITUD";
+      return {
+        id: `confirm-${t.code}`,
+        type: "booking",
+        title: esSolicitud ? "Solicitud enviada" : "Reserva confirmada",
+        body: `${t.tour?.title || "Tu tour"} · ${t.date}`,
+        time: relativeTimeLabel(t.createdAt),
+        icon: esSolicitud ? Clock : CheckCircle,
+        target: "trips",
+        // ts: orden por recencia en la lista combinada (viajero + operador).
+        ts: new Date(t.createdAt).getTime(),
+      };
+    });
 
   // Reminders (urgentes) primero, luego confirmadas por recencia.
   return [...reminders, ...confirmed];
@@ -1137,7 +1170,9 @@ html{scrollbar-gutter:stable}
 .det-inc{display:flex;align-items:center;gap:10px;font-size:13px}
 .det-ic{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
 .det-ic.iy{background:rgba(45,90,61,.1);color:var(--m)}.det-ic.in{background:rgba(199,97,58,.1);color:var(--tr)}
-.bb{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:none;padding:12px 20px max(env(safe-area-inset-bottom),12px);background:rgba(250,250,247,.95);backdrop-filter:blur(20px);border-top:1px solid rgba(0,0,0,.06);display:flex;align-items:center;gap:14px;z-index:100}
+.bb{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:none;padding:12px 20px max(env(safe-area-inset-bottom),12px);background:rgba(250,250,247,.95);backdrop-filter:blur(20px);border-top:1px solid rgba(0,0,0,.06);display:flex;align-items:center;gap:14px;z-index:100;flex-wrap:wrap}
+/* Modo de venta para el viajero: fila propia arriba del precio y el boton */
+.bb-mode{flex-basis:100%;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:var(--gy);margin-bottom:-2px}
 .bb-p{font-size:20px;font-weight:800;color:var(--f);white-space:nowrap}.bb-p span{font-size:12px;font-weight:400;color:var(--gy);display:block}
 .bb-bt{flex:1;padding:14px;border-radius:14px;background:var(--f);color:white;font-weight:700;font-size:15px;border:none;cursor:pointer;font-family:inherit;transition:.2s}
 .bb-bt:hover{background:var(--m)}
@@ -2723,7 +2758,18 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
           </div>
         )}
       </div>
-      <div className="bb"><div className="bb-p">S/ {tour.price}<span>por persona</span></div><button className="bb-bt" onClick={onBook}>Reservar ahora</button></div>
+      <div className="bb">
+        {/* Modo de venta, sin detalle operativo (decisión de producto): el
+            viajero sabe QUÉ esperar, no cuándo cierra la agencia. Sin
+            salesMode (dato ausente) no se muestra nada. */}
+        {tour.salesMode === "CUPO_FIJO" && (
+          <div className="bb-mode"><Check size={13} strokeWidth={2.5} style={{ color: "var(--m)" }} /> Confirmación inmediata</div>
+        )}
+        {tour.salesMode === "SOLICITUD" && (
+          <div className="bb-mode">La agencia confirma tu reserva</div>
+        )}
+        <div className="bb-p">S/ {tour.price}<span>por persona</span></div><button className="bb-bt" onClick={onBook}>Reservar ahora</button>
+      </div>
     </div>
   );
 }
@@ -2976,6 +3022,51 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [serverBooking, setServerBooking] = useState(null);
+  // Disponibilidad de cupos por mes visible (solo CUPO_FIJO): fechas llenas se
+  // deshabilitan en el calendario y 1-3 restantes muestran "Últimos N cupos".
+  // Cache por mes (un request al montar y otro por cambio de mes, nunca por
+  // día); en SOLICITUD no se consulta nada. El payload público solo trae
+  // números 0-3: el allotment total jamás viaja.
+  const [avail, setAvail] = useState({ full: new Set(), low: {}, base: null });
+  const availMonthsRef = useRef(new Set());
+  // Deps planas (sin optional chaining) para que el compilador de React pueda
+  // preservar la memoización del callback.
+  const availTourId = tour?.id;
+  const availSalesMode = tour?.salesMode;
+  const loadMonthAvailability = useCallback(async (y, m) => {
+    if (availSalesMode !== "CUPO_FIJO" || !availTourId) return;
+    const key = `${y}-${m}`;
+    if (availMonthsRef.current.has(key)) return;
+    availMonthsRef.current.add(key);
+    const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    const mm = String(m).padStart(2, "0");
+    try {
+      const r = await fetch(`/api/tours/${availTourId}?from=${y}-${mm}-01&to=${y}-${mm}-${String(lastDay).padStart(2, "0")}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      const a = data.availability;
+      if (!a) return;
+      // Merge acumulativo: cada mes aporta fechas disjuntas.
+      setAvail((prev) => {
+        const full = new Set(prev.full);
+        (a.full || []).forEach((d) => full.add(d));
+        return { full, low: { ...prev.low, ...(a.low || {}) }, base: a.base ?? prev.base };
+      });
+    } catch (err) {
+      // Sin dato no se muestra nada ni se bloquea (el 409 del backend sigue
+      // siendo la red final); se libera el cache para reintentar si vuelve.
+      availMonthsRef.current.delete(key);
+      console.error("Error cargando disponibilidad de cupos:", err);
+    }
+  }, [availTourId, availSalesMode]);
+
+  // Carrera: si la fecha ya elegida llega marcada como llena (alguien reservó
+  // en el medio), se limpia la selección y Continuar queda deshabilitado.
+  useEffect(() => {
+    if (!date || !avail.full.has(date)) return;
+    const run = async () => { setDate(""); };
+    run();
+  }, [date, avail]);
 
   useEffect(() => {
     if (typeof window !== "undefined") window.scrollTo({ top: 0, left: 0, behavior: "instant" });
@@ -3110,8 +3201,20 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
         </button>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", marginBottom: 20 }}>
           <div className="suc-chk"><Check size={28} strokeWidth={2.5} /></div>
-          <div className="suc-t">¡Reserva confirmada!</div>
-          <div className="suc-sub">Tu voucher está listo. Toda la información que necesitas está aquí abajo.</div>
+          {/* El estado REAL del POST decide el texto: en modo manual la reserva
+              nace como SOLICITUD y decir "confirmada" sería falso. Sin
+              bookingState (legacy/mock) se conserva el texto de siempre. */}
+          {serverBooking?.bookingState === "SOLICITUD" ? (
+            <>
+              <div className="suc-t">Solicitud enviada</div>
+              <div className="suc-sub">Te avisamos por correo cuando la agencia confirme.</div>
+            </>
+          ) : (
+            <>
+              <div className="suc-t">¡Reserva confirmada!</div>
+              <div className="suc-sub">Tu voucher está listo. Toda la información que necesitas está aquí abajo.</div>
+            </>
+          )}
         </div>
         <VoucherDetail trip={successTrip} />
         <button
@@ -3168,6 +3271,8 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
             minDateNote={bookingT0 > addDaysISO(limaNow().date, MIN_BOOKING_LEAD_DAYS)
               ? "Ya pasó la hora límite para reservar esta fecha"
               : undefined}
+            fullDates={tour.salesMode === "CUPO_FIJO" ? avail.full : undefined}
+            onMonthChange={tour.salesMode === "CUPO_FIJO" ? loadMonthAvailability : undefined}
           />
           {(() => {
             // Línea informativa solo si el tour NO opera todos los días.
@@ -3187,6 +3292,19 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
           {date ? (
             <div style={{ marginTop: 10, fontSize: 12, color: "var(--gy)" }}>
               Fecha seleccionada: <strong style={{ color: "var(--f)" }}>{formatLongDate(date)}</strong>
+              {(() => {
+                // Escasez honesta (CUPO_FIJO): solo cuando el dato existe y es
+                // 1-3. low = fechas con salida; base = tour cuyo cupo total ya
+                // es <= 3 (fechas sin salida materializada).
+                if (tour.salesMode !== "CUPO_FIJO") return null;
+                const n = avail.low[date] ?? (avail.full.has(date) ? null : avail.base);
+                if (!n || n < 1 || n > 3) return null;
+                return (
+                  <div style={{ marginTop: 6, color: "var(--tr)", fontWeight: 700 }}>
+                    {n === 1 ? "Último cupo" : `Últimos ${n} cupos`}
+                  </div>
+                );
+              })()}
             </div>
           ) : !hasAvailableDates ? (
             <div style={{ marginTop: 10, padding: 10, background: "rgba(199,97,58,.08)", borderRadius: 10, fontSize: 12, color: "var(--tr)", lineHeight: 1.5 }}>
@@ -3365,7 +3483,16 @@ function TripsView({ go, onSelectTrip, trips }) {
           <div className="tp-card" onClick={() => { onSelectTrip(trip); go("trip-detail"); }}>
             <div className="tp-img" style={imgBg(trip.tour.image)} />
             <div className="tp-info"><div className="tp-name">{trip.tour.title}</div><div className="tp-det">{trip.date} · {trip.guests} pers</div><div className="tp-code">{trip.code}</div>
-              <div className="tp-foot"><div className="tp-price">S/ {trip.total}</div><div className={`tp-st tp-${trip.status}`}>{trip.status === "upcoming" ? "Próximo" : "Completado"}</div></div>
+              <div className="tp-foot"><div className="tp-price">S/ {trip.total}</div>{(() => {
+                // Estado real del inventario si existe; sin él (trips locales
+                // del demo, legacy) se conserva el badge temporal de siempre.
+                const st = TRIP_STATE_UI[trip.bookingState];
+                // textTransform none: los textos de estado van tal cual
+                // ("Confirmada", no "CONFIRMADA"); el pill los uppercaseaba.
+                return st
+                  ? <div className="tp-st" style={{ background: st.bg, color: st.color, textTransform: "none" }}>{st.label}</div>
+                  : <div className={`tp-st tp-${trip.status}`}>{trip.status === "upcoming" ? "Próximo" : "Completado"}</div>;
+              })()}</div>
             </div>
           </div>
         </div>
