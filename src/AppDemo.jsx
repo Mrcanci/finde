@@ -251,6 +251,42 @@ function ensureAvailabilityFields(t) {
 }
 
 // Calendario reusable. mode="edit" (wizard) o mode="select" (booking).
+// ── Disponibilidad de cupos: cache a NIVEL MÓDULO por tour+mes ──
+// El detalle del tour PRE-CARGA el mes actual mientras el viajero lee; el
+// calendario del flujo de reserva lee el cache sincrónico al montar y pinta
+// las celdas con el dato desde el primer frame (sin ventana de demora).
+// In-flight dedupeado; un fallo no se cachea (reintenta el próximo montaje).
+const AVAIL_CACHE = new Map(); // `${tourId}:${y}-${m}` → availability | null
+const AVAIL_INFLIGHT = new Map();
+function limaCurrentYM() {
+  const [y, m] = todayISO().split("-").map(Number);
+  return { y, m };
+}
+async function fetchMonthAvailability(tourId, y, m) {
+  const key = `${tourId}:${y}-${m}`;
+  if (AVAIL_CACHE.has(key)) return AVAIL_CACHE.get(key);
+  if (AVAIL_INFLIGHT.has(key)) return AVAIL_INFLIGHT.get(key);
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const mm = String(m).padStart(2, "0");
+  const p = (async () => {
+    try {
+      const r = await fetch(`/api/tours/${tourId}?from=${y}-${mm}-01&to=${y}-${mm}-${String(lastDay).padStart(2, "0")}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      const a = data.availability ?? null;
+      AVAIL_CACHE.set(key, a);
+      return a;
+    } catch (err) {
+      console.error("Error cargando disponibilidad de cupos:", err);
+      return undefined;
+    } finally {
+      AVAIL_INFLIGHT.delete(key);
+    }
+  })();
+  AVAIL_INFLIGHT.set(key, p);
+  return p;
+}
+
 function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excludedDates = [], addedDates = [], onToggleException, minDate, minDateNote, fullDates, lowDates, lowBase, onMonthChange }) {
   const todayStr = todayISO();
   const [todayY, todayM] = todayStr.split("-").map(Number);
@@ -343,12 +379,20 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
             // no operativo, con su propio tooltip "Sin cupos".
             const isFull = !!(fullDates && fullDates.has(iso));
             const available = !belowMin && !isFull && (state === "added" || state === "pattern");
-            if (isSelected) { bg = "var(--f)"; color = "white"; border = "1.5px solid var(--f)"; }
-            else if (available && lowRaw >= 1 && lowRaw <= 3) {
-              // Escasez DESTACADA (jerarquía al escanear el mes): tinte
-              // terracota de fondo + número y aviso en el acento del producto,
-              // nunca el gris de lo secundario/deshabilitado.
-              bg = "rgba(199,97,58,.12)"; color = "var(--tr)";
+            const escasa = lowRaw >= 1 && lowRaw <= 3;
+            if (isSelected && escasa) {
+              // Selección + escasez superpuestas: terracota SÓLIDO con texto
+              // blanco. Conserva la semántica de "elegida" (celda llena de
+              // color) y la alarma de cupo en un solo tratamiento.
+              bg = "var(--tr)"; color = "white"; border = "1.5px solid var(--tr)";
+            }
+            else if (isSelected) { bg = "var(--f)"; color = "white"; border = "1.5px solid var(--f)"; }
+            else if (available && escasa) {
+              // Escasez DESTACADA: compite de igual a igual con la celda
+              // seleccionada (tinte más saturado + borde terracota propio +
+              // número en el acento, semibold). Nunca el gris de lo
+              // secundario/deshabilitado.
+              bg = "rgba(199,97,58,.18)"; color = "var(--tr)"; border = "1.5px solid var(--tr)";
             }
             else if (available) { bg = "var(--cr)"; color = "var(--f)"; }
             else { color = "var(--lg)"; opacity = 0.5; cursor = "not-allowed"; isClickable = false; }
@@ -2617,6 +2661,18 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
   // desde la DB vía DETAIL_SELECT. El toggle QU lee esos campos con fallback a
   // español si están vacíos. Ya no hay traducción on-the-fly.
 
+  // Pre-carga de disponibilidad del mes actual (solo CUPO_FIJO): mientras el
+  // viajero lee el detalle, el dato llega al cache de módulo y el calendario
+  // del flujo de reserva abre con las celdas ya pintadas, sin demora.
+  const dtTourId = tour?.id;
+  const dtSalesMode = tour?.salesMode;
+  useEffect(() => {
+    if (dtSalesMode !== "CUPO_FIJO" || !dtTourId) return;
+    const { y, m } = limaCurrentYM();
+    const run = async () => { await fetchMonthAvailability(dtTourId, y, m); };
+    run();
+  }, [dtTourId, dtSalesMode]);
+
   if (!tour) return null;
   const isQu = lang === "qu";
   const langLabels = { es: "Español", qu: "Quechua", en: "English" };
@@ -3046,41 +3102,39 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
   const [submitError, setSubmitError] = useState("");
   const [serverBooking, setServerBooking] = useState(null);
   // Disponibilidad de cupos por mes visible (solo CUPO_FIJO): fechas llenas se
-  // deshabilitan en el calendario y 1-3 restantes muestran "Últimos N cupos".
-  // Cache por mes (un request al montar y otro por cambio de mes, nunca por
-  // día); en SOLICITUD no se consulta nada. El payload público solo trae
-  // números 0-3: el allotment total jamás viaja.
-  const [avail, setAvail] = useState({ full: new Set(), low: {}, base: null });
-  const availMonthsRef = useRef(new Set());
+  // deshabilitan en el calendario y 1-3 restantes muestran el aviso en la
+  // celda. El fetch/caching vive a nivel módulo (fetchMonthAvailability); el
+  // detalle del tour ya pre-cargó el mes actual, así que el estado inicial se
+  // SIEMBRA sincrónico del cache y el calendario abre pintado, sin demora.
+  // En SOLICITUD no se consulta nada; el payload público solo trae números
+  // 0-3: el allotment total jamás viaja.
+  const [avail, setAvail] = useState(() => {
+    const seed = { full: new Set(), low: {}, base: null };
+    if (tour?.salesMode === "CUPO_FIJO" && tour?.id) {
+      const { y, m } = limaCurrentYM();
+      const cached = AVAIL_CACHE.get(`${tour.id}:${y}-${m}`);
+      if (cached) {
+        (cached.full || []).forEach((dt) => seed.full.add(dt));
+        Object.assign(seed.low, cached.low || {});
+        seed.base = cached.base ?? null;
+      }
+    }
+    return seed;
+  });
   // Deps planas (sin optional chaining) para que el compilador de React pueda
   // preservar la memoización del callback.
   const availTourId = tour?.id;
   const availSalesMode = tour?.salesMode;
   const loadMonthAvailability = useCallback(async (y, m) => {
     if (availSalesMode !== "CUPO_FIJO" || !availTourId) return;
-    const key = `${y}-${m}`;
-    if (availMonthsRef.current.has(key)) return;
-    availMonthsRef.current.add(key);
-    const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
-    const mm = String(m).padStart(2, "0");
-    try {
-      const r = await fetch(`/api/tours/${availTourId}?from=${y}-${mm}-01&to=${y}-${mm}-${String(lastDay).padStart(2, "0")}`);
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const data = await r.json();
-      const a = data.availability;
-      if (!a) return;
-      // Merge acumulativo: cada mes aporta fechas disjuntas.
-      setAvail((prev) => {
-        const full = new Set(prev.full);
-        (a.full || []).forEach((d) => full.add(d));
-        return { full, low: { ...prev.low, ...(a.low || {}) }, base: a.base ?? prev.base };
-      });
-    } catch (err) {
-      // Sin dato no se muestra nada ni se bloquea (el 409 del backend sigue
-      // siendo la red final); se libera el cache para reintentar si vuelve.
-      availMonthsRef.current.delete(key);
-      console.error("Error cargando disponibilidad de cupos:", err);
-    }
+    const a = await fetchMonthAvailability(availTourId, y, m);
+    if (!a) return;
+    // Merge acumulativo e idempotente: cada mes aporta fechas disjuntas.
+    setAvail((prev) => {
+      const full = new Set(prev.full);
+      (a.full || []).forEach((dt) => full.add(dt));
+      return { full, low: { ...prev.low, ...(a.low || {}) }, base: a.base ?? prev.base };
+    });
   }, [availTourId, availSalesMode]);
 
   // Carrera: si la fecha ya elegida llega marcada como llena (alguien reservó
