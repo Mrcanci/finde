@@ -938,6 +938,9 @@ const CSS = `
 html{scrollbar-gutter:stable}
 .app{--f:#1B3A2D;--m:#2D5A3D;--sg:#6B8F71;--sd:#E8DDD3;--cr:#F5F0EA;--wh:#FAFAF7;--tr:#C7613A;--tr-text:#A84E2C;--trl:#E8845A;--gd:#D4A843;--gd-text:#7A5C10;--ch:#2C2C2A;--gy:#737370;--gy-strong:#5A5A57;--lg:#959591;--yp:#6B2FA0;--pl:#00B4D8;--ai:#0EA5E9;--focus:rgba(45,90,61,.35)}
 .app *{margin:0;padding:0;box-sizing:border-box}
+/* Cifras tabulares: mismo ancho por digito. Evita que un contador salte de
+   posicion al cambiar de valor y alinea los montos en columna. */
+.gcnt,.dsh-s-v,.pf-stat-v,.login-hero-stat-v,.rev-big-n,.rev-big-cnt,.earn-bl,.sr-price,.tc-pr,.tc-pr span,.gc-p,.gc-p span,.bb-p,.bb-p span,.sum-r,.sum-t,.voucher-pay-row,.voucher-pay-row.total,.tp-price,.dsh-bk-a,.earn-tot,.sr-rating,.tc-m .rt,.gc-m .rt{font-variant-numeric:tabular-nums}
 .app{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--wh);color:var(--ch);-webkit-font-smoothing:antialiased;overflow-x:hidden}
 .app{min-height:100vh;background:var(--wh);position:relative}
 
