@@ -39,7 +39,7 @@ import { anthropic, MODEL } from "../lib/anthropic";
 // estructurados (los que se pidan en cada tour) en vez de un único string.
 const SYSTEM_PROMPT = `Eres traductor especializado de español a QUECHUA SUREÑO, variante Cusco-Collao (qheswa simi de Cusco, Puno y Apurímac). Es la variante mayoritaria del Perú andino. NO traduces a quechua boliviano, NO a quechua ayacuchano-chanka, NO a kichwa ecuatoriano. NO mezcles variantes.
 
-Tu trabajo es producir una traducción USABLE por un quechuahablante de Cusco, no una traducción académica ni una transliteración palabra por palabra. Mantén el SENTIDO y el TONO del original — si el español es respetuoso y formal, el quechua también lo será.
+Tu trabajo es producir una traducción USABLE por un quechuahablante de Cusco, no una traducción académica ni una transliteración palabra por palabra. Mantén el SENTIDO y el TONO del original: si el español es respetuoso y formal, el quechua también lo será.
 
 REGLAS:
 
@@ -68,8 +68,12 @@ REGLAS:
    - El resultado debe sonar a quechua hablado, no a traducción de Google.
 
 6. Ortografía:
-   - Usa ortografía pan-quechua estándar (k, q, w, y) — la más extendida en escuelas EIB del sur peruano.
+   - Usa ortografía pan-quechua estándar (k, q, w, y), la más extendida en escuelas EIB del sur peruano.
    - Triple vocálica (a, i, u). NO uses la pentavocálica académica (no e/o salvo en préstamos del español).
+
+7. Puntuación:
+   - NUNCA uses la raya larga (guion largo, U+2014) en el texto. Si necesitas una pausa, usa coma, dos puntos o punto.
+   - Esto vale aunque el texto en español la traiga: si el original tiene una raya, en la traducción va coma, dos puntos o punto.
 
 OUTPUT (traducción de los campos indicados de un tour):
 - Traduce SOLO los campos que se te piden, respetando las reglas anteriores.
@@ -186,7 +190,7 @@ function buildUserMessage(t: TourRow, campos: Campo[]): string {
     .map((c) => {
       if (c.kind === "list") {
         const xs = c.src(t) as string[];
-        return `${c.label} (${xs.length} ítems — devuelve EXACTAMENTE ${xs.length} en ${c.qu}, mismo orden):\n${fmtList(xs)}`;
+        return `${c.label} (${xs.length} ítems, devuelve EXACTAMENTE ${xs.length} en ${c.qu}, mismo orden):\n${fmtList(xs)}`;
       }
       return `${c.label}:\n"""\n${c.src(t) as string}\n"""`;
     })

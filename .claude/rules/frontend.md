@@ -79,6 +79,27 @@ De ahí salieron los dos títulos que desaparecían en modo oscuro (`c171347` y 
   **Ojo: ese ancho no lo declara el CSS del demo.** Sale del bloque `.app-demo` de `src/index.css` (plantilla de Vite renombrada), igual que el centrado, el tamaño de texto del root y el interlineado base. `.app` no declara ancho propio, así que gana `index.css` por defecto, no por empate de cascada. **Este valor va a cambiar cuando la Fase 4 de `docs/plans/2026-08-13-plan-tipografia.md` elimine ese bloque:** ahí hay que decidir a propósito qué ancho se replica en `.app`.
 - Sin em-dashes en ningún copy, tampoco en el texto que genera la IA dentro del producto.
 
+### Excepción: la raya como glifo de dato vacío se queda
+
+**El canon prohíbe la raya en prosa, no como glifo.** `AppDemo.jsx` usa `"—"` en nueve lugares como marcador de dato vacío, no como signo de puntuación:
+
+```jsx
+{user?.email || "—"}
+const code = trip.code || "—";
+form.days.length > 0 ? form.days.map(...).join(", ") : "—"
+```
+
+Eso es convención tipográfica de tabla, la misma que usa cualquier planilla para decir "acá no hay valor". No es una pausa dentro de una oración y **no se toca**.
+
+Queda escrito porque un barrido de em-dashes los marca como violación y ya pasó una vez. Al buscar rayas, separar dos cosas:
+
+| Caso | Qué hacer |
+|---|---|
+| Raya en medio de una oración, en copy o en un prompt de IA | **se saca**, va coma, dos puntos o punto |
+| Raya sola como valor, entre comillas y con un `\|\|` al lado | **se queda** |
+
+El barrido del 2026-08-14 encontró además dos en `index.html` (el `<title>` y el `og:title`), que sí eran prosa visible en la pestaña del navegador y en el preview al compartir el link. Esas se sacaron.
+
 ## Datos: qué es real y qué no
 
 El detalle vive en `docs/estado.md` y cambia seguido. Resumen: notificaciones, reservas del panel y "Mis viajes" son **reales**; los mocks `NOTIFS`, `OP_BK`, `EARN`, `MY_TRIPS` y `generateMockReviews` **fueron eliminados**.
