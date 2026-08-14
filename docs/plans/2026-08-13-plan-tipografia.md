@@ -218,7 +218,7 @@ Un iframe crea su propio viewport, y eso es justamente lo que resuelve el proble
 
 En este demo eso toca dos lugares: `.det-hero` y el `min-height:100svh` que `.app-demo` le impone al root. Con el iframe a 1272px de alto, `100vh` vale 1272px.
 
-**Para capturas es correcto y además conveniente**, porque fija el alto y hace que las series sean comparables entre sí. Pero **la Fase 4 toca justamente ese `min-height:100svh`**, así que esos dos casos hay que verificarlos también **fuera del iframe**, en una ventana de verdad, antes de dar la fase por buena. Un `100svh` que se ve bien dentro de un iframe de 1272px no prueba nada sobre una ventana de 800px.
+**Para capturas es correcto y además conveniente**, porque fija el alto y hace que las series sean comparables entre sí. **Corregido el 14 ago:** el `min-height:100svh` del bloque **ya está muerto**. `.app` declara `min-height:100vh` con la misma especificidad y le gana por orden de documento, porque el `<style>` del demo se renderiza en el `<body>` y el `index.css` vive en el `<head>`. O sea que la Fase 4 no lo toca y no hay nada que replicar ahí. Queda un solo caso a verificar fuera del iframe, `.det-hero`, y por el `100vh` que declara él mismo, no por el bloque.
 
 ### La comparación oscuro vs claro en 1440
 
@@ -393,7 +393,7 @@ Acá empieza la deuda de sistema y el riesgo alto. Nada de esta fase se ve; todo
 - **Hallazgos:** §10a completo. Habilita la Fase 5
 - **Archivos:** `src/index.css` (borrar el bloque `.app-demo`) y `src/AppDemo.jsx` (replicar a propósito lo que se conserve en `.app`). **Un commit, solo esto**
 - **Qué se hace:** el bloque es plantilla de Vite renombrada, pero hoy gobierna el ancho, el centrado, el tamaño del root, el interlineado, el espaciado entre letras y el color de los `h2`. No alcanza con borrarlo: hay que decidir qué se replica
-- **Qué puede romperse:** **es el riesgo número uno del proyecto.** Al borrarlo el demo pierde de golpe `width:1126px`, `max-width:100%`, `margin:0 auto`, `text-align:center`, `display:flex`, `flex-direction:column`, `min-height:100svh` y `border-inline`. El centrado en particular sostiene pantallas enteras. El demo declara alineación explícita en 36 reglas propias, o sea que parte se salva sola, pero **128 selectores dependen de la herencia**, más los dos calendarios, que suman 81 elementos sin clase y por eso no entran en ninguna lista
+- **Qué puede romperse:** **es el riesgo número uno del proyecto.** Al borrarlo el demo pierde de golpe `width:1126px`, `max-width:100%`, `margin:0 auto`, `text-align:center`, `display:flex`, `flex-direction:column` y `border-inline`, y además `font-size:18px` (16px en ≤1024px), `line-height:145%`, `letter-spacing:0.18px`, `font-synthesis:none`, `text-rendering:optimizeLegibility`, `box-sizing:border-box` y las reglas de `h1`/`h2` (peso 500 y `margin:0 0 8px`). **`min-height:100svh` NO entra en la lista: `.app` ya declara `min-height:100vh` y le gana por orden de documento, o sea que hoy ya está muerto.** El centrado en particular sostiene pantallas enteras. El demo declara alineación explícita en **36 selectores del CSS más 20 `textAlign` inline en el JSX, o sea 56 que se salvan solos** (el 36 de la auditoría solo cuenta el CSS), pero **128 selectores dependen de la herencia**, más los dos calendarios, que suman 81 elementos sin clase y por eso no entran en ninguna lista
 - **Ganancia:** desaparece la fragilidad de que la fuente del demo dependa del orden de inyección del bundler, y desaparece la fuente del bug de "Notificaciones" en vez de seguir tapándolo caso por caso
 - **Cómo se valida:** capturas de Fase 0 contra el resultado, **pantalla por pantalla, en 390px y en 1440px, en modo claro y en modo oscuro**. Es la única fase donde vale la pena el diff visual completo antes de pushear
 
@@ -411,7 +411,7 @@ Hoy, antes de la fase, las diferencias son exactamente dos y están medidas: los
 
 **Cómo se verifica**, y este es el punto: no hace falta capturar de nuevo las dos series enteras. Alcanza con **releer el `cssRules` del navegador** y confirmar que el media query `prefers-color-scheme: dark` ya no tiene ninguna regla que aplique al demo. Eso cubre todo el demo, no solo las diez vistas capturadas. El diff de imágenes queda como confirmación, no como prueba.
 
-**Ojo con el ancho al replicar.** El bloque también declara `width:1126px`, `margin:0 auto`, `text-align:center` y `min-height:100svh`. Eso no es modo oscuro y no se valida con este criterio: va aparte, con las capturas.
+**Ojo con el ancho al replicar.** El bloque también declara `width:1126px`, `margin:0 auto` y `text-align:center`. Eso no es modo oscuro y no se valida con este criterio: va aparte, con las capturas.
 
 ### Secuencia obligatoria: replicar primero, borrar después, limpiar al final
 
@@ -421,11 +421,11 @@ Hoy, antes de la fase, las diferencias son exactamente dos y están medidas: los
 |---|---|---|
 | **a** | **Replicar `text-align:center` en `.app`**, con el bloque de `index.css` todavía en su lugar | Comparar contra `post-fase3-*`. **Nada se tiene que haber movido.** Si algo se movió, el problema está acá y no más adelante |
 | **b** | **Borrar el bloque `.app-demo`** de `index.css` | Comparar de nuevo contra `post-fase3-*`, y además confirmar que el media query oscuro ya no tiene reglas que apliquen al demo |
-| **c** | **Recién después**, ir sacando el centrado selector por selector con la lista de 117 | Cada quita se valida sola, y se puede revertir de a una |
+| **c** | **Recién después**, ir sacando el centrado selector por selector con la lista de 128 | Cada quita se valida sola, y se puede revertir de a una |
 
-**Por qué este orden y no el intuitivo.** Lo natural sería borrar primero y corregir después con la lista en la mano. Eso no funciona, y el motivo es concreto: **los dos calendarios suman 81 elementos que dependen de la herencia y no tienen ninguna clase**, son `div`, `button` y `strong` con estilos inline. No hay ninguna entrada en la lista de 117 que los arregle, porque no se pueden nombrar. Si se borra primero, se descuadran y no hay checklist que los levante.
+**Por qué este orden y no el intuitivo.** Lo natural sería borrar primero y corregir después con la lista en la mano. Eso no funciona, y el motivo es concreto: **los dos calendarios suman 81 elementos que dependen de la herencia y no tienen ninguna clase**, son `div`, `button` y `strong` con estilos inline. No hay ninguna entrada en la lista de 128 que los arregle, porque no se pueden nombrar. Si se borra primero, se descuadran y no hay checklist que los levante.
 
-O sea: **la lista de 117 selectores no es la herramienta principal, es la secundaria.** La principal es replicar el centrado. La lista sirve para la limpieza opcional del paso (c), que se puede no hacer nunca.
+O sea: **la lista de 128 selectores no es la herramienta principal, es la secundaria.** La principal es replicar el centrado. La lista sirve para la limpieza opcional del paso (c), que se puede no hacer nunca.
 
 El paso (a) tiene además una propiedad que conviene aprovechar: **es reversible y no rompe nada**, porque mientras el bloque siga vivo el centrado ya estaba. Es la única oportunidad de verificar la réplica de forma aislada, sin que se mezcle con los otros ocho efectos de borrar el bloque.
 
@@ -455,7 +455,172 @@ El marco lateral de 1px que rodea al contenedor de 1126px es **estética de scaf
 
 Consecuencia práctica: la diferencia #1 entre modo claro y modo oscuro, la que hoy se ve en las 10 vistas, **se cierra sola**. No hay que corregir nada, hay que no replicar nada.
 
-Lo que sí hay que decidir a propósito es el ancho, el centrado y el `min-height`. El borde no entra en esa lista.
+Lo que sí hay que decidir a propósito es el ancho y el centrado. El borde no entra en esa lista, y el `min-height` tampoco: ya está muerto.
+
+---
+
+### Investigación del 14 ago: inventario completo, riesgos nuevos y plan aprobado
+
+Salida de la tanda de investigación previa a implementar, aprobada por José con cinco ajustes.
+**Reemplaza a cualquier lista anterior de lo que el bloque impone.** Todos los conteos salen de
+script sobre el archivo en su estado del 14 ago, no de leer una lista.
+
+#### Punto de partida: qué declara `.app` hoy
+
+Solo esto: los 19 tokens de marca, `font-family`, `background`, `color`,
+`-webkit-font-smoothing`, `overflow-x`, `min-height:100vh` y `position:relative`. Nada más.
+
+#### Qué se replica y qué se descarta
+
+| Propiedad | Impone el bloque | ¿`.app` la declara? | Decisión |
+|---|---|---|---|
+| `font-size` root | **18px**, 16px en ≤1024px | NO | **REPLICAR idéntico.** Sin esto el desktop encoge de 18 a 16 y la fase deja de ser invisible. Cambiarlo es Fase 5 |
+| `line-height` | `145%` (26.1px desktop, 23.2px mobile) | NO | **REPLICAR idéntico**, como `145%`, no como valor fijo. Pasarlo a sin unidad es Fase 5 |
+| `letter-spacing` | `0.18px` | NO | **REPLICAR.** Es global y decide dónde corta cada línea. Sacarlo es Fase 6 |
+| `text-align` | `center` | NO | **REPLICAR.** Es el paso (a), el riesgo número uno |
+| `width` | `1126px` | NO | **REPLICAR.** Sin esto el demo se va a ancho completo en desktop |
+| `max-width` | `100%` | NO | **REPLICAR**, va pegada a `width` |
+| `margin` | `0 auto` | NO | **REPLICAR**, es lo que centra el contenedor |
+| `display` | `flex` | NO | **REPLICAR, OBLIGATORIO.** Ver abajo |
+| `flex-direction` | `column` | NO | **REPLICAR, OBLIGATORIO.** Ver abajo |
+| `min-height` | `100svh` | **SÍ: `100vh`, y ya le gana** | **DESCARTAR.** Ya está muerto, no hay nada que replicar |
+| `box-sizing` | `border-box` | NO (`.app *` cubre a los hijos, no a `.app`) | **DESCARTAR.** `.app` no tiene padding ni borde propio |
+| `border-inline` | `1px solid var(--border)` | NO | **DESCARTAR.** Ya decidido arriba |
+| `color-scheme` | `light dark` | NO | **DESCARTAR.** Es lo que la fase quiere matar |
+| `text-rendering` | `optimizeLegibility` | NO | **DESCARTAR**, mirando los títulos DM Serif: activa ligaduras y kerning, y el ancho del texto puede moverse un pelo |
+| `font-synthesis` | `none` | NO | **DESCARTAR**, con la corrección de R3 en el mismo commit |
+| `-moz-osx-font-smoothing` | `grayscale` | NO | **DESCARTAR.** Solo Firefox en macOS, cosmético |
+| `-webkit-font-smoothing` | `antialiased` | SÍ, igual | nada que hacer |
+| `color` / `background` / `font-family` | `var(--text)` / `var(--bg)` / `var(--sans)` | SÍ, y ganan | nada que hacer, ya están pisadas |
+
+**`display:flex` y `flex-direction:column` son réplica obligatoria, no precaución.** Ese `div` **es**
+hoy un contenedor flex en columna. Si no se replica pasa a `block`, y con eso cambian dos cosas: el
+colapso de márgenes entre los hijos directos (flex lo impide, block no) y cómo se reparte el
+`min-height`. No es una property cosmética.
+
+#### El bloque tiene más código muerto del que parecía
+
+Verificado con script: **las trece variables del bloque (`--text`, `--text-h`, `--bg`, `--border`,
+`--code-bg`, `--accent`, `--accent-bg`, `--accent-border`, `--social-bg`, `--shadow`, `--sans`,
+`--heading`, `--mono`) tienen CERO consumidores** en `AppDemo.jsx` y en `Landing.jsx`. Los únicos
+que las usan son los propios sub-bloques del `index.css`.
+
+Y tampoco existen en el demo `id="social"`, `<code>` ni `.counter`. O sea que **el media query
+oscuro entero y el bloque de `code`/`.counter` son 100% código muerto**: se borran sin verificar nada.
+
+#### Cuatro riesgos que este plan no tenía anotados
+
+**R1. El peso de los tres `h2`.** `.app-demo h1, .app-demo h2{font-weight:500}` tiene especificidad
+clase más elemento, así que le gana al `bold` que el navegador le pone a un `<h2>` por defecto. Los
+tres `h2` del demo (`.npage-h h2`, `.tp-h h2`, `.tdet-page .tdet-h`) **no declaran `font-weight`
+propio**. Al borrar el bloque saltan a 700, y los tres usan DM Serif Display, que en el archivo
+cargado solo tiene el peso 400.
+
+Hoy computan 500 pero **renderizan 400**, porque es el único peso que existe y `font-synthesis:none`
+impide inventarlo. Sin el bloque, computarían 700 y el navegador los engordaría a mano.
+
+**Arreglo: `font-weight:400` explícito a los tres.** Declarar 400 preserva el render exacto de hoy.
+
+**R2. El margen de 8px de los `h2`.** Misma cascada: `.app-demo h2{margin:0 0 8px}` (0,1,1) le gana a
+`.app *{margin:0}` (0,1,0). `.tdet-h` se salva porque declara `margin-bottom:14px` con más
+especificidad, pero **"Notificaciones" y "Mis reservas" pierden 8px** y sus cabeceras se acortan.
+
+**R3. La cursiva de `.voucher-more`.** Cierra el entregable 6 de la Fase 0, que seguía pendiente.
+
+Hay **exactamente un** `font-style:italic` en todo el demo: `.voucher-more`. No declara familia, así
+que hereda Plus Jakarta Sans, y el `@import` pide `wght@300;400;500;600;700;800` **sin eje de
+cursiva**: no hay archivo itálico. Con `font-synthesis:none`, el navegador no la inventa.
+
+**O sea que hoy ese texto se ve recto.** Al borrar el bloque aparecería una cursiva sintética que hoy
+no existe.
+
+**Decisión tomada: se saca el `font-style:italic`.** Hoy no se ve, nadie la extraña, y una cursiva
+sintética a 11px se ve mal. Sacarla preserva el estado actual, que es el objetivo de la fase.
+**Va en el commit del paso 2, no en uno aparte:** es parte de dejar la fase invisible, no una
+decisión de diseño.
+
+**R4. `color-scheme` toca más que la barra de scroll del dropdown.** El criterio de validación de
+arriba dice que las diferencias claro contra oscuro son exactamente dos y están medidas. Eso es
+cierto **solo para las 10 vistas capturadas**.
+
+`color-scheme: light dark` gobierna todos los controles nativos, y el demo tiene, contados: **2
+`input type="time"`, 4 `type="number"`, 2 checkbox, 1 radio, 3 `type="file"` y 2 `<textarea>`**.
+Todos viven en los dos flujos de formulario, que **no están en la línea base**. Ahí hay una
+superficie de cambio claro contra oscuro que nunca se midió, y **el criterio "oscuro idéntico a
+claro" hoy no la cubre.** Van a quedar todos en claro, que es el objetivo, pero hay que mirarlos.
+
+#### Lo que se revisó y NO es riesgo
+
+- **`em` y `rem`:** hay **un solo** `em` en todo `AppDemo.jsx`, un `letter-spacing:.05em`, y resuelve
+  contra el tamaño del propio elemento, no contra el root. **Cero `rem`.** Nada depende del 18px por
+  esa vía. El 18px se hereda directo, que es otra cosa y ya está en la tabla.
+- **`vh` y `svh`:** los diez usos (`.det-hero`, `.det-c`, las sheets, el dropdown) miden contra el
+  viewport, no contra el bloque. **Nada cambia.**
+- **El ancho completo de `.tn`:** usa `calc(-50vw + 50%)`, y ese `50%` es del contenedor, o sea que
+  **depende directamente del `width:1126px`**. Con el ancho replicado no pasa nada. Es un argumento
+  más para replicarlo.
+
+#### Plan de ejecución aprobado, cinco pasos
+
+**Paso 0, solo medición.** Tag `pre-fase4`. Confirmar en el navegador las tres deducciones que salen
+de leer el CSS, porque la lectura estática ya falló dos veces en este plan: que `min-height` computa
+`100vh` y no `100svh`, que los tres `h2` computan peso 500, y que `.voucher-more` computa `normal` y
+no `italic`. Capturar la línea base que falta: los 3 pasos de reserva y los 5 de tour nuevo, en 390 y
+1440, claro y oscuro. Más el volcado inicial de `getComputedStyle`.
+
+**Paso 1, replicar en `.app` con el bloque todavía vivo.** Un commit. Las diez propiedades marcadas
+REPLICAR, más el `font-weight:400` de R1 y el margen de R2. *Qué puede romperse:* nada visible, y ese
+es el punto. Todo lo que se agrega ya estaba activo por herencia. Si algo se mueve, el error está acá
+y se revierte solo.
+
+**Paso 2, borrar el bloque.** Un commit, que incluye sacar el `font-style:italic` de R3. *Qué puede
+romperse:* el kerning de los títulos serif y los controles nativos de los formularios (R4). *Cómo se
+verifica:* primero releer el `cssRules` del navegador y confirmar que el media query oscuro ya no
+tiene ninguna regla que aplique al demo, que es la prueba fuerte porque cubre todo el demo y no solo
+lo capturado. Después las capturas. Después el recorrido a mano de los dos formularios.
+
+**Paso 3, cerrar.** Actualizar `docs/estado.md` y este plan.
+
+**Paso 4, los 128 selectores: NO SE HACE.** Ver abajo.
+
+#### La verificación que manda: el volcado de `getComputedStyle`
+
+**Es más fuerte que las capturas y las reemplaza como prueba.** Las capturas quedan como
+confirmación visual.
+
+Antes del paso 1 se vuelca a JSON el `getComputedStyle` de una muestra amplia: el root más unos 30 a
+50 elementos repartidos entre las vistas y los dos formularios. Se repite el volcado después del paso
+1 y después del paso 2, y se diffea.
+
+**Si el diff da cero, la fase es correcta por construcción.** Si da algo, ahí está el problema,
+aunque ninguna captura lo muestre.
+
+La muestra incluye obligatoriamente: **los dos calendarios, un `input type="time"`, uno de
+`number`, un checkbox, un radio, un `file`, un `textarea` y los tres `h2`.**
+
+#### El paso (c) de la secuencia obligatoria no se hace
+
+**Decisión tomada: la limpieza selector por selector de la lista de 128 queda documentada como
+opcional y no se ejecuta.** No cambia nada de lo que ve un usuario y agrega riesgo a cambio de
+limpieza interna. El plan ya la llamaba secundaria y decía que se puede no hacer nunca.
+
+Si algún día se hace, el corte natural es **ocho commits, agrupando por pantalla y no por prefijo de
+clase**, porque lo que se valida es una pantalla:
+
+| Commit | Familias | Selectores |
+|---|---|---|
+| 1 | Navegación, contenedor raíz y `.fu` | 8 |
+| 2 | Home y hero | 16 |
+| 3 | Cards de tour y catálogo | 14 |
+| 4 | Ficha de tour | 8 |
+| 5 | **Armazón de formulario y método de pago** | **18** |
+| 6 | Mis reservas y voucher | 19 |
+| 7 | Perfil | 16 |
+| 8 | Panel de agencia y mi negocio | 19 |
+| | **Total** | **128** |
+
+**El commit 5 es el único que necesita QA en dev.** El armazón `.bkf` sirve a ocho pantallas a la vez
+y ahí viven los dos calendarios. Los otros siete se validan en local contra las capturas.
 
 ---
 
