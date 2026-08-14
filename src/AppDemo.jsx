@@ -1688,7 +1688,7 @@ html{scrollbar-gutter:stable}
   .home-pg .ai-sb{margin-bottom:40px;background:white;border-radius:50px;
                   box-shadow:0 8px 48px rgba(0,0,0,.16);padding:0}
   .home-pg .ai-sb input{border:none;border-radius:50px;padding:18px 56px;
-                         font-size:15px;height:60px}
+                         font-size:16px;height:60px}
   .home-pg .ai-sb input:focus{border:none;box-shadow:none}
   .home-pg .ai-sb .ai-sb-ic{left:22px;font-size:18px}
   .home-pg .ai-sb .ai-sb-tag{right:22px}
