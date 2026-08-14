@@ -952,7 +952,7 @@ html{scrollbar-gutter:stable}
 }
 
 /* Hover/active states unificados para botones y elementos interactivos */
-.app .chip:hover{border-color:var(--m);color:var(--f)}
+.app .chip:hover{border-color:var(--sg);color:var(--f)}
 .app .chip.on{background:var(--f);color:white;border-color:var(--f)}
 .app .tc:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(0,0,0,.08);border-color:rgba(199,97,58,.18)}
 .app .tc:active{transform:translateY(-1px)}
@@ -962,9 +962,9 @@ html{scrollbar-gutter:stable}
 .app .bk-btn:active{transform:scale(.95)}
 .app .bn-i:hover{color:var(--ch)}
 .app .bn-i.on:hover{color:var(--f)}
-.app .tp-tab:hover:not(.on){border-color:var(--m);color:var(--ch)}
+.app .tp-tab:hover:not(.on){border-color:var(--sg);color:var(--ch)}
 .app .dsh-tab:hover:not(.on){color:var(--ch)}
-.app .pm:hover:not(.sel){border-color:var(--m)}
+.app .pm:hover:not(.sel){border-color:var(--sg)}
 .app .pm:active{transform:scale(.98)}
 .app .login-btn:active:not(:disabled),.app .mbtn:active:not(:disabled),.app .bb-bt:active:not(:disabled){transform:translateY(1px);box-shadow:0 1px 3px rgba(0,0,0,.1)}
 .app .login-btn:hover:not(:disabled),.app .mbtn:hover:not(:disabled),.app .bb-bt:hover:not(:disabled){box-shadow:0 4px 12px rgba(27,58,45,.18)}
@@ -1137,7 +1137,7 @@ html{scrollbar-gutter:stable}
    ≥640px (donde .tscr pasa a grid) lo restauramos. */
 .city-actions .sl{display:none}
 .city-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;border:1.5px solid var(--sd);background:white;color:var(--ch);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:.2s}
-.city-btn:hover{border-color:var(--m);color:var(--f)}
+.city-btn:hover{border-color:var(--sg);color:var(--f)}
 .city-btn .city-btn-chev{transition:transform .2s}
 .city-btn.open .city-btn-chev{transform:rotate(180deg)}
 .city-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:90;animation:fadeUp .2s ease-out}

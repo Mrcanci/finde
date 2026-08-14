@@ -160,7 +160,14 @@ Mejor relación impacto/riesgo del plan. Bugs visibles, riesgo casi nulo.
 | `.tdet-act-sec` | lleva texto | se queda en `--lg` |
 | `.sal-btn.sec` | lleva texto | se queda en `--lg` |
 
-Los cuatro `:hover` que usaban `--sg` como borde (`.chip`, `.tp-tab`, `.pm`, `.city-btn`) **ya pasaban** el 3:1 con 3.47. Se pasaron a `--m` por consistencia de familia, no por accesibilidad.
+**Los cuatro `:hover` que usan `--sg` como borde (`.chip`, `.tp-tab`, `.pm`, `.city-btn`) se quedan como están.** Pasan el 3:1 con 3.47, así que no son un fallo de contraste y no le corresponden a esta fase.
+
+Se llegaron a cambiar a `--m` y se revirtieron. Dos motivos, y el segundo importa más que el primero:
+
+1. Como borde, el cambio **sí se percibe**: `--sg` es un verde salvia suave y `--m` es verde bosque oscuro.
+2. **Rompía el alcance de la fase.** La Fase 1 corrige fallos de contraste. Un cambio que no corrige ningún fallo es un cambio de diseño, y esos no entran acá aunque se vean bien.
+
+Queda anotado como precedente: **que un color sea mejorable no lo vuelve trabajo de la Fase 1. Tiene que estar fallando.**
 
 ### Corrección (a): no usar las tablas de la auditoría como checklist
 
