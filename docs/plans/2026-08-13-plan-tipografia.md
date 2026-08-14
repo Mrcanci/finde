@@ -420,7 +420,7 @@ Hoy, antes de la fase, las diferencias son exactamente dos y están medidas: los
 | # | Paso | Cómo se verifica |
 |---|---|---|
 | **a** | **Replicar `text-align:center` en `.app`**, con el bloque de `index.css` todavía en su lugar | Comparar contra `post-fase3-*`. **Nada se tiene que haber movido.** Si algo se movió, el problema está acá y no más adelante |
-| **b** | **Borrar el bloque `.app-demo`** de `index.css` | Comparar de nuevo contra `post-fase3-*`, y además confirmar que el media query oscuro ya no tiene reglas que apliquen al demo |
+| **b** | **Borrar el bloque `.app-demo`** de `index.css` | **El diff tiene que ser exactamente el efecto del `border-inline` y nada más.** Ver abajo. Más confirmar que el media query oscuro ya no tiene reglas que apliquen al demo |
 | **c** | **Recién después**, ir sacando el centrado selector por selector con la lista de 128 | Cada quita se valida sola, y se puede revertir de a una |
 
 **Por qué este orden y no el intuitivo.** Lo natural sería borrar primero y corregir después con la lista en la mano. Eso no funciona, y el motivo es concreto: **los dos calendarios suman 81 elementos que dependen de la herencia y no tienen ninguna clase**, son `div`, `button` y `strong` con estilos inline. No hay ninguna entrada en la lista de 128 que los arregle, porque no se pueden nombrar. Si se borra primero, se descuadran y no hay checklist que los levante.
@@ -447,7 +447,7 @@ Así que la validación de la Fase 4 incluye, obligatorio y a mano:
 
 Prestando atención particular a las dos grillas de calendario, que son donde se concentra el riesgo y donde ninguna lista de selectores ayuda.
 
-### Decisión tomada: el `border-inline` NO se replica
+### Decisión tomada: el `border-inline` NO se replica, ni siquiera transparente
 
 **No es un pendiente ni queda a criterio del momento.** Queda escrito acá justamente para que no se replique por inercia junto con las propiedades que sí hay que conservar.
 
@@ -456,6 +456,10 @@ El marco lateral de 1px que rodea al contenedor de 1126px es **estética de scaf
 Consecuencia práctica: la diferencia #1 entre modo claro y modo oscuro, la que hoy se ve en las 10 vistas, **se cierra sola**. No hay que corregir nada, hay que no replicar nada.
 
 Lo que sí hay que decidir a propósito es el ancho y el centrado. El borde no entra en esa lista, y el `min-height` tampoco: ya está muerto.
+
+**Se descartó también la variante `border-inline:1px solid transparent`**, que habría dejado la geometría idéntica al píxel. El motivo no es técnico: es que un borde transparente es un artefacto que nadie entiende en seis meses y que alguien borra sin saber que sostenía 2px. **Es la misma deuda de sistema entrando por otra puerta**, que es justo lo que esta fase existe para sacar.
+
+**Criterio de validación del paso (b), ya con esto decidido:** el diff contra `post-fase3-*` tiene que ser **exactamente el efecto del borde y nada más**. Eso es, medido en el Paso 0: el contenido pasa de 1124px a 1126px en desktop y de 388px a 390px en mobile, todo se corre 1px a la izquierda, y el único elemento que reflowea es `.gc-t` del tour "Caral", que pasa de tres líneas a dos y se empareja con la grilla. **Cualquier otra diferencia es un error de la fase.**
 
 ---
 
@@ -789,6 +793,12 @@ No son opcionales ni quedan a criterio del momento. Van sí o sí con la fase.
 **1. `.gc-t` va a 15px (`--fs-h3`), no a 16px, y necesita `-webkit-line-clamp: 2`.**
 
 A 390px la celda de `.tg` deja ~155px útiles. A 15px con peso 700 entran ~19 caracteres por línea, o sea 38 en dos líneas. Los títulos de 40 caracteres o más se van a tres líneas y la grilla pierde la altura pareja, que es el **riesgo #3 de la auditoría**. Con el clamp deja de ser riesgo.
+
+**⚠️ Ese ~155px hay que RE-MEDIRLO después de la Fase 4, no antes.** El `border-inline` del bloque `.app-demo` también aplica a 390px, donde el ancho lo manda `max-width:100%`: con los dos bordes de 1px el contenido mide **388px**, y sin ellos mide **390px**. O sea que cada celda de `.tg` pasa de ~155px a ~156px cuando la Fase 4 borre el bloque.
+
+No cambia la conclusión (el clamp sigue haciendo falta), pero **el número de partida cambia**, y toda la cuenta de caracteres por línea de esta mitigación está hecha sobre 155. Se recalcula con la Fase 4 ya aplicada.
+
+Ya hay evidencia de que ese píxel decide: en la simulación del Paso 0 de la Fase 4, **el único elemento de todo el demo que reflowea son esos 2px sobre `.gc-t`**, en el tour "Caral", que pasa de tres líneas a dos.
 
 **2. `.gcnt` cambia `width:60px` por `min-width:60px`.**
 
