@@ -677,9 +677,54 @@ empareja esa celda con el resto de la grilla.
 también cierra la diferencia claro contra oscuro, porque transparente es transparente en los dos
 modos.
 
-**Lo que falta del Paso 0:** las capturas de línea base en modo oscuro, 8 pantallas por ancho.
-`prefers-color-scheme` depende del sistema operativo y no se puede forzar desde la página, así
-que hace falta que José ponga macOS en oscuro. Las series claras de 1440 y 390 ya están.
+**Paso 0 cerrado.** Las cuatro series de línea base están completas: 8 pantallas de los dos
+flujos de formulario, por 390 y 1440, por claro y oscuro. 32 capturas en
+`~/Documents/finde-capturas/2026-08-14-fase4/`.
+
+### Paso 1 aplicado y verificado contra el código real
+
+Commit `26670f0`. Las reglas se extrajeron **verbatim del bundle compilado** y se insertaron en
+la **misma posición que ocupan en el código**, sobre la app real con la sesión real.
+
+| Vista | Ancho | Elementos | **Paso 1** |
+|---|---|---|---|
+| home | 1440 | 978 | **cero** |
+| reserva paso 1 (calendario) | 1440 | 96 | **cero** |
+| tour nuevo paso 3 (116 sin clase) | 390 | 146 | **cero** |
+| mis reservas | 390 | 90 | 1, el `h2` |
+
+Medido además por rectángulos en la pantalla más riesgosa: **0 de alto, 0 de ancho, 0 en x y 0
+en y.** El alcance se verificó contra el tag `pre-fase4` propiedad por propiedad: **catorce
+declaraciones agregadas, cero quitadas**.
+
+#### Dos decisiones del paso 1 que conviene tener escritas
+
+**1. El `h1` NO se replica, y es a propósito.** El bloque original es
+`.app-demo h1, .app-demo h2`; la réplica es solo `.app h2`. Hoy da exactamente igual, porque el
+único `h1` del demo es `h1.det-tl-desktop` y **computa `display:none` en los nueve anchos
+probados**, de 390 a 1600.
+
+Pero ese `h1` es el título del tour pensado para desktop fuera del hero, el patrón de Airbnb,
+y quedó como intención abandonada. **El día que se active va a renderizar con reglas distintas
+de las que tenía cuando se escribió**: sin los 56px, sin el `letter-spacing:-1.68px` y sin el
+`margin:32px 0` que hoy le pone el bloque.
+
+Queda anotado para que el día que se retome la ficha de tour no sorprenda. **No se replica
+igual: replicar reglas para sostener un elemento invisible es agregar deuda para evitar una
+sorpresa que ya está documentada.**
+
+**2. `body{margin:0;font-family}` se queda en `index.css`.** Se verificó antes de borrar el
+bloque, porque parecía código muerto y no lo es.
+
+`.landing` declara su propia `font-family` (`Landing.jsx:564`) y `.app` también, así que
+ninguna de las dos pantallas depende del `body`. **Pero la hoja de notificaciones sí.** En
+mobile se renderiza con `createPortal(popover, document.body)` (`AppDemo.jsx:1881`), o sea que
+cuelga del `<body>` y queda fuera de los dos scopes. Y ni `.notif-sheet`, ni
+`.notif-sheet-list`, ni `.ni-item` declaran `font-family`: **heredan la del `body`**.
+
+Sacar esa línea dejaría la hoja de notificaciones con la fuente por defecto del navegador, en
+mobile. Es la misma hoja que la auditoría de `text-align` ya había marcado como "fuera de
+`.app-demo`", por el mismo motivo.
 
 ---
 

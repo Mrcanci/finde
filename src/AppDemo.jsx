@@ -1341,7 +1341,13 @@ html{scrollbar-gutter:stable}
 .voucher-list{display:flex;flex-direction:column;gap:8px}
 .voucher-item{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ch)}
 .voucher-item .vi-ic{width:20px;height:20px;border-radius:50%;background:rgba(45,90,61,.1);color:var(--m);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.voucher-more{font-size:11px;color:var(--gy-strong);margin-top:8px;font-style:italic}
+/* Sin font-style:italic a proposito. Plus Jakarta Sans no trae cara italica
+   (el @import pide wght, sin eje ital), asi que hasta la Fase 4 este texto se
+   veia RECTO: el font-synthesis:none del bloque .app-demo impedia que el
+   navegador la inventara. Al borrar ese bloque, font-synthesis vuelve a auto y
+   la cursiva sintetica aparecia a 11px, que se ve mal. Sacarla preserva el
+   render que el demo ya tenia. */
+.voucher-more{font-size:11px;color:var(--gy-strong);margin-top:8px}
 .voucher-cancel{padding:12px 14px;background:var(--cr);border-radius:10px;border-left:3px solid var(--f)}
 .voucher-cancel-t{font-size:12px;font-weight:700;color:var(--f);margin-bottom:4px;display:flex;align-items:center;gap:6px}
 .voucher-cancel-d{font-size:12px;color:var(--gy-strong);line-height:1.5}
