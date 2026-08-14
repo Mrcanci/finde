@@ -2176,7 +2176,7 @@ function WelcomeView({ go }) {
       <div className="welcome-title">¡Bienvenido a Finde!</div>
       <div className="welcome-sub">Tu cuenta está lista. Esto es lo que puedes hacer en Finde:</div>
       <div className="welcome-features">
-        <div className="welcome-feat"><div className="welcome-feat-ic" style={{ background: "rgba(45,90,61,.1)" }}><Search size={20} strokeWidth={1.5} /></div><div className="welcome-feat-txt">Buscar experiencias con inteligencia artificial</div></div>
+        <div className="welcome-feat"><div className="welcome-feat-ic" style={{ background: "rgba(45,90,61,.1)" }}><Search size={20} strokeWidth={1.5} /></div><div className="welcome-feat-txt">Buscar tours con inteligencia artificial</div></div>
         {/* El pago sigue al flag maestro, como el resto de la copy de pago
             (ver BookingView): con el flujo demo el pago pasa por Finde; en el
             piloto se coordina con la agencia por WhatsApp. */}
@@ -5815,7 +5815,7 @@ export default function AppDemo() {
   // deja al usuario navegando el catálogo como invitado.
   const handleLogout = async () => { setGuest(false); await signOut(); };
   const handleBook = () => {
-    if (!user) { setLoginMsg("Inicia sesión o regístrate para reservar tu experiencia"); go("login"); }
+    if (!user) { setLoginMsg("Inicia sesión o regístrate para reservar tu tour"); go("login"); }
     else go("booking");
   };
   const handleReview = (tripId, tourId, rating, text) => {
