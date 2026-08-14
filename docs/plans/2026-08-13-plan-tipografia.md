@@ -1,7 +1,7 @@
 # Plan tipográfico del demo
 
 **Fecha:** 13 ago 2026 · **Rama de origen:** `dev` · **Fuente:** `docs/audits/2026-08-13-typography-audit.md`
-**Estado al 2026-08-14:** Fases 0 a 3 en `main` (`af7c0b1`). **Fase 4 COMPLETA**, mergeada a `dev` (`c9fcbfa`), pendiente de QA antes de `main`. **La siguiente es la Fase 5.**
+**Estado al 2026-08-14:** Fases 0 a 3 en `main` (`af7c0b1`). **Fase 4 COMPLETA y en `main`** (`6f3bbed`), post-QA. **La siguiente es la Fase 5.**
 
 Este plan reordena los hallazgos de la auditoría tipográfica y **corrige seis errores de análisis que se le encontraron al verificarla**. La auditoría se trata como hipótesis, no como verdad. Cuando este plan y la auditoría se contradicen, manda este plan.
 
@@ -762,7 +762,8 @@ mobile. Es la misma hoja que la auditoría de `text-align` ya había marcado com
 
 ### Cierre de la Fase 4
 
-**Mergeada a `dev` el 2026-08-14 (`c9fcbfa`).** Pendiente de QA en dev.finde.pe antes de `main`.
+**En `main` desde el 2026-08-14 (`6f3bbed`), post-QA.** QA hecho por José en dev.finde.pe contra
+las 32 capturas de línea base: los tres cambios visibles confirmados, sin sorpresas.
 
 `src/index.css` pasó de **109 líneas a una sola regla**, y el CSS compilado de **1.95 kB a
 0.06 kB**.
