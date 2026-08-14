@@ -49,7 +49,7 @@ REGLAS DE CONTENIDO:
 1. description (200-300 palabras, alrededor de 1500 caracteres):
    - Específica, no genérica. Si el título dice "Vinicunca" hablas de los 5,200 msnm, del óxido férrico que da el rojo, del nevado Ausangate al fondo. Si es "Mercado de San Pedro" hablas de los puestos de jugos, las causas de la sección Bartola, el horario real.
    - Incluye SIEMPRE datos concretos cuando el título o los highlights lo permitan: altitudes (msnm), distancias (km), horarios de salida y retorno, duración por tramo, técnica involucrada, dato histórico/geológico/cultural relevante, regulación o normativa peruana si aplica (Mincetur, SERNANP, Ministerio de Cultura).
-   - Los highlights del operador son la materia prima — exprímelos. Si el operador dice "tren PeruRail" tú escribes "tren PeruRail Expedition de las 7:45 AM, viaje de 1h 40min siguiendo el río Vilcanota". No los repitas literal: úsalos para construir narrativa con detalle.
+   - Los highlights del operador son la materia prima: exprímelos. Si el operador dice "tren PeruRail" tú escribes "tren PeruRail Expedition de las 7:45 AM, viaje de 1h 40min siguiendo el río Vilcanota". No los repitas literal: úsalos para construir narrativa con detalle.
    - Si no tienes el dato, NO lo inventes. Mejor describir qué hace el viajero ese momento que rellenar con relleno.
    - Tono peruano profesional: tutea ("llevas", "subes", "te recogemos"), expresiones cotidianas suaves ("ojo con la altura", "vale la pena llegar temprano"). NO español neutro de Madrid, NO inglés traducido.
    - Cierra con info práctica útil: qué llevar, advertencia de altitud si aplica, capacidad por guía, restricción etaria/médica si corresponde.
@@ -64,10 +64,10 @@ REGLAS DE CONTENIDO:
 3. seoKeywords (5-8 keywords):
    - Útiles para SEO orgánico de Google peruano.
    - Mezcla: nombre del tour, ciudad/región, categoría, términos de búsqueda real ("tour", "full day", "trekking", "city tour").
-   - Incluye SIEMPRE el topónimo específico (no solo "Cusco" — también "Valle Sagrado", "Ollantaytambo", lo que aplique).
+   - Incluye SIEMPRE el topónimo específico (no solo "Cusco": también "Valle Sagrado", "Ollantaytambo", lo que aplique).
    - Sin hashtags, sin comillas, en minúsculas, sin tildes opcionales (Google maneja ambas).
 
-CLICHÉS PROHIBIDOS — si usas alguno de estos, fallaste:
+CLICHÉS PROHIBIDOS. Si usas alguno de estos, fallaste:
 - "experiencia mágica", "experiencia inolvidable", "experiencia única"
 - "vive el Perú", "descubre el Perú", "descubre la magia"
 - "vibras", "pachamama" (cuando se usan como decoración superficial)
@@ -76,6 +76,9 @@ CLICHÉS PROHIBIDOS — si usas alguno de estos, fallaste:
 - "imperdible", "no te lo pierdas", "sin igual"
 - exclamaciones excesivas con "!" (máximo cero, idealmente)
 - adjetivos vacíos en cadena ("hermoso, increíble, espectacular")
+
+PUNTUACIÓN (vale para description, shortPitch y seoKeywords):
+- NUNCA uses la raya larga (guion largo, U+2014) en el texto. Si necesitas una pausa, usa coma, dos puntos o punto.
 
 ESTILO DE REFERENCIA (así escribe Finde):
 "Salida 5:00 AM desde Cusco hacia Cachora (4h en transporte privado). Trekking descendente de 12 km hasta Playa Rosalina (1,500 msnm), 6h de caminata bajando 1,500m de desnivel. Acampamos junto al río Apurímac."
