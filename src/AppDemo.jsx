@@ -936,16 +936,16 @@ const imgBg = (image) => {
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 html{scrollbar-gutter:stable}
-.app{--f:#1B3A2D;--m:#2D5A3D;--sg:#6B8F71;--sd:#E8DDD3;--cr:#F5F0EA;--wh:#FAFAF7;--tr:#C7613A;--tr-text:#A84E2C;--trl:#E8845A;--gd:#D4A843;--gd-text:#7A5C10;--ch:#2C2C2A;--gy:#737370;--gy-strong:#5A5A57;--lg:#959591;--yp:#6B2FA0;--pl:#00B4D8;--ai:#0EA5E9;--focus:rgba(199,97,58,.4)}
+.app{--f:#1B3A2D;--m:#2D5A3D;--sg:#6B8F71;--sd:#E8DDD3;--cr:#F5F0EA;--wh:#FAFAF7;--tr:#C7613A;--tr-text:#A84E2C;--trl:#E8845A;--gd:#D4A843;--gd-text:#7A5C10;--ch:#2C2C2A;--gy:#737370;--gy-strong:#5A5A57;--lg:#959591;--yp:#6B2FA0;--pl:#00B4D8;--ai:#0EA5E9;--focus:rgba(45,90,61,.35)}
 .app *{margin:0;padding:0;box-sizing:border-box}
 .app{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--wh);color:var(--ch);-webkit-font-smoothing:antialiased;overflow-x:hidden}
 .app{min-height:100vh;background:var(--wh);position:relative}
 
 /* Focus accesible — solo navegación con teclado */
 .app :focus{outline:none}
-.app a:focus-visible,.app button:focus-visible,.app summary:focus-visible,.app [role="button"]:focus-visible,.app [tabindex="0"]:focus-visible{outline:2px solid var(--tr);outline-offset:2px;border-radius:4px}
+.app a:focus-visible,.app button:focus-visible,.app summary:focus-visible,.app [role="button"]:focus-visible,.app [tabindex="0"]:focus-visible{outline:2px solid var(--f);outline-offset:2px;border-radius:4px}
 .app input:focus-visible,.app textarea:focus-visible,.app select:focus-visible{outline:none;border-color:var(--m);box-shadow:0 0 0 4px var(--focus)}
-.app input[type="checkbox"]:focus-visible,.app input[type="radio"]:focus-visible{outline:2px solid var(--tr);outline-offset:2px;box-shadow:none}
+.app input[type="checkbox"]:focus-visible,.app input[type="radio"]:focus-visible{outline:2px solid var(--f);outline-offset:2px;box-shadow:none}
 
 @media (prefers-reduced-motion: reduce){
   .app *,.app *::before,.app *::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}
