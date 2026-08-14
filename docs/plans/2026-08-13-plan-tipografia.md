@@ -88,7 +88,7 @@ Sin commits, no toca ningún archivo del repo. Es medición y capturas.
 | 1 | Interlineado real del root medido en mobile | ✅ **16px / 23.2px, ratio 1.450.** E1 confirmado: la auditoría reportaba 26.1px y ese valor solo existe en desktop |
 | 2 | Confirmación de que los `<button>` computan `line-height:normal` con la base actual | ✅ **33 de 33, cero excepciones.** E2 confirmado |
 | 3 | Capturas de referencia en 412px | ✅ 10 vistas, **previas a la Fase 1** |
-| 4 | **Auditoría de `text-align:center`** | ✅ **96 selectores dependen de la herencia**, sobre 9 vistas |
+| 4 | **Auditoría de `text-align:center`** | ✅ **109 selectores dependen de la herencia**, sobre 13 vistas y sub-vistas. Faltan login y welcome, que exigen cerrar sesión |
 | 5 | Series de línea base para la Fase 4 | ✅ **completo.** oscuro 412, 1440 y 390 · claro 1440 (10 vistas) y 390 (2 vistas) |
 | 6 | Confirmar si la cursiva de `.voucher-more` se ve o no | pendiente |
 | 7 | Comparación oscuro vs claro en 1440, vista por vista | ✅ **2 diferencias, las dos del bloque `.app-demo`.** Ver abajo |
@@ -140,7 +140,35 @@ Es el que más importa de los que faltan, porque **es el riesgo número uno de l
 
 El entregable es **una lista de selectores**, no una impresión: los que hoy se ven centrados **por herencia** del `text-align:center` de `.app-demo` y **no declaran `text-align` propio**. Esos son exactamente los que se descuadran el día que la Fase 4 borre el bloque, y son los que hay que replicar a propósito en `.app`.
 
-Se saca recorriendo el DOM del demo, comparando el `text-align` computado de cada elemento contra el declarado en la hoja de estilos del demo. El demo declara centrado explícito en 22 reglas propias: esas se salvan solas y no van en la lista. La lista es todo lo demás.
+Se saca por prueba empírica: se inyecta `.app-demo{text-align:left}` y se registra qué elementos cambian de `text-align` computado. El demo declara alineación explícita en **36 reglas propias**, no 22 como decía este plan: esas se salvan solas y no van en la lista.
+
+### Segunda tanda: la muestra de 9 vistas subestimaba el alcance en un 20%
+
+Las 9 vistas de la primera tanda daban 91 selectores. Las 4 que se sumaron el 14 ago aportan **18 nuevos**, y no son marginales: son **dos familias enteras** que no estaban.
+
+| Familia | Selectores | Por qué importa |
+|---|---|---|
+| **Ficha de tour** (`.det*`, `.bb*`) | 8 | Incluye `.det-hero` y `.bb`, la foto grande y la barra de reserva fija. La pantalla que más tráfico va a tener |
+| **Armazón de formulario** (`.bkf*`, `.fg`, `.lbl`, `.gctr`, `.sum-t`) | 10 | **Es uno solo y sirve a dos flujos**: reserva (3 pasos) y tour nuevo (5 pasos). Un selector mal replicado descuadra ocho pantallas |
+
+Se volvió a correr el home como control: dio 34 selectores y **los 34 ya estaban**, cero nuevos. El método es el mismo y los números se suman.
+
+### Dos hallazgos que ninguna lista de selectores captura
+
+**1. La grilla del calendario de reserva no tiene clases.** 19 elementos que dependen de la herencia son `div` y `button` con estilos inline. **Son invisibles para cualquier checklist por selector**, este incluido, así que no se pueden corregir uno por uno. Y es justo el punto frágil que la Fase 2 ya tenía marcado. Si el centrado no se replica en `.app`, el calendario se descuadra y la lista no sirve de nada: hay que darle `text-align` propio al contenedor de la grilla.
+
+**2. La hoja de notificaciones está fuera de `.app-demo`.** Se renderiza colgada del `<body>`. Sus 52 elementos cambian cero: **la Fase 4 no la toca.** No es un hueco de la auditoría, es un resultado.
+
+### Lo que sigue sin medir
+
+**`login` y `welcome` exigen cerrar sesión**, y la contraseña de `demo@finde.pe` la tiene que escribir José. Los pasos que quedan de los dos formularios (`reserva` paso 3 y `tour nuevo` pasos 2 a 5) exigen llenar campos obligatorios.
+
+Lo que se puede afirmar sin abrirlos, leyendo qué reglas declaran alineación propia, marcado como estático y no empírico:
+
+- **`welcome`: casi seguro cero.** `.welcome` declara `text-align:center` propio, así que su subárbol hereda de ahí. Mismo caso que la hoja de notificaciones
+- **`login`: es el hueco grande.** De sus 38 selectores solo tres declaran alineación propia. Los otros 35 dependen de la herencia. **Es de lejos lo que más falta medir**
+- **`reserva` paso 3: la familia `.pm`**, 6 selectores, ninguno declara alineación propia
+- **`tour nuevo` pasos 2 a 5: probablemente cero nuevos.** No existe ninguna regla `.nt-*` en el CSS: el formulario reusa el armazón `.bkf` que ya quedó medido
 
 ### Por qué 390px además de 412px
 
@@ -207,7 +235,7 @@ Chrome real contra dev.finde.pe/demo, sesión de `demo@finde.pe`. Las mediciones
 | `post-fase3-light-1440/` | 10 | ✅ |
 | `post-fase3-light-390/` | 2 | home y catálogo |
 | `datos/mediciones.md` | | mediciones con su método |
-| `datos/auditoria-text-align.md` | | los 96 selectores del entregable 4 |
+| `datos/auditoria-text-align.md` | | los 109 selectores del entregable 4 |
 | `datos/comparacion-oscuro-claro.md` | | el entregable 7, oscuro vs claro vista por vista |
 
 ### Hallazgo nuevo, no está en la auditoría (severidad baja)
@@ -333,7 +361,7 @@ Acá empieza la deuda de sistema y el riesgo alto. Nada de esta fase se ve; todo
 - **Hallazgos:** §10a completo. Habilita la Fase 5
 - **Archivos:** `src/index.css` (borrar el bloque `.app-demo`) y `src/AppDemo.jsx` (replicar a propósito lo que se conserve en `.app`). **Un commit, solo esto**
 - **Qué se hace:** el bloque es plantilla de Vite renombrada, pero hoy gobierna el ancho, el centrado, el tamaño del root, el interlineado, el espaciado entre letras y el color de los `h2`. No alcanza con borrarlo: hay que decidir qué se replica
-- **Qué puede romperse:** **es el riesgo número uno del proyecto.** Al borrarlo el demo pierde de golpe `width:1126px`, `max-width:100%`, `margin:0 auto`, `text-align:center`, `display:flex`, `flex-direction:column`, `min-height:100svh` y `border-inline`. El centrado en particular sostiene pantallas enteras. El demo declara centrado explícito en 22 reglas propias, o sea que parte se salva sola, pero el resto no
+- **Qué puede romperse:** **es el riesgo número uno del proyecto.** Al borrarlo el demo pierde de golpe `width:1126px`, `max-width:100%`, `margin:0 auto`, `text-align:center`, `display:flex`, `flex-direction:column`, `min-height:100svh` y `border-inline`. El centrado en particular sostiene pantallas enteras. El demo declara alineación explícita en 36 reglas propias, o sea que parte se salva sola, pero **109 selectores dependen de la herencia**, más la grilla del calendario, que no tiene clases y por eso no entra en ninguna lista
 - **Ganancia:** desaparece la fragilidad de que la fuente del demo dependa del orden de inyección del bundler, y desaparece la fuente del bug de "Notificaciones" en vez de seguir tapándolo caso por caso
 - **Cómo se valida:** capturas de Fase 0 contra el resultado, **pantalla por pantalla, en 390px y en 1440px, en modo claro y en modo oscuro**. Es la única fase donde vale la pena el diff visual completo antes de pushear
 
