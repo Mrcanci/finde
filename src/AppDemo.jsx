@@ -1058,11 +1058,11 @@ html{scrollbar-gutter:stable}
 
 /* ── Hero ── */
 .hero{position:relative;margin:0 16px 20px;border-radius:28px;overflow:hidden;height:220px;background:url(https://images.unsplash.com/photo-1593111357479-0384c900794c?q=80&w=2400&auto=format&fit=crop) center/cover no-repeat}
-.hero-tex{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.35) 0%,rgba(0,0,0,.55) 100%)}
+.hero-tex{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.45) 0%,rgba(0,0,0,.65) 100%)}
 .hero-c{position:relative;z-index:2;padding:28px 24px;display:flex;flex-direction:column;justify-content:space-between;height:100%}
-.hero-tag{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);backdrop-filter:blur(10px);padding:6px 14px;border-radius:100px;font-size:11px;font-weight:600;color:rgba(255,255,255,.9);width:fit-content;letter-spacing:.5px}
+.hero-tag{display:inline-flex;align-items:center;gap:6px;background:rgba(0,0,0,.45);backdrop-filter:blur(10px);padding:6px 14px;border-radius:100px;font-size:11px;font-weight:600;color:#fff;width:fit-content;letter-spacing:.5px}
 .hero-t{font-family:'DM Serif Display',Georgia,serif;font-size:28px;line-height:1.15;color:white;max-width:280px}
-.hero-sub{font-size:13px;color:rgba(255,255,255,.7);margin-top:4px}
+.hero-sub{font-size:13px;color:#fff;margin-top:4px}
 
 /* ── AI Search ── */
 .ai-sb{margin:0 16px 12px;position:relative;z-index:70}
