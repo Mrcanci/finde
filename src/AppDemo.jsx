@@ -1094,7 +1094,7 @@ html{scrollbar-gutter:stable}
 .sr-noresults{padding:16px 12px;font-size:13px;color:var(--gy);text-align:center;line-height:1.5}
 .sr-pills{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;justify-content:center}
 .sr-ai-hint{padding:6px 12px;font-size:11px;color:var(--m);font-weight:600;display:flex;align-items:center;gap:4px}
-.sr-clear{background:none;border:none;font-size:16px;color:var(--gy);cursor:pointer;padding:4px 8px;margin-left:auto;flex-shrink:0}
+.sr-clear{background:none;border:none;font-size:16px;color:var(--gy);cursor:pointer;padding:4px 8px;margin-left:auto;flex-shrink:0;min-height:44px}
 .sr-clear:hover{color:var(--ch)}
 
 /* AI Result banner */
@@ -1109,7 +1109,7 @@ html{scrollbar-gutter:stable}
 
 /* ── Language Dropdown ── */
 .lang-dd{position:relative;display:inline-block}
-.lang-dd-btn{padding:5px 12px;border-radius:8px;font-size:11px;font-weight:600;border:1.5px solid var(--sd);background:white;color:var(--ch);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px}
+.lang-dd-btn{padding:5px 12px;border-radius:8px;font-size:11px;font-weight:600;border:1.5px solid var(--sd);background:white;color:var(--ch);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px;min-height:44px}
 .lang-dd-btn .arr{font-size:8px;color:var(--gy-strong);margin-left:2px}
 .lang-dd-menu{position:absolute;top:calc(100% + 4px);right:0;background:white;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:80;overflow:hidden;min-width:120px;border:1px solid rgba(0,0,0,.06)}
 .lang-dd-item{padding:10px 14px;font-size:12px;font-weight:500;cursor:pointer;transition:.15s;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(0,0,0,.03)}
@@ -1121,12 +1121,12 @@ html{scrollbar-gutter:stable}
 /* ── Chips ── */
 .cats{display:flex;gap:8px;padding:0 16px 16px;overflow-x:auto;scrollbar-width:none}
 .cats::-webkit-scrollbar{display:none}
-.chip{display:flex;align-items:center;gap:6px;padding:10px 16px;border-radius:100px;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;transition:.25s;border:1.5px solid var(--sd);background:white;color:var(--ch);font-family:inherit}
+.chip{display:flex;align-items:center;gap:6px;padding:10px 16px;border-radius:100px;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;transition:.25s;border:1.5px solid var(--sd);background:white;color:var(--ch);font-family:inherit;min-height:44px}
 .chip.on{background:var(--f);color:white;border-color:var(--f)}
 
 .sh{display:flex;justify-content:space-between;align-items:baseline;padding:0 20px;margin-bottom:14px}
 .st{font-family:'DM Serif Display',Georgia,serif;font-size:22px}
-.sl{font-size:13px;font-weight:600;color:var(--tr-text);cursor:pointer;border:none;background:none;font-family:inherit}
+.sl{font-size:13px;font-weight:600;color:var(--tr-text);cursor:pointer;border:none;background:none;font-family:inherit;min-height:44px}
 
 /* ── Sección "Tours en [ciudad]" con selector ── */
 .city-sh{align-items:center}
@@ -1136,7 +1136,7 @@ html{scrollbar-gutter:stable}
    el carrusel horizontal ya permite navegar todas las cards con swipe. En
    ≥640px (donde .tscr pasa a grid) lo restauramos. */
 .city-actions .sl{display:none}
-.city-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;border:1.5px solid var(--sd);background:white;color:var(--ch);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:.2s}
+.city-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;border:1.5px solid var(--sd);background:white;color:var(--ch);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:.2s;min-height:44px}
 .city-btn:hover{border-color:var(--sg);color:var(--f)}
 .city-btn .city-btn-chev{transition:transform .2s}
 .city-btn.open .city-btn-chev{transform:rotate(180deg)}
@@ -1384,7 +1384,7 @@ html{scrollbar-gutter:stable}
 .tp-page{padding:20px 16px 120px}
 .tp-h{margin-bottom:20px}.tp-h h2{font-family:'DM Serif Display',Georgia,serif;font-size:28px;color:var(--ch)}.tp-h p{font-size:14px;color:var(--gy);margin-top:4px}
 .tp-tabs{display:flex;gap:6px;margin-bottom:16px}
-.tp-tab{padding:10px 16px;border-radius:100px;font-size:13px;font-weight:600;border:1.5px solid var(--sd);background:white;color:var(--gy);cursor:pointer;font-family:inherit;transition:.2s}
+.tp-tab{padding:10px 16px;border-radius:100px;font-size:13px;font-weight:600;border:1.5px solid var(--sd);background:white;color:var(--gy);cursor:pointer;font-family:inherit;transition:.2s;min-height:44px}
 .tp-tab.on{background:var(--f);color:white;border-color:var(--f)}
 .tp-card{display:flex;gap:14px;padding:16px;background:white;border-radius:16px;border:1px solid rgba(0,0,0,.06);margin-bottom:10px;cursor:pointer;transition:.2s;width:100%}
 .tp-card:hover{box-shadow:0 2px 12px rgba(0,0,0,.08)}
@@ -1421,7 +1421,7 @@ html{scrollbar-gutter:stable}
 .rev-date{font-size:11px;color:var(--gy-strong)}
 .rev-stars{color:var(--gd);font-size:12px;margin-bottom:4px}
 .rev-text{font-size:13px;line-height:1.6;color:var(--ch)}
-.rev-more{width:100%;padding:12px;border:1.5px solid var(--sd);border-radius:12px;background:none;font-size:13px;font-weight:600;color:var(--gy);cursor:pointer;font-family:inherit;margin-top:12px;transition:.2s}
+.rev-more{width:100%;padding:12px;border:1.5px solid var(--sd);border-radius:12px;background:none;font-size:13px;font-weight:600;color:var(--gy);cursor:pointer;font-family:inherit;margin-top:12px;transition:.2s;min-height:44px}
 .rev-more:hover{border-color:var(--f);color:var(--f)}
 
 /* Review form */
@@ -1484,7 +1484,7 @@ html{scrollbar-gutter:stable}
 .dsh-s-v{font-size:22px;font-weight:800}.dsh-s-l{font-size:10px;opacity:.7;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
 .dsh-tabs{display:flex;border-bottom:2px solid var(--sd);padding:0 20px;margin-bottom:16px;overflow-x:auto;scrollbar-width:none}
 .dsh-tabs::-webkit-scrollbar{display:none}
-.dsh-tab{padding:14px 14px;font-size:12px;font-weight:600;color:var(--gy);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit;transition:.2s}
+.dsh-tab{padding:14px 14px;font-size:12px;font-weight:600;color:var(--gy);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit;transition:.2s;min-height:44px}
 .dsh-tab.on{color:var(--f);border-bottom-color:var(--f)}
 .dsh-bk{margin:0 0 10px;padding:16px;background:white;border-radius:14px;border:1px solid rgba(0,0,0,.06);display:flex;align-items:center;gap:14px;cursor:pointer;transition:.2s;width:100%}
 .dsh-bk:hover{box-shadow:0 1px 3px rgba(0,0,0,.06)}
@@ -1578,7 +1578,7 @@ html{scrollbar-gutter:stable}
 
 /* ══ DESKTOP NAV LINKS (hidden on mobile) ═══════════ */
 .tn-links{display:none;gap:2px;align-items:center}
-.tn-link{padding:8px 16px;border-radius:10px;font-size:14px;font-weight:600;color:var(--gy);background:none;border:none;cursor:pointer;font-family:inherit;transition:.2s;position:relative}
+.tn-link{padding:8px 16px;border-radius:10px;font-size:14px;font-weight:600;color:var(--gy);background:none;border:none;cursor:pointer;font-family:inherit;transition:.2s;position:relative;min-height:44px}
 .tn-link::after{content:'';position:absolute;bottom:2px;left:16px;right:16px;height:2px;background:var(--f);border-radius:1px;transform:scaleX(0);transition:transform .15s}
 .tn-link:hover{color:var(--f)}
 .tn-link.on{color:var(--f)}
