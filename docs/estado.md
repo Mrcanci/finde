@@ -1,7 +1,7 @@
 # Estado del proyecto
 
 > Se sobrescribe al cerrar cada tanda, en el mismo commit del trabajo.
-> Última actualización: 2026-08-13 (verificado contra el repo y contra la DB de producción)
+> Última actualización: 2026-08-14 (verificado contra el repo y contra la DB de producción)
 
 ## Rama activa
 
@@ -47,6 +47,12 @@ Pendientes de performance:
 Textos con fecha de vencimiento (se van a borrar solos, no invertir en ellos):
 
 - `src/AppDemo.jsx:5818`, el mensaje "Inicia sesión o regístrate para reservar tu tour". Aparece cuando alguien intenta reservar sin sesión. **Ese string desaparece entero cuando se implemente reserva como invitado**, porque no va a haber gate que mostrar. Se corrigió el copy (decía "experiencia") pero no vale la pena traducirlo, testearlo ni pulirlo más.
+
+Trabajo pendiente de producto:
+
+- **El título del tour en desktop, fuera del hero.** `src/AppDemo.jsx` tiene un `<h1 class="det-tl-desktop">` con el nombre del tour que hoy computa `display:none` en todos los anchos, de 390 a 1600. **No es marcado muerto: es una intención abandonada.** La idea era el patrón de Airbnb, con el título del tour arriba y afuera de la foto en desktop, en vez de superpuesto al hero como está hoy (`.det-tl`). Quedó a medio camino: el marcado existe, el CSS que lo mostraría no. **Es trabajo del rediseño de la ficha de tour, no algo para borrar.**
+
+  Ojo con un detalle al retomarlo: ese `h1` hoy no declara color propio y hereda `--text-h` del bloque `.app-demo` de `index.css`, o sea que en modo oscuro saldría casi blanco. Es el mismo patrón de los dos títulos invisibles ya arreglados (`c171347`, `e818d8e`). **No hay que arreglarlo antes: la Fase 4 del plan tipográfico lo desactiva sola** al eliminar el bloque y con él la variable. Ver `docs/plans/2026-08-13-plan-tipografia.md`.
 
 Pendientes menores (no justifican tocar nada por sí solos):
 

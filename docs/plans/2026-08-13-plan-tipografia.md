@@ -112,7 +112,27 @@ El bloqueo era que la ventana de Chrome no se deja redimensionar por automatizac
 
 Verificado en cada serie con `innerWidth` del iframe y `matchMedia` de los breakpoints de 640, 1024 y 1200.
 
-Detalle que costó dos intentos: las vistas con animación de entrada salían capturadas a media transición. Se resuelve inyectando `*{animation:none;transition:none}` dentro del iframe antes de capturar. No cambia el layout, solo elimina el estado transitorio.
+Detalle que costó dos intentos: las vistas con animación de entrada salían capturadas a media transición.
+
+**La inyección correcta es acelerar a cero, no apagar.** Esto estaba mal anotado y costó una tanda más:
+
+```css
+*{animation-duration:0s !important;
+  animation-delay:0s !important;
+  transition-duration:0s !important}
+```
+
+`*{animation:none}` **no sirve**. Los cinco bloques con entrada (`.fu`, `.fd1`, `.fd2`, `.fd3`) arrancan en `opacity:0` y suben con la animación, que tiene `fill:forwards`. Apagarla los deja invisibles para siempre: la primera captura de home salió sin buscador, sin chips y sin "Recién publicados", con un hueco blanco donde iban.
+
+Medido en el navegador, opacidad de los cinco elementos después de cada inyección:
+
+| Inyección | Resultado |
+|---|---|
+| `animation:none` | `1, 0, 0, 0, 0` ❌ |
+| **`animation-duration:0s` + `animation-delay:0s` + `transition-duration:0s`** | **`1, 1, 1, 1, 1`** ✅ |
+| `animation-duration:0.001s` | `0, 0, 0, 0, 0` ❌ |
+
+**Ojo con la milésima:** una duración chica pero distinta de cero **no alcanza**, porque dentro del iframe la línea de tiempo de las animaciones puede quedar en `currentTime:0` y ahí el elemento sigue en el fotograma inicial. Con `0s` el navegador aplica el fotograma final de una, sin depender del reloj. Las series claras del 14 ago se sacaron con `0.001s` y salieron bien de casualidad, porque el reloj ya había avanzado: son válidas, pero la receta que se repite es la de `0s`.
 
 ### Entregable 4: auditoría de `text-align:center`
 
@@ -153,9 +173,15 @@ Sale gratis con las dos series completas y sirve de línea base para la Fase 4. 
 
 **La primera es una tercera fuga de `.app-demo` que no estaba documentada.** Las dos conocidas (`c171347`, `e818d8e`) eran de `--text-h`; esta es de `--border`, y a diferencia de aquellas se ve en todas las pantallas, no en dos títulos.
 
+**Decisión tomada: el `border-inline` no se replica.** Ver la Fase 4.
+
 Lo demás es idéntico. La garantía no la da el diff de imágenes sino la lectura del `cssRules` del navegador: **el media query oscuro de `index.css` tiene exactamente tres reglas**, y cada consumidor posible se verificó en vivo. `color` y `background` los gana `.app`, que vive en un `<style>` posterior; `h1`/`h2` hoy no los hereda ningún elemento visible; y `code`, `.counter` y `#social` no existen en el demo.
 
-**Hallazgo latente:** el detalle de tour tiene un `<h1 class="det-tl-desktop">` que computa `color: var(--text-h)`, el único elemento del demo que consume esa variable. Hoy no se ve: computa `display:none` en los nueve anchos probados, de 390 a 1600. Es marcado muerto, pero queda anotado porque es exactamente el patrón de los dos bugs ya cerrados.
+**Hallazgo latente: `h1.det-tl-desktop`.** El detalle de tour tiene un `<h1 class="det-tl-desktop">` que computa `color: var(--text-h)`, el único elemento del demo que consume esa variable. Hoy no se ve: computa `display:none` en los nueve anchos probados, de 390 a 1600.
+
+**No es marcado muerto ni hay que borrarlo.** Es el título del tour pensado para desktop **fuera** del hero, o sea el patrón de Airbnb, y quedó como intención abandonada. Es trabajo pendiente del rediseño de la ficha de tour, anotado en `docs/estado.md`.
+
+**El bug latente de `--text-h` no hay que arreglarlo antes.** La Fase 4 lo desactiva sola al eliminar la variable: cuando el bloque `.app-demo` deje de existir, ese `h1` pasa a heredar el color del demo como cualquier otro elemento. Arreglarlo ahora sería trabajo que la Fase 4 borra.
 
 Detalle completo, con mediciones de los bordes en las 10 vistas y el método, en `datos/comparacion-oscuro-claro.md`.
 
@@ -326,6 +352,16 @@ Hoy, antes de la fase, las diferencias son exactamente dos y están medidas: los
 **Cómo se verifica**, y este es el punto: no hace falta capturar de nuevo las dos series enteras. Alcanza con **releer el `cssRules` del navegador** y confirmar que el media query `prefers-color-scheme: dark` ya no tiene ninguna regla que aplique al demo. Eso cubre todo el demo, no solo las diez vistas capturadas. El diff de imágenes queda como confirmación, no como prueba.
 
 **Ojo con el ancho al replicar.** El bloque también declara `width:1126px`, `margin:0 auto`, `text-align:center` y `min-height:100svh`. Eso no es modo oscuro y no se valida con este criterio: va aparte, con las capturas.
+
+### Decisión tomada: el `border-inline` NO se replica
+
+**No es un pendiente ni queda a criterio del momento.** Queda escrito acá justamente para que no se replique por inercia junto con las propiedades que sí hay que conservar.
+
+El marco lateral de 1px que rodea al contenedor de 1126px es **estética de scaffold de Vite, no diseño de Finde**. Vino con la plantilla, igual que el resto del bloque. Al borrar el bloque desaparece, y así se queda.
+
+Consecuencia práctica: la diferencia #1 entre modo claro y modo oscuro, la que hoy se ve en las 10 vistas, **se cierra sola**. No hay que corregir nada, hay que no replicar nada.
+
+Lo que sí hay que decidir a propósito es el ancho, el centrado y el `min-height`. El borde no entra en esa lista.
 
 ---
 
