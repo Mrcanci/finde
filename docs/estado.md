@@ -45,6 +45,7 @@ desde el saneamiento previo.
 | **Fase 1, contraste** | Paleta accesible (`--tr-text`, `--gy-strong`, `--gy-soft` borrado), gradiente del hero, placeholders, borde del radio de pago |
 | **Fase 2, áreas táctiles** | Piso de 44px en los nueve controles y en la celda del calendario de reserva |
 | **Fase 3, micro-arreglos** | Input a 16px en desktop, cifras tabulares, código de reserva unificado, `preconnect` a Google Fonts |
+| **Fase 4, el dominó de `index.css`** | Merge `6f3bbed`. Se elimina el bloque `.app-demo`. Ver abajo |
 
 Dos decisiones de esas fases que **no se reabren**: los cuatro `hover` de
 `--sg` y el `.login-google:hover` se quedan como estaban, porque son bordes
@@ -75,8 +76,7 @@ familias y **no se comparan entre sí**.
 
 ### Fase 4, COMPLETA
 
-Mergeada a `dev` el 2026-08-14 (`c9fcbfa`). **Pendiente de QA en dev.finde.pe
-antes de ir a `main`.**
+**En `main` desde el 2026-08-14 (`6f3bbed`), post-QA.**
 
 **El bloque `.app-demo` ya no existe.** `src/index.css` pasó de 109 líneas a una
 sola regla, y el CSS compilado de **1.95 kB a 0.06 kB**.
