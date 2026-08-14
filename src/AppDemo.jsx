@@ -1003,7 +1003,7 @@ html{scrollbar-gutter:stable}
 .login-btn:hover{background:var(--m)}
 .login-btn:disabled{opacity:.4;cursor:not-allowed}
 .login-google{width:100%;padding:14px;border-radius:14px;background:white;border:1.5px solid var(--sd);color:var(--ch);font-weight:600;font-size:14px;cursor:pointer;font-family:inherit;transition:.2s;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px}
-.login-google:hover{border-color:var(--gy-strong);background:var(--cr)}
+.login-google:hover{border-color:var(--lg);background:var(--cr)}
 .login-google svg{flex-shrink:0}
 .login-divider{display:flex;align-items:center;gap:14px;margin:16px 0;color:var(--gy-strong);font-size:12px}
 .login-divider::before,.login-divider::after{content:'';flex:1;height:1px;background:var(--sd)}
