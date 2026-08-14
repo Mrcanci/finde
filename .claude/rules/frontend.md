@@ -138,7 +138,29 @@ done
 
 Compara los valores, no el diff. Un diff de reglas completas muestra `font-size` en las líneas `-` y `+` aunque solo haya cambiado el color, y eso hace pensar que se rompió el alcance cuando no.
 
-### 5. Las tablas de las auditorías no son checklists
+### 5. Los titulares numéricos también se cuentan con script
+
+La regla 3 dice que todo reemplazo masivo se cuenta antes y después. **Esto la extiende: si un documento afirma un número, ese número sale de un comando, no de contar a ojo.**
+
+Van tres casos del mismo tipo, y los tres se detectaron recontando después, no al escribirlos:
+
+| Documento decía | Era | Cómo se detectó |
+|---|---|---|
+| Conteos por selector de la auditoría (`--gy` 67, `--lg` 5, `--sg` 2, `--gd` ~5, letter-spacing 22) | 66, 6, 6, 7 y 23 | Error E4 del plan tipográfico, al verificar la auditoría |
+| "96 selectores dependen de la herencia" | 91 | Al parsear la lista con script para calcular un delta |
+| "El demo declara centrado explícito en 22 reglas propias" | 36 | Al leer el `cssRules` del navegador |
+
+Los tres eran de documentos de investigación, escritos con cuidado, y los tres estaban mal. **El problema no es la falta de cuidado: es que contar a ojo una lista de 90 ítems no funciona por más cuidado que se ponga.**
+
+Lo caro no es el número en sí, es que **un número mal se cita después como si fuera medición**. El "22 reglas" viajó del documento de auditoría al plan y de ahí a la descripción de la Fase 4, tres documentos, antes de que alguien lo contara.
+
+Concretamente:
+
+- Un total en un título o en una tabla sale de `grep -c`, de un `wc -l`, o de un script que parsea la fuente. Nunca de contar la lista.
+- Si el número se recalcula al actualizar el documento, el script se deja escrito, aunque sea en el scratchpad, y se vuelve a correr.
+- Si un número viejo no coincide con el recuento, **se corrige el titular y se deja anotado que estaba mal**. La lista casi nunca cambia; el que cambia es el número.
+
+### 6. Las tablas de las auditorías no son checklists
 
 Los conteos por selector de `docs/audits/2026-08-13-typography-audit.md` están hechos a ojo y tienen desvíos en cinco de seis colores. Sirven para entender el problema, nunca para ejecutarlo. **La lista se regenera con script al empezar cada tanda**, contra el archivo en su estado de ese momento.
 
