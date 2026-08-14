@@ -938,6 +938,9 @@ const CSS = `
 html{scrollbar-gutter:stable}
 .app{--f:#1B3A2D;--m:#2D5A3D;--sg:#6B8F71;--sd:#E8DDD3;--cr:#F5F0EA;--wh:#FAFAF7;--tr:#C7613A;--tr-text:#A84E2C;--trl:#E8845A;--gd:#D4A843;--gd-text:#7A5C10;--ch:#2C2C2A;--gy:#737370;--gy-strong:#5A5A57;--lg:#959591;--yp:#6B2FA0;--pl:#00B4D8;--ai:#0EA5E9;--focus:rgba(45,90,61,.35)}
 .app *{margin:0;padding:0;box-sizing:border-box}
+/* Cifras tabulares: mismo ancho por digito. Evita que un contador salte de
+   posicion al cambiar de valor y alinea los montos en columna. */
+.gcnt,.dsh-s-v,.pf-stat-v,.login-hero-stat-v,.rev-big-n,.rev-big-cnt,.earn-bl,.sr-price,.tc-pr,.tc-pr span,.gc-p,.gc-p span,.bb-p,.bb-p span,.sum-r,.sum-t,.voucher-pay-row,.voucher-pay-row.total,.tp-price,.dsh-bk-a,.earn-tot,.sr-rating,.tc-m .rt,.gc-m .rt{font-variant-numeric:tabular-nums}
 .app{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--wh);color:var(--ch);-webkit-font-smoothing:antialiased;overflow-x:hidden}
 .app{min-height:100vh;background:var(--wh);position:relative}
 
@@ -1324,7 +1327,11 @@ html{scrollbar-gutter:stable}
 .voucher-pay-row .l{color:var(--gy)}
 .voucher-pay-row.total{padding-top:10px;margin-top:6px;border-top:1px solid rgba(0,0,0,.08);font-size:15px;font-weight:800;color:var(--f)}
 .voucher-pay-row.total .l{color:var(--ch);font-weight:600}
-.voucher-code{font-family:monospace;font-size:13px;font-weight:700;color:var(--ch);background:var(--cr);padding:5px 9px;border-radius:6px;letter-spacing:1px}
+/* Codigo de reserva: un solo tratamiento en las dos pantallas donde aparece.
+   Stack explicito, no la keyword monospace: en Chrome esa keyword arrastra el
+   tamano de fuente monoespaciada por defecto y el px declarado no se respeta. */
+.voucher-code,.tp-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:700;letter-spacing:1px;color:var(--ch)}
+.voucher-code{font-size:13px;background:var(--cr);padding:5px 9px;border-radius:6px}
 .voucher-agency-n{font-size:14px;font-weight:700;color:var(--ch);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .voucher-verified{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:100px;font-size:10px;font-weight:700;background:rgba(45,90,61,.12);color:var(--m)}
 .voucher-agency-d{font-size:11px;color:var(--gy-strong);margin-top:6px;line-height:1.4}
@@ -1392,7 +1399,7 @@ html{scrollbar-gutter:stable}
 .tp-info{flex:1;min-width:0}
 .tp-name{font-size:15px;font-weight:700;margin-bottom:4px;color:var(--ch)}
 .tp-det{font-size:12px;color:var(--gy);margin-bottom:3px}
-.tp-code{font-size:11px;color:var(--gy-strong);font-family:monospace;margin-bottom:6px}
+.tp-code{font-size:11px;margin-bottom:6px}
 .tp-foot{display:flex;justify-content:space-between;align-items:center}
 .tp-price{font-size:15px;font-weight:800;color:var(--f)}
 .tp-st{font-size:10px;font-weight:700;padding:3px 8px;border-radius:100px;text-transform:uppercase}
@@ -1688,7 +1695,7 @@ html{scrollbar-gutter:stable}
   .home-pg .ai-sb{margin-bottom:40px;background:white;border-radius:50px;
                   box-shadow:0 8px 48px rgba(0,0,0,.16);padding:0}
   .home-pg .ai-sb input{border:none;border-radius:50px;padding:18px 56px;
-                         font-size:15px;height:60px}
+                         font-size:16px;height:60px}
   .home-pg .ai-sb input:focus{border:none;box-shadow:none}
   .home-pg .ai-sb .ai-sb-ic{left:22px;font-size:18px}
   .home-pg .ai-sb .ai-sb-tag{right:22px}
