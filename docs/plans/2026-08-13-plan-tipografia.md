@@ -88,7 +88,7 @@ Sin commits, no toca ningún archivo del repo. Es medición y capturas.
 | 1 | Interlineado real del root medido en mobile | ✅ **16px / 23.2px, ratio 1.450.** E1 confirmado: la auditoría reportaba 26.1px y ese valor solo existe en desktop |
 | 2 | Confirmación de que los `<button>` computan `line-height:normal` con la base actual | ✅ **33 de 33, cero excepciones.** E2 confirmado |
 | 3 | Capturas de referencia en 412px | ✅ 10 vistas, **previas a la Fase 1** |
-| 4 | **Auditoría de `text-align:center`** | ✅ **117 selectores dependen de la herencia**, sobre 18 vistas y sub-vistas. Solo falta `login`, que exige cerrar sesión |
+| 4 | **Auditoría de `text-align:center`** | ✅ **COMPLETA. 128 selectores dependen de la herencia**, sobre 20 vistas y sub-vistas. No queda ninguna vista sin medir |
 | 5 | Series de línea base para la Fase 4 | ✅ **completo.** oscuro 412, 1440 y 390 · claro 1440 (10 vistas) y 390 (2 vistas) |
 | 6 | Confirmar si la cursiva de `.voucher-more` se ve o no | pendiente |
 | 7 | Comparación oscuro vs claro en 1440, vista por vista | ✅ **2 diferencias, las dos del bloque `.app-demo`.** Ver abajo |
@@ -144,13 +144,14 @@ Se saca por prueba empírica: se inyecta `.app-demo{text-align:left}` y se regis
 
 ### Segunda tanda: la muestra de 9 vistas subestimaba el alcance en un 20%
 
-Las 9 vistas de la primera tanda daban 91 selectores. Lo que se sumó el 14 ago aporta **26 nuevos**, un 29% más, y no son marginales: son **tres familias enteras** que no estaban.
+Las 9 vistas de la primera tanda daban 91 selectores. Lo que se sumó el 14 ago aporta **37 nuevos**, un 41% más, y no son marginales: son **cuatro familias enteras** que no estaban.
 
 | Familia | Selectores | Por qué importa |
 |---|---|---|
 | **Ficha de tour** (`.det*`, `.bb*`) | 8 | Incluye `.det-hero` y `.bb`, la foto grande y la barra de reserva fija. La pantalla que más tráfico va a tener |
 | **Armazón de formulario** (`.bkf*`, `.fg`, `.lbl`, `.gctr`, `.sum-t`) | 10 | **Es uno solo y sirve a dos flujos**: reserva (3 pasos) y tour nuevo (5 pasos). Un selector mal replicado descuadra ocho pantallas |
 | **Método de pago** (`.pm*`, `.pms`, `.bk-sum-*`) | 8 | El último paso antes de pagar, donde un descuadre cuesta plata |
+| **Login** (`.login*`) | 11 | La primera pantalla que ve cualquiera sin sesión |
 
 Se volvió a correr el home como control: dio 34 selectores y **los 34 ya estaban**, cero nuevos. El método es el mismo y los números se suman.
 
@@ -235,7 +236,7 @@ Chrome real contra dev.finde.pe/demo, sesión de `demo@finde.pe`. Las mediciones
 | `post-fase3-light-1440/` | 10 | ✅ |
 | `post-fase3-light-390/` | 2 | home y catálogo |
 | `datos/mediciones.md` | | mediciones con su método |
-| `datos/auditoria-text-align.md` | | los 117 selectores del entregable 4 |
+| `datos/auditoria-text-align.md` | | los 128 selectores del entregable 4 |
 | `datos/comparacion-oscuro-claro.md` | | el entregable 7, oscuro vs claro vista por vista |
 
 ### Hallazgo nuevo, no está en la auditoría (severidad baja)
@@ -361,7 +362,7 @@ Acá empieza la deuda de sistema y el riesgo alto. Nada de esta fase se ve; todo
 - **Hallazgos:** §10a completo. Habilita la Fase 5
 - **Archivos:** `src/index.css` (borrar el bloque `.app-demo`) y `src/AppDemo.jsx` (replicar a propósito lo que se conserve en `.app`). **Un commit, solo esto**
 - **Qué se hace:** el bloque es plantilla de Vite renombrada, pero hoy gobierna el ancho, el centrado, el tamaño del root, el interlineado, el espaciado entre letras y el color de los `h2`. No alcanza con borrarlo: hay que decidir qué se replica
-- **Qué puede romperse:** **es el riesgo número uno del proyecto.** Al borrarlo el demo pierde de golpe `width:1126px`, `max-width:100%`, `margin:0 auto`, `text-align:center`, `display:flex`, `flex-direction:column`, `min-height:100svh` y `border-inline`. El centrado en particular sostiene pantallas enteras. El demo declara alineación explícita en 36 reglas propias, o sea que parte se salva sola, pero **117 selectores dependen de la herencia**, más los dos calendarios, que suman 81 elementos sin clase y por eso no entran en ninguna lista
+- **Qué puede romperse:** **es el riesgo número uno del proyecto.** Al borrarlo el demo pierde de golpe `width:1126px`, `max-width:100%`, `margin:0 auto`, `text-align:center`, `display:flex`, `flex-direction:column`, `min-height:100svh` y `border-inline`. El centrado en particular sostiene pantallas enteras. El demo declara alineación explícita en 36 reglas propias, o sea que parte se salva sola, pero **128 selectores dependen de la herencia**, más los dos calendarios, que suman 81 elementos sin clase y por eso no entran en ninguna lista
 - **Ganancia:** desaparece la fragilidad de que la fuente del demo dependa del orden de inyección del bundler, y desaparece la fuente del bug de "Notificaciones" en vez de seguir tapándolo caso por caso
 - **Cómo se valida:** capturas de Fase 0 contra el resultado, **pantalla por pantalla, en 390px y en 1440px, en modo claro y en modo oscuro**. Es la única fase donde vale la pena el diff visual completo antes de pushear
 
@@ -397,7 +398,23 @@ O sea: **la lista de 117 selectores no es la herramienta principal, es la secund
 
 El paso (a) tiene además una propiedad que conviene aprovechar: **es reversible y no rompe nada**, porque mientras el bloque siga vivo el centrado ya estaba. Es la única oportunidad de verificar la réplica de forma aislada, sin que se mezcle con los otros ocho efectos de borrar el bloque.
 
-**Ojo particular con `.bkf`.** Ese armazón sirve a dos flujos, el de reserva (3 pasos) y el de tour nuevo (5 pasos). **Un selector mal replicado ahí descuadra ocho pantallas de una**, y ninguna de las dos aparece en las capturas de línea base, así que el diff visual no lo va a detectar. Hay que recorrer los dos flujos a mano.
+### Los dos flujos de formulario NO están en las capturas de línea base
+
+Esto no es un detalle: **es un agujero en el método de validación de la Fase 4.**
+
+Ni el flujo de reserva ni el de tour nuevo aparecen en `post-fase3-*`. Las capturas cubren home, catálogo, notificaciones, mis reservas, perfil, las tres pestañas del panel, detalle de tour y voucher. **Los formularios no están.**
+
+Y ahí viven **los 81 elementos sin clase de los dos calendarios**, más el armazón `.bkf`, que sirve a los dos flujos a la vez: reserva (3 pasos) y tour nuevo (5 pasos). **Un selector mal replicado ahí descuadra ocho pantallas de una.**
+
+**El diff visual no los va a detectar, porque no hay contra qué diffear.**
+
+Así que la validación de la Fase 4 incluye, obligatorio y a mano:
+
+- Recorrer **los 3 pasos del flujo de reserva** y **los 5 del formulario de tour nuevo**
+- En **390px y en 1440px**
+- **Dos veces**: después de replicar el centrado (paso a) y otra vez después de borrar el bloque (paso b)
+
+Prestando atención particular a las dos grillas de calendario, que son donde se concentra el riesgo y donde ninguna lista de selectores ayuda.
 
 ### Decisión tomada: el `border-inline` NO se replica
 
