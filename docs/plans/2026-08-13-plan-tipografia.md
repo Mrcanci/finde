@@ -75,13 +75,61 @@ Para el ámbar se descartó `#8B6914` (4.56), que ya existe en el código: pasa 
 
 ## Fase 0 · Medir en mobile antes de tocar nada
 
-Sin commits. Media hora.
+Sin commits, no toca ningún archivo del repo. Es medición y capturas.
 
 - **Hallazgos:** ninguno. Cierra E1, E2 y las dudas abiertas
 - **Archivos:** ninguno
-- **Qué se hace:** abrir dev.finde.pe/demo en 390px, confirmar el interlineado real del root, confirmar que los botones siguen en `normal`, confirmar si la cursiva de `.voucher-more` se ve o no, y sacar capturas de referencia de home, detalle, reserva, voucher y panel
 - **Qué puede romperse:** nada
-- **Cómo se valida:** las capturas son la línea base de todas las fases siguientes
+
+### Entregables
+
+| # | Entregable | Estado |
+|---|---|---|
+| 1 | Interlineado real del root medido en mobile | ✅ **16px / 23.2px, ratio 1.450.** E1 confirmado: la auditoría reportaba 26.1px y ese valor solo existe en desktop |
+| 2 | Confirmación de que los `<button>` computan `line-height:normal` con la base actual | ✅ **33 de 33, cero excepciones.** E2 confirmado |
+| 3 | Capturas de referencia en 412px, modo claro | ✅ 10 vistas |
+| 4 | **Capturas de home y catálogo en 390px** | ⛔ bloqueado, ver abajo |
+| 5 | Capturas en 1440px, modo claro | ⛔ bloqueado, ver abajo |
+| 6 | Ambas series en modo oscuro | ⛔ bloqueado, ver abajo |
+| 7 | **Auditoría de `text-align:center`** | pendiente |
+| 8 | Confirmar si la cursiva de `.voucher-more` se ve o no | pendiente |
+
+### Entregable 7: auditoría de `text-align:center`
+
+Es el que más importa de los que faltan, porque **es el riesgo número uno de la Fase 4** y hasta ahora solo figuraba como una duda suelta, no como un paso con resultado.
+
+El entregable es **una lista de selectores**, no una impresión: los que hoy se ven centrados **por herencia** del `text-align:center` de `.app-demo` y **no declaran `text-align` propio**. Esos son exactamente los que se descuadran el día que la Fase 4 borre el bloque, y son los que hay que replicar a propósito en `.app`.
+
+Se saca recorriendo el DOM del demo, comparando el `text-align` computado de cada elemento contra el declarado en la hoja de estilos del demo. El demo declara centrado explícito en 22 reglas propias: esas se salvan solas y no van en la lista. La lista es todo lo demás.
+
+### Por qué 390px además de 412px
+
+A 412px cada celda del grid `.tg` mide ~186px; a 390px mide ~175px. Esos 11px deciden si `.gc-t` pasa de dos líneas a tres, que es el riesgo #3 de la auditoría y la razón de la mitigación obligatoria de la Fase 6. **La serie de 390px documenta el caso apretado**, así que hacen falta al menos home y catálogo a ese ancho.
+
+### Bloqueos del entorno
+
+- **La ventana de Chrome no se deja redimensionar por automatización.** Pedida a 390, 368 y 1440, la API responde "success" y el viewport queda clavado en 412×770. Sin resolverlo no hay serie de 390px ni de 1440px. Necesita que el ancho de ventana se fije a mano.
+- **`prefers-color-scheme` no se puede forzar desde la página.** Depende de la preferencia del sistema operativo. La serie oscura necesita cambiar la apariencia de macOS a mano.
+
+**Nota sobre 412px:** cae en la misma banda de breakpoint que 390 (`≤1024px`), así que **toda la tipografía computada es idéntica**. Lo único que cambia es el ancho de las cards. Por eso las mediciones 1 y 2 son válidas y definitivas; lo que falta a 390px es solo evidencia visual del caso apretado de la grilla.
+
+### Método usado
+
+Chrome real contra dev.finde.pe/demo, sesión de `demo@finde.pe`. Las mediciones salen de `getComputedStyle` inyectado en la página, no de cálculo propio: son los valores que computa el navegador. Las capturas son screenshot del viewport, navegando con clics reales por la UI.
+
+**Cero datos creados.** El voucher se capturó de una reserva que la cuenta demo ya tenía.
+
+### Dónde quedó todo
+
+`~/Documents/finde-capturas/2026-08-13-fase0/`, fuera del repo a propósito porque esta fase no hace commits.
+
+- `light-412/` las 10 vistas capturadas
+- `datos/mediciones.md` las mediciones con su método
+- `light-1440/`, `dark-412/`, `dark-1440/` creadas y vacías, esperando los bloqueos
+
+### Hallazgo nuevo, no está en la auditoría
+
+**`.logo` (28px, DM Serif) computa `line-height: 23.2px`, ratio 0.83.** La caja de línea es más chica que la letra. Es el peor ratio del demo, peor que el `.st` que la auditoría sí marca, y aparece en el encabezado de todas las pantallas. La auditoría lista `.logo` en su tabla de DM Serif pero nunca le mira el interlineado. Entra en la Fase 5.
 
 ---
 
@@ -125,6 +173,8 @@ Clasificación preliminar, a confirmar contra el JSX al empezar la fase. El marc
 |---|---|
 | **A** (padding ahora, queda fijo) | `.sl` · `.chip` · `.tn-btn` · `.tn-link` · `.city-btn` · `.sr-clear` · `.lang-dd-btn` · `.tp-tab` · `.dsh-tab` · `.rev-more` · `.bn-i` · celda del calendario (`:415-442`, verificada: es `<button type="button">` con `padding:0` y `minHeight:36`) |
 | **B** (padding después de la Fase 5) | ninguno de la lista del §9 |
+
+**`.bn-i` está en el Grupo A por clasificación, pero igual no se toca en esta fase.** Es `<button>`, así que su padding sería estable si se tocara; el problema es otro: su altura no la da el padding sino el ícono de 22px que apila adentro, o sea que ajustarle el padding no es la palanca correcta.
 
 **Hallazgo que la auditoría no tiene:** los ocho targets de su §9 son **todos controles nativos**, o sea Grupo A. Eso significa que la Fase 2 se puede hacer entera ahora y nada de ella se deshace en la Fase 5. Pero también significa que **la auditoría nunca inventarió las zonas tocables que no son controles nativos** (cards, filas de listado, opciones de sheet). Ese barrido del Grupo B queda pendiente y se hace después de la Fase 5.
 
@@ -173,10 +223,53 @@ La fase grande. Deuda pura, riesgo alto, ninguna urgencia.
 
 - **Hallazgos:** §1a, §1b, §1c, §2, §4a, §4b, §5, §10b
 - **Archivos:** `src/AppDemo.jsx`, la constante CSS entera
-- **Qué se hace:** definir la escala como variables, reemplazar los 23 tamaños sueltos, subir el cuerpo de 13px, ordenar los pesos, decidir qué títulos en serif bajan a la sans, ordenar el espaciado de las versalitas
+- **Qué se hace:** aplicar la escala aprobada de abajo
 - **Qué puede romperse:** el §10b de la auditoría es su mejor sección y se verificó en lo esencial. Los puntos frágiles son el contador de personas con 60px fijos, el precio de la barra de reserva que no envuelve y comparte fila con el botón "Reservar", la grilla de dos columnas a 390px donde cada celda mide ~175px, y los tabs del panel que en desktop pasan a columna de 220px fijos
 - **Cómo se hace:** partir en sub-pasos **por pantalla, no por propiedad**. Un commit por pantalla se puede revertir; un commit de 242 reemplazos no
 - **Cómo se valida:** recorrido completo por las doce vistas del demo en 390px, 768px y 1440px
+
+### La escala, aprobada
+
+| Token | Mobile | Desktop | Fuente / peso | Line-height |
+|---|---|---|---|---|
+| `--fs-d1` | 30 | 44 | DM Serif 400 | 1.15 |
+| `--fs-d2` | 26 | 32 | DM Serif 400 | 1.2 |
+| `--fs-h1` | 20 | 22 | Jakarta 700 | 1.3 |
+| `--fs-h2` | 17 | 18 | Jakarta 700 | 1.35 |
+| `--fs-h3` | 15 | 15 | Jakarta 700 | 1.35 |
+| `--fs-body` | 16 | 16 | Jakarta 400 | 1.6 |
+| `--fs-sm` | 14 | 14 | Jakarta 500 | 1.5 |
+| `--fs-cap` | 13 | 13 | Jakarta 500 | 1.4 |
+| `--fs-label` | 12 | 12 | Jakarta 600 | 1.3 |
+
+**Reglas que van con la escala:**
+
+- **Piso absoluto de 12px, sin excepciones.** Elimina las 56 declaraciones del CSS y las 64 inline que hoy están por debajo.
+- **Pesos: 400 cuerpo, 500 metadatos, 600 etiquetas y UI, 700 títulos. El 800 se elimina por completo** (20 declaraciones). A 16px, Jakarta 800 se empasta y 700 alcanza.
+- **DM Serif Display solo en `--fs-d1` y `--fs-d2`, o sea nunca por debajo de 26px.** Esto responde la pregunta que el plan dejaba abierta: **11 de los 20 usos actuales de serif bajan a Jakarta 700.**
+- **Versalitas: sobreviven solo en `--fs-label` y solo en badges de estado** (`.tp-st`, `.dsh-bk-s`, `.st-*`), donde ayudan al escaneo. Se eliminan de `.tc-loc`, `.gc-loc`, `.det-st`, `.ai-sum-h`, `.pf-stat-l`, `.dsh-s-l`, `.login-hero-stat-l`, `.sal-sec-t` y `.site-footer-col-t`. El tracking pasa a **un solo valor relativo, `.03em`**, en lugar de los seis valores absolutos de hoy.
+
+### ⚠️ Advertencia: la escala se aplica por rol, no por valor
+
+**"Reemplazar los 23 tamaños sueltos" NO significa un mapeo mecánico px → token.**
+
+`13px` no es un rol, es un accidente. Sus 47 declaraciones sirven a **tres funciones distintas**: texto de lectura, metadatos secundarios y etiquetas de control. Un mapeo mecánico las colapsa en una sola y **destruye exactamente la jerarquía que el rediseño existe para crear**.
+
+**CADA DECLARACIÓN SE CLASIFICA POR ROL, NO POR VALOR.**
+
+Un buscar y reemplazar de `13px` por `var(--fs-cap)` es la forma más rápida de terminar con una escala nueva y la misma jerarquía plana de antes.
+
+### Mitigaciones obligatorias
+
+No son opcionales ni quedan a criterio del momento. Van sí o sí con la fase.
+
+**1. `.gc-t` va a 15px (`--fs-h3`), no a 16px, y necesita `-webkit-line-clamp: 2`.**
+
+A 390px la celda de `.tg` deja ~155px útiles. A 15px con peso 700 entran ~19 caracteres por línea, o sea 38 en dos líneas. Los títulos de 40 caracteres o más se van a tres líneas y la grilla pierde la altura pareja, que es el **riesgo #3 de la auditoría**. Con el clamp deja de ser riesgo.
+
+**2. `.gcnt` cambia `width:60px` por `min-width:60px`.**
+
+Una línea. Elimina el **riesgo #5** sin congelar el tamaño del contador.
 
 ---
 
@@ -205,9 +298,26 @@ Hecho en la rama `chore/saneamiento-previo`, antes de arrancar cualquier fase:
 
 ---
 
+## Riesgo operativo fuera de alcance
+
+No lo resuelve este plan, pero este plan lo empeora, así que queda registrado acá.
+
+**dev.finde.pe escribe sobre la base de producción.**
+
+Hoy es inofensivo: todo el contenido es demo y Mega Tours es data de prueba con correo inventado, no una agencia real. Pero **este plan tiene ocho fases de QA con recorrido completo hasta el voucher**, y cada pase crea reservas y muta contadores de cupo **en la misma base donde va a vivir el inventario real**.
+
+Dos acciones, en orden:
+
+**a) Ahora, y no cuesta nada: todo el QA usa direcciones `@finde.pe` reales como destinatario.** Mandar a dominios inexistentes genera rebotes, y los rebotes dañan la reputación de `finde.pe` en Resend, que es un dominio recién verificado. Esto no es una precaución teórica: es la diferencia entre que los correos de reserva lleguen o caigan en spam cuando entre la primera agencia real.
+
+**b) Antes de la primera agencia real: base de staging separada**, o `dev` apuntando a un proyecto Supabase distinto con datos sembrados. Es trabajo aparte y **no bloquea este plan**, pero tiene que llegar antes que la Fase 7.
+
+---
+
 ## Reglas de ejecución
 
 - Ninguna fase se implementa sin visto bueno explícito.
 - Las fases 0 a 3 y las fases 4 a 7 **no comparten commit**.
-- QA solo con `demo@finde.pe` y sobre tours de cuentas `@finde.pe`. dev.finde.pe corre contra la base de producción y manda correos reales.
+- QA solo con `demo@finde.pe` y sobre tours de cuentas `@finde.pe`, con destinatarios `@finde.pe` reales. El motivo no es que los correos lleguen a terceros: es que **dev.finde.pe escribe sobre la base de producción** y que los rebotes queman la reputación del dominio. Ver "Riesgo operativo fuera de alcance".
+- Los datos que se creen durante el QA se borran al terminar.
 - `src/Landing.jsx` no se toca sin la frase "EXCEPCIÓN AUTORIZADA".
