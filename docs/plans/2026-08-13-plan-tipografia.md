@@ -87,14 +87,54 @@ Sin commits, no toca ningún archivo del repo. Es medición y capturas.
 |---|---|---|
 | 1 | Interlineado real del root medido en mobile | ✅ **16px / 23.2px, ratio 1.450.** E1 confirmado: la auditoría reportaba 26.1px y ese valor solo existe en desktop |
 | 2 | Confirmación de que los `<button>` computan `line-height:normal` con la base actual | ✅ **33 de 33, cero excepciones.** E2 confirmado |
-| 3 | Capturas de referencia en 412px, modo claro | ✅ 10 vistas |
-| 4 | **Capturas de home y catálogo en 390px** | ⛔ bloqueado, ver abajo |
-| 5 | Capturas en 1440px, modo claro | ⛔ bloqueado, ver abajo |
-| 6 | Ambas series en modo oscuro | ⛔ bloqueado, ver abajo |
-| 7 | **Auditoría de `text-align:center`** | pendiente |
-| 8 | Confirmar si la cursiva de `.voucher-more` se ve o no | pendiente |
+| 3 | Capturas de referencia en 412px | ✅ 10 vistas, **previas a la Fase 1** |
+| 4 | **Auditoría de `text-align:center`** | ✅ **96 selectores dependen de la herencia**, sobre 9 vistas |
+| 5 | Series de línea base para la Fase 4 | ✅ **completo.** oscuro 412, 1440 y 390 · claro 1440 (10 vistas) y 390 (2 vistas) |
+| 6 | Confirmar si la cursiva de `.voucher-more` se ve o no | pendiente |
+| 7 | Comparación oscuro vs claro en 1440, vista por vista | ✅ **2 diferencias, las dos del bloque `.app-demo`.** Ver abajo |
 
-### Entregable 7: auditoría de `text-align:center`
+### ⚠️ Hay dos familias de capturas y no se comparan entre sí
+
+Las Fases 1, 2 y 3 **ya están aplicadas y mergeadas en `dev`**. Eso parte el material en dos:
+
+| Familia | Qué es | Para qué sirve |
+|---|---|---|
+| `pre-fase1-*` | estado **anterior** al refactor | ver cuánto cambió con las Fases 1 a 3 |
+| `post-fase3-*` | estado **actual**, con contraste, áreas táctiles y micro-arreglos ya aplicados | **línea base de la Fase 4 en adelante** |
+
+**Validar la Fase 4 contra `pre-fase1-*` sería un error:** mezclaría los cambios de tres fases con los de una. La Fase 4 se compara contra `post-fase3-*`.
+
+Las carpetas están nombradas con ese prefijo justamente para que no se confundan. Ver `INDICE.md` en la carpeta de capturas.
+
+### Cómo se destrabó el viewport
+
+El bloqueo era que la ventana de Chrome no se deja redimensionar por automatización. La salida no fue redimensionar: **se carga el demo en un `iframe` del mismo origen al ancho deseado**. Un iframe crea su propio viewport, así que las media queries responden a **su** ancho y no al de la ventana, y al compartir origen hereda la sesión.
+
+Verificado en cada serie con `innerWidth` del iframe y `matchMedia` de los breakpoints de 640, 1024 y 1200.
+
+Detalle que costó dos intentos: las vistas con animación de entrada salían capturadas a media transición.
+
+**La inyección correcta es acelerar a cero, no apagar.** Esto estaba mal anotado y costó una tanda más:
+
+```css
+*{animation-duration:0s !important;
+  animation-delay:0s !important;
+  transition-duration:0s !important}
+```
+
+`*{animation:none}` **no sirve**. Los cinco bloques con entrada (`.fu`, `.fd1`, `.fd2`, `.fd3`) arrancan en `opacity:0` y suben con la animación, que tiene `fill:forwards`. Apagarla los deja invisibles para siempre: la primera captura de home salió sin buscador, sin chips y sin "Recién publicados", con un hueco blanco donde iban.
+
+Medido en el navegador, opacidad de los cinco elementos después de cada inyección:
+
+| Inyección | Resultado |
+|---|---|
+| `animation:none` | `1, 0, 0, 0, 0` ❌ |
+| **`animation-duration:0s` + `animation-delay:0s` + `transition-duration:0s`** | **`1, 1, 1, 1, 1`** ✅ |
+| `animation-duration:0.001s` | `0, 0, 0, 0, 0` ❌ |
+
+**Ojo con la milésima:** una duración chica pero distinta de cero **no alcanza**, porque dentro del iframe la línea de tiempo de las animaciones puede quedar en `currentTime:0` y ahí el elemento sigue en el fotograma inicial. Con `0s` el navegador aplica el fotograma final de una, sin depender del reloj. Las series claras del 14 ago se sacaron con `0.001s` y salieron bien de casualidad, porque el reloj ya había avanzado: son válidas, pero la receta que se repite es la de `0s`.
+
+### Entregable 4: auditoría de `text-align:center`
 
 Es el que más importa de los que faltan, porque **es el riesgo número uno de la Fase 4** y hasta ahora solo figuraba como una duda suelta, no como un paso con resultado.
 
@@ -106,12 +146,46 @@ Se saca recorriendo el DOM del demo, comparando el `text-align` computado de cad
 
 A 412px cada celda del grid `.tg` mide ~186px; a 390px mide ~175px. Esos 11px deciden si `.gc-t` pasa de dos líneas a tres, que es el riesgo #3 de la auditoría y la razón de la mitigación obligatoria de la Fase 6. **La serie de 390px documenta el caso apretado**, así que hacen falta al menos home y catálogo a ese ancho.
 
-### Bloqueos del entorno
+### El modo claro, destrabado
 
-- **La ventana de Chrome no se deja redimensionar por automatización.** Pedida a 390, 368 y 1440, la API responde "success" y el viewport queda clavado en 412×770. Sin resolverlo no hay serie de 390px ni de 1440px. Necesita que el ancho de ventana se fije a mano.
-- **`prefers-color-scheme` no se puede forzar desde la página.** Depende de la preferencia del sistema operativo. La serie oscura necesita cambiar la apariencia de macOS a mano.
+**`prefers-color-scheme` no se puede forzar desde la página.** Depende de la preferencia del sistema operativo. Las series oscuras se sacaron con macOS en oscuro; las claras salieron el 14 ago con macOS ya en claro, verificando `matchMedia('(prefers-color-scheme: light)')` dentro del iframe antes de cada serie, no por confianza.
 
-**Nota sobre 412px:** cae en la misma banda de breakpoint que 390 (`≤1024px`), así que **toda la tipografía computada es idéntica**. Lo único que cambia es el ancho de las cards. Por eso las mediciones 1 y 2 son válidas y definitivas; lo que falta a 390px es solo evidencia visual del caso apretado de la grilla.
+El bloqueo del viewport ya estaba resuelto con el iframe. **La Fase 0 no tiene bloqueos abiertos.**
+
+### Salvedad del método del iframe: los `100vh` miden contra el iframe
+
+Un iframe crea su propio viewport, y eso es justamente lo que resuelve el problema del ancho. La contrapartida es que **`vh`, `svh` y `dvh` se resuelven contra la altura del iframe, no contra la de la ventana**.
+
+En este demo eso toca dos lugares: `.det-hero` y el `min-height:100svh` que `.app-demo` le impone al root. Con el iframe a 1272px de alto, `100vh` vale 1272px.
+
+**Para capturas es correcto y además conveniente**, porque fija el alto y hace que las series sean comparables entre sí. Pero **la Fase 4 toca justamente ese `min-height:100svh`**, así que esos dos casos hay que verificarlos también **fuera del iframe**, en una ventana de verdad, antes de dar la fase por buena. Un `100svh` que se ve bien dentro de un iframe de 1272px no prueba nada sobre una ventana de 800px.
+
+### La comparación oscuro vs claro en 1440
+
+Sale gratis con las dos series completas y sirve de línea base para la Fase 4. El demo fuerza fondo claro con `.app{background:var(--wh)}`, así que en teoría los dos modos deberían verse casi idénticos.
+
+**Quedan dos diferencias, y las dos salen del mismo bloque `.app-demo`:**
+
+| # | Qué cambia | De dónde sale | Vistas afectadas |
+|---|---|---|---|
+| 1 | **Los bordes laterales del contenedor** pasan de gris claro casi invisible a gris oscuro | `.app-demo{border-inline:1px solid var(--border)}` y `--border` cambia de `#e5e4e7` a `#2e303a` | **las 10** |
+| 2 | **La barra de scroll del dropdown de notificaciones** | `.app-demo{color-scheme:light dark}`, o sea controles nativos siguiendo al sistema | 1 |
+
+**La primera es una tercera fuga de `.app-demo` que no estaba documentada.** Las dos conocidas (`c171347`, `e818d8e`) eran de `--text-h`; esta es de `--border`, y a diferencia de aquellas se ve en todas las pantallas, no en dos títulos.
+
+**Decisión tomada: el `border-inline` no se replica.** Ver la Fase 4.
+
+Lo demás es idéntico. La garantía no la da el diff de imágenes sino la lectura del `cssRules` del navegador: **el media query oscuro de `index.css` tiene exactamente tres reglas**, y cada consumidor posible se verificó en vivo. `color` y `background` los gana `.app`, que vive en un `<style>` posterior; `h1`/`h2` hoy no los hereda ningún elemento visible; y `code`, `.counter` y `#social` no existen en el demo.
+
+**Hallazgo latente: `h1.det-tl-desktop`.** El detalle de tour tiene un `<h1 class="det-tl-desktop">` que computa `color: var(--text-h)`, el único elemento del demo que consume esa variable. Hoy no se ve: computa `display:none` en los nueve anchos probados, de 390 a 1600.
+
+**No es marcado muerto ni hay que borrarlo.** Es el título del tour pensado para desktop **fuera** del hero, o sea el patrón de Airbnb, y quedó como intención abandonada. Es trabajo pendiente del rediseño de la ficha de tour, anotado en `docs/estado.md`.
+
+**El bug latente de `--text-h` no hay que arreglarlo antes.** La Fase 4 lo desactiva sola al eliminar la variable: cuando el bloque `.app-demo` deje de existir, ese `h1` pasa a heredar el color del demo como cualquier otro elemento. Arreglarlo ahora sería trabajo que la Fase 4 borra.
+
+Detalle completo, con mediciones de los bordes en las 10 vistas y el método, en `datos/comparacion-oscuro-claro.md`.
+
+**Nota sobre 412px:** cae en la misma banda de breakpoint que 390 (`≤1024px`), así que **toda la tipografía computada es idéntica**. Lo único que cambia es el ancho de las cards. Por eso las mediciones 1 y 2 son válidas y definitivas; lo que aporta la serie de 390px es la evidencia visual del caso apretado de la grilla, que es lo que decide la mitigación de `.gc-t` en la Fase 6.
 
 ### Método usado
 
@@ -123,9 +197,18 @@ Chrome real contra dev.finde.pe/demo, sesión de `demo@finde.pe`. Las mediciones
 
 `~/Documents/finde-capturas/2026-08-13-fase0/`, fuera del repo a propósito porque esta fase no hace commits.
 
-- `light-412/` las 10 vistas capturadas
-- `datos/mediciones.md` las mediciones con su método
-- `light-1440/`, `dark-412/`, `dark-1440/` creadas y vacías, esperando los bloqueos
+| Carpeta | Vistas | Estado |
+|---|---|---|
+| `INDICE.md` | | qué compara cada serie y con qué método se sacó |
+| `pre-fase1-light-412/` | 10 | previo al refactor |
+| `post-fase3-dark-412/` | 10 | ✅ |
+| `post-fase3-dark-1440/` | 10 | ✅ |
+| `post-fase3-dark-390/` | 2 | home y catálogo |
+| `post-fase3-light-1440/` | 10 | ✅ |
+| `post-fase3-light-390/` | 2 | home y catálogo |
+| `datos/mediciones.md` | | mediciones con su método |
+| `datos/auditoria-text-align.md` | | los 96 selectores del entregable 4 |
+| `datos/comparacion-oscuro-claro.md` | | el entregable 7, oscuro vs claro vista por vista |
 
 ### Hallazgo nuevo, no está en la auditoría (severidad baja)
 
@@ -253,6 +336,32 @@ Acá empieza la deuda de sistema y el riesgo alto. Nada de esta fase se ve; todo
 - **Qué puede romperse:** **es el riesgo número uno del proyecto.** Al borrarlo el demo pierde de golpe `width:1126px`, `max-width:100%`, `margin:0 auto`, `text-align:center`, `display:flex`, `flex-direction:column`, `min-height:100svh` y `border-inline`. El centrado en particular sostiene pantallas enteras. El demo declara centrado explícito en 22 reglas propias, o sea que parte se salva sola, pero el resto no
 - **Ganancia:** desaparece la fragilidad de que la fuente del demo dependa del orden de inyección del bundler, y desaparece la fuente del bug de "Notificaciones" en vez de seguir tapándolo caso por caso
 - **Cómo se valida:** capturas de Fase 0 contra el resultado, **pantalla por pantalla, en 390px y en 1440px, en modo claro y en modo oscuro**. Es la única fase donde vale la pena el diff visual completo antes de pushear
+
+### Criterio de validación: al terminar, oscuro y claro tienen que ser IDÉNTICOS
+
+Es más duro y mucho más verificable que "mirá que se vea bien", así que reemplaza a cualquier revisión a ojo.
+
+**El razonamiento:** las variables de modo oscuro viven dentro del bloque `.app-demo` de `index.css`. Al borrar el bloque desaparecen con él, y con ellas la única vía por la que el demo se entera de la preferencia del sistema. Si después de la Fase 4 queda **cualquier** diferencia entre los dos modos, algo del bloque sobrevivió o se replicó mal.
+
+Hoy, antes de la fase, las diferencias son exactamente dos y están medidas: los bordes laterales del contenedor y la barra de scroll del dropdown de notificaciones. **Las dos tienen que desaparecer.** Concretamente:
+
+- si los bordes laterales siguen cambiando de color, quedó un `border-inline` colgado de `var(--border)`
+- si la barra de scroll del dropdown sigue cambiando, quedó el `color-scheme: light dark`
+- si aparece una diferencia **nueva**, que hoy no existe, es que la Fase 4 la introdujo
+
+**Cómo se verifica**, y este es el punto: no hace falta capturar de nuevo las dos series enteras. Alcanza con **releer el `cssRules` del navegador** y confirmar que el media query `prefers-color-scheme: dark` ya no tiene ninguna regla que aplique al demo. Eso cubre todo el demo, no solo las diez vistas capturadas. El diff de imágenes queda como confirmación, no como prueba.
+
+**Ojo con el ancho al replicar.** El bloque también declara `width:1126px`, `margin:0 auto`, `text-align:center` y `min-height:100svh`. Eso no es modo oscuro y no se valida con este criterio: va aparte, con las capturas.
+
+### Decisión tomada: el `border-inline` NO se replica
+
+**No es un pendiente ni queda a criterio del momento.** Queda escrito acá justamente para que no se replique por inercia junto con las propiedades que sí hay que conservar.
+
+El marco lateral de 1px que rodea al contenedor de 1126px es **estética de scaffold de Vite, no diseño de Finde**. Vino con la plantilla, igual que el resto del bloque. Al borrar el bloque desaparece, y así se queda.
+
+Consecuencia práctica: la diferencia #1 entre modo claro y modo oscuro, la que hoy se ve en las 10 vistas, **se cierra sola**. No hay que corregir nada, hay que no replicar nada.
+
+Lo que sí hay que decidir a propósito es el ancho, el centrado y el `min-height`. El borde no entra en esa lista.
 
 ---
 
