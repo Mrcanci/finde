@@ -2066,7 +2066,7 @@ function LoginView({ go, loginMsg, onGuest }) {
       <div className="login-hero">
         <div className="login-hero-tex" />
         <div className="login-hero-logo">finde<span>.</span></div>
-        <div className="login-hero-tagline">El marketplace de tours y experiencias para descubrir el Perú</div>
+        <div className="login-hero-tagline">El marketplace de tours para descubrir el Perú</div>
         <div className="login-hero-stat">
           <div className="login-hero-stat-i"><div className="login-hero-stat-v">Agencias</div><div className="login-hero-stat-l">verificadas</div></div>
           <div className="login-hero-stat-i"><div className="login-hero-stat-v">Pago</div><div className="login-hero-stat-l">protegido</div></div>
