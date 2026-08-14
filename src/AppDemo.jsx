@@ -1176,7 +1176,7 @@ html{scrollbar-gutter:stable}
 .tc-img{height:160px;position:relative}
 .tc-bdg{position:absolute;top:10px;left:10px;padding:4px 10px;border-radius:100px;font-size:10px;font-weight:700;background:rgba(255,255,255,.95);color:var(--ch);backdrop-filter:blur(10px)}
 .tc-bdg.anti{background:var(--f);color:white}
-.tc-ver{position:absolute;bottom:10px;left:10px;padding:3px 8px;border-radius:100px;font-size:9px;font-weight:700;background:rgba(45,90,61,.9);color:white}
+.tc-ver{position:absolute;bottom:10px;left:10px;padding:3px 8px;border-radius:100px;font-size:9px;font-weight:700;background:rgba(45,90,61,.9);color:white;display:inline-flex;align-items:center;gap:3px}
 .tc-b{padding:14px;text-align:center}
 .tc-loc{font-size:11px;color:var(--gy-strong);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
 .tc-tl{font-size:15px;font-weight:700;margin-bottom:6px;line-height:1.3}
