@@ -79,6 +79,27 @@ De ahí salieron los dos títulos que desaparecían en modo oscuro (`c171347` y 
   **Ojo: ese ancho no lo declara el CSS del demo.** Sale del bloque `.app-demo` de `src/index.css` (plantilla de Vite renombrada), igual que el centrado, el tamaño de texto del root y el interlineado base. `.app` no declara ancho propio, así que gana `index.css` por defecto, no por empate de cascada. **Este valor va a cambiar cuando la Fase 4 de `docs/plans/2026-08-13-plan-tipografia.md` elimine ese bloque:** ahí hay que decidir a propósito qué ancho se replica en `.app`.
 - Sin em-dashes en ningún copy, tampoco en el texto que genera la IA dentro del producto.
 
+### Excepción: la raya como glifo de dato vacío se queda
+
+**El canon prohíbe la raya en prosa, no como glifo.** `AppDemo.jsx` usa `"—"` en nueve lugares como marcador de dato vacío, no como signo de puntuación:
+
+```jsx
+{user?.email || "—"}
+const code = trip.code || "—";
+form.days.length > 0 ? form.days.map(...).join(", ") : "—"
+```
+
+Eso es convención tipográfica de tabla, la misma que usa cualquier planilla para decir "acá no hay valor". No es una pausa dentro de una oración y **no se toca**.
+
+Queda escrito porque un barrido de em-dashes los marca como violación y ya pasó una vez. Al buscar rayas, separar dos cosas:
+
+| Caso | Qué hacer |
+|---|---|
+| Raya en medio de una oración, en copy o en un prompt de IA | **se saca**, va coma, dos puntos o punto |
+| Raya sola como valor, entre comillas y con un `\|\|` al lado | **se queda** |
+
+El barrido del 2026-08-14 encontró además dos en `index.html` (el `<title>` y el `og:title`), que sí eran prosa visible en la pestaña del navegador y en el preview al compartir el link. Esas se sacaron.
+
 ## Datos: qué es real y qué no
 
 El detalle vive en `docs/estado.md` y cambia seguido. Resumen: notificaciones, reservas del panel y "Mis viajes" son **reales**; los mocks `NOTIFS`, `OP_BK`, `EARN`, `MY_TRIPS` y `generateMockReviews` **fueron eliminados**.
@@ -159,6 +180,29 @@ Concretamente:
 - Un total en un título o en una tabla sale de `grep -c`, de un `wc -l`, o de un script que parsea la fuente. Nunca de contar la lista.
 - Si el número se recalcula al actualizar el documento, el script se deja escrito, aunque sea en el scratchpad, y se vuelve a correr.
 - Si un número viejo no coincide con el recuento, **se corrige el titular y se deja anotado que estaba mal**. La lista casi nunca cambia; el que cambia es el número.
+
+#### Cada reemplazo se verifica solo, nunca en bloque
+
+Corolario del mismo problema, y ya costó un error propio.
+
+**Un `assert` que solo confirma que "algo cambió" deja pasar en silencio los reemplazos que no matchearon.** Si un script hace cinco reemplazos y verifica con un `assert texto != original`, alcanza con que uno entre para que el assert pase. Los otros cuatro fallan sin ruido y el archivo queda a medias.
+
+**Pasó en `3d6c900`.** Un script de Python aplicaba cuatro reemplazos sobre `docs/plans/2026-08-13-plan-tipografia.md` y terminaba con `assert s != o`. Tres entraron y el cuarto no: el patrón buscado terminaba en `de 35, no menos.` y el archivo decía `de 35.`, cuatro palabras de diferencia. El assert pasó igual, el commit se hizo, y la sección vieja se quedó en el documento. Se descubrió al ir a editar esa misma sección en la tanda siguiente.
+
+Lo peligroso no es que falle: es que **falla pareciendo que funcionó**. Un documento con una sección desactualizada se lee como si estuviera al día.
+
+La forma correcta es contar ocurrencias del patrón **antes** de reemplazar, y exigir el número exacto:
+
+```python
+def rep(s, viejo, nuevo, etiqueta):
+    n = s.count(viejo)
+    assert n == 1, f'FALLO [{etiqueta}]: el patron aparece {n} veces, se esperaba 1'
+    return s.replace(viejo, nuevo)
+```
+
+Con eso, un patrón que no matchea aborta el script entero en vez de dejar el archivo a medias. Y si aparece dos veces, también aborta, que es el otro error de esta familia: reemplazar sin querer en un segundo lugar.
+
+Vale igual para los reemplazos sobre datos, no solo sobre documentos. El script de `scripts/limpieza-em-dash.ts` aplica el mismo criterio: si aparece una forma que la regla no cubre, aborta con `exit 1` en vez de escribir a medias.
 
 ### 6. Las tablas de las auditorías no son checklists
 

@@ -469,6 +469,41 @@ Depende de la Fase 4. Riesgo medio.
 - **Qué puede romperse:** menos de lo que dice la auditoría. Por E2 los botones no se mueven. Lo que sí se mueve es todo el texto dentro de `div`, o sea alturas de card, y ahí `.tc` (ancho fijo de 260px) y `.tg` (grilla de dos columnas en mobile) pueden dejar de tener altura pareja
 - **Cómo se valida:** home y catálogo en 390px mirando que las cards de la grilla sigan alineadas. Detalle de tour con descripción larga. Voucher completo. **Al terminar, recién ahí, el barrido de padding del Grupo B de la Fase 2**
 
+### Caso de verificación medido: el badge "Finde Verificado" encoge
+
+Sale de investigar un desalineado que José reportó en el QA del 14 ago. El desalineado resultó ser otra cosa (ver abajo), pero la medición dejó un caso concreto para esta fase.
+
+`.tc-ver` y `.gc-ver` están a **9px de fuente dentro de una caja de línea de 23.2px, ratio 2.58**. El contenido real del badge mide unos 12px, pero el badge mide **29.2px de alto**, porque el interlineado heredado manda sobre el contenido.
+
+Medido en el navegador, inyectando `line-height:1.6` en `.app-demo`, que es lo que hace esta fase:
+
+| Selector | Alto hoy | Alto con la base arreglada |
+|---|---|---|
+| `.tc-ver` | 29.2px | **22.4px** |
+| `.gc-ver` | 29.2px | **20.4px** |
+
+O sea que **el badge encoge entre 7 y 9px**, y como está en `position:absolute` sobre la foto, no empuja el layout de la card pero sí cambia su peso visual sobre la imagen. Hay que mirarlo.
+
+**Es además la mejor demostración de por qué esta fase existe:** un badge de 9px de texto ocupando 29px de alto es exactamente el síntoma de una base de interlineado en valor absoluto.
+
+### Lo que NO es un caso de esta fase: el desalineado del check
+
+Se midió y **la Fase 5 no lo arregla**. Queda escrito para que nadie lo espere.
+
+`.tc-ver` tiene el check 2.5px más arriba que el texto. `.gc-ver`, con **el mismo font-size y el mismo interlineado heredado**, está a 0.09px, o sea perfecto. Si la causa fuera el ratio 2.58, los dos estarían mal.
+
+La causa es que `.gc-ver` declara `display:inline-flex; align-items:center` y `.tc-ver` no. Sin flex, el `<svg>` de 12px es contenido inline y se alinea por `vertical-align:baseline`, así que apoya su borde inferior en la línea base y sobresale por arriba.
+
+Verificado con dos experimentos en el navegador:
+
+| Experimento | Desfase de `.tc-ver` |
+|---|---|
+| como está hoy | -2.5px |
+| bajando el interlineado a 1.6, o sea lo que hace esta fase | **-2.5px, no cambia** |
+| dándole a `.tc-ver` el `inline-flex` que ya tiene `.gc-ver` | **0.09px** |
+
+Es un bug independiente y preexistente, de una línea. No entra en el plan tipográfico.
+
 ---
 
 ## Fase 6 · La escala en tokens
