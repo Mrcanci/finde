@@ -1069,6 +1069,7 @@ html{scrollbar-gutter:stable}
 .ai-sb input{width:100%;padding:13px 48px 13px 44px;border:2px solid var(--sd);border-radius:20px;font-size:16px;font-family:inherit;background:white;color:var(--ch);transition:.3s;outline:none}
 .ai-sb input:focus{border-color:var(--m);box-shadow:0 0 0 4px rgba(45,90,61,.08)}
 .ai-sb input::placeholder{color:var(--gy)}
+.inp::placeholder,.login-input::placeholder,.rv-textarea::placeholder,.ai-cc-input::placeholder{color:var(--gy)}
 .ai-sb-ic{position:absolute;left:16px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--gy)}
 .ai-sb-tag{position:absolute;right:14px;top:50%;transform:translateY(-50%);padding:3px 8px;border-radius:6px;font-size:9px;font-weight:700;color:var(--f);background:var(--cr);letter-spacing:.3px}
 .ai-suggest{position:absolute;top:calc(100% + 4px);left:0;right:0;background:white;border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.12);z-index:200;border:1px solid rgba(0,0,0,.08);max-height:380px;overflow-y:auto;padding:6px 0}
