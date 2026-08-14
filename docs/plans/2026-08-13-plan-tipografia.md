@@ -147,6 +147,28 @@ Mejor relación impacto/riesgo del plan. Bugs visibles, riesgo casi nulo.
 - **Qué puede romperse:** nada de layout. Cambiar un color no mueve ninguna caja. El riesgo es solo estético
 - **Cómo se valida:** capturas de Fase 0 lado a lado. Recorrido con `demo@finde.pe` sobre tours de cuentas `@finde.pe` por home, resultados de búsqueda, detalle, reserva completa hasta el voucher, notificaciones, mis reservas y panel. Revisar en particular badges de estado, hora de notificación, código de reserva, "Ver todos" y el error de un formulario forzado
 
+### Criterio para los bordes: se corrige el que porta el estado
+
+`--lg` (2.87) y `--sg` (3.47) se usan también como color de borde, y ahí el umbral no es 4.5 sino **3:1**, por WCAG 1.4.11, que cubre elementos no textuales.
+
+**Se corrige el borde cuando el borde ES el portador del estado.** Se queda como está cuando es decorativo, o sea cuando el control ya se identifica por otra vía.
+
+| Selector | Qué lo identifica | Decisión |
+|---|---|---|
+| `.pm-rd` | **nada más que el borde.** Es el radio de método de pago: seleccionado se rellena, no seleccionado solo tiene borde | corregido a `--gy-strong` |
+| `.tn-btn` | lleva ícono adentro | se queda en `--lg` |
+| `.tdet-act-sec` | lleva texto | se queda en `--lg` |
+| `.sal-btn.sec` | lleva texto | se queda en `--lg` |
+
+**Los cuatro `:hover` que usan `--sg` como borde (`.chip`, `.tp-tab`, `.pm`, `.city-btn`) se quedan como están.** Pasan el 3:1 con 3.47, así que no son un fallo de contraste y no le corresponden a esta fase.
+
+Se llegaron a cambiar a `--m` y se revirtieron. Dos motivos, y el segundo importa más que el primero:
+
+1. Como borde, el cambio **sí se percibe**: `--sg` es un verde salvia suave y `--m` es verde bosque oscuro.
+2. **Rompía el alcance de la fase.** La Fase 1 corrige fallos de contraste. Un cambio que no corrige ningún fallo es un cambio de diseño, y esos no entran acá aunque se vean bien.
+
+Queda anotado como precedente: **que un color sea mejorable no lo vuelve trabajo de la Fase 1. Tiene que estar fallando.**
+
 ### Corrección (a): no usar las tablas de la auditoría como checklist
 
 Por E4, los conteos por selector de la auditoría están hechos a ojo y tienen desvíos en los cinco colores que hay que tocar. **La lista de usos se regenera con `grep` al empezar la fase**, sobre el archivo en su estado de ese momento, y esa lista es la que se sigue. Las tablas del documento de auditoría sirven para entender el problema, no para ejecutarlo.
@@ -278,6 +300,16 @@ Una línea. Elimina el **riesgo #5** sin congelar el tamaño del contador.
 ### `.logo`
 
 Va a **`--fs-d2` con `line-height: 1.1` explícito**. Hoy computa 0.83 porque no declara interlineado propio y hereda el valor absoluto del root. Es el hallazgo de severidad baja de la Fase 0: el problema es de matemática de layout, no de legibilidad.
+
+### El número de rating, heredado de la Fase 1
+
+La Fase 1 no pudo corregir el color del número de rating y **el trabajo cae acá, no en la Fase 7**.
+
+`.tc-m .rt`, `.gc-m .rt` y `.sr-rating` renderizan **la estrella y el número dentro del mismo elemento**, con el ícono en `fill="currentColor"`. O sea que el color es uno solo para los dos: pintar el número en `--ch` pinta también la estrella, y la estrella tiene que quedarse en `--gd` porque es decorativa.
+
+Separarlos exige envolver el número en su propio elemento, que es un cambio de JSX y no de CSS. **Se hace en esta fase y no en la 7 porque estos tres selectores se tocan igual acá** (`.sr-rating` está a 10px y muere con el piso de 12px; `.tc-m` y `.gc-m` cambian de tamaño y de peso), así que conviene separar ícono y número en el mismo viaje en vez de abrir el archivo dos veces.
+
+Objetivo al separarlos: número en `--ch` o `--gy-strong`, estrella en `--gd`.
 
 ---
 

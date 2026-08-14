@@ -98,6 +98,50 @@ No son bugs. No los "arregles" mostrándolos:
 
 La **política de cancelación sí se muestra** (`getCancelPolicy` en `:2795`, `:3045`, `:3406`, `:3457`, `:3497`), incluido el flujo de reserva. Es exigencia INDECOPI antes de pagar: no la ocultes.
 
+## Extraer o reemplazar en la constante CSS por script
+
+Regla escrita después de cometer **dos veces el mismo tipo de error en dos tandas seguidas**, las dos veces sobre `src/AppDemo.jsx`. Quedan siete fases del plan tipográfico con reemplazos masivos por delante, así que esto no es teoría.
+
+### 1. Nunca parsear por línea, siempre por regla
+
+La constante `CSS` de `AppDemo.jsx` **mete varias reglas en una misma línea**. Partir por línea y tomar lo que va antes del primer `{` como selector atribuye la propiedad al selector equivocado.
+
+Pasó así: se leyó `.det-op-n{font-size:14px;font-weight:700}.det-op-d{font-size:11px;color:var(--gy)}` y el `color` quedó atribuido a `.det-op-n`, que no lo tiene. Además de mal, se saltearon otras cinco reglas del mismo tirón.
+
+**Partir por `}` antes de hacer nada.** Una regla por elemento, después buscar.
+
+### 2. Anclar el patrón al inicio de la declaración
+
+`color:` matchea dentro de `border-color:`, `background-color:` y `outline-color:`.
+
+Pasó así: un grep de `color:var(--sg)` devolvió cuatro reglas que en realidad eran `border-color:var(--sg)`. Se reportaron como texto que fallaba AA cuando eran bordes, que tienen otro umbral (3:1) y ya lo pasaban. Se hizo un cambio que había que revertir.
+
+**Usar un separador explícito antes de la propiedad**: inicio de bloque, `;` o `{`. En regex, `[{;]color:` o `(?<![-\w])color:`.
+
+### 3. Contar antes y después, y comparar contra el delta esperado
+
+Todo reemplazo masivo termina con un conteo de las dos formas, la vieja y la nueva, y una comparación contra lo que se esperaba cambiar.
+
+**Si el delta no coincide, la extracción está mal, no el conteo.** No ajustar el número esperado para que cierre: volver a la lista.
+
+### 4. Verificar el alcance contra un tag
+
+Antes de una tanda con reemplazos, crear un tag (`pre-<lo-que-sea>`). Al terminar, comparar propiedad por propiedad lo que **no** se debía tocar:
+
+```bash
+for prop in font-size font-weight line-height letter-spacing padding margin width height gap; do
+  a=$(git show pre-TAG:src/AppDemo.jsx | grep -oE "$prop:[^;\"}]*" | sort | md5 -q)
+  b=$(grep -oE "$prop:[^;\"}]*" src/AppDemo.jsx | sort | md5 -q)
+  [ "$a" = "$b" ] && echo "$prop IDENTICO" || echo "$prop ***CAMBIO***"
+done
+```
+
+Compara los valores, no el diff. Un diff de reglas completas muestra `font-size` en las líneas `-` y `+` aunque solo haya cambiado el color, y eso hace pensar que se rompió el alcance cuando no.
+
+### 5. Las tablas de las auditorías no son checklists
+
+Los conteos por selector de `docs/audits/2026-08-13-typography-audit.md` están hechos a ojo y tienen desvíos en cinco de seis colores. Sirven para entender el problema, nunca para ejecutarlo. **La lista se regenera con script al empezar cada tanda**, contra el archivo en su estado de ese momento.
+
 ## Convenciones
 
 - El frontend queda en **JSX**, sin TypeScript.
