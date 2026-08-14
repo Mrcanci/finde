@@ -213,8 +213,33 @@ Cada uno es de una a tres líneas, independientes entre sí. Riesgo bajo.
 - **Hallazgos:** §1c (el input de 15px), §7b (números), §7c (monospace y cursiva), §8a, §8b, §8c
 - **Archivos:** `src/AppDemo.jsx` (constante CSS) e `index.html`. **`Landing.jsx` no se toca**
 - **Qué se hace:** subir el input del buscador a 16px en desktop para matar el zoom de iPad · poner `tabular-nums` en el contador de personas, las barras de ingresos y las filas de precio · unificar el código de reserva en un solo tratamiento (hoy tiene dos tamaños, dos pesos, dos colores y dos trackings según la pantalla) · agregar `preconnect` a Google Fonts · sacar el peso 300 que se descarga y no usa nadie
-- **Qué puede romperse:** la URL de fuentes es **compartida con la landing**, verificar que la landing tampoco use el peso 300 antes de tocar · `tabular-nums` cambia levemente el ancho de los números, mirar que el contador de 60px fijos siga entrando · borrar los `@import` redundantes toca `Landing.jsx`, que es archivo protegido, **queda fuera del plan hasta autorización explícita**
+- **Qué puede romperse:** `tabular-nums` cambia levemente el ancho de los números · borrar los `@import` redundantes toca `Landing.jsx`, que es archivo protegido, **queda fuera del plan hasta autorización explícita**
 - **Cómo se valida:** el zoom, en un iPad en horizontal. Los números, tocando `+`/`−` en el selector de personas. El `preconnect`, mirando que los títulos serif dejen de parpadear al cargar
+
+### El peso 300 NO se saca de la URL de fuentes. Decidido, no reabrir
+
+La auditoría lo listaba como "descarga muerta" y es correcto que **nadie usa el peso 300**: cero ocurrencias en `AppDemo.jsx`, `Landing.jsx`, `index.css` e `index.html`. Pero sacarlo sale más caro que dejarlo, por dos razones que la auditoría no tuvo en cuenta.
+
+**1. Las tres URLs son byte a byte idénticas y por eso comparten entrada de caché.** `index.html`, el `@import` de `AppDemo.jsx` y el de `Landing.jsx` piden exactamente la misma URL, así que el navegador hace **una sola petición**. Si se le saca el `300;` a una sola, dejan de ser idénticas y aparece una segunda petición. Como `Landing.jsx` es archivo protegido y no se puede tocar, el resultado sería: **la landing, que es la página pública, pasa a pedir dos hojas de fuentes y encima sigue bajando el peso 300**.
+
+**2. Plus Jakarta Sans en Google Fonts es una fuente variable.** Los seis pesos no son seis archivos: son **un solo archivo con un rango de eje**. Quitar el 300 cambia el rango de `300-800` a `400-800` y ahorra unos pocos KB, no un archivo entero como suponía la auditoría.
+
+O sea: el ahorro es casi nulo y el costo es una petición extra en la landing. **Se queda como está.**
+
+Si alguna vez se autoriza tocar `Landing.jsx`, el cambio correcto es actualizar las tres URLs a la vez, nunca una sola.
+
+### Verificado: `tabular-nums` no rompe ningún ancho
+
+Las cifras tabulares ensanchan los dígitos angostos (el "1" pasa de 8.93px a 11.82px), así que había que comprobar que no activaran por una vía nueva el **riesgo #4 de la auditoría**, el precio de la barra de reserva comprimiendo al botón. Medido en el navegador con precios de hasta cinco cifras:
+
+| Selector | Peor caso | Crecimiento | Presupuesto |
+|---|---|---|---|
+| `.bb-p` | `S/ 1,111` | +13.2px | al botón "Reservar" le quedan **221.7px a 360px**, de sobra |
+| `.tc-pr` | `S/ 11,111` | +15.5px | 77.5px dentro de ~232px de la card |
+| `.gc-p` | `S/ 11,111` | +13.7px | 68.1px dentro de ~155px de la celda |
+| `.sr-price` | `S/ 11,111` | +12.7px | fila flexible |
+
+Dato contraintuitivo: los precios cortos se vuelven **más angostos** con cifras tabulares (`S/ 40` pierde 2.5px), porque el "4" y el "0" son más anchos que el avance tabular. No es un crecimiento en una sola dirección.
 
 ---
 
