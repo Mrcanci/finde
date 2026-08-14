@@ -88,7 +88,7 @@ Sin commits, no toca ningún archivo del repo. Es medición y capturas.
 | 1 | Interlineado real del root medido en mobile | ✅ **16px / 23.2px, ratio 1.450.** E1 confirmado: la auditoría reportaba 26.1px y ese valor solo existe en desktop |
 | 2 | Confirmación de que los `<button>` computan `line-height:normal` con la base actual | ✅ **33 de 33, cero excepciones.** E2 confirmado |
 | 3 | Capturas de referencia en 412px | ✅ 10 vistas, **previas a la Fase 1** |
-| 4 | **Auditoría de `text-align:center`** | ✅ **109 selectores dependen de la herencia**, sobre 13 vistas y sub-vistas. Faltan login y welcome, que exigen cerrar sesión |
+| 4 | **Auditoría de `text-align:center`** | ✅ **117 selectores dependen de la herencia**, sobre 18 vistas y sub-vistas. Solo falta `login`, que exige cerrar sesión |
 | 5 | Series de línea base para la Fase 4 | ✅ **completo.** oscuro 412, 1440 y 390 · claro 1440 (10 vistas) y 390 (2 vistas) |
 | 6 | Confirmar si la cursiva de `.voucher-more` se ve o no | pendiente |
 | 7 | Comparación oscuro vs claro en 1440, vista por vista | ✅ **2 diferencias, las dos del bloque `.app-demo`.** Ver abajo |
@@ -144,31 +144,31 @@ Se saca por prueba empírica: se inyecta `.app-demo{text-align:left}` y se regis
 
 ### Segunda tanda: la muestra de 9 vistas subestimaba el alcance en un 20%
 
-Las 9 vistas de la primera tanda daban 91 selectores. Las 4 que se sumaron el 14 ago aportan **18 nuevos**, y no son marginales: son **dos familias enteras** que no estaban.
+Las 9 vistas de la primera tanda daban 91 selectores. Lo que se sumó el 14 ago aporta **26 nuevos**, un 29% más, y no son marginales: son **tres familias enteras** que no estaban.
 
 | Familia | Selectores | Por qué importa |
 |---|---|---|
 | **Ficha de tour** (`.det*`, `.bb*`) | 8 | Incluye `.det-hero` y `.bb`, la foto grande y la barra de reserva fija. La pantalla que más tráfico va a tener |
 | **Armazón de formulario** (`.bkf*`, `.fg`, `.lbl`, `.gctr`, `.sum-t`) | 10 | **Es uno solo y sirve a dos flujos**: reserva (3 pasos) y tour nuevo (5 pasos). Un selector mal replicado descuadra ocho pantallas |
+| **Método de pago** (`.pm*`, `.pms`, `.bk-sum-*`) | 8 | El último paso antes de pagar, donde un descuadre cuesta plata |
 
 Se volvió a correr el home como control: dio 34 selectores y **los 34 ya estaban**, cero nuevos. El método es el mismo y los números se suman.
 
+Los cuatro pasos del formulario de tour nuevo **no aportan un solo selector nuevo**: reusan entero el armazón `.bkf`.
+
 ### Dos hallazgos que ninguna lista de selectores captura
 
-**1. La grilla del calendario de reserva no tiene clases.** 19 elementos que dependen de la herencia son `div` y `button` con estilos inline. **Son invisibles para cualquier checklist por selector**, este incluido, así que no se pueden corregir uno por uno. Y es justo el punto frágil que la Fase 2 ya tenía marcado. Si el centrado no se replica en `.app`, el calendario se descuadra y la lista no sirve de nada: hay que darle `text-align` propio al contenedor de la grilla.
+**1. Los calendarios no tienen clases.** 19 elementos en el paso 1 de la reserva y **62 más en el paso 3 del formulario de tour nuevo** dependen de la herencia y son `div`, `button` y `strong` con estilos inline. 81 en total. **Son invisibles para cualquier checklist por selector**, este incluido, así que no se pueden corregir uno por uno. Y es justo el punto frágil que la Fase 2 ya tenía marcado. Si el centrado no se replica en `.app`, los calendarios se descuadran y la lista no sirve de nada: hay que darles `text-align` propio a los contenedores de las dos grillas.
 
 **2. La hoja de notificaciones está fuera de `.app-demo`.** Se renderiza colgada del `<body>`. Sus 52 elementos cambian cero: **la Fase 4 no la toca.** No es un hueco de la auditoría, es un resultado.
 
-### Lo que sigue sin medir
+### Lo único que sigue sin medir: `login`
 
-**`login` y `welcome` exigen cerrar sesión**, y la contraseña de `demo@finde.pe` la tiene que escribir José. Los pasos que quedan de los dos formularios (`reserva` paso 3 y `tour nuevo` pasos 2 a 5) exigen llenar campos obligatorios.
+De sus 38 selectores solo tres declaran alineación propia, así que unos 35 dependen de la herencia. Exige cerrar sesión, y la contraseña de `demo@finde.pe` la tiene que escribir José.
 
-Lo que se puede afirmar sin abrirlos, leyendo qué reglas declaran alineación propia, marcado como estático y no empírico:
+**`welcome` queda cerrada con lectura estática y no se va a medir.** `.welcome` declara `text-align:center` propio, así que su subárbol hereda de ahí; y la vista solo aparece justo después de registrarse, o sea que medirla exigiría crear una cuenta, que es ensuciar la base de producción para confirmar un cero que el CSS ya afirma.
 
-- **`welcome`: casi seguro cero.** `.welcome` declara `text-align:center` propio, así que su subárbol hereda de ahí. Mismo caso que la hoja de notificaciones
-- **`login`: es el hueco grande.** De sus 38 selectores solo tres declaran alineación propia. Los otros 35 dependen de la herencia. **Es de lejos lo que más falta medir**
-- **`reserva` paso 3: la familia `.pm`**, 6 selectores, ninguno declara alineación propia
-- **`tour nuevo` pasos 2 a 5: probablemente cero nuevos.** No existe ninguna regla `.nt-*` en el CSS: el formulario reusa el armazón `.bkf` que ya quedó medido
+**Calibración de la lectura estática**, útil para la próxima vez: acertó la dirección pero se quedó corta en el conteo. Predijo "cero nuevos" para el formulario de tour nuevo y fue exacto; predijo 6 selectores para el paso de pago y fueron 8, porque solo miraba la familia `.pm` y esa vista trajo además `.bk-sum-*`. Sirve para decidir si vale la pena abrir una vista, no para reemplazar la medición. Aplicado a `login`, es probable que sean **más** de 35.
 
 ### Por qué 390px además de 412px
 
@@ -235,7 +235,7 @@ Chrome real contra dev.finde.pe/demo, sesión de `demo@finde.pe`. Las mediciones
 | `post-fase3-light-1440/` | 10 | ✅ |
 | `post-fase3-light-390/` | 2 | home y catálogo |
 | `datos/mediciones.md` | | mediciones con su método |
-| `datos/auditoria-text-align.md` | | los 109 selectores del entregable 4 |
+| `datos/auditoria-text-align.md` | | los 117 selectores del entregable 4 |
 | `datos/comparacion-oscuro-claro.md` | | el entregable 7, oscuro vs claro vista por vista |
 
 ### Hallazgo nuevo, no está en la auditoría (severidad baja)
@@ -361,7 +361,7 @@ Acá empieza la deuda de sistema y el riesgo alto. Nada de esta fase se ve; todo
 - **Hallazgos:** §10a completo. Habilita la Fase 5
 - **Archivos:** `src/index.css` (borrar el bloque `.app-demo`) y `src/AppDemo.jsx` (replicar a propósito lo que se conserve en `.app`). **Un commit, solo esto**
 - **Qué se hace:** el bloque es plantilla de Vite renombrada, pero hoy gobierna el ancho, el centrado, el tamaño del root, el interlineado, el espaciado entre letras y el color de los `h2`. No alcanza con borrarlo: hay que decidir qué se replica
-- **Qué puede romperse:** **es el riesgo número uno del proyecto.** Al borrarlo el demo pierde de golpe `width:1126px`, `max-width:100%`, `margin:0 auto`, `text-align:center`, `display:flex`, `flex-direction:column`, `min-height:100svh` y `border-inline`. El centrado en particular sostiene pantallas enteras. El demo declara alineación explícita en 36 reglas propias, o sea que parte se salva sola, pero **109 selectores dependen de la herencia**, más la grilla del calendario, que no tiene clases y por eso no entra en ninguna lista
+- **Qué puede romperse:** **es el riesgo número uno del proyecto.** Al borrarlo el demo pierde de golpe `width:1126px`, `max-width:100%`, `margin:0 auto`, `text-align:center`, `display:flex`, `flex-direction:column`, `min-height:100svh` y `border-inline`. El centrado en particular sostiene pantallas enteras. El demo declara alineación explícita en 36 reglas propias, o sea que parte se salva sola, pero **117 selectores dependen de la herencia**, más los dos calendarios, que suman 81 elementos sin clase y por eso no entran en ninguna lista
 - **Ganancia:** desaparece la fragilidad de que la fuente del demo dependa del orden de inyección del bundler, y desaparece la fuente del bug de "Notificaciones" en vez de seguir tapándolo caso por caso
 - **Cómo se valida:** capturas de Fase 0 contra el resultado, **pantalla por pantalla, en 390px y en 1440px, en modo claro y en modo oscuro**. Es la única fase donde vale la pena el diff visual completo antes de pushear
 
@@ -380,6 +380,24 @@ Hoy, antes de la fase, las diferencias son exactamente dos y están medidas: los
 **Cómo se verifica**, y este es el punto: no hace falta capturar de nuevo las dos series enteras. Alcanza con **releer el `cssRules` del navegador** y confirmar que el media query `prefers-color-scheme: dark` ya no tiene ninguna regla que aplique al demo. Eso cubre todo el demo, no solo las diez vistas capturadas. El diff de imágenes queda como confirmación, no como prueba.
 
 **Ojo con el ancho al replicar.** El bloque también declara `width:1126px`, `margin:0 auto`, `text-align:center` y `min-height:100svh`. Eso no es modo oscuro y no se valida con este criterio: va aparte, con las capturas.
+
+### Secuencia obligatoria: replicar primero, borrar después, limpiar al final
+
+**No es una recomendación ni queda a criterio del momento. La Fase 4 se hace en este orden y no en otro.**
+
+| # | Paso | Cómo se verifica |
+|---|---|---|
+| **a** | **Replicar `text-align:center` en `.app`**, con el bloque de `index.css` todavía en su lugar | Comparar contra `post-fase3-*`. **Nada se tiene que haber movido.** Si algo se movió, el problema está acá y no más adelante |
+| **b** | **Borrar el bloque `.app-demo`** de `index.css` | Comparar de nuevo contra `post-fase3-*`, y además confirmar que el media query oscuro ya no tiene reglas que apliquen al demo |
+| **c** | **Recién después**, ir sacando el centrado selector por selector con la lista de 117 | Cada quita se valida sola, y se puede revertir de a una |
+
+**Por qué este orden y no el intuitivo.** Lo natural sería borrar primero y corregir después con la lista en la mano. Eso no funciona, y el motivo es concreto: **los dos calendarios suman 81 elementos que dependen de la herencia y no tienen ninguna clase**, son `div`, `button` y `strong` con estilos inline. No hay ninguna entrada en la lista de 117 que los arregle, porque no se pueden nombrar. Si se borra primero, se descuadran y no hay checklist que los levante.
+
+O sea: **la lista de 117 selectores no es la herramienta principal, es la secundaria.** La principal es replicar el centrado. La lista sirve para la limpieza opcional del paso (c), que se puede no hacer nunca.
+
+El paso (a) tiene además una propiedad que conviene aprovechar: **es reversible y no rompe nada**, porque mientras el bloque siga vivo el centrado ya estaba. Es la única oportunidad de verificar la réplica de forma aislada, sin que se mezcle con los otros ocho efectos de borrar el bloque.
+
+**Ojo particular con `.bkf`.** Ese armazón sirve a dos flujos, el de reserva (3 pasos) y el de tour nuevo (5 pasos). **Un selector mal replicado ahí descuadra ocho pantallas de una**, y ninguna de las dos aparece en las capturas de línea base, así que el diff visual no lo va a detectar. Hay que recorrer los dos flujos a mano.
 
 ### Decisión tomada: el `border-inline` NO se replica
 
