@@ -425,7 +425,7 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
                 else onToggleException && onToggleException(iso, state);
               }}
               style={{
-                minHeight: 44, aspectRatio: "1", borderRadius: 8, border,
+                minHeight: 44, minWidth: 0, width: "100%", aspectRatio: "1", borderRadius: 8, border,
                 background: bg, color, fontSize: 13, fontWeight: 600,
                 cursor, fontFamily: "inherit", textDecoration, opacity,
                 transition: "background .15s", padding: 0,
