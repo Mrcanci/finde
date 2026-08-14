@@ -163,13 +163,44 @@ Los cuatro pasos del formulario de tour nuevo **no aportan un solo selector nuev
 
 **2. La hoja de notificaciones está fuera de `.app-demo`.** Se renderiza colgada del `<body>`. Sus 52 elementos cambian cero: **la Fase 4 no la toca.** No es un hueco de la auditoría, es un resultado.
 
-### Lo único que sigue sin medir: `login`
+### La auditoría quedó completa
 
-De sus 38 selectores solo tres declaran alineación propia, así que unos 35 dependen de la herencia. Exige cerrar sesión, y la contraseña de `demo@finde.pe` la tiene que escribir José.
+José cerró sesión a mano el 14 ago para que se pudiera medir `login`, que era el último hueco. **No queda ninguna vista del demo sin medir.**
 
-**`welcome` queda cerrada con lectura estática y no se va a medir.** `.welcome` declara `text-align:center` propio, así que su subárbol hereda de ahí; y la vista solo aparece justo después de registrarse, o sea que medirla exigiría crear una cuenta, que es ensuciar la base de producción para confirmar un cero que el CSS ya afirma.
+`login` dio **11 selectores**, idénticos en sus dos pestañas y también idénticos a 412px y a 1440px. Eso último confirma de paso una suposición que la auditoría arrastraba sin verificar: **el centrado no depende del breakpoint.**
 
-**Calibración de la lectura estática**, útil para la próxima vez: acertó la dirección pero se quedó corta en el conteo. Predijo "cero nuevos" para el formulario de tour nuevo y fue exacto; predijo 6 selectores para el paso de pago y fueron 8, porque solo miraba la familia `.pm` y esa vista trajo además `.bk-sum-*`. Sirve para decidir si vale la pena abrir una vista, no para reemplazar la medición. Aplicado a `login`, es probable que sean **más** de 35.
+**`welcome` es la única que no se midió, y no se va a medir.** `.welcome` declara `text-align:center` propio, así que su subárbol hereda de ahí; y la vista solo aparece justo después de registrarse, o sea que medirla exigiría crear una cuenta, que es ensuciar la base de producción para confirmar un cero que el CSS ya afirma.
+
+### La trampa de los controles nativos, segunda aparición
+
+La lectura estática predijo 35 selectores para `login` y son 11. Se equivocó por tres veces, y **por el mismo mecanismo del error E2 de este plan**. Ya van dos veces, con dos propiedades distintas:
+
+| | Propiedad | Qué se creía | Qué pasa de verdad |
+|---|---|---|---|
+| **E2** | `line-height` | Poner una base en `.app` iba a mover los botones y romper `.chip`, `.dsh-tab`, `.tp-tab` | Los 33 controles nativos computan `normal`. **No se mueve ninguno** |
+| **login** | `text-align` | 35 de los 38 selectores `.login-*` dependían de la herencia | Son **11**. La mitad de la familia son controles nativos |
+
+**El mecanismo es uno solo:** el navegador declara la propiedad **sobre el elemento** (`line-height:normal` en botones e inputs, `text-align:center` en `button`, `text-align:start` en `input`), y una declaración sobre el elemento le gana siempre a un valor heredado del ancestro. Da igual qué tan específico sea el ancestro.
+
+**Y el error de método también es uno solo:** las dos veces se contaron selectores sin mirar **qué tipo de elemento** eran. Un `.login-btn` y un `.login-title` se ven igual en una lista de selectores y se comportan al revés frente a la herencia.
+
+**Por qué la lista de 128 sí es confiable.** No se armó contando selectores ni leyendo la cascada: se armó **midiendo**. Se inyectó `.app-demo{text-align:left}` y se registró qué elementos cambiaron de valor computado. Los 128 son elementos que **efectivamente cambiaron**, con los controles nativos ya descartados por el propio navegador. Es la diferencia entre inventariar lo que debería pasar y observar lo que pasa.
+
+**Regla para lo que viene:** frente a cualquier propiedad heredable, la pregunta no es "¿qué selectores la usan?" sino "¿qué elementos cambian cuando la saco?". Y esa segunda solo se responde midiendo.
+
+### Calibración: la lectura estática falló en las dos direcciones
+
+Ninguna de las tres predicciones numéricas dio en el clavo:
+
+| Predicción | Real | |
+|---|---|---|
+| tour nuevo pasos 2 a 5: "cero nuevos" | cero | acertó |
+| paso de pago: "6 selectores" | 8 | **corta** |
+| `login`: "35 de 38" | **11** | **sobreestimó por tres veces** |
+
+**Se queda corta** cuando mira una sola familia de selectores: el paso de pago trajo además `.bk-sum-*`. **Sobreestima** cuando cuenta selectores sin mirar qué tipo de elemento son, que es el caso de arriba.
+
+Sirve para decidir si vale la pena abrir una vista. Nunca para reemplazar la medición.
 
 ### Por qué 390px además de 412px
 
