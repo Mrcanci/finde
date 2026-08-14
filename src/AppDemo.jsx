@@ -944,6 +944,28 @@ html{scrollbar-gutter:stable}
 .app{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:var(--wh);color:var(--ch);-webkit-font-smoothing:antialiased;overflow-x:hidden}
 .app{min-height:100vh;background:var(--wh);position:relative}
 
+/* ── Fase 4, paso 1: replica de lo que hoy gobierna el bloque .app-demo ──
+   Estas declaraciones replican A PROPOSITO lo que el demo hereda hoy del
+   residuo de la plantilla de Vite que vive en src/index.css, para poder
+   borrar ese bloque (paso 2) sin que se mueva nada.
+
+   No las toques sin leer la Fase 4 de docs/plans/2026-08-13-plan-tipografia.md.
+   El centrado en particular sostiene 128 selectores, mas los dos calendarios,
+   que suman 81 elementos sin clase y por eso no figuran en ninguna lista.
+
+   NO se replican a proposito, y eso tambien esta decidido: border-inline
+   (estetica de scaffold de Vite), color-scheme, font-synthesis,
+   text-rendering y box-sizing. El min-height ya lo declara .app arriba. */
+.app{width:1126px;max-width:100%;margin:0 auto;text-align:center;display:flex;flex-direction:column;font-size:18px;line-height:145%;letter-spacing:.18px}
+@media(max-width:1024px){.app{font-size:16px}}
+/* Los tres h2 del demo (.npage-h h2, .tp-h h2 y .tdet-h) heredan CUATRO
+   propiedades de .app-demo h2, no solo el peso. El 400 va explicito porque DM
+   Serif Display solo trae ese peso: hoy computan 500 y renderizan 400, porque
+   font-synthesis:none impide inventarlo, asi que declarar 400 preserva el
+   render exacto. .tdet-h conserva su margin-bottom:14px propio, que gana por
+   especificidad. */
+.app h2{font-weight:400;line-height:118%;letter-spacing:-.24px;margin:0 0 8px}
+
 /* Focus accesible — solo navegación con teclado */
 .app :focus{outline:none}
 .app a:focus-visible,.app button:focus-visible,.app summary:focus-visible,.app [role="button"]:focus-visible,.app [tabindex="0"]:focus-visible{outline:2px solid var(--f);outline-offset:2px;border-radius:4px}
@@ -1319,7 +1341,13 @@ html{scrollbar-gutter:stable}
 .voucher-list{display:flex;flex-direction:column;gap:8px}
 .voucher-item{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ch)}
 .voucher-item .vi-ic{width:20px;height:20px;border-radius:50%;background:rgba(45,90,61,.1);color:var(--m);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.voucher-more{font-size:11px;color:var(--gy-strong);margin-top:8px;font-style:italic}
+/* Sin font-style:italic a proposito. Plus Jakarta Sans no trae cara italica
+   (el @import pide wght, sin eje ital), asi que hasta la Fase 4 este texto se
+   veia RECTO: el font-synthesis:none del bloque .app-demo impedia que el
+   navegador la inventara. Al borrar ese bloque, font-synthesis vuelve a auto y
+   la cursiva sintetica aparecia a 11px, que se ve mal. Sacarla preserva el
+   render que el demo ya tenia. */
+.voucher-more{font-size:11px;color:var(--gy-strong);margin-top:8px}
 .voucher-cancel{padding:12px 14px;background:var(--cr);border-radius:10px;border-left:3px solid var(--f)}
 .voucher-cancel-t{font-size:12px;font-weight:700;color:var(--f);margin-bottom:4px;display:flex;align-items:center;gap:6px}
 .voucher-cancel-d{font-size:12px;color:var(--gy-strong);line-height:1.5}

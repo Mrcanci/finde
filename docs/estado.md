@@ -25,9 +25,157 @@
 
 ## En curso
 
-Nada arrancado.
+Nada arrancado. **Lo próximo es la Fase 4 del plan tipográfico**, que no se
+empieza sin visto bueno explícito.
 
-- **Auditoría tipográfica del demo, completada el 2026-08-13** (`docs/audits/2026-08-13-typography-audit.md`). Investigación read-only: **21 hallazgos (8 alta, 10 media, 3 baja), ninguno aplicado.** El hallazgo principal es un bloque muerto de la plantilla de Vite en `src/index.css:6-45` que hoy controla el `font-size` del root, el interlineado base, el `letter-spacing` global y el color de los `h2` del demo (el color viene del mismo bloque `.app-demo`, unas líneas más abajo). Aplicar cualquier cosa toca `src/index.css` y `src/AppDemo.jsx`, y el documento lista 10 riesgos de regresión: leerlos antes de arrancar.
+## Plan tipográfico: dónde quedó, al 2026-08-14
+
+Fuente: `docs/plans/2026-08-13-plan-tipografia.md`. Nace de la auditoría del
+2026-08-13 (`docs/audits/2026-08-13-typography-audit.md`), que sigue siendo
+válida como diagnóstico pero **tiene seis errores de análisis ya corregidos
+en el plan**. Cuando los dos se contradigan, manda el plan.
+
+### Aplicado y en `main`
+
+Mergeado a `main` el 2026-08-14 (`af7c0b1`), post-QA. Primer merge a `main`
+desde el saneamiento previo.
+
+| Fase | Qué entró |
+|---|---|
+| **Fase 1, contraste** | Paleta accesible (`--tr-text`, `--gy-strong`, `--gy-soft` borrado), gradiente del hero, placeholders, borde del radio de pago |
+| **Fase 2, áreas táctiles** | Piso de 44px en los nueve controles y en la celda del calendario de reserva |
+| **Fase 3, micro-arreglos** | Input a 16px en desktop, cifras tabulares, código de reserva unificado, `preconnect` a Google Fonts |
+
+Dos decisiones de esas fases que **no se reabren**: los cuatro `hover` de
+`--sg` y el `.login-google:hover` se quedan como estaban, porque son bordes
+y ya pasaban el umbral de 3:1; y el peso 300 de la fuente se queda, porque
+las tres URLs son byte a byte idénticas y comparten entrada de caché.
+
+### Fase 0, cerrada
+
+Sin commits de código, es medición. **No tiene bloqueos abiertos.**
+
+- **Entregable 4, auditoría de `text-align`: completa.** 128 selectores
+  dependen de la herencia, sobre 20 vistas y sub-vistas. Es el checklist del
+  riesgo número uno de la Fase 4. En
+  `~/Documents/finde-capturas/2026-08-13-fase0/datos/auditoria-text-align.md`
+- **Capturas de línea base** en claro y oscuro, a 390, 412 y 1440px
+- **Comparación de modo oscuro contra claro**: quedan dos diferencias, las
+  dos del bloque `.app-demo`
+- **Entregable 6, la cursiva de `.voucher-more`: CERRADO** el 2026-08-14, con
+  la Fase 4. Plus Jakarta Sans no trae cara itálica, así que el
+  `font-synthesis:none` del bloque hacía que ese texto se viera **recto**. Al
+  borrar el bloque habría aparecido una cursiva sintética a 11px, así que se
+  sacó el `font-style:italic`
+
+**Las capturas viven fuera del repo a propósito**, en
+`~/Documents/finde-capturas/2026-08-13-fase0/`, porque la Fase 0 no hace
+commits. Ver el `INDICE.md` de esa carpeta antes de compararlas: hay dos
+familias y **no se comparan entre sí**.
+
+### Fase 4, COMPLETA
+
+Mergeada a `dev` el 2026-08-14 (`c9fcbfa`). **Pendiente de QA en dev.finde.pe
+antes de ir a `main`.**
+
+**El bloque `.app-demo` ya no existe.** `src/index.css` pasó de 109 líneas a una
+sola regla, y el CSS compilado de **1.95 kB a 0.06 kB**.
+
+Dos commits, en el orden obligatorio:
+
+| Paso | Commit | Qué hizo |
+|---|---|---|
+| 1 | `26670f0` | Replicar en `.app` lo que había que conservar, con el bloque todavía vivo |
+| 2 | `ced7bf3` | Borrar el bloque, más sacar el `font-style:italic` de `.voucher-more` |
+
+#### Los tres cambios visibles
+
+1. **Desaparece el borde lateral** del contenedor. Era estética de scaffold de
+   Vite y se decidió no replicarlo, **ni siquiera transparente**. Consecuencia
+   medida: el contenido pasa de 1124 a 1126px en desktop y de 388 a 390px en
+   mobile, y todo se corre 1px a la izquierda.
+2. **El título del tour "Caral" pasa de 3 líneas a 2** en la grilla a 390px, por
+   esos 2px. **Es el único reflow de todo el demo** y mejora: empareja esa celda
+   con el resto.
+3. **El ícono del reloj del input de hora se vuelve visible en modo oscuro.** Ver
+   abajo, es un bug corregido.
+
+#### Bug de accesibilidad corregido de paso: el ícono del reloj
+
+**No es un efecto secundario de la fase, es un bug preexistente que la fase
+destapa y arregla.**
+
+El bloque declaraba `color-scheme: light dark`. Con macOS en modo oscuro, Chrome
+pintaba el ícono del selector de hora en color claro, **sobre el campo blanco que
+el demo fuerza con `.app{background:var(--wh)}`**. Resultado: el ícono quedaba
+invisible. Un usuario en modo oscuro no veía que ese campo abría un selector.
+
+Está en el paso 3 de 5 del formulario de tour nuevo, campo "Hora de salida".
+
+Evidencia en `~/Documents/finde-capturas/2026-08-14-fase4/datos/`:
+`icono-hora-ANTES-oscuro.png` e `icono-hora-DESPUES-oscuro.png`.
+
+#### Qué se descartó a propósito
+
+`border-inline`, `color-scheme`, `font-synthesis`, `text-rendering` y
+`box-sizing`. El `min-height:100svh` no entraba en la lista: **ya estaba muerto**,
+porque `.app` declara `min-height:100vh` y le gana por orden de documento.
+
+El `h1` tampoco se replica. El único del demo es `h1.det-tl-desktop` y computa
+`display:none`. Está anotado en el plan para cuando se retome la ficha de tour.
+
+`body{margin:0;font-family}` **se queda** en `index.css`, y no es redundante: la
+hoja de notificaciones se renderiza en mobile con `createPortal` a `document.body`,
+queda fuera de `.app` y de `.landing`, y hereda de ahí su fuente.
+
+#### El paso 4, los 128 selectores: NO SE HACE
+
+Queda documentado en el plan como opcional, con su tabla de ocho commits y la
+nota de que el commit 5 (armazón de formulario y método de pago) sería el único
+que necesita QA en dev. **No cambia nada visible y agrega riesgo a cambio de
+limpieza interna.**
+
+#### Cómo se validó
+
+Por medición, no a ojo: se volcó el `getComputedStyle` de **todos** los elementos
+(no de una muestra) antes y después, partiendo el diff en geometría, tipografía y
+propiedades heredadas.
+
+- **Paso 1: cero cambios** en las cuatro vistas medidas, incluidos los dos
+  calendarios y sus 81 elementos sin clase, que eran el riesgo número uno
+- **Paso 2: cero cambios tipográficos**, y **ningún elemento cambia de alto**
+  salvo el título de Caral
+- **Cero reglas de `prefers-color-scheme`** en ninguna hoja. El único hueco era
+  la hoja de Google Fonts, que el CSSOM no deja leer: se cerró bajándola por
+  `fetch` (28 `@font-face`, cero selectores de clase)
+
+Detalle completo en
+`~/Documents/finde-capturas/2026-08-14-fase4/datos/paso0-resultados.md`, más las
+**32 capturas de línea base** de los dos flujos de formulario (8 pantallas por
+390 y 1440, por claro y oscuro), que antes no existían.
+
+### Fase 5, la siguiente: interlineado base y ritmo vertical
+
+Riesgo medio. Dependía de la Fase 4 y ahora está desbloqueada.
+
+Le da a `.app` un interlineado base **sin unidad**, para que se herede como
+proporción y no como valor fijo, y limpia las ~30 reglas de `line-height` que hoy
+existen solo para compensar la base equivocada.
+
+Tres cosas ya medidas que conviene tener a mano al arrancar:
+
+1. **Los botones no se mueven.** Es el error E2 del plan, verificado: los 33
+   controles nativos computan `line-height:normal`, que le gana a cualquier valor
+   heredado.
+2. **El badge "Finde Verificado" encoge entre 7 y 9px** (`.tc-ver` de 29.2 a
+   22.4px, `.gc-ver` de 29.2 a 20.4px). Está en `position:absolute` sobre la foto,
+   así que no empuja el layout pero sí cambia su peso visual.
+3. **Al terminar la Fase 5, recién ahí**, va el barrido de padding del Grupo B de
+   la Fase 2, que quedó pendiente.
+
+Y un número que hay que **re-medir antes de la Fase 6**: la mitigación de `.gc-t`
+está calculada sobre celdas de ~155px, pero al desaparecer el borde pasaron a
+~156px.
 
 Estos dos ítems vienen del **título de una tanda del 2026-08-13, "Refina generador de IA y fix de fecha en demo"**. La tanda nunca se detalló: no quedó escrito qué había que refinar ni cuál era el bug. Son el título y nada más.
 
@@ -39,6 +187,31 @@ Estos dos ítems vienen del **título de una tanda del 2026-08-13, "Refina gener
 - **Fix de fecha en el demo.** No hay síntoma registrado ni pantalla identificada. Hay varios candidatos posibles (el calendario de reserva, `scheduledAt`, las fechas Lima de las salidas), y sin el síntoma no se puede saber cuál era.
 
 **Los dos hay que definirlos o eliminarlos.** Si al leer esto nadie recuerda a qué se referían, borralos: un pendiente que nadie puede accionar solo genera ruido en cada tanda.
+
+## Em-dashes: las cuatro canillas, cerradas
+
+Cerrado el 2026-08-14. El canon prohíbe la raya en copy y en texto generado
+por IA, y estaba entrando por cuatro lados a la vez.
+
+| Canilla | Qué era | Estado |
+|---|---|---|
+| Los tres prompts de IA de `api/` | Tenían em-dashes adentro y no prohibían la raya. El modelo imitaba sus instrucciones | cerrada |
+| `scripts/backfill-quechua.ts` | Copia del prompt sin la prohibición. **Era la que generó los 52 de `descQu`** | cerrada |
+| `prisma/seed.ts` | 30 rayas en las descripciones. Volvían enteras en cada `db:seed` | limpio |
+| La base | 88 rayas en 52 campos de 28 tours | limpia |
+
+**La base y el seed dicen lo mismo ahora.** Verificado sobre los nueve
+campos de texto del tour, no solo los cuatro tocados: cero rayas, cero
+anomalías de puntuación. Backup previo en
+`backups/tour-antes-limpieza-em-dash-20260814.sql`, verificado con contenido
+real (49 filas) antes de escribir.
+
+El script quedó versionado en `scripts/limpieza-em-dash.ts`, en dry run por
+defecto: escribir exige `--apply`.
+
+**Excepción que no es violación:** los nueve `"—"` de `AppDemo.jsx` son el
+glifo de dato vacío (`user?.email || "—"`), no prosa. Se quedan. Anotado en
+`.claude/rules/frontend.md` para que un barrido no los vuelva a marcar.
 
 ## Bugs abiertos
 
