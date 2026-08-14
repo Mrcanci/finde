@@ -519,7 +519,9 @@ cargado solo tiene el peso 400.
 Hoy computan 500 pero **renderizan 400**, porque es el único peso que existe y `font-synthesis:none`
 impide inventarlo. Sin el bloque, computarían 700 y el navegador los engordaría a mano.
 
-**Arreglo: `font-weight:400` explícito a los tres.** Declarar 400 preserva el render exacto de hoy.
+**Medido el 14 ago: heredan CUATRO propiedades de `.app-demo h2`, no una.** Además del peso: `line-height:118%` (28.32px sobre 24, 33.04px sobre 28), `letter-spacing:-0.24px` y `margin:0 0 8px`. `.tdet-h` se salva del margen porque declara `margin-bottom:14px` con más especificidad.
+
+**Arreglo: `font-weight:400` explícito a los tres, más replicar las otras tres en `.app h2`.** Declarar 400 preserva el render exacto de hoy.
 
 **R2. El margen de 8px de los `h2`.** Misma cascada: `.app-demo h2{margin:0 0 8px}` (0,1,1) le gana a
 `.app *{margin:0}` (0,1,0). `.tdet-h` se salva porque declara `margin-bottom:14px` con más
@@ -533,6 +535,8 @@ cursiva**: no hay archivo itálico. Con `font-synthesis:none`, el navegador no l
 
 **O sea que hoy ese texto se ve recto.** Al borrar el bloque aparecería una cursiva sintética que hoy
 no existe.
+
+**Ojo con cómo se verifica.** El valor computado de `font-style` sigue siendo `italic` con el bloque puesto: `font-synthesis` no cambia el valor computado, cambia el **render**. Confirmado el 14 ago midiendo las caras cargadas (Plus Jakarta Sans tiene **cero** caras itálicas) y visualmente, con las dos variantes lado a lado.
 
 **Decisión tomada: se saca el `font-style:italic`.** Hoy no se ve, nadie la extraña, y una cursiva
 sintética a 11px se ve mal. Sacarla preserva el estado actual, que es el objetivo de la fase.
@@ -621,6 +625,57 @@ clase**, porque lo que se valida es una pantalla:
 
 **El commit 5 es el único que necesita QA en dev.** El armazón `.bkf` sirve a ocho pantallas a la vez
 y ahí viven los dos calendarios. Los otros siete se validan en local contra las capturas.
+
+---
+
+### Paso 0 ejecutado el 14 ago: la fase está simulada y da cero
+
+Detalle completo, con método y números, en
+`~/Documents/finde-capturas/2026-08-14-fase4/datos/paso0-resultados.md`.
+
+**Las tres deducciones quedaron confirmadas.** El `min-height:100svh` ya estaba muerto, los tres
+`h2` computan peso 500, y `.voucher-more` se ve recta hoy y se vería inclinada después.
+
+**Y se hizo algo más fuerte que medir: se simuló la fase entera.** Se aplicaron el paso 1 y el
+paso 2 en vivo sobre el CSSOM de un iframe y se diffeó el `getComputedStyle` de **todos** los
+elementos, no de una muestra, partiendo el diff en geometría, tipografía y propiedades heredadas.
+
+| Vista | Ancho | Elementos | Paso 1 | Paso 2 (geo / tipo / heredadas) |
+|---|---|---|---|---|
+| home | 1440 | 977 | **cero** | 28 / 0 / 977 |
+| home | 390 | 977 | **cero** | 833 / 0 / 977 |
+| **reserva paso 1** (calendario) | 1440 | 96 | **cero** | **2** / 0 / 96 |
+| **tour nuevo paso 3** (116 sin clase) | 1440 | 146 | **cero** | **2** / 0 / 146 |
+| mis reservas | 390 | 89 | 1, el `h2` | 25 / 1 / 89 |
+
+**El paso 1 es un no-op perfecto**, salvo el único cambio intencional: el peso de los `h2`.
+**Los dos calendarios no se mueven ni un píxel.** El riesgo número uno del plan queda cerrado
+antes de escribir una línea de código.
+
+**Del paso 2, cada cambio está atribuido:**
+
+- las **977 heredadas** son `font-synthesis-*`, `text-rendering` y `color-scheme`, las tres
+  decididas como descartar. Único efecto visual: la cursiva de `.voucher-more`, que se corrige
+  sacando el `font-style`
+- **toda la geometría sale del `border-inline`**. Con `box-sizing:border-box` los dos bordes de
+  1px comen del ancho, así que el contenido pasa de **1124px a 1126px** y se corre 1px a la
+  izquierda
+- **la tipografía no cambia en ningún elemento**, en ninguna de las cinco vistas
+
+**Cuánto pesan esos 2px:** a 390px, de 975 elementos cambian de ancho 364 y de posición 662,
+pero **de alto solo 3**, y uno es el puntito de notificaciones, que es dinámico. **El único
+reflow real de todo el demo es `.gc-t` del tour "Caral", que pasa de tres líneas a dos.** Es
+justo el elemento que la Fase 6 ya tiene marcado con `-webkit-line-clamp:2`, y el cambio además
+empareja esa celda con el resto de la grilla.
+
+**Queda una decisión chica sobre esos 2px:** o se aceptan (opción aprobada), o se pone
+`border-inline:1px solid transparent` en `.app`, que deja la geometría idéntica al píxel y
+también cierra la diferencia claro contra oscuro, porque transparente es transparente en los dos
+modos.
+
+**Lo que falta del Paso 0:** las capturas de línea base en modo oscuro, 8 pantallas por ancho.
+`prefers-color-scheme` depende del sistema operativo y no se puede forzar desde la página, así
+que hace falta que José ponga macOS en oscuro. Las series claras de 1440 y 390 ya están.
 
 ---
 
