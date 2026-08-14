@@ -502,7 +502,21 @@ Verificado con dos experimentos en el navegador:
 | bajando el interlineado a 1.6, o sea lo que hace esta fase | **-2.5px, no cambia** |
 | dándole a `.tc-ver` el `inline-flex` que ya tiene `.gc-ver` | **0.09px** |
 
-Es un bug independiente y preexistente, de una línea. No entra en el plan tipográfico.
+Es un bug independiente y preexistente, de una línea. **Arreglado aparte, en `fix/badge-verificado`**, replicando en `.tc-ver` el `display:inline-flex; align-items:center; gap:3px` que `.gc-ver` ya tenía. Verificado con la regla final literal: el desfase pasó de `-2.36px` a `+0.68px`, exactamente el de su gemelo, y el badge no se movió de la foto (sigue a 10px del borde izquierdo y 10px del inferior).
+
+### La hipótesis del ratio 2.58 era incorrecta, y por qué la prueba la descartó
+
+Vale anotarlo porque el método es reutilizable, no porque el número importe.
+
+**La hipótesis:** el badge se desalinea porque su texto de 9px vive en una caja de línea de 23.2px, ratio 2.58, y el centrado se descalibra contra un SVG de tamaño fijo.
+
+**Por qué era razonable:** el ratio 2.58 es real y está medido. Y es cierto que ese interlineado infla la caja del badge, que es de lo que trata la Fase 5.
+
+**Qué la descartó:** `.gc-ver` tiene **el mismo `font-size` de 9px y el mismo interlineado heredado de 23.2px**, o sea el mismo ratio 2.58, y está alineado a 0.68px. Si el ratio fuera la causa, los dos estarían mal. Como uno está bien y el otro mal, la causa tiene que estar en algo en lo que difieren, y difieren en una sola cosa: `.gc-ver` declara `inline-flex` y `.tc-ver` no.
+
+**El método, que es lo que conviene recordar:** cuando hay dos elementos casi idénticos y uno falla, **la causa está en lo que los diferencia, no en lo que comparten.** El ratio 2.58 lo comparten, así que no puede explicar por qué uno falla y el otro no. Aislar así es más barato y más concluyente que razonar sobre el mecanismo, y no necesita entender la causa de antemano.
+
+La confirmación experimental cerró el caso en dos mediciones: bajar el interlineado a 1.6 dejó el desfase igual en `-2.5px`, y darle el `inline-flex` lo llevó a `0.09px` sin tocar el interlineado.
 
 ---
 
