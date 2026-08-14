@@ -1,7 +1,7 @@
 # Plan tipográfico del demo
 
 **Fecha:** 13 ago 2026 · **Rama de origen:** `dev` · **Fuente:** `docs/audits/2026-08-13-typography-audit.md`
-**Estado:** aprobado, sin implementar. Ninguna fase está aplicada.
+**Estado al 2026-08-14:** Fases 0 a 3 en `main` (`af7c0b1`). **Fase 4 COMPLETA**, mergeada a `dev` (`c9fcbfa`), pendiente de QA antes de `main`. **La siguiente es la Fase 5.**
 
 Este plan reordena los hallazgos de la auditoría tipográfica y **corrige seis errores de análisis que se le encontraron al verificarla**. La auditoría se trata como hipótesis, no como verdad. Cuando este plan y la auditoría se contradicen, manda este plan.
 
@@ -32,7 +32,7 @@ No mezclar las dos mitades en el mismo commit. La primera se revierte fácil, la
 
 **Lo que sí se verificó y está correcto:** el bloque `.app-demo` de `index.css`, que `.app` no declara ancho ni centrado ni tamaño ni interlineado, los conteos gruesos (242 `font-size` en CSS, 106 inline), que `App.css` no está importado, que `index.html` no tiene `preconnect`, que `--gy-soft` no lo usa nadie, que hay exactamente 1 `h1` y 3 `h2`, y **la matemática de contraste del §6, recalculada y correcta**.
 
-**Lo que queda sin verificar, va en la Fase 0:** que la cursiva muerta de `.voucher-more` sea por `font-synthesis`, y qué se descuadra exactamente al perder el `text-align:center` heredado.
+**Lo que quedaba sin verificar, ya cerrado:** la cursiva muerta de `.voucher-more` **sí era por `font-synthesis`** (confirmado el 14 ago), y lo que se descuadra al perder el `text-align:center` quedó medido en los 128 selectores del entregable 4.
 
 ---
 
@@ -90,7 +90,7 @@ Sin commits, no toca ningún archivo del repo. Es medición y capturas.
 | 3 | Capturas de referencia en 412px | ✅ 10 vistas, **previas a la Fase 1** |
 | 4 | **Auditoría de `text-align:center`** | ✅ **COMPLETA. 128 selectores dependen de la herencia**, sobre 20 vistas y sub-vistas. No queda ninguna vista sin medir |
 | 5 | Series de línea base para la Fase 4 | ✅ **completo.** oscuro 412, 1440 y 390 · claro 1440 (10 vistas) y 390 (2 vistas) |
-| 6 | Confirmar si la cursiva de `.voucher-more` se ve o no | pendiente |
+| 6 | Confirmar si la cursiva de `.voucher-more` se ve o no | ✅ **CERRADO el 14 ago con la Fase 4. Se veía RECTA**: Plus Jakarta Sans no trae cara itálica y `font-synthesis:none` impedía inventarla. Se sacó el `font-style:italic` |
 | 7 | Comparación oscuro vs claro en 1440, vista por vista | ✅ **2 diferencias, las dos del bloque `.app-demo`.** Ver abajo |
 
 ### ⚠️ Hay dos familias de capturas y no se comparan entre sí
@@ -386,7 +386,7 @@ Dato contraintuitivo: los precios cortos se vuelven **más angostos** con cifras
 
 ---
 
-## Fase 4 · El dominó: `index.css`
+## Fase 4 · El dominó: `index.css` ✅ COMPLETA
 
 Acá empieza la deuda de sistema y el riesgo alto. Nada de esta fase se ve; todo previene bugs futuros.
 
@@ -553,9 +553,43 @@ cierto **solo para las 10 vistas capturadas**.
 
 `color-scheme: light dark` gobierna todos los controles nativos, y el demo tiene, contados: **2
 `input type="time"`, 4 `type="number"`, 2 checkbox, 1 radio, 3 `type="file"` y 2 `<textarea>`**.
-Todos viven en los dos flujos de formulario, que **no están en la línea base**. Ahí hay una
-superficie de cambio claro contra oscuro que nunca se midió, y **el criterio "oscuro idéntico a
-claro" hoy no la cubre.** Van a quedar todos en claro, que es el objetivo, pero hay que mirarlos.
+Todos viven en los dos flujos de formulario, que **no están en la línea base**.
+
+**⚠️ Corregido el 2026-08-14, al ejecutar el paso 2: R4 estaba sobredimensionado.** Se midieron
+los controles uno por uno y el resultado real es mucho más chico:
+
+| Control | Resultado |
+|---|---|
+| `text`, `number`, `textarea` | **sin cambio**. El demo ya les declara fondo, color y borde, así que `color-scheme` no tenía nada que pintar. La agarradera de resize del textarea tampoco cambia |
+| `checkbox` | sin cambio visible |
+| `file` | el input nativo mide 0x0. El demo usa su propia zona de arrastre |
+| **los "radios" del método de pago** | **no son controles nativos.** Son `<div class="pm-rd">` pintados por CSS, así que `color-scheme` nunca los tocó |
+| **`time`** | **el único que cambia.** Ver abajo |
+
+**El error de método fue el mismo de siempre:** se contaron `type="radio"` en el código fuente sin
+mirar dónde renderizaban ni si el demo ya los estilaba. Es la tercera aparición de la misma
+trampa, después de E2 (`line-height`) y de `login` (`text-align`). **Contar declaraciones en el
+fuente sobreestima; la única forma de saberlo es medir.**
+
+### Bug de accesibilidad corregido de paso: el ícono del reloj
+
+**No es un efecto secundario de la Fase 4. Es un bug preexistente que la fase destapa y arregla**,
+y por eso va anotado como bug y no como cambio.
+
+El bloque declaraba `color-scheme: light dark`. Con macOS en modo oscuro, Chrome pintaba el ícono
+del selector del `input type="time"` en color claro, **sobre el campo blanco que el demo fuerza con
+`.app{background:var(--wh)}`**. Resultado: el ícono quedaba invisible. Un usuario en modo oscuro no
+veía que ese campo abría un selector de hora.
+
+Está en el paso 3 de 5 del formulario de tour nuevo, campo "Hora de salida". Al borrar el bloque el
+ícono se pinta oscuro y **se ve**.
+
+Evidencia: `~/Documents/finde-capturas/2026-08-14-fase4/datos/icono-hora-ANTES-oscuro.png` y
+`icono-hora-DESPUES-oscuro.png`.
+
+**Es el caso que mejor justifica esta fase entera.** El bloque no era solo deuda inerte de la
+plantilla: le estaba metiendo al demo una preferencia de sistema que el demo no honra en ningún
+otro lado, y eso rompía un control real para una parte de los usuarios.
 
 #### Lo que se revisó y NO es riesgo
 
@@ -726,9 +760,59 @@ Sacar esa línea dejaría la hoja de notificaciones con la fuente por defecto de
 mobile. Es la misma hoja que la auditoría de `text-align` ya había marcado como "fuera de
 `.app-demo`", por el mismo motivo.
 
+### Cierre de la Fase 4
+
+**Mergeada a `dev` el 2026-08-14 (`c9fcbfa`).** Pendiente de QA en dev.finde.pe antes de `main`.
+
+`src/index.css` pasó de **109 líneas a una sola regla**, y el CSS compilado de **1.95 kB a
+0.06 kB**.
+
+| Paso | Commit | Qué hizo |
+|---|---|---|
+| 1 | `26670f0` | Replicar en `.app` lo que había que conservar, con el bloque todavía vivo |
+| 2 | `ced7bf3` | Borrar el bloque, más sacar el `font-style:italic` de `.voucher-more` |
+
+#### Los tres cambios visibles
+
+1. **Desaparece el borde lateral** del contenedor. El contenido pasa de 1124 a 1126px en desktop
+   y de 388 a 390px en mobile, y todo se corre 1px a la izquierda.
+2. **El título del tour "Caral" pasa de 3 líneas a 2** en la grilla a 390px. **Es el único reflow
+   de todo el demo**, y mejora: empareja esa celda con el resto.
+3. **El ícono del reloj se vuelve visible en modo oscuro.** Bug corregido, ver arriba.
+
+#### Los cuatro criterios de validación, cumplidos
+
+| # | Criterio | Resultado |
+|---|---|---|
+| 1 | El diff es exactamente el efecto del borde | **Cero cambios tipográficos** en las tres vistas medidas |
+| 2 | Ningún elemento cambia de alto | **Cero**, salvo el título de Caral y su contenedor |
+| 3 | El media query oscuro ya no aplica al demo | **Cero reglas** en ninguna hoja. El hueco de Google Fonts se cerró por `fetch`: 28 `@font-face`, cero selectores de clase |
+| 4 | Controles nativos | Solo cambia el `time`, y para mejor. Ver la corrección de R4 |
+
+El paso 1 dio **cero cambios** en las cuatro vistas medidas, incluidos los dos calendarios y sus
+81 elementos sin clase, que eran el riesgo número uno del plan.
+
+#### Lo que quedó sin hacer, a propósito
+
+**El paso (c), la limpieza de los 128 selectores, NO se hace.** Queda documentado arriba como
+opcional, con su tabla de ocho commits. No cambia nada visible y agrega riesgo a cambio de
+limpieza interna.
+
+**La comparación visual de las 32 capturas contra el código desplegado** no se puede hacer sin
+mergear, porque la sesión de Supabase vive por origen y un preview no la tiene. Queda para el QA
+en dev.finde.pe.
+
+#### Entregable 6 de la Fase 0, cerrado
+
+La cursiva de `.voucher-more` quedó respondida: **hoy se veía recta**, porque Plus Jakarta Sans no
+trae cara itálica y el `font-synthesis:none` del bloque impedía inventarla. Al borrar el bloque
+habría aparecido una cursiva sintética a 11px, así que se sacó el `font-style:italic`.
+
+**La Fase 0 ya no tiene entregables pendientes.**
+
 ---
 
-## Fase 5 · Interlineado base y ritmo vertical
+## Fase 5 · Interlineado base y ritmo vertical ← LA SIGUIENTE
 
 Depende de la Fase 4. Riesgo medio.
 
