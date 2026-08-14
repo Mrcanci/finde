@@ -160,6 +160,29 @@ Concretamente:
 - Si el número se recalcula al actualizar el documento, el script se deja escrito, aunque sea en el scratchpad, y se vuelve a correr.
 - Si un número viejo no coincide con el recuento, **se corrige el titular y se deja anotado que estaba mal**. La lista casi nunca cambia; el que cambia es el número.
 
+#### Cada reemplazo se verifica solo, nunca en bloque
+
+Corolario del mismo problema, y ya costó un error propio.
+
+**Un `assert` que solo confirma que "algo cambió" deja pasar en silencio los reemplazos que no matchearon.** Si un script hace cinco reemplazos y verifica con un `assert texto != original`, alcanza con que uno entre para que el assert pase. Los otros cuatro fallan sin ruido y el archivo queda a medias.
+
+**Pasó en `3d6c900`.** Un script de Python aplicaba cuatro reemplazos sobre `docs/plans/2026-08-13-plan-tipografia.md` y terminaba con `assert s != o`. Tres entraron y el cuarto no: el patrón buscado terminaba en `de 35, no menos.` y el archivo decía `de 35.`, cuatro palabras de diferencia. El assert pasó igual, el commit se hizo, y la sección vieja se quedó en el documento. Se descubrió al ir a editar esa misma sección en la tanda siguiente.
+
+Lo peligroso no es que falle: es que **falla pareciendo que funcionó**. Un documento con una sección desactualizada se lee como si estuviera al día.
+
+La forma correcta es contar ocurrencias del patrón **antes** de reemplazar, y exigir el número exacto:
+
+```python
+def rep(s, viejo, nuevo, etiqueta):
+    n = s.count(viejo)
+    assert n == 1, f'FALLO [{etiqueta}]: el patron aparece {n} veces, se esperaba 1'
+    return s.replace(viejo, nuevo)
+```
+
+Con eso, un patrón que no matchea aborta el script entero en vez de dejar el archivo a medias. Y si aparece dos veces, también aborta, que es el otro error de esta familia: reemplazar sin querer en un segundo lugar.
+
+Vale igual para los reemplazos sobre datos, no solo sobre documentos. El script de `scripts/limpieza-em-dash.ts` aplica el mismo criterio: si aparece una forma que la regla no cubre, aborta con `exit 1` en vez de escribir a medias.
+
 ### 6. Las tablas de las auditorías no son checklists
 
 Los conteos por selector de `docs/audits/2026-08-13-typography-audit.md` están hechos a ojo y tienen desvíos en cinco de seis colores. Sirven para entender el problema, nunca para ejecutarlo. **La lista se regenera con script al empezar cada tanda**, contra el archivo en su estado de ese momento.
