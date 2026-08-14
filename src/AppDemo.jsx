@@ -952,7 +952,7 @@ html{scrollbar-gutter:stable}
 }
 
 /* Hover/active states unificados para botones y elementos interactivos */
-.app .chip:hover{border-color:var(--sg);color:var(--f)}
+.app .chip:hover{border-color:var(--m);color:var(--f)}
 .app .chip.on{background:var(--f);color:white;border-color:var(--f)}
 .app .tc:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(0,0,0,.08);border-color:rgba(199,97,58,.18)}
 .app .tc:active{transform:translateY(-1px)}
@@ -962,9 +962,9 @@ html{scrollbar-gutter:stable}
 .app .bk-btn:active{transform:scale(.95)}
 .app .bn-i:hover{color:var(--ch)}
 .app .bn-i.on:hover{color:var(--f)}
-.app .tp-tab:hover:not(.on){border-color:var(--sg);color:var(--ch)}
+.app .tp-tab:hover:not(.on){border-color:var(--m);color:var(--ch)}
 .app .dsh-tab:hover:not(.on){color:var(--ch)}
-.app .pm:hover:not(.sel){border-color:var(--sg)}
+.app .pm:hover:not(.sel){border-color:var(--m)}
 .app .pm:active{transform:scale(.98)}
 .app .login-btn:active:not(:disabled),.app .mbtn:active:not(:disabled),.app .bb-bt:active:not(:disabled){transform:translateY(1px);box-shadow:0 1px 3px rgba(0,0,0,.1)}
 .app .login-btn:hover:not(:disabled),.app .mbtn:hover:not(:disabled),.app .bb-bt:hover:not(:disabled){box-shadow:0 4px 12px rgba(27,58,45,.18)}
@@ -1137,7 +1137,7 @@ html{scrollbar-gutter:stable}
    ≥640px (donde .tscr pasa a grid) lo restauramos. */
 .city-actions .sl{display:none}
 .city-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;border:1.5px solid var(--sd);background:white;color:var(--ch);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:.2s}
-.city-btn:hover{border-color:var(--sg);color:var(--f)}
+.city-btn:hover{border-color:var(--m);color:var(--f)}
 .city-btn .city-btn-chev{transition:transform .2s}
 .city-btn.open .city-btn-chev{transform:rotate(180deg)}
 .city-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:90;animation:fadeUp .2s ease-out}
@@ -1240,7 +1240,7 @@ html{scrollbar-gutter:stable}
 .det-ic.iy{background:rgba(45,90,61,.1);color:var(--m)}.det-ic.in{background:rgba(199,97,58,.1);color:var(--tr)}
 .bb{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:none;padding:12px 20px max(env(safe-area-inset-bottom),12px);background:rgba(250,250,247,.95);backdrop-filter:blur(20px);border-top:1px solid rgba(0,0,0,.06);display:flex;align-items:center;gap:14px;z-index:100;flex-wrap:wrap}
 /* Modo de venta para el viajero: fila propia arriba del precio y el boton */
-.bb-mode{flex-basis:100%;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:var(--gy);margin-bottom:-2px}
+.bb-mode{flex-basis:100%;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:var(--gy-strong);margin-bottom:-2px}
 .bb-p{font-size:20px;font-weight:800;color:var(--f);white-space:nowrap}.bb-p span{font-size:12px;font-weight:400;color:var(--gy);display:block}
 .bb-bt{flex:1;padding:14px;border-radius:14px;background:var(--f);color:white;font-weight:700;font-size:15px;border:none;cursor:pointer;font-family:inherit;transition:.2s}
 .bb-bt:hover{background:var(--m)}
@@ -1282,7 +1282,7 @@ html{scrollbar-gutter:stable}
 .pms{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
 .pm{display:flex;align-items:center;gap:12px;padding:14px;border:2px solid var(--sd);border-radius:14px;cursor:pointer;transition:.2s}
 .pm.sel{border-color:var(--f);background:rgba(27,58,45,.03)}
-.pm-rd{width:18px;height:18px;border-radius:50%;border:2px solid var(--lg);transition:.2s;flex-shrink:0}
+.pm-rd{width:18px;height:18px;border-radius:50%;border:2px solid var(--gy-strong);transition:.2s;flex-shrink:0}
 .pm.sel .pm-rd{border-color:var(--f);background:var(--f);box-shadow:inset 0 0 0 3px white}
 .pm-ic{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:white;flex-shrink:0}
 .pm-n{flex:1;font-size:14px;font-weight:600}
