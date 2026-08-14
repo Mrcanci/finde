@@ -25,9 +25,65 @@
 
 ## En curso
 
-Nada arrancado.
+Nada arrancado. **Lo próximo es la Fase 4 del plan tipográfico**, que no se
+empieza sin visto bueno explícito.
 
-- **Auditoría tipográfica del demo, completada el 2026-08-13** (`docs/audits/2026-08-13-typography-audit.md`). Investigación read-only: **21 hallazgos (8 alta, 10 media, 3 baja), ninguno aplicado.** El hallazgo principal es un bloque muerto de la plantilla de Vite en `src/index.css:6-45` que hoy controla el `font-size` del root, el interlineado base, el `letter-spacing` global y el color de los `h2` del demo (el color viene del mismo bloque `.app-demo`, unas líneas más abajo). Aplicar cualquier cosa toca `src/index.css` y `src/AppDemo.jsx`, y el documento lista 10 riesgos de regresión: leerlos antes de arrancar.
+## Plan tipográfico: dónde quedó, al 2026-08-14
+
+Fuente: `docs/plans/2026-08-13-plan-tipografia.md`. Nace de la auditoría del
+2026-08-13 (`docs/audits/2026-08-13-typography-audit.md`), que sigue siendo
+válida como diagnóstico pero **tiene seis errores de análisis ya corregidos
+en el plan**. Cuando los dos se contradigan, manda el plan.
+
+### Aplicado y en `main`
+
+Mergeado a `main` el 2026-08-14 (`af7c0b1`), post-QA. Primer merge a `main`
+desde el saneamiento previo.
+
+| Fase | Qué entró |
+|---|---|
+| **Fase 1, contraste** | Paleta accesible (`--tr-text`, `--gy-strong`, `--gy-soft` borrado), gradiente del hero, placeholders, borde del radio de pago |
+| **Fase 2, áreas táctiles** | Piso de 44px en los nueve controles y en la celda del calendario de reserva |
+| **Fase 3, micro-arreglos** | Input a 16px en desktop, cifras tabulares, código de reserva unificado, `preconnect` a Google Fonts |
+
+Dos decisiones de esas fases que **no se reabren**: los cuatro `hover` de
+`--sg` y el `.login-google:hover` se quedan como estaban, porque son bordes
+y ya pasaban el umbral de 3:1; y el peso 300 de la fuente se queda, porque
+las tres URLs son byte a byte idénticas y comparten entrada de caché.
+
+### Fase 0, cerrada
+
+Sin commits de código, es medición. **No tiene bloqueos abiertos.**
+
+- **Entregable 4, auditoría de `text-align`: completa.** 128 selectores
+  dependen de la herencia, sobre 20 vistas y sub-vistas. Es el checklist del
+  riesgo número uno de la Fase 4. En
+  `~/Documents/finde-capturas/2026-08-13-fase0/datos/auditoria-text-align.md`
+- **Capturas de línea base** en claro y oscuro, a 390, 412 y 1440px
+- **Comparación de modo oscuro contra claro**: quedan dos diferencias, las
+  dos del bloque `.app-demo`
+- Queda pendiente solo el entregable 6, la cursiva de `.voucher-more`, que
+  no bloquea nada
+
+**Las capturas viven fuera del repo a propósito**, en
+`~/Documents/finde-capturas/2026-08-13-fase0/`, porque la Fase 0 no hace
+commits. Ver el `INDICE.md` de esa carpeta antes de compararlas: hay dos
+familias y **no se comparan entre sí**.
+
+### Lo que hay que saber antes de arrancar la Fase 4
+
+Es la fase de riesgo alto del plan. Tres cosas que ya están decididas y
+medidas, para no volver a discutirlas:
+
+1. **La secuencia es obligatoria**: replicar `text-align:center` en `.app`
+   primero, borrar el bloque `.app-demo` después, y recién al final ir
+   sacando el centrado selector por selector. Al revés no funciona, porque
+   los dos calendarios suman **81 elementos sin clase** que no tienen
+   entrada en la lista de 128.
+2. **El `border-inline` no se replica.** Es estética de scaffold de Vite.
+3. **Ni el flujo de reserva ni el de tour nuevo están en las capturas de
+   línea base**, y ahí viven esos 81 elementos. El diff visual no los va a
+   detectar: hay que recorrerlos a mano, en 390 y 1440, dos veces.
 
 Estos dos ítems vienen del **título de una tanda del 2026-08-13, "Refina generador de IA y fix de fecha en demo"**. La tanda nunca se detalló: no quedó escrito qué había que refinar ni cuál era el bug. Son el título y nada más.
 
@@ -39,6 +95,31 @@ Estos dos ítems vienen del **título de una tanda del 2026-08-13, "Refina gener
 - **Fix de fecha en el demo.** No hay síntoma registrado ni pantalla identificada. Hay varios candidatos posibles (el calendario de reserva, `scheduledAt`, las fechas Lima de las salidas), y sin el síntoma no se puede saber cuál era.
 
 **Los dos hay que definirlos o eliminarlos.** Si al leer esto nadie recuerda a qué se referían, borralos: un pendiente que nadie puede accionar solo genera ruido en cada tanda.
+
+## Em-dashes: las cuatro canillas, cerradas
+
+Cerrado el 2026-08-14. El canon prohíbe la raya en copy y en texto generado
+por IA, y estaba entrando por cuatro lados a la vez.
+
+| Canilla | Qué era | Estado |
+|---|---|---|
+| Los tres prompts de IA de `api/` | Tenían em-dashes adentro y no prohibían la raya. El modelo imitaba sus instrucciones | cerrada |
+| `scripts/backfill-quechua.ts` | Copia del prompt sin la prohibición. **Era la que generó los 52 de `descQu`** | cerrada |
+| `prisma/seed.ts` | 30 rayas en las descripciones. Volvían enteras en cada `db:seed` | limpio |
+| La base | 88 rayas en 52 campos de 28 tours | limpia |
+
+**La base y el seed dicen lo mismo ahora.** Verificado sobre los nueve
+campos de texto del tour, no solo los cuatro tocados: cero rayas, cero
+anomalías de puntuación. Backup previo en
+`backups/tour-antes-limpieza-em-dash-20260814.sql`, verificado con contenido
+real (49 filas) antes de escribir.
+
+El script quedó versionado en `scripts/limpieza-em-dash.ts`, en dry run por
+defecto: escribir exige `--apply`.
+
+**Excepción que no es violación:** los nueve `"—"` de `AppDemo.jsx` son el
+glifo de dato vacío (`user?.email || "—"`), no prosa. Se quedan. Anotado en
+`.claude/rules/frontend.md` para que un barrido no los vuelva a marcar.
 
 ## Bugs abiertos
 
