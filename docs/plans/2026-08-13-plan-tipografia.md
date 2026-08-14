@@ -127,9 +127,13 @@ Chrome real contra dev.finde.pe/demo, sesión de `demo@finde.pe`. Las mediciones
 - `datos/mediciones.md` las mediciones con su método
 - `light-1440/`, `dark-412/`, `dark-1440/` creadas y vacías, esperando los bloqueos
 
-### Hallazgo nuevo, no está en la auditoría
+### Hallazgo nuevo, no está en la auditoría (severidad baja)
 
-**`.logo` (28px, DM Serif) computa `line-height: 23.2px`, ratio 0.83.** La caja de línea es más chica que la letra. Es el peor ratio del demo, peor que el `.st` que la auditoría sí marca, y aparece en el encabezado de todas las pantallas. La auditoría lista `.logo` en su tabla de DM Serif pero nunca le mira el interlineado. Entra en la Fase 5.
+**`.logo` (28px, DM Serif) computa `line-height: 23.2px`, ratio 0.83.** La auditoría lista `.logo` en su tabla de DM Serif pero nunca le mira el interlineado.
+
+**Calibración, para no inflarlo:** un `line-height` menor que el `font-size` **no recorta el texto**. Solo hace que la caja de línea sea más chica que los glifos, que se desbordan hacia el espacio de los vecinos. En una barra con `flex` y `align-items:center`, como es el caso, eso casi nunca se ve, y "finde." no tiene descendentes que asomen. **El riesgo es de matemática de layout, no de legibilidad.**
+
+O sea: hay que arreglarlo porque el número está mal y ensucia cualquier cálculo de altura que se haga sobre el encabezado, no porque alguien esté viendo el logo cortado. Se arregla en la Fase 6.
 
 ---
 
@@ -271,6 +275,10 @@ A 390px la celda de `.tg` deja ~155px útiles. A 15px con peso 700 entran ~19 ca
 
 Una línea. Elimina el **riesgo #5** sin congelar el tamaño del contador.
 
+### `.logo`
+
+Va a **`--fs-d2` con `line-height: 1.1` explícito**. Hoy computa 0.83 porque no declara interlineado propio y hereda el valor absoluto del root. Es el hallazgo de severidad baja de la Fase 0: el problema es de matemática de layout, no de legibilidad.
+
 ---
 
 ## Fase 7 · Los estilos inline
@@ -292,9 +300,9 @@ Hecho en la rama `chore/saneamiento-previo`, antes de arrancar cualquier fase:
 1. **`.claude/rules/frontend.md`**: decía que el ancho máximo del contenedor es 430px y ese valor no existe en el CSS del demo. Corregido al valor real.
 2. **`src/App.css`**: borrado. 184 líneas de código muerto que no importaba nadie.
 
-### Corrección (c): rama mergeada que se puede borrar
+### Corrección (c): rama mergeada, ya borrada
 
-`origin/docs/reestructuracion-documentacion` ya está mergeada en `main` (commit `4fe412d`). Se puede borrar.
+`origin/docs/reestructuracion-documentacion` estaba mergeada en `main` (commit `4fe412d`) y **ya fue borrada**. Queda una copia local homónima en la máquina de José, sin uso.
 
 ---
 
