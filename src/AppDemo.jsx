@@ -1327,7 +1327,11 @@ html{scrollbar-gutter:stable}
 .voucher-pay-row .l{color:var(--gy)}
 .voucher-pay-row.total{padding-top:10px;margin-top:6px;border-top:1px solid rgba(0,0,0,.08);font-size:15px;font-weight:800;color:var(--f)}
 .voucher-pay-row.total .l{color:var(--ch);font-weight:600}
-.voucher-code{font-family:monospace;font-size:13px;font-weight:700;color:var(--ch);background:var(--cr);padding:5px 9px;border-radius:6px;letter-spacing:1px}
+/* Codigo de reserva: un solo tratamiento en las dos pantallas donde aparece.
+   Stack explicito, no la keyword monospace: en Chrome esa keyword arrastra el
+   tamano de fuente monoespaciada por defecto y el px declarado no se respeta. */
+.voucher-code,.tp-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:700;letter-spacing:1px;color:var(--ch)}
+.voucher-code{font-size:13px;background:var(--cr);padding:5px 9px;border-radius:6px}
 .voucher-agency-n{font-size:14px;font-weight:700;color:var(--ch);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .voucher-verified{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:100px;font-size:10px;font-weight:700;background:rgba(45,90,61,.12);color:var(--m)}
 .voucher-agency-d{font-size:11px;color:var(--gy-strong);margin-top:6px;line-height:1.4}
@@ -1395,7 +1399,7 @@ html{scrollbar-gutter:stable}
 .tp-info{flex:1;min-width:0}
 .tp-name{font-size:15px;font-weight:700;margin-bottom:4px;color:var(--ch)}
 .tp-det{font-size:12px;color:var(--gy);margin-bottom:3px}
-.tp-code{font-size:11px;color:var(--gy-strong);font-family:monospace;margin-bottom:6px}
+.tp-code{font-size:11px;margin-bottom:6px}
 .tp-foot{display:flex;justify-content:space-between;align-items:center}
 .tp-price{font-size:15px;font-weight:800;color:var(--f)}
 .tp-st{font-size:10px;font-weight:700;padding:3px 8px;border-radius:100px;text-transform:uppercase}
