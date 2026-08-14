@@ -87,12 +87,31 @@ Sin commits, no toca ningún archivo del repo. Es medición y capturas.
 |---|---|---|
 | 1 | Interlineado real del root medido en mobile | ✅ **16px / 23.2px, ratio 1.450.** E1 confirmado: la auditoría reportaba 26.1px y ese valor solo existe en desktop |
 | 2 | Confirmación de que los `<button>` computan `line-height:normal` con la base actual | ✅ **33 de 33, cero excepciones.** E2 confirmado |
-| 3 | Capturas de referencia en 412px, modo claro | ✅ 10 vistas |
-| 4 | **Capturas de home y catálogo en 390px** | ⛔ bloqueado, ver abajo |
-| 5 | Capturas en 1440px, modo claro | ⛔ bloqueado, ver abajo |
-| 6 | Ambas series en modo oscuro | ⛔ bloqueado, ver abajo |
-| 7 | **Auditoría de `text-align:center`** | pendiente |
-| 8 | Confirmar si la cursiva de `.voucher-more` se ve o no | pendiente |
+| 3 | Capturas de referencia en 412px | ✅ 10 vistas, **previas a la Fase 1** |
+| 4 | **Auditoría de `text-align:center`** | ✅ **96 selectores dependen de la herencia**, sobre 9 vistas |
+| 5 | Series de línea base para la Fase 4 | ✅ oscuro 412 y 1440, 10 vistas cada una · ⛔ claro pendiente |
+| 6 | Confirmar si la cursiva de `.voucher-more` se ve o no | pendiente |
+
+### ⚠️ Hay dos familias de capturas y no se comparan entre sí
+
+Las Fases 1, 2 y 3 **ya están aplicadas y mergeadas en `dev`**. Eso parte el material en dos:
+
+| Familia | Qué es | Para qué sirve |
+|---|---|---|
+| `pre-fase1-*` | estado **anterior** al refactor | ver cuánto cambió con las Fases 1 a 3 |
+| `post-fase3-*` | estado **actual**, con contraste, áreas táctiles y micro-arreglos ya aplicados | **línea base de la Fase 4 en adelante** |
+
+**Validar la Fase 4 contra `pre-fase1-*` sería un error:** mezclaría los cambios de tres fases con los de una. La Fase 4 se compara contra `post-fase3-*`.
+
+Las carpetas están nombradas con ese prefijo justamente para que no se confundan. Ver `INDICE.md` en la carpeta de capturas.
+
+### Cómo se destrabó el viewport
+
+El bloqueo era que la ventana de Chrome no se deja redimensionar por automatización. La salida no fue redimensionar: **se carga el demo en un `iframe` del mismo origen al ancho deseado**. Un iframe crea su propio viewport, así que las media queries responden a **su** ancho y no al de la ventana, y al compartir origen hereda la sesión.
+
+Verificado en cada serie con `innerWidth` del iframe y `matchMedia` de los breakpoints de 640, 1024 y 1200.
+
+Detalle que costó dos intentos: las vistas con animación de entrada salían capturadas a media transición. Se resuelve inyectando `*{animation:none;transition:none}` dentro del iframe antes de capturar. No cambia el layout, solo elimina el estado transitorio.
 
 ### Entregable 7: auditoría de `text-align:center`
 
@@ -106,12 +125,13 @@ Se saca recorriendo el DOM del demo, comparando el `text-align` computado de cad
 
 A 412px cada celda del grid `.tg` mide ~186px; a 390px mide ~175px. Esos 11px deciden si `.gc-t` pasa de dos líneas a tres, que es el riesgo #3 de la auditoría y la razón de la mitigación obligatoria de la Fase 6. **La serie de 390px documenta el caso apretado**, así que hacen falta al menos home y catálogo a ese ancho.
 
-### Bloqueos del entorno
+### Lo único que sigue bloqueado: el modo claro
 
-- **La ventana de Chrome no se deja redimensionar por automatización.** Pedida a 390, 368 y 1440, la API responde "success" y el viewport queda clavado en 412×770. Sin resolverlo no hay serie de 390px ni de 1440px. Necesita que el ancho de ventana se fije a mano.
-- **`prefers-color-scheme` no se puede forzar desde la página.** Depende de la preferencia del sistema operativo. La serie oscura necesita cambiar la apariencia de macOS a mano.
+**`prefers-color-scheme` no se puede forzar desde la página.** Depende de la preferencia del sistema operativo, y al capturar estaba en **oscuro**. Por eso las series completas que existen hoy son las oscuras. Las claras necesitan cambiar la apariencia de macOS a mano y volver a capturar.
 
-**Nota sobre 412px:** cae en la misma banda de breakpoint que 390 (`≤1024px`), así que **toda la tipografía computada es idéntica**. Lo único que cambia es el ancho de las cards. Por eso las mediciones 1 y 2 son válidas y definitivas; lo que falta a 390px es solo evidencia visual del caso apretado de la grilla.
+El bloqueo del viewport quedó resuelto con el iframe, así que ya no aplica.
+
+**Nota sobre 412px:** cae en la misma banda de breakpoint que 390 (`≤1024px`), así que **toda la tipografía computada es idéntica**. Lo único que cambia es el ancho de las cards. Por eso las mediciones 1 y 2 son válidas y definitivas; lo que aporta la serie de 390px es la evidencia visual del caso apretado de la grilla, que es lo que decide la mitigación de `.gc-t` en la Fase 6.
 
 ### Método usado
 
@@ -123,9 +143,17 @@ Chrome real contra dev.finde.pe/demo, sesión de `demo@finde.pe`. Las mediciones
 
 `~/Documents/finde-capturas/2026-08-13-fase0/`, fuera del repo a propósito porque esta fase no hace commits.
 
-- `light-412/` las 10 vistas capturadas
-- `datos/mediciones.md` las mediciones con su método
-- `light-1440/`, `dark-412/`, `dark-1440/` creadas y vacías, esperando los bloqueos
+| Carpeta | Vistas | Estado |
+|---|---|---|
+| `INDICE.md` | | qué compara cada serie y con qué método se sacó |
+| `pre-fase1-light-412/` | 10 | previo al refactor |
+| `post-fase3-dark-412/` | 10 | ✅ |
+| `post-fase3-dark-1440/` | 10 | ✅ |
+| `post-fase3-dark-390/` | 2 | home y catálogo |
+| `post-fase3-light-1440/` | 0 | esperando modo claro |
+| `post-fase3-light-390/` | 0 | esperando modo claro |
+| `datos/mediciones.md` | | mediciones con su método |
+| `datos/auditoria-text-align.md` | | los 96 selectores del entregable 4 |
 
 ### Hallazgo nuevo, no está en la auditoría (severidad baja)
 
