@@ -103,8 +103,24 @@ export async function materializeDeparture(
 
 // Toma de cupo CUPO_FIJO: update condicional atómico contra el cupo EFECTIVO
 // (allotmentOverride ?? tour.allotment). El rowCount es la verificación: 0 =
-// sin cupo suficiente (o salida no ABIERTA). Prisma no compara columnas en
+// sin cupo suficiente o salida cancelada. Prisma no compara columnas en
 // updateMany.where, por eso es $executeRaw.
+//
+// El estado de la salida NO es el instrumento de corte de ventas, y por eso la
+// condición excluye CANCELADA en vez de exigir ABIERTA. Los instrumentos de
+// corte son otros dos, y cada uno tapa lo suyo: el CUPO (esta misma condición,
+// integridad: nunca se vende más de lo que entra) y la ANTICIPACIÓN, que en
+// SOLICITUD es closeTime/closeDaysBefore y en CUPO_FIJO es hoy MIN_BOOKING_LEAD_DAYS.
+//
+// CONFIRMADA significa "el tour sale", no "cerramos la lista" (ver el refine de
+// api/operators/me/[resource].ts: la agencia confirma que el tour sale, y si
+// sale van todos). Una salida confirmada con cupo libre TIENE que poder vender:
+// exigir ABIERTA destruía inventario vendible de forma permanente, porque nada
+// devuelve una salida a ABIERTA. Y era además una inconsistencia entre los dos
+// caminos de venta que nadie decidió: el de SOLICITUD (addRequestedSeats) nunca
+// miró el estado, así que ya aceptaba reservas en salidas confirmadas.
+//
+// CANCELADA sí corta: la agencia dijo que ese día no sale nadie.
 export async function takeSeats(
   db: Db,
   departureId: string,
@@ -116,7 +132,7 @@ export async function takeSeats(
     FROM "Tour" t
     WHERE d."id" = ${departureId}
       AND t."id" = d."tourId"
-      AND d."status" = 'ABIERTA'
+      AND d."status" <> 'CANCELADA'
       AND d."seatsTaken" + ${guests} <= COALESCE(d."allotmentOverride", t."allotment")`;
   return updated === 1;
 }
