@@ -553,6 +553,11 @@ function mapTourFromApi(t) {
     minQuorum: t.minQuorum ?? null,
     closeTime: t.closeTime ?? null,
     closeDaysBefore: t.closeDaysBefore ?? null,
+    // Solicitudes vigentes del tour. Mismo caso que las cuatro de arriba: solo
+    // llega en la vista del operador (GET /api/operators/me/tours) y en público
+    // no viene. Va acá porque esta función es de LISTA BLANCA: si el campo no se
+    // enumera se descarta en silencio, que es como se perdió la primera vez.
+    pendingRequests: t.pendingRequests ?? 0,
     // Fecha de creación (ISO). Se usa para ordenar el catálogo por recencia
     // ahora que no hay ratings que ordenar (ver reset de ratings 2026-06-09).
     createdAt: t.createdAt ?? null,
