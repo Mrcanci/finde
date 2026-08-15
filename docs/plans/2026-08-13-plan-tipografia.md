@@ -1,7 +1,7 @@
 # Plan tipográfico del demo
 
 **Fecha:** 13 ago 2026 · **Rama de origen:** `dev` · **Fuente:** `docs/audits/2026-08-13-typography-audit.md`
-**Estado al 2026-08-14:** Fases 0 a 3 en `main` (`af7c0b1`). **Fase 4 COMPLETA y en `main`** (`6f3bbed`), post-QA. **La siguiente es la Fase 5.**
+**Estado al 2026-08-15:** Fases 0 a 3 en `main` (`af7c0b1`). Fase 4 en `main` (`6f3bbed`). **Fase 5 COMPLETA y en `main`**, post-QA. **La siguiente es la Fase 6**, y antes que ella conviene hacer el barrido de padding del Grupo B, que la Fase 5 desbloqueó.
 
 Este plan reordena los hallazgos de la auditoría tipográfica y **corrige seis errores de análisis que se le encontraron al verificarla**. La auditoría se trata como hipótesis, no como verdad. Cuando este plan y la auditoría se contradicen, manda este plan.
 
@@ -346,6 +346,8 @@ Clasificación preliminar, a confirmar contra el JSX al empezar la fase. El marc
 **`.bn-i` está en el Grupo A por clasificación, pero igual no se toca en esta fase.** Es `<button>`, así que su padding sería estable si se tocara; el problema es otro: su altura no la da el padding sino el ícono de 22px que apila adentro, o sea que ajustarle el padding no es la palanca correcta.
 
 **Hallazgo que la auditoría no tiene:** los ocho targets de su §9 son **todos controles nativos**, o sea Grupo A. Eso significa que la Fase 2 se puede hacer entera ahora y nada de ella se deshace en la Fase 5. Pero también significa que **la auditoría nunca inventarió las zonas tocables que no son controles nativos** (cards, filas de listado, opciones de sheet). Ese barrido del Grupo B queda pendiente y se hace después de la Fase 5.
+
+**DESBLOQUEADO el 2026-08-15**, con la Fase 5 en `main`. Era lo único que la esperaba: el padding del Grupo B había que calcularlo con la base nueva puesta, porque esas zonas sí heredan interlineado. **El inventario hay que armarlo**, no existe: el §9 de la auditoría solo listó controles nativos.
 
 ---
 
@@ -813,7 +815,7 @@ habría aparecido una cursiva sintética a 11px, así que se sacó el `font-styl
 
 ---
 
-## Fase 5 · Interlineado base y ritmo vertical ← LA SIGUIENTE
+## Fase 5 · Interlineado base y ritmo vertical ✅ COMPLETA
 
 Depende de la Fase 4. Riesgo medio.
 
@@ -823,20 +825,71 @@ Depende de la Fase 4. Riesgo medio.
 - **Qué puede romperse:** menos de lo que dice la auditoría. Por E2 los botones no se mueven. Lo que sí se mueve es todo el texto dentro de `div`, o sea alturas de card, y ahí `.tc` (ancho fijo de 260px) y `.tg` (grilla de dos columnas en mobile) pueden dejar de tener altura pareja
 - **Cómo se valida:** home y catálogo en 390px mirando que las cards de la grilla sigan alineadas. Detalle de tour con descripción larga. Voucher completo. **Al terminar, recién ahí, el barrido de padding del Grupo B de la Fase 2**
 
+### La base es `1.5` sin unidad, y la fase va en dos pasos
+
+Aprobado el 14 ago. **Paso 1: la base**, `line-height:145%` pasa a `1.5` en `.app`, más el `118%`
+de `.app h2` a `1.18`, que es la misma forma equivocada aunque hoy no haga daño. **Paso 2: los
+display que la base perturba.** Los dos van a `dev` juntos: commits separados para que el diff sea
+atribuible, pero un estado intermedio con los títulos inflados no tiene por qué existir en una rama
+compartida.
+
+El `1.5` es el valor que menos reglas propias obliga a escribir: deja **33 de las 62 declaraciones
+de interlineado en no-op exacto** (7 en la constante CSS y 26 inline), contra 7 del segundo mejor
+candidato. Detalle en `~/Documents/finde-capturas/2026-08-14-fase5/datos/paso0-resultados.md`.
+
+### Los valores del paso 2 son los de la Fase 6, no valores nuevos
+
+**Anotado para que la Fase 6 no los rehaga.** Los interlineados que el paso 2 le pone a los display
+salen de la escala ya aprobada más abajo, y coinciden token por token:
+
+| Valor del paso 2 | Token de la Fase 6 |
+|---|---|
+| **1.2** (título de página, de sección y de formulario, 26 y 24px) | `--fs-d2` |
+| **1.3** (encabezado menor y número destacado, 22 y 20px) | `--fs-h1` |
+| **1.35** (encabezado chico, 18px) | `--fs-h2` |
+| **1.1** (los cuatro logotipos) | **caso propio, fuera de escala** |
+
+`--fs-d1` (1.15) no aparece porque el único elemento de ese tamaño, `.hero-t`, ya declara `1.15`
+propio y por eso no se mueve.
+
+Cuando la Fase 6 arme los tokens, estos selectores ya van a tener el interlineado correcto: hay que
+migrarlos al token, no recalcularlos.
+
+### El bloque de reseñas es UI muerta hoy, y es INTENCIONAL
+
+`.rev-hdr`, `.rev-big-n` y el resto de `.rev-*` de la ficha de tour están detrás de
+`totalReviews > 0`, y **los 49 tours del catálogo muestran "Nuevo"**. O sea que hoy ese bloque no
+renderiza nunca.
+
+**No es un bug ni marcado muerto.** Los ratings de siembra se sacaron del seed por la regla de nada
+falso visible al usuario real, así que "Nuevo" es la respuesta correcta mientras no exista el modelo
+`Review`. Ver `.claude/rules/frontend.md`.
+
+Consecuencia práctica para esta fase: al bloque **se le aplica el interlineado igual** (medido por
+inyección, con la cascada real), pero **no se puede validar mirando la pantalla**. Que nadie lo lea
+como defecto ni lo "arregle" mostrándolo.
+
 ### Caso de verificación medido: el badge "Finde Verificado" encoge
 
 Sale de investigar un desalineado que José reportó en el QA del 14 ago. El desalineado resultó ser otra cosa (ver abajo), pero la medición dejó un caso concreto para esta fase.
 
 `.tc-ver` y `.gc-ver` están a **9px de fuente dentro de una caja de línea de 23.2px, ratio 2.58**. El contenido real del badge mide unos 12px, pero el badge mide **29.2px de alto**, porque el interlineado heredado manda sobre el contenido.
 
-Medido en el navegador, inyectando `line-height:1.6` en `.app-demo`, que es lo que hace esta fase:
+**Corregido el 14 ago con la base ya decidida.** La primera medición se hizo inyectando
+`line-height:1.6`, que era una hipótesis, no la base aprobada. Con `1.5`, que es lo que hace el paso
+1, el número es otro y más grande:
 
-| Selector | Alto hoy | Alto con la base arreglada |
-|---|---|---|
-| `.tc-ver` | 29.2px | **22.4px** |
-| `.gc-ver` | 29.2px | **20.4px** |
+| Selector | Alto hoy | Con `1.6` (medición vieja) | **Con `1.5` (la base aprobada)** |
+|---|---|---|---|
+| `.tc-ver` | 29.2px | 22.4px | **19.5px** |
+| `.gc-ver` | 29.2px | 20.4px | **19.5px** |
 
-O sea que **el badge encoge entre 7 y 9px**, y como está en `position:absolute` sobre la foto, no empuja el layout de la card pero sí cambia su peso visual sobre la imagen. Hay que mirarlo.
+O sea que **el badge encoge 9.7px**, no entre 7 y 9. Como está en `position:absolute` sobre la foto,
+no empuja el layout de la card pero sí cambia su peso visual sobre la imagen. Hay que mirarlo.
+
+Los otros dos elementos pintados que encogen en home, medidos igual: `.hero-tag` de 35.2 a 28.5px y
+`.ai-sb-tag`, el chip "IA" del buscador, de 29.2 a 21.5px. **Ningún otro elemento con fondo o borde
+cambia de alto en todo el demo.**
 
 **Es además la mejor demostración de por qué esta fase existe:** un badge de 9px de texto ocupando 29px de alto es exactamente el síntoma de una base de interlineado en valor absoluto.
 
@@ -874,7 +927,69 @@ La confirmación experimental cerró el caso en dos mediciones: bajar el interli
 
 ---
 
-## Fase 6 · La escala en tokens
+### Cierre de la Fase 5
+
+**En `main` desde el 2026-08-15, post-QA.** QA hecho por José en dev.finde.pe.
+
+| Paso | Commit | Qué hizo |
+|---|---|---|
+| 1 | `b1e83ba` | La base de `.app` a `1.5` sin unidad, y el `h2` de `118%` a `1.18` |
+| 2 | `fe85c1f` | Interlineado propio a los 22 display que la base perturba, más `.gcnt` a `min-width:60px` |
+| 3 | `f4941b6` | Borra las 37 declaraciones que quedaron en no-op |
+
+Los tres fueron juntos a `dev`: un estado intermedio con los títulos inflados no
+tenía por qué existir en una rama compartida.
+
+**Las declaraciones de interlineado pasan de 62 a 32.** El paso 2 suma 7 y el
+paso 3 saca 37. La cuenta vieja de "62 a 25" se hizo antes de que el paso 2
+existiera.
+
+#### Cómo se validó
+
+Volcado de `getComputedStyle` de todos los elementos, 20 vistas por dos anchos,
+con las reglas del bundle compilado aplicadas sobre el CSSOM de la app real.
+
+| Criterio | Resultado |
+|---|---|
+| Ancho | **cero elementos** en las 40 mediciones, en los tres pasos |
+| Los dos calendarios | **0 de 31 celdas** cada uno |
+| Áreas táctiles | `.chip`, `.sl`, `.city-btn`, `.tn-btn` en **44px exactos** |
+| Filas de `.gc` y `.tc` | **cero desparejas**, antes y después |
+| Barras fijas | `.tn`, `.ai-sb`, `.bn`, `.hero`: idénticas |
+| Las 33 declaraciones puras del paso 3 | computan **el mismo `line-height`** con la regla y sin ella |
+
+#### Cuatro cosas que quedaron aprendidas
+
+1. **La lectura estática volvió a sobreestimar, por quinta vez en este plan.**
+   Daba 39 reglas de display sin interlineado propio; midiendo son 30, y de esas
+   4 no se mueven porque otra regla del mismo selector ya les declara el valor
+   (`.hero-t`, `.det-hero .det-tl` y los dos `h2`). Contar declaraciones no
+   sustituye medir.
+2. **Clasificar por tamaño no alcanza: hay que clasificar por rol.** `.ai-sb-ic`
+   figuraba como encabezado de 18px y es un `<span>` que solo contiene un SVG.
+   Va a `1`, como `.bn-i .ni`. Con él se reclasificaron los números destacados
+   (`.bb-p`, `.sum-t`, `.dsh-s-v`, `.pf-stat-v`, `.gcnt`, `.login-hero-stat-v`):
+   son datos de una línea cuyo alto lo absorbe un contenedor con padding propio,
+   así que la caja de línea no les aporta legibilidad, solo aire impredecible.
+3. **El login se midió montando la vista entera**, no por inyección de un
+   selector suelto. Importaba porque `.login-hero` es `flex:0 0 280px` con
+   `justify-content:flex-end` y **`overflow:hidden`**: si el contenido no entra,
+   se recorta por arriba en silencio. Medido: el logotipo pasa de 23.2 a 46.2px y
+   quedan **60.2px de holgura**.
+4. **La hoja de notificaciones en mobile queda fuera del alcance de `.app`.**
+   `createPortal` al `body`, computa `line-height:normal`.
+
+#### Pendiente cosmético que sale del QA
+
+La etiqueta **"Último cupo"** del calendario de reserva, `AppDemo.jsx:437`, a
+`fontSize: 8`. **Anotada y sin arreglar a propósito.** Vive dentro de una celda
+de 36px con `whiteSpace:nowrap`: cualquier aumento la rompe, y es exactamente el
+punto frágil que la Fase 7 ya tiene marcado. Se arregla ahí, con el resto de los
+inline, no por su cuenta.
+
+---
+
+## Fase 6 · La escala en tokens ← LA SIGUIENTE
 
 La fase grande. Deuda pura, riesgo alto, ninguna urgencia.
 
@@ -927,6 +1042,11 @@ A 390px la celda de `.tg` deja ~155px útiles. A 15px con peso 700 entran ~19 ca
 **⚠️ Ese ~155px hay que RE-MEDIRLO después de la Fase 4, no antes.** El `border-inline` del bloque `.app-demo` también aplica a 390px, donde el ancho lo manda `max-width:100%`: con los dos bordes de 1px el contenido mide **388px**, y sin ellos mide **390px**. O sea que cada celda de `.tg` pasa de ~155px a ~156px cuando la Fase 4 borre el bloque.
 
 No cambia la conclusión (el clamp sigue haciendo falta), pero **el número de partida cambia**, y toda la cuenta de caracteres por línea de esta mitigación está hecha sobre 155. Se recalcula con la Fase 4 ya aplicada.
+
+**DESBLOQUEADO el 2026-08-15.** Y la Fase 5 acota el trabajo con un dato medido:
+**no cambia ni un ancho en todo el demo**, cero elementos en 40 mediciones sobre
+20 vistas. O sea que el número sale de medir con la Fase 4 aplicada y **ya no se
+mueve más**: se puede recalcular de una y confiar en el resultado.
 
 Ya hay evidencia de que ese píxel decide: en la simulación del Paso 0 de la Fase 4, **el único elemento de todo el demo que reflowea son esos 2px sobre `.gc-t`**, en el tour "Caral", que pasa de tres líneas a dos.
 

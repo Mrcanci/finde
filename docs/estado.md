@@ -1,7 +1,7 @@
 # Estado del proyecto
 
 > Se sobrescribe al cerrar cada tanda, en el mismo commit del trabajo.
-> Última actualización: 2026-08-14 (verificado contra el repo y contra la DB de producción)
+> Última actualización: 2026-08-15 (verificado contra el repo y contra la DB de producción)
 
 ## Rama activa
 
@@ -25,10 +25,12 @@
 
 ## En curso
 
-Nada arrancado. **Lo próximo es la Fase 4 del plan tipográfico**, que no se
-empieza sin visto bueno explícito.
+Nada arrancado. **Lo próximo es la Fase 6 del plan tipográfico**, la escala en
+tokens, que no se empieza sin visto bueno explícito. Antes que ella conviene
+hacer el **barrido de padding del Grupo B**, que la Fase 5 acaba de desbloquear
+y es más chico.
 
-## Plan tipográfico: dónde quedó, al 2026-08-14
+## Plan tipográfico: dónde quedó, al 2026-08-15
 
 Fuente: `docs/plans/2026-08-13-plan-tipografia.md`. Nace de la auditoría del
 2026-08-13 (`docs/audits/2026-08-13-typography-audit.md`), que sigue siendo
@@ -46,6 +48,7 @@ desde el saneamiento previo.
 | **Fase 2, áreas táctiles** | Piso de 44px en los nueve controles y en la celda del calendario de reserva |
 | **Fase 3, micro-arreglos** | Input a 16px en desktop, cifras tabulares, código de reserva unificado, `preconnect` a Google Fonts |
 | **Fase 4, el dominó de `index.css`** | Merge `6f3bbed`. Se elimina el bloque `.app-demo`. Ver abajo |
+| **Fase 5, interlineado base** | La base pasa a `1.5` sin unidad. Ver abajo |
 
 Dos decisiones de esas fases que **no se reabren**: los cuatro `hover` de
 `--sg` y el `.login-google:hover` se quedan como estaban, porque son bordes
@@ -154,28 +157,102 @@ Detalle completo en
 **32 capturas de línea base** de los dos flujos de formulario (8 pantallas por
 390 y 1440, por claro y oscuro), que antes no existían.
 
-### Fase 5, la siguiente: interlineado base y ritmo vertical
+### Fase 5, COMPLETA
 
-Riesgo medio. Dependía de la Fase 4 y ahora está desbloqueada.
+**En `main` desde el 2026-08-15, post-QA.** José la validó en dev.finde.pe: se
+ve mejor.
 
-Le da a `.app` un interlineado base **sin unidad**, para que se herede como
-proporción y no como valor fijo, y limpia las ~30 reglas de `line-height` que hoy
-existen solo para compensar la base equivocada.
+`.app` dejó de heredar un interlineado en píxeles. `145%` es porcentaje: se
+resolvía **una sola vez** contra el tamaño del root y bajaba como valor absoluto,
+26.1px en desktop y 23.2px en mobile, **iguales para un texto de 9px que para uno
+de 42px**. Sin unidad se hereda la proporción, que es lo que arregla el ritmo
+vertical.
 
-Tres cosas ya medidas que conviene tener a mano al arrancar:
+Tres commits, que fueron juntos a `dev` a propósito: un estado intermedio con los
+títulos inflados no tenía por qué existir en una rama compartida.
 
-1. **Los botones no se mueven.** Es el error E2 del plan, verificado: los 33
-   controles nativos computan `line-height:normal`, que le gana a cualquier valor
-   heredado.
-2. **El badge "Finde Verificado" encoge entre 7 y 9px** (`.tc-ver` de 29.2 a
-   22.4px, `.gc-ver` de 29.2 a 20.4px). Está en `position:absolute` sobre la foto,
-   así que no empuja el layout pero sí cambia su peso visual.
-3. **Al terminar la Fase 5, recién ahí**, va el barrido de padding del Grupo B de
-   la Fase 2, que quedó pendiente.
+| Paso | Commit | Qué hizo |
+|---|---|---|
+| 1 | `b1e83ba` | La base de `.app` a `1.5` sin unidad, y el `h2` de `118%` a `1.18` |
+| 2 | `fe85c1f` | Interlineado propio a los 22 display que la base perturba, más `.gcnt` a `min-width` |
+| 3 | `f4941b6` | Borra las 37 declaraciones que quedaron en no-op |
 
-Y un número que hay que **re-medir antes de la Fase 6**: la mitigación de `.gc-t`
-está calculada sobre celdas de ~155px, pero al desaparecer el borde pasaron a
-~156px.
+#### Por qué el paso 2 no es scope creep
+
+Dejar el logotipo en 1.5 no es la base funcionando: es cambiar un valor malo por
+otro. El logotipo del login son **42px de letra en una caja de 23.2px, ratio
+0.55**, y con la base sana saltaba a 63px. Los valores del paso 2 **no se
+inventaron**: son los de la escala ya aprobada de la Fase 6, asignados por rol y
+no por tamaño (1.2 es `--fs-d2`, 1.3 es `--fs-h1`, 1.35 es `--fs-h2`; el 1.1 del
+logotipo y el 1 del ícono son casos propios). **La Fase 6 los migra al token, no
+los recalcula.**
+
+#### Qué se ve
+
+- **El badge "Finde Verificado" encoge 9.7px**, de 29.2 a 19.5. Es el cambio más
+  visible. Está en `position:absolute` sobre la foto, así que no empuja layout.
+  El número viejo de este documento (entre 7 y 9px) estaba medido con `1.6`, que
+  era una hipótesis y no la base aprobada
+- `.hero-tag` pasa de 35.2 a 28.5px y el chip "IA" del buscador de 29.2 a 21.5.
+  **Ningún otro elemento con fondo o borde cambia de alto en todo el demo**
+- Los formularios se compactan: las etiquetas pasan de 26.1 a 18px de caja
+- Las páginas se acortan cerca de un 6%
+
+#### Cómo se validó
+
+Volcado de `getComputedStyle` de **todos** los elementos en las 20 vistas por dos
+anchos, aplicando las reglas del bundle compilado sobre el CSSOM de la app real.
+
+- **Ancho: cero elementos** en las 40 mediciones, en los tres pasos
+- **Los dos calendarios: 0 de 31 celdas** cada uno. Era el riesgo número uno
+- **Áreas táctiles intactas**: `.chip`, `.sl`, `.city-btn` y `.tn-btn` en 44px
+  exactos, porque los controles nativos computan `line-height:normal` (error E2)
+- **Las cards no se desparejan**: 24 filas de `.gc` a 390 y 12 a 1440, cero
+  desparejas antes y después
+- **Barras fijas idénticas**: `.tn`, `.ai-sb`, `.bn`, `.hero`
+- Del paso 3, las 33 declaraciones puras computan **el mismo `line-height` con la
+  regla y sin ella**, así que no pueden mover nada. Las 4 con desvío accidental
+  convergen a la base a 0.65px por línea
+
+Cuatro vistas no se pueden validar mirando y se midieron **por inyección**, con
+la cadena de ancestros real dentro de `.app`: login, welcome, éxito de reserva y
+el bloque de reseñas de la ficha. Detalle en
+`~/Documents/finde-capturas/2026-08-14-fase5/datos/paso0-resultados.md`, más 20
+capturas de línea base con los dos anchos en la misma imagen.
+
+#### Dos hallazgos que conviene no perder
+
+1. **La hoja de notificaciones en mobile no la toca esta fase.** Se renderiza con
+   `createPortal` al `body`, o sea fuera de `.app`: computa `line-height:normal`.
+   Es el mismo resultado que la auditoría de `text-align` de la Fase 0.
+2. **El bloque de reseñas de la ficha es UI muerta hoy, y es intencional.**
+   `.rev-hdr` y `.rev-big-n` están detrás de `totalReviews > 0` y los 49 tours
+   muestran "Nuevo", porque los ratings de siembra se sacaron por la regla de
+   nada falso visible. Se le aplicó interlineado igual. **Que nadie lo lea como
+   bug ni lo "arregle" mostrándolo.**
+
+#### Desbloqueado por esta fase
+
+- **El barrido de padding del Grupo B de la Fase 2.** Era lo único que esperaba a
+  la Fase 5, porque esas zonas tocables sí heredan interlineado y su padding
+  había que calcularlo **después** de la base nueva. Ya se puede hacer. Ojo: el
+  §9 de la auditoría solo inventarió controles nativos, así que **el inventario
+  del Grupo B hay que armarlo**, no existe.
+- **El re-cálculo del ancho de celda de `.tg` para la Fase 6.** La mitigación de
+  `.gc-t` está calculada sobre celdas de ~155px y con la Fase 4 pasaron a ~156px.
+  Dato medido que acota el trabajo: **la Fase 5 no cambia ni un ancho en todo el
+  demo**, así que el número sale de medir con la Fase 4 aplicada y no se mueve
+  más. La conclusión no cambia (el `-webkit-line-clamp:2` sigue haciendo falta),
+  pero el número de partida hay que rehacerlo antes de aplicar la Fase 6.
+
+#### Pendiente cosmético, anotado y sin arreglar
+
+La etiqueta **"Último cupo"** del calendario de reserva. Sale del `fontSize: 8`
+de `AppDemo.jsx`, que vive dentro de una celda de 36px con texto que no envuelve:
+cualquier aumento la rompe. **Es trabajo de la Fase 7**, que es la que migra los
+estilos inline. No se toca por su cuenta.
+
+### Pendientes que nadie definió
 
 Estos dos ítems vienen del **título de una tanda del 2026-08-13, "Refina generador de IA y fix de fecha en demo"**. La tanda nunca se detalló: no quedó escrito qué había que refinar ni cuál era el bug. Son el título y nada más.
 
@@ -215,7 +292,15 @@ glifo de dato vacío (`user?.email || "—"`), no prosa. Se quedan. Anotado en
 
 ## Bugs abiertos
 
-Ninguno registrado.
+- **La reserva a veces falla aunque haya cupos suficientes.** Reportado por José
+  el 2026-08-15, sin reproducción sistemática todavía. **No tiene nada que ver
+  con el plan tipográfico**: apareció durante el QA de la Fase 5 pero la Fase 5
+  no toca ni una línea de lógica, solo interlineado. Se investiga aparte, en su
+  propia tanda y con su propia rama. Sin arrancar.
+
+  Por dónde empezar cuando se abra: el motor de inventario (`lib/inventory.ts`,
+  materialización perezosa y toma de cupo atómica), `api/bookings.ts` y el estado
+  de la salida. Ver `.claude/rules/reservas.md`.
 
 Pendientes de performance:
 
