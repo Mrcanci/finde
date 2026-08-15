@@ -78,7 +78,11 @@ Lima es UTC-5 sin horario de verano, así que las conversiones son `hora Lima + 
 
 **Vencimiento perezoso**: no hay cron en Vercel Hobby. `expireStaleSolicitudes` corre **antes de cada lectura** de reservas (en `api/me.ts` completo y en el panel), transiciona a `VENCIDA` toda solicitud con `expiresAt` en el pasado y libera su `seatsRequested`. El índice `@@index([statusNew, expiresAt])` existe para ese barrido.
 
-**Ojo con el volumen: mete todas las transiciones en UNA transacción interactiva.** El default de Prisma son 5 segundos, y cada fila son dos viajes (la transición y el `releaseRequestedSeats`). Con 19 filas contra el pooler se pasa y muere con `P2028`; pasó al correr el backfill del 2026-08-15 y hubo que barrer en tandas de 3. La transacción es atómica, así que un timeout no deja nada a medias, pero tampoco avanza. **En `api/me.ts` el fallo se loguea y no rompe la lectura; en el panel es BLOQUEANTE**, así que una agencia con muchas vencidas haría fallar su propia lectura. Si alguna vez hay que barrer volumen, se hace por tandas.
+**El barrido va POR TANDAS, y el tamaño no se toca a ojo.** `EXPIRE_BATCH_SIZE = 5`, cada tanda en su propia transacción. Medido contra el pooler el 2026-08-15: en una transacción interactiva entran **23 viajes** antes del corte de los 5 segundos que trae Prisma por default (~220ms por viaje, igual para SELECT que para UPDATE). El barrido hace **2 viajes por fila**, así que el máximo real son **11 filas**: con 12 se pasa y muere con `P2028`. Pasó de verdad, con las 19 del backfill.
+
+Antes esto era una sola transacción para todo, y como el barrido corre **antes de leer** y en el panel es **bloqueante**, una agencia con una docena de vencidas se quedaba sin poder abrirlo. Si subís el tamaño de tanda, volvés a acercarte al techo: 11 es el máximo absoluto medido, no un objetivo.
+
+Que una tanda falle y las anteriores queden aplicadas es **correcto**: la transición de cada fila es condicional a que siga en `SOLICITUD`, así que nada se vence ni se libera dos veces y la próxima corrida toma solo lo que quedó. Verificado con 25 filas.
 
 **Y el barrido nunca toma las que tienen `expiresAt = NULL`**, porque el filtro es `expiresAt: { lt: now }`. Eso dejó 19 solicitudes imposibles de vencer hasta el backfill del 2026-08-15 (`scripts/backfill-expiresat-solicitudes.ts`). Si alguna vez se vuelve a poblar esa columna con NULL en reservas vivas, vuelven a ser inmortales.
 

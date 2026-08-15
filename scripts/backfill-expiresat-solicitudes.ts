@@ -237,29 +237,21 @@ async function main(): Promise<void> {
 
   // ── 5. Disparar el barrido YA PROBADO ──
   //
-  // EN TANDAS DE 3, y no todas de una. expireStaleSolicitudes mete todas las
-  // transiciones en UNA transaccion interactiva, y el default de Prisma son 5
-  // segundos: con 19 filas son 38 viajes de ida y vuelta contra el pooler y se
-  // pasa. La primera corrida murio ahi con P2028. La transaccion es atomica, o
-  // sea que no dejo nada a medias, pero tampoco hizo nada.
+  // De una sola llamada: desde el 2026-08-15 expireStaleSolicitudes hace las
+  // tandas ADENTRO (lib/inventory.ts, EXPIRE_BATCH_SIZE), asi que ya no se
+  // pasa del timeout de la transaccion. La primera corrida de este script
+  // murio con P2028 justamente ahi, y el arreglo se hizo en el motor y no aca,
+  // para que proteja tambien a /api/me y al panel.
   //
-  // El alcance del barrido NO son los ids de esta corrida sino "toda SOLICITUD
-  // con expiresAt vencido". Asi el script es RETOMABLE: si la escritura ya paso
-  // y el barrido no, volver a correrlo termina el trabajo.
-  const TANDA = 3;
-  const pendientes = await db.booking.findMany({
-    where: { statusNew: "SOLICITUD", expiresAt: { lt: new Date() } },
-    select: { id: true },
+  // El alcance NO son los ids de esta corrida sino "toda SOLICITUD con
+  // expiresAt vencido". Asi el script es RETOMABLE: si la escritura ya paso y
+  // el barrido no, volver a correrlo termina el trabajo.
+  console.log(`\n=== Barrido (expireStaleSolicitudes) ===`);
+  const vencidas = await expireStaleSolicitudes(db, {
+    statusNew: "SOLICITUD",
+    expiresAt: { lt: new Date() },
   });
-  console.log(`\n=== Barrido (expireStaleSolicitudes), ${pendientes.length} solicitudes en tandas de ${TANDA} ===`);
-  let vencidas = 0;
-  for (let i = 0; i < pendientes.length; i += TANDA) {
-    const tanda = pendientes.slice(i, i + TANDA).map((b) => b.id);
-    const n = await expireStaleSolicitudes(db, { id: { in: tanda } });
-    vencidas += n;
-    console.log(`  tanda ${Math.floor(i / TANDA) + 1}: ${n} vencida(s)`);
-  }
-  console.log(`  total vencidas: ${vencidas}`);
+  console.log(`  solicitudes vencidas: ${vencidas}`);
 
   // ── 6. Verificacion ──
   console.log("\n=== Verificacion ===");
