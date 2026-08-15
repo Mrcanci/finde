@@ -296,11 +296,11 @@ Ninguno.
 
 ## El motor de inventario, cerrado el 2026-08-15
 
-Cinco pasos, todos aplicados. Nace del bug que José reportó el 15 de agosto ("a
-veces la reserva falla aunque el calendario muestre cupos") y termina cubriendo
-los tres problemas que la investigación destapó. **No tenía nada que ver con el
-plan tipográfico**: apareció durante el QA de la Fase 5, que no toca una línea de
-lógica.
+**En `main` (`77f5f7e`), post-QA.** Cinco pasos más tres arreglos que salieron en
+el camino. Nace del bug que José reportó el 15 de agosto ("a veces la reserva
+falla aunque el calendario muestre cupos") y termina cubriendo los tres problemas
+que la investigación destapó. **No tenía nada que ver con el plan tipográfico**:
+apareció durante el QA de la Fase 5, que no toca una línea de lógica.
 
 | Paso | Qué arregló | Commits |
 |---|---|---|
@@ -310,6 +310,36 @@ lógica.
 | **4** | **19 solicitudes que no podían vencer nunca** (`expiresAt` NULL, anteriores a la migración del 5 de agosto). Vencidas, **36 asientos liberados**. De paso borró el daño existente del paso 5 | `9b4c4dd` |
 | **extra** | `expireStaleSolicitudes` se pasaba del timeout de la transacción con ~12 filas. **Era un 500 alcanzable en un camino de lectura**, no un riesgo teórico. Ahora va en tandas de 5 | `f4097ef` |
 | **5** | Cambiar de modo de venta con solicitudes pendientes dejaba asientos invisibles para `takeSeats` y habilitaba **sobreventa**. Ahora 409 con instrucciones | `d85ad33`, `44508c9` |
+| **extra** | Los mensajes del motor le hablaban a la agencia en **nombres del enum**: "cupo fijo", "modo solicitud", "panel de salidas". Ninguno existe en la interfaz, que dice "Confirmación automática", "Confirmación manual" y "Reservas". Dos de los tres eran **preexistentes** | `85aea40` |
+| **extra** | El 409 del paso 5 llegaba **al guardar el tour**, tres pantallas después de elegir el modo. Ahora la opción se muestra deshabilitada con el motivo, en el paso de disponibilidad, desde que la pantalla se renderiza | `54bb0dc`, `7c6b7b6` |
+
+### El aviso temprano, y por qué está donde está
+
+El 409 del paso 5 es la guarda **real** y no se movió. Lo que se agregó es una
+**segunda capa que avisa antes**: `GET /api/operators/me/tours` devuelve
+`pendingRequests` por tour (un `groupBy` para toda la lista, sin llamada extra,
+en el mismo payload que el formulario ya carga), y con eso la opción
+"Confirmación automática" se muestra **deshabilitada con el motivo debajo**.
+
+**No valida al tocar la opción ni al dar "Siguiente".** Tocar y revertir una
+selección se lee como que la app está rota, y validar al avanzar deja que la
+agencia llene "Cupos por salida" para después decirle que no aplica. Deshabilitada
+desde el render, el motivo se lee **sin tener que provocar un error**.
+
+Dos cosas que van con eso y no son adorno:
+
+- La lista de tours **se recarga al decidir una salida**, porque ahí vive
+  `pendingRequests`: resolver una solicitud es justo lo que desbloquea la opción.
+  Sin eso el formulario mostraría el conteo viejo hasta recargar la página.
+- El texto del aviso en el paso 3 **no** dice "para poder cambiar a confirmación
+  automática": está pegado a esa opción, en el momento de elegirla. El 409 del
+  servidor sí lo conserva, porque ahí aparece al guardar.
+
+**Y costó un bug que quedó como regla:** el campo se agregó en el endpoint y en
+el consumidor, los dos extremos funcionaban, y el aviso igual no salía. En el
+medio estaba `mapTourFromApi`, un normalizador de **lista blanca** que descarta
+en silencio lo que no enumera. Está documentado en `.claude/rules/frontend.md`:
+agregar un campo al payload de un tour son **tres** lugares, no dos.
 
 ### Lo que quedó demostrado, y conviene no volver a discutir
 
@@ -322,6 +352,14 @@ lógica.
   inmortales**: hay un solo camino que crea reservas y siempre puebla `expiresAt`.
 - **El techo de 23 viajes por transacción** es del proyecto entero, no del
   barrido. Está en `.claude/rules/api-y-schema.md`.
+- **Los mensajes de error le hablan a la agencia en el vocabulario de la
+  interfaz**, no en el del enum. "Confirmación automática" y "Confirmación
+  manual" son los modos; "Reservas" es la pestaña; "Cupos por salida" es el
+  campo. Si un mensaje nuevo nombra un `salesMode` o una sección, se verifica
+  contra el código de la UI y no contra lo que suena bien.
+- **Verificar las dos puntas de una cadena no alcanza.** Se perdió `pendingRequests`
+  entre un endpoint que lo devolvía y un componente que lo leía. Vale para las
+  tres reglas de la casa: medir el punto exacto, no deducirlo de los bordes.
 
 ### Caso conocido que NO se cubre: la salida cancelada
 
@@ -358,6 +396,13 @@ Ninguno es un bug: son huecos de producto, y están detallados más abajo en
 - **`seatsRequested` bloqueando ventas.** No lo hace y no tiene que hacerlo: es
   progreso de quórum, no inventario comprometido.
 - **El `pg_cron` para barrer.** El barrido perezoso alcanza al volumen actual.
+- **La guarda del servidor NO se reemplaza por la del cliente.** El 409 de
+  `PATCH /api/tours/:id` es la que protege de verdad; la opción deshabilitada del
+  formulario solo avisa temprano. Son dos capas a propósito: la del cliente puede
+  quedarse con un conteo viejo, la del servidor consulta en el momento.
+- **El aviso temprano NO se mueve al paso 5 ni al "Siguiente".** Es la decisión
+  que resolvió el bug original: cualquier cosa que aparezca después de elegir el
+  modo devuelve el problema que veníamos a arreglar.
 
 ### Datos y consecuencias que quedaron registrados
 
