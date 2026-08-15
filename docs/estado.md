@@ -366,6 +366,17 @@ glifo de dato vacío (`user?.email || "—"`), no prosa. Se quedan. Anotado en
     resuelto: el bloqueo ahora siempre tiene salida, porque no quedan solicitudes
     que no se puedan resolver.
 
+- **Dos reservas de prueba intencionales, que NO se borran.** `FND-07DD62`
+  (salida del 16 de agosto) y `FND-ED3818` (30 de agosto), las dos de
+  `demo@finde.pe` sobre el tour interno "prueba", creadas en el QA del
+  2026-08-15. **Son la evidencia de que el arreglo de la salida confirmada
+  funciona en producción**: las dos entraron sobre salidas `CONFIRMADA`, que es
+  exactamente lo que antes fallaba. Se quedan por eso, porque el tour es interno
+  (`hola@finde.pe`) y porque **no hay camino de cancelación construido**:
+  `cancelBookingInternal` no tiene ruta expuesta, así que borrarlas sería un
+  DELETE a mano que además habría que compensar en `seatsTaken`. Van en la
+  checklist de limpieza previa al lanzamiento, no antes.
+
 Consecuencias registradas del backfill del 2026-08-15:
 
 - **Las 4 solicitudes de MEGATOURS desaparecen del panel de esa agencia como
@@ -379,17 +390,31 @@ Consecuencias registradas del backfill del 2026-08-15:
   De las cuatro, **tres son de cuentas `@finde.pe`** y la única de fuera es de la
   cuenta de pruebas ya inventariada. Ningún viajero externo real queda afectado.
 
-- **`expireStaleSolicitudes` no escala a muchas filas en una sola llamada.** Mete
-  todas las transiciones en **una** transacción interactiva, y el default de
-  Prisma son 5 segundos: con 19 filas son 38 viajes contra el pooler y se pasa.
-  La primera corrida del backfill murió con `P2028`. **La transacción es atómica,
-  así que no dejó nada a medias**, pero tampoco hizo nada, y hubo que rehacer el
-  barrido en tandas de 3.
+- **`expireStaleSolicitudes` se pasaba del timeout con pocas filas: ARREGLADO el
+  2026-08-15** en `lib/inventory.ts`, no en el script, para que proteja a todos
+  los llamadores.
 
-  **Hoy no duele** (queda una sola solicitud viva en toda la base), pero es un
-  riesgo latente: el barrido del panel es **bloqueante**, así que una agencia que
-  acumule muchas solicitudes vencidas haría fallar su propia lectura con un 500.
-  Sin fecha ni tanda asignada.
+  No era un riesgo latente sino **un 500 alcanzable en un camino de lectura**: el
+  barrido corre antes de leer reservas y en el panel es **bloqueante**, así que
+  una agencia con una docena de solicitudes vencidas se quedaba sin poder abrirlo.
+  Una docena en una semana no es volumen extraordinario.
+
+  **El umbral está medido, no estimado.** Contra el pooler entran **23 viajes de
+  ida y vuelta** en una transacción interactiva antes del corte de los 5 segundos
+  (unos 220ms por viaje, igual para SELECT que para UPDATE: el costo es la
+  latencia, no el trabajo). El barrido hace **2 viajes por fila**, así que el
+  máximo real eran **11 filas**. Con las 19 del backfill eran 38 viajes.
+
+  Ahora el barrido va **en tandas de 5** (`EXPIRE_BATCH_SIZE`), cada una en su
+  propia transacción: más del doble de margen sobre el máximo medido. Probado con
+  **25 filas**, más del doble del umbral: pasa sin `P2028`, deja el contador en
+  cero, y una segunda corrida no toca nada (idempotente).
+
+  **Lo que el arreglo NO cambia es el tiempo total**, porque lo domina la latencia
+  por fila: 25 solicitudes vencidas tardan unos 12 segundos. Ya no falla, pero una
+  agencia con mucho atraso va a esperar. Si eso llega a molestar, la salida es
+  acotar cuántas se barren por lectura, y eso sí cambia semántica (quedarían
+  vencidas sin persistir hasta la lectura siguiente). Sin fecha ni tanda asignada.
 
 Pendientes de performance:
 
