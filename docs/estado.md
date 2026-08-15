@@ -322,8 +322,17 @@ glifo de dato vacío (`user?.email || "—"`), no prosa. Se quedan. Anotado en
 - **Quedan dos problemas del mismo motor, sin arrancar** (son los pasos 4 y 5 del
   plan acordado, y el 4 necesita una decisión de producto antes que código):
 
-  - **P2, solicitudes inmortales.** Hay **19 reservas en SOLICITUD con
-    `expiresAt = NULL`**, las anteriores a la migración del 5 de agosto. El
+  - **P2, solicitudes inmortales: RESUELTO el 2026-08-15.** Las 19 quedaron
+    vencidas y liberaron **36 asientos** de `seatsRequested` en 11 salidas.
+    Script: `scripts/backfill-expiresat-solicitudes.ts`, backup previo en
+    `backups/booking-antes-backfill-expiresat-20260815.sql`. Estado final: cero
+    solicitudes con `expiresAt` NULL, cero vencidas sin barrer, y los contadores
+    de las 25 salidas cuadran con sus reservas vivas. Queda **una** solicitud
+    viva en toda la base, con su `expiresAt` real en el futuro.
+
+    Lo que era, para que se entienda el arreglo: había **19 reservas en
+    SOLICITUD con `expiresAt = NULL`**, las anteriores a la migración del 5 de
+    agosto. El
     barrido perezoso filtra por `expiresAt < now`, y NULL nunca matchea: no
     pueden vencer jamás. **Las 19 están en salidas cuya fecha ya pasó, y el panel
     no ofrece las acciones de confirmar ni rechazar en salidas pasadas**
@@ -344,10 +353,43 @@ glifo de dato vacío (`user?.email || "—"`), no prosa. Se quedan. Anotado en
     sola columna y no toca la máquina de estados.
   - **P3, sobreventa al cambiar de modo de venta.** Los asientos que quedaron en
     `seatsRequested` de una etapa SOLICITUD son invisibles para `takeSeats`.
-    Exposición real hoy: **un solo tour** ("prueba", 4 asientos) y en una salida
-    ya pasada, o sea riesgo vivo cero. La opción elegida es bloquear el cambio de
-    `salesMode` con reservas vivas, y **depende de P2**: con solicitudes
-    inmortales en salidas pasadas, el bloqueo no tendría salida.
+    **El daño existente ya no está: lo borró P2 el 2026-08-15.** Los 4 asientos
+    huérfanos eran justamente las dos solicitudes inmortales de la salida
+    2026-08-09 de "prueba" (`FND-33FE6A` y `FND-412719`). Al vencerlas, el
+    contador de esa salida pasó de 4 a 0 y **los tours en estado mixto pasaron de
+    1 a 0**. Medido: esa salida podía vender 7 asientos y llevar 11 personas;
+    ahora vende 7 y lleva 7.
+
+    **Por eso el paso 5 cambia de alcance: pasa de corrección a PREVENCIÓN.** No
+    hay nada que limpiar, solo que impedir que vuelva a pasar bloqueando el
+    cambio de `salesMode` con reservas vivas. Y **ya no depende de P2**, que está
+    resuelto: el bloqueo ahora siempre tiene salida, porque no quedan solicitudes
+    que no se puedan resolver.
+
+Consecuencias registradas del backfill del 2026-08-15:
+
+- **Las 4 solicitudes de MEGATOURS desaparecen del panel de esa agencia como
+  pendientes** (`FND-32AA9C`, `FND-F2B258`, `FND-DA6A0B`, `FND-1E4FB2`). Pasaron
+  a VENCIDA, así que la agencia ya no las ve esperando decisión. **El impacto
+  operativo es nulo**: las cuatro son de salidas pasadas (27, 28 y 30 de julio y
+  7 de agosto) y el panel no ofrece acciones en salidas pasadas, así que nunca
+  fueron accionables. Queda registrado igual porque es la única agencia real
+  operando y su panel cambia de contenido sin que ella haya hecho nada.
+
+  De las cuatro, **tres son de cuentas `@finde.pe`** y la única de fuera es de la
+  cuenta de pruebas ya inventariada. Ningún viajero externo real queda afectado.
+
+- **`expireStaleSolicitudes` no escala a muchas filas en una sola llamada.** Mete
+  todas las transiciones en **una** transacción interactiva, y el default de
+  Prisma son 5 segundos: con 19 filas son 38 viajes contra el pooler y se pasa.
+  La primera corrida del backfill murió con `P2028`. **La transacción es atómica,
+  así que no dejó nada a medias**, pero tampoco hizo nada, y hubo que rehacer el
+  barrido en tandas de 3.
+
+  **Hoy no duele** (queda una sola solicitud viva en toda la base), pero es un
+  riesgo latente: el barrido del panel es **bloqueante**, así que una agencia que
+  acumule muchas solicitudes vencidas haría fallar su propia lectura con un 500.
+  Sin fecha ni tanda asignada.
 
 Pendientes de performance:
 

@@ -81,9 +81,8 @@ async function main(): Promise<void> {
   });
 
   if (objetivo.length === 0) {
-    console.log("No hay solicitudes con expiresAt NULL. Nada que hacer.");
-    await db.$disconnect();
-    return;
+    console.log("No hay solicitudes con expiresAt NULL: la fase de escritura no tiene nada que hacer.");
+    console.log("(El barrido de abajo corre igual: es lo que permite retomar una corrida a medias.)\n");
   }
 
   // ── 1. Que se va a tocar ──
@@ -236,18 +235,40 @@ async function main(): Promise<void> {
   }
   console.log(`  filas escritas: ${escritos} de ${plan.length}`);
 
-  // ── 5. Disparar el barrido YA PROBADO, acotado a estas reservas ──
-  console.log("\n=== Barrido (expireStaleSolicitudes) ===");
-  const vencidas = await expireStaleSolicitudes(db, { id: { in: plan.map((p) => p.id) } });
-  console.log(`  solicitudes vencidas: ${vencidas}`);
+  // ── 5. Disparar el barrido YA PROBADO ──
+  //
+  // EN TANDAS DE 3, y no todas de una. expireStaleSolicitudes mete todas las
+  // transiciones en UNA transaccion interactiva, y el default de Prisma son 5
+  // segundos: con 19 filas son 38 viajes de ida y vuelta contra el pooler y se
+  // pasa. La primera corrida murio ahi con P2028. La transaccion es atomica, o
+  // sea que no dejo nada a medias, pero tampoco hizo nada.
+  //
+  // El alcance del barrido NO son los ids de esta corrida sino "toda SOLICITUD
+  // con expiresAt vencido". Asi el script es RETOMABLE: si la escritura ya paso
+  // y el barrido no, volver a correrlo termina el trabajo.
+  const TANDA = 3;
+  const pendientes = await db.booking.findMany({
+    where: { statusNew: "SOLICITUD", expiresAt: { lt: new Date() } },
+    select: { id: true },
+  });
+  console.log(`\n=== Barrido (expireStaleSolicitudes), ${pendientes.length} solicitudes en tandas de ${TANDA} ===`);
+  let vencidas = 0;
+  for (let i = 0; i < pendientes.length; i += TANDA) {
+    const tanda = pendientes.slice(i, i + TANDA).map((b) => b.id);
+    const n = await expireStaleSolicitudes(db, { id: { in: tanda } });
+    vencidas += n;
+    console.log(`  tanda ${Math.floor(i / TANDA) + 1}: ${n} vencida(s)`);
+  }
+  console.log(`  total vencidas: ${vencidas}`);
 
   // ── 6. Verificacion ──
   console.log("\n=== Verificacion ===");
   const quedanNull = await db.booking.count({ where: { statusNew: "SOLICITUD", expiresAt: null } });
   console.log(`  solicitudes con expiresAt NULL: ${quedanNull} (esperado 0)`);
 
+  // Se verifican TODAS las salidas, no solo las de esta corrida: el contador
+  // tiene que cuadrar en la base entera, no solo donde tocamos.
   const deps = await db.departure.findMany({
-    where: { id: { in: [...porSalida.keys()] } },
     select: {
       id: true,
       date: true,
@@ -264,9 +285,13 @@ async function main(): Promise<void> {
     const deberia = d.bookings.reduce((n, b) => n + b.guests, 0);
     const ok = d.seatsRequested === deberia;
     if (!ok) mal++;
-    console.log(
-      `  ${d.date} | ${d.tour.title.slice(0, 25).padEnd(25)} | ${String(d.seatsRequested).padStart(14)} | ${String(deberia).padStart(7)}${ok ? "" : "  *** NO CUADRA ***"}`
-    );
+    // Solo se imprimen las que tienen algo que mostrar o las que no cuadran:
+    // con la base entera, listar 25 ceros no aporta.
+    if (!ok || d.seatsRequested > 0 || deberia > 0) {
+      console.log(
+        `  ${d.date} | ${d.tour.title.slice(0, 25).padEnd(25)} | ${String(d.seatsRequested).padStart(14)} | ${String(deberia).padStart(7)}${ok ? "" : "  *** NO CUADRA ***"}`
+      );
+    }
   }
   console.log(`\n  salidas descuadradas: ${mal} (esperado 0)`);
 

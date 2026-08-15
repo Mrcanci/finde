@@ -76,7 +76,11 @@ Los tres topes, y ninguno es opcional:
 
 Lima es UTC-5 sin horario de verano, así que las conversiones son `hora Lima + 5 = hora UTC`, hechas con `Date.UTC` para que normalice los desbordes de día. Las fechas de salida son `String` `"YYYY-MM-DD"` en fecha Lima, no `Date`.
 
-**Vencimiento perezoso**: no hay cron en Vercel Hobby. `expireStaleSolicitudes` corre **antes de cada lectura** de reservas (en `api/me.ts` completo y en el panel), transiciona a `VENCIDA` toda solicitud con `expiresAt` en el pasado y libera su `seatsRequested`. Un fallo acá se loguea y no rompe la lectura. El índice `@@index([statusNew, expiresAt])` existe para ese barrido.
+**Vencimiento perezoso**: no hay cron en Vercel Hobby. `expireStaleSolicitudes` corre **antes de cada lectura** de reservas (en `api/me.ts` completo y en el panel), transiciona a `VENCIDA` toda solicitud con `expiresAt` en el pasado y libera su `seatsRequested`. El índice `@@index([statusNew, expiresAt])` existe para ese barrido.
+
+**Ojo con el volumen: mete todas las transiciones en UNA transacción interactiva.** El default de Prisma son 5 segundos, y cada fila son dos viajes (la transición y el `releaseRequestedSeats`). Con 19 filas contra el pooler se pasa y muere con `P2028`; pasó al correr el backfill del 2026-08-15 y hubo que barrer en tandas de 3. La transacción es atómica, así que un timeout no deja nada a medias, pero tampoco avanza. **En `api/me.ts` el fallo se loguea y no rompe la lectura; en el panel es BLOQUEANTE**, así que una agencia con muchas vencidas haría fallar su propia lectura. Si alguna vez hay que barrer volumen, se hace por tandas.
+
+**Y el barrido nunca toma las que tienen `expiresAt = NULL`**, porque el filtro es `expiresAt: { lt: now }`. Eso dejó 19 solicitudes imposibles de vencer hasta el backfill del 2026-08-15 (`scripts/backfill-expiresat-solicitudes.ts`). Si alguna vez se vuelve a poblar esa columna con NULL en reservas vivas, vuelven a ser inmortales.
 
 ## Cierre en las dos puntas
 
