@@ -6,6 +6,96 @@
 
 ---
 
+## 2026-08-15 - La URL del tour es slug más sufijo del id
+
+**Qué se decidió.** La ruta pública de un tour es
+**`/tour/<slug-del-titulo>-<sufijo-del-cuid>`**, por ejemplo
+`/tour/laguna-humantay-full-day-abc123`. El slug **se deriva del título al
+renderizar**; lo que resuelve la ruta es **solo el sufijo del id**.
+
+**Qué se descartó.** Las otras dos opciones que estaban sobre la mesa:
+
+- **CUID pelado (`/tour/cmoh8rd3t000zvpn2vn252gw0`).** Estable y sin trabajo, pero
+  tira la palabra clave, que es justo lo que se comparte por WhatsApp.
+- **Slug puro con columna `slug` en el schema.** Obliga a migración, a manejo de
+  colisiones y a decidir qué pasa cuando una agencia edita el título.
+
+**Por qué esta, y en este orden de peso:**
+
+1. **No necesita columna nueva.** Cero cambios de schema, cero migración.
+2. **No necesita manejo de colisiones.** El id desambigua. Dos tours con el mismo
+   título conviven sin lógica extra.
+3. **El título puede cambiar y la URL vieja sigue resolviendo**, porque el
+   matcheo ignora la parte del slug. Si el slug recibido difiere del canónico, se
+   redirige con **301** al canónico.
+4. **Gana la palabra clave en la URL**, que importa para búsqueda y sobre todo
+   para el link compartido por WhatsApp, donde la URL se lee antes que el preview.
+
+**Por qué se decide ANTES de implementar.** Cambiar URLs ya indexadas cuesta
+redirects para siempre. Esta entrada existe para que la tanda del router no
+tenga que elegir en el momento.
+
+**Consecuencias.**
+
+1. **Va con el router de la tanda 2**, y se resuelve con la misma constante
+   `BASE_PATH` de la decisión de abajo: la ruta es `${BASE_PATH}/tour/...`, nunca
+   un literal.
+2. **El 301 al canónico es parte del alcance, no un extra.** Sin él, el mismo
+   tour queda accesible bajo infinitas URLs y Google reparte la señal entre
+   todas.
+3. **La tanda 2 tiene que definir y documentar tres cosas antes de escribir
+   código**, y las tres son decisiones que después cuestan redirects:
+   - **Cuántos caracteres del CUID** se usan como sufijo.
+   - **Cómo se normaliza el título a slug**: tildes, ñ, espacios, signos,
+     mayúsculas, largo máximo.
+   - **Qué pasa si el slug queda vacío** porque el título es solo símbolos.
+4. **El sufijo se toma del final del CUID, no del principio.** Los CUID comparten
+   prefijo entre registros creados cerca en el tiempo; la entropía está al final.
+
+---
+
+## 2026-08-15 - /demo se mantiene hasta el lanzamiento, y todo se construye listo para el switch
+
+**Qué se decidió.** El producto sigue viviendo en **finde.pe/demo** hasta el
+lanzamiento oficial de Finde, que es en las **próximas semanas**. **TODO se
+construye ahora**, pero preparado para que el switch de `finde.pe/demo` a
+`finde.pe` sea un **cambio mínimo y reversible**.
+
+**Qué se descartó.** Mover la raíz ahora, y también lo contrario: esperar al
+lanzamiento para empezar a construir. Las dos opciones pagan el mismo costo dos
+veces.
+
+**Razón.** El día del switch no puede ser el día en que se descubre qué faltaba.
+Si cada tanda deja el trabajo atado a `/demo`, el lanzamiento se convierte en una
+migración; si lo deja agnóstico del prefijo, es un cambio de una constante.
+
+**Consecuencia que ordena el trabajo, y es la parte accionable de esta entrada:**
+
+> **Cada tanda de acá en adelante tiene que dejar el switch más cerca, no más
+> lejos. Nada que haya que rehacer el día del lanzamiento.**
+
+En concreto, y esto se revisa al cerrar cada tanda:
+
+1. **El prefijo de las rutas es una constante, nunca un literal repetido.** Ningún
+   archivo nuevo puede escribir `/demo` a mano. Hoy los únicos dos lugares que lo
+   nombran son `src/App.jsx` (que decide Landing contra AppDemo) y los rewrites de
+   `vercel.json`. Esa cuenta no puede crecer.
+2. **Todo link interno se arma con esa constante.** Un link absoluto a `/tour/x`
+   funciona en la raíz y rompe bajo `/demo`; uno armado con el prefijo funciona en
+   los dos.
+3. **Lo que se instrumente para medir arranca antes del lanzamiento, no después.**
+   Las métricas que Finde necesita para postular en 2027 se cuentan desde el día
+   uno o no se cuentan.
+4. **Si una tanda no puede dejar el switch más cerca, deja escrito por qué**, en
+   `docs/estado.md`, para que el día del lanzamiento no aparezca de sorpresa.
+
+**El switch, cuando toque, es reversible.** Lo que lo hace reversible es
+justamente lo de arriba: si el prefijo es una constante y los rewrites cubren los
+dos caminos, volver atrás es revertir el commit que cambió la constante. Si el
+prefijo estuviera repartido en veinte archivos, no lo sería.
+
+---
+
 ## 2026-08-15 - Las reservas se aceptan hasta la medianoche previa a la salida
 
 **Qué se decidió.** El corte de ventas de la etapa piloto es la **medianoche del

@@ -9,6 +9,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
 import { anthropic, MODEL } from "../../lib/anthropic.js";
 import { rateLimit, ipFromRequest } from "../../lib/rate-limit.js";
+import { requireOperator } from "../../lib/auth.js";
 
 const bodySchema = z.object({
   spanishText: z.string().trim().min(50).max(1500),
@@ -123,6 +124,17 @@ export default async function handler(
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     res.status(405).json({ error: "Método no permitido" });
+    return;
+  }
+
+  // Solo agencias, misma razón que generate-description: es una llamada paga a
+  // Claude. Este endpoint además hoy NO tiene ningún llamador en el frontend
+  // (el toggle QU de la ficha pasó a leer las columnas persistidas, y
+  // scripts/backfill-quechua.ts le pega directo a Anthropic sin pasar por acá),
+  // así que la guarda no puede romper nada y cierra un costo abierto.
+  try {
+    await requireOperator(req, res);
+  } catch {
     return;
   }
 
