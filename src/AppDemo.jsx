@@ -4867,6 +4867,10 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
   const [uploadError, setUploadError] = useState("");
   const [uploadProgress, setUploadProgress] = useState(null); // { done, total } | null
   const [dragOver, setDragOver] = useState(false); // feedback visual del drag-and-drop
+  // Solicitudes vigentes del tour que se está editando. Viene en el payload de
+  // GET /api/operators/me/tours, así que no cuesta una llamada extra. En un
+  // tour nuevo no hay reservas: 0, y la opción nunca se bloquea.
+  const pendientes = editingTour?.pendingRequests ?? 0;
   const u = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
 
   const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png"];
@@ -5263,12 +5267,29 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
             {[
               { id: "CUPO_FIJO", label: "Confirmación automática", desc: "Defines cuántos cupos ofreces y las reservas se confirman solas. El tour sale en la fecha reservada." },
               { id: "SOLICITUD", label: "Confirmación manual", desc: "Las reservas te llegan como solicitudes y tú decides si la salida se confirma." },
-            ].map((opt) => (
-              <div key={opt.id} onClick={() => u("salesMode", opt.id)} style={{
+            ].map((opt) => {
+              // Confirmación automática no está disponible mientras haya
+              // solicitudes sin responder: esos asientos dejan de contar para el
+              // cupo y el tour podría vender el lugar de gente que ya está
+              // esperando. El backend lo rechaza con 409 igual (esa es la guarda
+              // real); acá se avisa ANTES, en el paso donde se elige el modo, en
+              // vez de al guardar tres pantallas después.
+              //
+              // Se muestra deshabilitada en vez de dejar tocarla y revertir: el
+              // motivo se lee sin tener que provocar un error. Si el tour YA
+              // está en automática no se bloquea nunca, porque el 409 solo mira
+              // el cambio de modo, no el estado actual.
+              const bloqueada =
+                opt.id === "CUPO_FIJO" &&
+                pendientes > 0 &&
+                editingTour?.salesMode !== "CUPO_FIJO";
+              return (
+              <div key={opt.id} onClick={() => { if (!bloqueada) u("salesMode", opt.id); }} style={{
                 padding: "12px 14px", borderRadius: 12, border: "2px solid",
                 borderColor: form.salesMode === opt.id ? "var(--f)" : "var(--lg)",
                 background: form.salesMode === opt.id ? "rgba(27,58,45,.05)" : "transparent",
-                cursor: "pointer", display: "flex", alignItems: "flex-start", gap: 10
+                cursor: bloqueada ? "not-allowed" : "pointer", opacity: bloqueada ? 0.55 : 1,
+                display: "flex", alignItems: "flex-start", gap: 10
               }}>
                 <div style={{
                   width: 20, height: 20, borderRadius: "50%",
@@ -5281,8 +5302,24 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
                   <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 2 }}>{opt.desc}</div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
+          {/* El texto NO dice "para poder cambiar a confirmación automática":
+              el aviso está pegado a esa opción, en el momento de elegirla. */}
+          {pendientes > 0 && editingTour?.salesMode !== "CUPO_FIJO" && (
+            <div className="race" style={{ marginTop: 10, marginBottom: 0 }}>
+              <div className="race-t">
+                {pendientes === 1
+                  ? "Tienes 1 solicitud sin responder"
+                  : `Tienes ${pendientes} solicitudes sin responder`}
+              </div>
+              <div className="race-d">
+                {pendientes === 1 ? "Resuélvela" : "Resuélvelas"} en Reservas y vuelve.
+                Mientras tanto este tour sigue con confirmación manual.
+              </div>
+            </div>
+          )}
         </div>
         {form.salesMode === "CUPO_FIJO" && (
           <div className="fg">
@@ -5692,6 +5729,10 @@ export default function AppDemo() {
         allotment: t.allotment ?? null,
         minQuorum: t.minQuorum ?? null,
         closeTime: t.closeTime ?? null,
+        // Solicitudes vigentes del tour. Viene en el MISMO payload, sin llamada
+        // extra, y es lo que deja avisar en el paso de disponibilidad en vez de
+        // al guardar. Ver el 409 de PATCH /api/tours/:id, que es la guarda real.
+        pendingRequests: t.pendingRequests ?? 0,
         photo: null,
       })));
     } catch (err) {
@@ -5888,6 +5929,11 @@ export default function AppDemo() {
     }));
     loadDepartures({ silent: true });
     setBkRefresh((n) => n + 1);
+    // Y la lista de tours, porque ahí vive `pendingRequests`: resolver una
+    // solicitud es justo lo que desbloquea la confirmación automática de ese
+    // tour, y sin esto el formulario seguiría mostrando el conteo viejo hasta
+    // recargar la página. Misma lección que el cache de disponibilidad.
+    loadOperatorTours();
     return { ok: true };
   };
 
@@ -6256,6 +6302,9 @@ export default function AppDemo() {
       allotment: apiTour.allotment ?? null,
       minQuorum: apiTour.minQuorum ?? null,
       closeTime: apiTour.closeTime ?? null,
+      // El PATCH no devuelve el conteo (no es config del tour): se conserva el
+      // que ya estaba. Se refresca solo en la próxima carga de la lista.
+      pendingRequests: t.pendingRequests ?? 0,
       photo: updated.photo || null,
       images: Array.isArray(updated.images) ? updated.images : [],
     } : t));

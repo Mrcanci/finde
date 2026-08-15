@@ -109,7 +109,33 @@ export default async function handler(
         select: OPERATOR_LIST_SELECT,
         orderBy: { createdAt: "desc" },
       });
-      res.status(200).json({ tours });
+
+      // `pendingRequests`: solicitudes VIGENTES por tour. Va acá y no en un
+      // endpoint nuevo porque es el payload que el formulario de edición YA
+      // carga, así que el aviso temprano del paso de disponibilidad no cuesta
+      // una llamada extra. Es UN groupBy para toda la lista, no uno por tour.
+      //
+      // "Vigente" con la misma definición de siempre (SOLICITUD con expiresAt
+      // null o futuro), así que el conteo es correcto SIN depender del barrido:
+      // una vencida que todavía no se persistió queda fuera igual.
+      //
+      // El servidor sigue siendo la guarda de verdad (el 409 de
+      // PATCH /api/tours/:id). Este número es solo para avisar temprano.
+      const ahora = new Date();
+      const pend = await db.booking.groupBy({
+        by: ["tourId"],
+        where: {
+          tour: { operatorId: operator.id },
+          statusNew: "SOLICITUD",
+          OR: [{ expiresAt: null }, { expiresAt: { gt: ahora } }],
+        },
+        _count: { _all: true },
+      });
+      const porTour = new Map(pend.map((p) => [p.tourId, p._count._all]));
+
+      res.status(200).json({
+        tours: tours.map((t) => ({ ...t, pendingRequests: porTour.get(t.id) ?? 0 })),
+      });
       return;
     }
 
