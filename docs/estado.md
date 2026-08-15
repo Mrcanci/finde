@@ -22,6 +22,7 @@
 - **Modo de venta visible al viajero** al reservar (`d561bb2`).
 - **Jerarquía visual de escasez** en el calendario de reserva y disponibilidad pre-cargada desde el detalle (`0100120`, `4379219`, `db21c0b`).
 - **`/api/me?scope=operator`**: camino liviano que resuelve la identidad de agencia sin la query de bookings ni el vencimiento perezoso (`4e81cb0`).
+- **Los endpoints de IA exigen perfil de agencia** (`6e6fb83`). Tanda 0 del camino al lanzamiento, cerrada post-QA el 2026-08-15.
 
 ## En curso
 
@@ -32,14 +33,17 @@ arrancó cubrió gates de sesión, permisos del backend y RLS; el hallazgo centr
 es que **el backend ya está abierto y la base no necesita nada**: lo que falta es
 frontend, y sobre todo **URLs**, que hoy no existen.
 
-**Mergeado a `dev` y pendiente de QA en dev.finde.pe**: los dos endpoints de IA
-pasan a exigir perfil de agencia. Ver abajo.
+**La tanda 0 está cerrada y en `main`.** Los dos endpoints de IA exigen perfil de
+agencia. Ver abajo.
+
+**Lo próximo de este frente es la tanda 1, la analítica base, y no está
+arrancada.** No se empieza sin visto bueno explícito.
 
 **La secuencia hasta el lanzamiento**, en orden y con sus dependencias:
 
 | # | Tanda | Depende de | Reversible |
 |---|---|---|---|
-| 0 | Endpoints de IA con auth | nada | sí |
+| 0 | ✅ Endpoints de IA con auth, **en `main`** | nada | sí |
 | 1 | Analítica base (`page_view`, `tour_view`, `search_performed`) | nada | sí |
 | 2 | Router con `BASE_PATH` y URL por tour | 1 | sí |
 | 3 | Modal de cuenta en el checkout, navegación abierta | 2 | sí |
@@ -84,7 +88,10 @@ verificadas y % fuera del eje Lima-Cusco salen de una consulta a `Booking`,
 instrumentar es **solo el top of funnel**: visitantes, vistas de ficha y reservas
 iniciadas.
 
-### Los endpoints de IA exigen agencia (rama `fix/auth-endpoints-ia`)
+### Tanda 0, CERRADA: los endpoints de IA exigen agencia
+
+**En `main` desde el 2026-08-15 (`6e6fb83`), post-QA.** José lo validó en
+dev.finde.pe: el generador funciona con sesión, y sin sesión responde 401.
 
 `POST /api/ai/generate-description` y `POST /api/ai/generate-quechua` no pedían
 sesión. Son **llamadas pagas a la API de Claude** y su única defensa era el rate
