@@ -970,6 +970,40 @@ html{scrollbar-gutter:stable}
    especificidad. */
 .app h2{font-weight:400;line-height:1.18;letter-spacing:-.24px;margin:0 0 8px}
 
+/* ── Fase 5, paso 2: los display que la base perturba ──
+   La base sin unidad le devuelve a cada elemento una caja proporcional, y eso
+   destapa que estos 22 selectores nunca declararon la suya: venian aplastados
+   por el valor absoluto heredado. El logotipo de 42px del login vivia en una
+   caja de 23.2px, ratio 0.55. Sin este bloque la fase los deja inflados, que es
+   cambiar un valor malo por otro.
+
+   Los valores NO son nuevos: son los de la escala de la Fase 6, asignados por
+   ROL y no por tamano. 1.2 es --fs-d2, 1.3 es --fs-h1, 1.35 es --fs-h2. El 1.1
+   del logotipo y el 1 del icono son casos propios, fuera de escala. Cuando la
+   Fase 6 arme los tokens, esto se MIGRA al token, no se recalcula.
+   Ver docs/plans/2026-08-13-plan-tipografia.md, Fase 5. */
+
+/* Icono: la caja pegada al glifo, mismo criterio que .bn-i .ni, que ya lo tiene.
+   .ai-sb-ic es un <span> que solo contiene un SVG y esta en position:absolute
+   centrado con translateY(-50%): una caja del tamano del glifo hace que ese
+   centrado no dependa de la base. */
+.ai-sb-ic{line-height:1}
+/* Logotipo. Una sola declaracion cubre los tres tamanos, porque .tn .logo y
+   .site-footer-brand .logo son el mismo elemento con otro font-size. */
+.logo,.login-hero-logo{line-height:1.1}
+/* Titulo de pagina, de seccion y de formulario (26 y 24px) = --fs-d2 */
+.welcome-title,.suc-t,.st,.login-title,.bkf-t,.dsh-nm{line-height:1.2}
+/* Numero o dato destacado: una sola linea, o linea mas etiqueta, cuyo alto lo
+   absorbe un contenedor con padding propio. La caja de linea no le aporta
+   legibilidad, solo aire impredecible en una fila que tiene que cuadrar con un
+   boton o con su etiqueta. Apretado hace que el alto lo mande el padding, que
+   esta declarado, en vez de la base, que se hereda. */
+.bb-p,.sum-t,.dsh-s-v,.pf-stat-v,.gcnt,.login-hero-stat-v{line-height:1.2}
+/* Encabezado de 22 y 20px = --fs-h1 */
+.pf-name,.rev-hdr{line-height:1.3}
+/* Encabezado de 18px = --fs-h2 */
+.city-sheet-title,.notif-sheet-title,.city-empty-tl,.pf-sec-t,.ai-cc-h span{line-height:1.35}
+
 /* Focus accesible — solo navegación con teclado */
 .app :focus{outline:none}
 .app a:focus-visible,.app button:focus-visible,.app summary:focus-visible,.app [role="button"]:focus-visible,.app [tabindex="0"]:focus-visible{outline:2px solid var(--f);outline-offset:2px;border-radius:4px}
@@ -1296,7 +1330,7 @@ html{scrollbar-gutter:stable}
 .gbtn:hover:not(:disabled){background:var(--sd)}
 .gbtn:active:not(:disabled){background:var(--lg)}
 .gbtn:disabled{opacity:.4;cursor:not-allowed;color:var(--gy-strong)}
-.gcnt{width:60px;text-align:center;font-size:18px;font-weight:700}
+.gcnt{min-width:60px;text-align:center;font-size:18px;font-weight:700}
 .sum{background:var(--cr);border-radius:16px;padding:16px;margin-bottom:20px}
 .sum-r{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.06);font-size:14px}
 .sum-r:last-child{border-bottom:none}
@@ -4312,7 +4346,7 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
               <div className="dsh-bk-av" style={{ width: 64, height: 64, fontSize: 22, background: "var(--m)" }}>
                 {initials(b.customer)}
               </div>
-              <div style={{ fontWeight: 800, fontSize: 18 }}>{b.customer}</div>
+              <div style={{ fontWeight: 800, fontSize: 18, lineHeight: 1.35 }}>{b.customer}</div>
               {/* textTransform none: los textos de estado van tal cual
                   ("Confirmada", no "CONFIRMADA"); el pill los uppercaseaba. */}
               <div className="dsh-bk-s" style={{ color: st.color, textTransform: "none", letterSpacing: 0, fontSize: 12 }}>{st.label}</div>
