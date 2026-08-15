@@ -410,11 +410,30 @@ Consecuencias registradas del backfill del 2026-08-15:
   **25 filas**, más del doble del umbral: pasa sin `P2028`, deja el contador en
   cero, y una segunda corrida no toca nada (idempotente).
 
-  **Lo que el arreglo NO cambia es el tiempo total**, porque lo domina la latencia
-  por fila: 25 solicitudes vencidas tardan unos 12 segundos. Ya no falla, pero una
-  agencia con mucho atraso va a esperar. Si eso llega a molestar, la salida es
-  acotar cuántas se barren por lectura, y eso sí cambia semántica (quedarían
-  vencidas sin persistir hasta la lectura siguiente). Sin fecha ni tanda asignada.
+  **El techo no desapareció: se movió.** El arreglo no cambia el tiempo total,
+  porque lo domina la latencia por fila: **unos 0.5 segundos por solicitud
+  vencida** (2 viajes), o sea que 25 tardan 12 segundos. Ya no falla con `P2028`,
+  pero el barrido corre **dentro de una función serverless** y esa función tiene
+  su propia duración máxima. **El techo nuevo es esa duración, y el barrido lo
+  alcanza con suficientes vencidas.**
+
+  **Dónde está exactamente ese techo hay que confirmarlo en el dashboard.** El
+  repo **no** declara `maxDuration` en `vercel.json`, así que rige el default de
+  la plataforma. Según la documentación vigente de Vercel ese default hoy son
+  **300 segundos en todos los planes**, no los 10 del límite viejo de Hobby: con
+  0.5s por fila el techo caería en el orden de las **cientos** de solicitudes, no
+  de las decenas. No pude leer el límite efectivo del proyecto desde acá (la API
+  de Vercel responde 403/404 con las credenciales de esta sesión), así que **ese
+  número es el único dato del párrafo que falta verificar**, y conviene mirarlo
+  antes de confiar en el margen.
+
+  **Y el problema práctico llega mucho antes que cualquier timeout**: 25 vencidas
+  ya son 12 segundos de espera en una lectura bloqueante del panel. Eso molesta
+  bastante antes de que nada se corte.
+
+  Si llega a hacer falta, la salida es **acotar cuántas se barren por lectura**, y
+  eso sí cambia semántica: quedarían vencidas sin persistir hasta la lectura
+  siguiente. Sin fecha ni tanda asignada.
 
 Pendientes de performance:
 
