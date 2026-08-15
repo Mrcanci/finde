@@ -419,13 +419,16 @@ async function handlePatch(
   if (next.salesMode === "CUPO_FIJO" && next.allotment == null) {
     res
       .status(400)
-      .json({ error: "Configura el cupo para vender con cupo fijo." });
+      .json({
+        error:
+          "Configura los cupos por salida para usar confirmación automática.",
+      });
     return;
   }
   if (next.salesMode === "CUPO_FIJO" && next.minQuorum != null) {
     res.status(400).json({
       error:
-        "El quórum mínimo solo aplica en modo solicitud. Quítalo para vender con cupo fijo.",
+        "El mínimo de personas solo aplica con confirmación manual. Quítalo para usar confirmación automática.",
     });
     return;
   }
@@ -486,21 +489,57 @@ async function handlePatch(
         statusNew: "SOLICITUD",
         OR: [{ expiresAt: null }, { expiresAt: { gt: ahora } }],
       },
-      select: { guests: true, departure: { select: { date: true } } },
+      select: {
+        guests: true,
+        // startTime sale de la SALIDA y no del tour: se copia al materializar
+        // (pin), así que editar el tour no mueve las salidas ya vendidas y es
+        // el único valor que describe de verdad esa salida.
+        departure: { select: { date: true, startTime: true } },
+      },
     });
     if (pendientes.length > 0) {
       const personas = pendientes.reduce((n, b) => n + b.guests, 0);
-      const fechas = [
-        ...new Set(pendientes.map((b) => b.departure?.date).filter(Boolean)),
-      ].sort() as string[];
-      // El mensaje dice QUÉ HACER para desbloquearse, no solo que no se puede.
+      const salidas = [
+        ...new Map(
+          pendientes
+            .filter((b) => b.departure)
+            .map((b) => [b.departure!.date, b.departure!])
+        ).values(),
+      ].sort((a, b) => a.date.localeCompare(b.date));
+      const fechas = salidas.map((d) => d.date);
+
+      // "23 de agosto a las 08:00". Mediodía UTC para que el formateo en hora
+      // de Lima nunca caiga en el día anterior.
+      const legible = (d: { date: string; startTime: string | null }): string => {
+        const [y, m, dd] = d.date.split("-").map(Number);
+        const txt = new Intl.DateTimeFormat("es-PE", {
+          timeZone: "America/Lima",
+          day: "numeric",
+          month: "long",
+        }).format(new Date(Date.UTC(y, m - 1, dd, 12)));
+        return d.startTime ? `${txt} a las ${d.startTime}` : txt;
+      };
+      // Con muchas salidas la enumeración deja de ayudar: el detalle viaja
+      // igual en `departures` para que la UI lo use como quiera.
+      const partes = salidas.map(legible);
+      const cuando =
+        partes.length === 0
+          ? ""
+          : partes.length > 3
+            ? ` en ${partes.length} salidas`
+            : partes.length === 1
+              ? ` para el ${partes[0]}`
+              : ` para el ${partes.slice(0, -1).join(", el ")} y el ${partes[partes.length - 1]}`;
+
+      // El mensaje dice QUÉ HACER, no por qué el sistema no puede. El mecanismo
+      // (que esos asientos dejarían de contar para el cupo) es problema nuestro.
+      // "Reservas" es el nombre EXACTO de la pestaña del panel, y "automática"
+      // es como la interfaz llama a CUPO_FIJO: los nombres internos no salen.
       const una = pendientes.length === 1;
       res.status(409).json({
         error:
-          `Este tour tiene ${pendientes.length} solicitud${una ? "" : "es"} sin decidir` +
-          `${fechas.length ? ` (salida${fechas.length === 1 ? "" : "s"} del ${fechas.join(", ")})` : ""}. ` +
-          `${una ? "Confírmala o recházala" : "Confírmalas o recházalas"} en el panel de salidas y después cambia el modo de venta. ` +
-          `Con cupo fijo ${personas === 1 ? "esa persona dejaría" : `esas ${personas} personas dejarían`} de contar y podrías vender su lugar.`,
+          `Tienes ${pendientes.length} solicitud${una ? "" : "es"} sin responder${cuando}. ` +
+          `${una ? "Resuélvela" : "Resuélvelas"} en Reservas para poder cambiar a confirmación automática.`,
         pendingRequests: pendientes.length,
         pendingGuests: personas,
         departures: fechas,
