@@ -430,6 +430,85 @@ async function handlePatch(
     return;
   }
 
+  // ── Pasar a CUPO_FIJO con solicitudes pendientes: 409 ──
+  //
+  // Solo esta dirección, y solo con solicitudes VIGENTES. El motivo es concreto
+  // y no simetría: una solicitud pendiente retiene `seatsRequested`, y takeSeats
+  // (el que decide la venta en CUPO_FIJO) **no mira ese contador**, solo
+  // seatsTaken. Los asientos quedarían invisibles y el tour podría vender su
+  // cupo entero encima de gente que ya está esperando respuesta. Es la
+  // sobreventa que costó un backfill en agosto de 2026.
+  //
+  // Lo que NO se bloquea, a propósito:
+  //   · pasar a SOLICITUD. Ese modo no tiene tope de cupo por diseño, así que
+  //     los asientos confirmados que vienen de la etapa CUPO_FIJO siguen
+  //     contando en seatsTaken y no hay contador invisible. Y si más adelante
+  //     se vuelve a CUPO_FIJO, la validación de abajo (allotment contra
+  //     seatsTaken) cubre ese caso.
+  //   · las reservas CONFIRMADAS. Viven en seatsTaken, que takeSeats SÍ mira:
+  //     el cupo ya las descuenta. Bloquear por ellas trabaría la configuración
+  //     sin ningún riesgo detrás.
+  //
+  // "Vigente" se define igual que en el panel (api/operators/me/[resource].ts):
+  // SOLICITUD con expiresAt null o todavía en el futuro. Y de esa definición
+  // sale la propiedad que hace que este bloqueo SIEMPRE tenga salida: como
+  // expiresAt = min(cierre, creación+72h, medianoche del día de salida), una
+  // solicitud que no venció pertenece por fuerza a una salida futura, y en las
+  // salidas futuras el panel sí ofrece confirmar y rechazar. La agencia se
+  // desbloquea sola, sin que nadie toque la base.
+  //
+  // La rama `expiresAt: null` es DEFENSIVA Y ESTÁ MUERTA, y eso es lo que
+  // vuelve estructural a la garantía de arriba. Verificado el 2026-08-15
+  // recorriendo el código entero: **hay un solo lugar que crea una reserva**,
+  // api/bookings.ts, y ahí `expiresAt` es null si y solo si el modo es
+  // CUPO_FIJO (o sea, si NO nace como SOLICITUD); en el otro camino siempre
+  // sale de solicitudExpiresAt, que devuelve una fecha, nunca null. Los dos
+  // únicos lugares que escriben `expiresAt: null` (la decisión de la agencia y
+  // la cancelación interna) lo hacen en la misma operación en que mandan la
+  // reserva a un estado terminal, así que un null jamás convive con SOLICITUD.
+  // Y el backfill viejo que originó las 19 inmortales solo tocaba reservas con
+  // statusNew NULL, de las que ya no queda ninguna.
+  //
+  // Consecuencia: en el peor de los casos este bloqueo se resuelve SOLO, por
+  // vencimiento, en la medianoche del día de salida como tope duro. No puede
+  // volver a existir una solicitud que no venza nunca y trabe la configuración
+  // para siempre. Si algún día aparece otro camino que cree reservas, esa
+  // propiedad hay que volver a verificarla acá.
+  if (
+    body.salesMode !== undefined &&
+    body.salesMode !== existing.salesMode &&
+    body.salesMode === "CUPO_FIJO"
+  ) {
+    const ahora = new Date();
+    const pendientes = await db.booking.findMany({
+      where: {
+        tourId: id,
+        statusNew: "SOLICITUD",
+        OR: [{ expiresAt: null }, { expiresAt: { gt: ahora } }],
+      },
+      select: { guests: true, departure: { select: { date: true } } },
+    });
+    if (pendientes.length > 0) {
+      const personas = pendientes.reduce((n, b) => n + b.guests, 0);
+      const fechas = [
+        ...new Set(pendientes.map((b) => b.departure?.date).filter(Boolean)),
+      ].sort() as string[];
+      // El mensaje dice QUÉ HACER para desbloquearse, no solo que no se puede.
+      const una = pendientes.length === 1;
+      res.status(409).json({
+        error:
+          `Este tour tiene ${pendientes.length} solicitud${una ? "" : "es"} sin decidir` +
+          `${fechas.length ? ` (salida${fechas.length === 1 ? "" : "s"} del ${fechas.join(", ")})` : ""}. ` +
+          `${una ? "Confírmala o recházala" : "Confírmalas o recházalas"} en el panel de salidas y después cambia el modo de venta. ` +
+          `Con cupo fijo ${personas === 1 ? "esa persona dejaría" : `esas ${personas} personas dejarían`} de contar y podrías vender su lugar.`,
+        pendingRequests: pendientes.length,
+        pendingGuests: personas,
+        departures: fechas,
+      });
+      return;
+    }
+  }
+
   // Con CUPO_FIJO, el cupo debe cubrir los asientos YA confirmados de las
   // salidas vivas (futuras, no canceladas, sin override propio). Cubre tanto
   // el cambio de modo como bajar el allotment con ventas hechas.
