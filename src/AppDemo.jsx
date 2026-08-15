@@ -4996,13 +4996,21 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         highlights,
         ...(inclArr.length ? { included: inclArr } : {}),
       };
-      const r = await fetch("/api/ai/generate-description", {
+      // authFetch, no fetch: el endpoint pasó a exigir perfil de agencia
+      // (es una llamada paga a Claude). Sin el header Authorization responde
+      // 401 y el botón dejaría de funcionar.
+      const r = await authFetch("/api/ai/generate-description", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
         signal: controller.signal,
       });
       if (!r.ok) {
+        // 401/403 con texto propio: el del backend dice "operador", que no
+        // existe en la interfaz. Con la sesión vencida el mensaje tiene que
+        // decir qué hacer, no repetir el código de estado.
+        if (r.status === 401) throw new Error("Tu sesión venció. Vuelve a entrar y genera la descripción de nuevo.");
+        if (r.status === 403) throw new Error("Necesitas un perfil de agencia para usar el generador.");
         const err = await r.json().catch(() => ({}));
         throw new Error(err.error || `HTTP ${r.status}`);
       }
