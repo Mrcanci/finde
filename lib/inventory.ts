@@ -239,11 +239,42 @@ export async function cancelBookingInternal(
   });
 }
 
+// Filas por transacción del barrido. NO es un número elegido a ojo.
+//
+// Medido contra el pooler el 2026-08-15: en UNA transacción interactiva entran
+// **23 viajes** de ida y vuelta antes de que Prisma la corte por timeout (el
+// default son 5 segundos, y cada viaje cuesta ~220ms). Idéntico para SELECT y
+// para UPDATE, o sea que el costo es la latencia, no el trabajo.
+//
+// El barrido hace **2 viajes por fila** (la transición y la liberación de
+// cupo), así que el máximo REAL son **11 filas**; con 12 se pasa. Con 19 eran
+// 38 viajes y por eso murió con P2028 al correr el backfill.
+//
+// 5 deja un margen de más del doble sobre ese máximo: la latencia tendría que
+// pasar de 220ms a más de 450ms para que una tanda falle. Bajarlo más no sale
+// gratis: cada tanda agrega su propio BEGIN y COMMIT, así que tandas muy chicas
+// alargan el barrido completo sin comprar seguridad.
+export const EXPIRE_BATCH_SIZE = 5;
+
 // Vencimiento PEREZOSO: no hay cron en Vercel Hobby, así que los puntos de
 // lectura de reservas llaman esto ANTES de leer. Toda SOLICITUD del scope con
 // expiresAt < now transiciona a VENCIDA (y libera su seatsRequested). La
 // transición por fila es condicional → idempotente bajo lecturas concurrentes.
 // Upgrade futuro: pg_cron de Supabase para barrer y disparar avisos.
+//
+// ── POR TANDAS, y esto protege a TODOS los llamadores ──
+//
+// Una sola transacción para todo se pasaba del timeout con ~12 solicitudes
+// vencidas, y el barrido corre ANTES de leer reservas: en el panel es
+// bloqueante, así que una agencia con esa acumulación se quedaba sin poder
+// abrirlo, con 500. No era un riesgo teórico, era un 500 alcanzable por una
+// agencia real en una semana normal.
+//
+// Cada tanda va en su PROPIA transacción. Si una falla, las anteriores quedan
+// aplicadas, y eso es correcto porque el barrido es idempotente y retomable:
+// la transición de cada fila es condicional a que siga en SOLICITUD, así que
+// una fila ya vencida no se vuelve a tocar ni se le libera el cupo dos veces,
+// y la próxima corrida vuelve a consultar y toma solo lo que quedó pendiente.
 export async function expireStaleSolicitudes(
   client: PrismaClient,
   scope: Prisma.BookingWhereInput
@@ -258,22 +289,30 @@ export async function expireStaleSolicitudes(
   if (stale.length === 0) return 0;
 
   let expired = 0;
-  await client.$transaction(async (tx) => {
-    for (const b of stale) {
-      const changed = await tx.booking.updateMany({
-        where: { id: b.id, statusNew: "SOLICITUD" },
-        data: {
-          statusNew: "VENCIDA",
-          status: LEGACY_STATUS.VENCIDA,
-          decidedAt: now,
-        },
-      });
-      if (changed.count === 1) {
-        expired++;
-        if (b.departureId) await releaseRequestedSeats(tx, b.departureId, b.guests);
+  for (let i = 0; i < stale.length; i += EXPIRE_BATCH_SIZE) {
+    const tanda = stale.slice(i, i + EXPIRE_BATCH_SIZE);
+    // El contador se acumula DESPUÉS de que la transacción commitea: si la
+    // tanda se cae, sus transiciones se revierten y no tienen que contarse.
+    let deLaTanda = 0;
+    await client.$transaction(async (tx) => {
+      deLaTanda = 0;
+      for (const b of tanda) {
+        const changed = await tx.booking.updateMany({
+          where: { id: b.id, statusNew: "SOLICITUD" },
+          data: {
+            statusNew: "VENCIDA",
+            status: LEGACY_STATUS.VENCIDA,
+            decidedAt: now,
+          },
+        });
+        if (changed.count === 1) {
+          deLaTanda++;
+          if (b.departureId) await releaseRequestedSeats(tx, b.departureId, b.guests);
+        }
       }
-    }
-  });
+    });
+    expired += deLaTanda;
+  }
   if (expired > 0) console.log(`[inventario] ${expired} solicitud(es) vencida(s) persistidas`);
   return expired;
 }

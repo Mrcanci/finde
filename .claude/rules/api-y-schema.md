@@ -44,6 +44,42 @@ npx dotenv-cli -e .env.local -- vercel dev
 
 El backend lee `VITE_SUPABASE_URL` con prefijo `VITE_`. Es intencional hoy; revisar al normalizar para producción.
 
+## Transacciones: hay un techo de ~20 operaciones secuenciales
+
+**Medido el 2026-08-15 contra el pooler, no estimado: en UNA `$transaction`
+interactiva entran 23 viajes de ida y vuelta antes de que Prisma la corte con
+`P2028`.** El default de Prisma son 5 segundos y cada viaje cuesta unos 220ms.
+
+**El número es idéntico para `SELECT` y para `UPDATE`, y eso es lo que hay que
+recordar: el costo es la LATENCIA, no el trabajo.** No importa qué tan barata sea
+la consulta. Cualquier `$transaction` con más de ~20 operaciones secuenciales va
+a fallar, haga lo que haga.
+
+Consecuencia práctica al escribir código: **un `for` con un `await` adentro de
+una transacción es un contador de viajes.** Si el largo del bucle lo decide un
+dato (cuántas filas hay que tocar), el código funciona con pocos datos y falla
+con muchos, en producción y no en la prueba. Pasó de verdad con el barrido de
+solicitudes vencidas: 19 filas por 2 viajes cada una son 38 viajes, y murió.
+
+Salidas, en orden de preferencia:
+
+1. **Una sola sentencia que toque N filas** en vez de N sentencias. Un `UPDATE`
+   con `WHERE id IN (...)` es un viaje, no N.
+2. **Partir en tandas**, cada una en su propia transacción, si de verdad hace
+   falta lógica por fila. Es lo que hace `expireStaleSolicitudes`
+   (`EXPIRE_BATCH_SIZE`, ver `.claude/rules/reservas.md`). Que una tanda falle y
+   las anteriores queden aplicadas hay que analizarlo caso por caso: ahí funciona
+   porque cada fila es condicional e idempotente.
+3. Subir el `timeout` del `$transaction` **no** es la salida por default: alarga
+   el bloqueo y el techo real pasa a ser la duración de la función serverless.
+
+### Cómo se mide, para no discutirlo a ojo
+
+Bisección con operaciones que hacen el viaje completo **sin tocar datos**: un
+`updateMany` contra una fila que no existe. Se prueba con 10, 20, 30 viajes, y
+entre el último que pasa y el primero que falla se afina por mitades. Cero
+escrituras y el número sale en menos de un minuto.
+
 ## Almacenamiento de imágenes (Supabase Storage)
 
 Bucket **`tour-images`**: lectura pública, límite 5MB, MIME `image/jpeg` y `image/png`, **sin INSERT público**.
