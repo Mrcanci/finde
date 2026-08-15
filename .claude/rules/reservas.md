@@ -29,7 +29,29 @@ El contador de cupos se actualiza **solo con SQL crudo**, nunca con helpers de P
 - **Materialización de la salida**: `INSERT ... ON CONFLICT ("tourId", "date") DO NOTHING` (`lib/inventory.ts:95`). El `upsert` de Prisma **no es atómico** bajo concurrencia: hace SELECT y después INSERT, y dos requests simultáneos se pisan. Lo cazó la prueba de concurrencia y lo arregló el commit `2f23182`.
 - **Toma de cupo**: update condicional atómico contra el cupo efectivo, vía `$executeRaw`, porque la condición compara dos columnas y eso no entra en un `updateMany.where`.
 
-Verificación manual hecha en su momento: 10 requests paralelos contra 3 cupos deben dar exactamente 3 confirmadas y 7 rechazadas. **No hay suite de tests en el repo**, así que si tocás esta lógica hay que repetirla a mano.
+Verificación manual: 10 requests paralelos contra 3 cupos deben dar exactamente 3 confirmadas y 7 rechazadas. **No hay suite de tests en el repo**, así que si tocás esta lógica hay que repetirla a mano. Repetida el 2026-08-15 sobre una salida **CONFIRMADA**, al cambiar la condición de estado: 3 y 7, con `seatsTaken` final 3.
+
+### La condición de estado excluye `CANCELADA`, NO exige `ABIERTA`
+
+Escrito después de que costara un bug de producción. `takeSeats` decía
+`AND d."status" = 'ABIERTA'`, y como **nada devuelve una salida a `ABIERTA`**,
+confirmar una salida la dejaba sin vender para siempre aunque le sobrara cupo.
+El calendario en cambio solo trata como llena la `CANCELADA`, así que seguía
+ofreciendo la fecha y el viajero se comía un 409 en el paso 3 que le anunciaba
+los cupos que le acababa de negar.
+
+**El estado de la salida no es el instrumento de corte de ventas.** Los
+instrumentos son otros dos: el **cupo** (integridad, en esa misma condición) y la
+**anticipación** (`closeTime`/`closeDaysBefore` en SOLICITUD,
+`MIN_BOOKING_LEAD_DAYS` en CUPO_FIJO). `CONFIRMADA` significa "el tour sale", no
+"cerramos la lista", que es exactamente lo que dice el refine de
+`api/operators/me/[resource].ts`.
+
+Y no era una decisión de diseño: el camino de SOLICITUD (`addRequestedSeats`)
+nunca miró el estado, así que ya aceptaba reservas en salidas confirmadas. Era
+una inconsistencia entre los dos caminos de venta. **No vuelvas a poner
+`= 'ABIERTA'`.**
+
 
 ## Modos de venta
 
