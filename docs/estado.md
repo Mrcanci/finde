@@ -454,6 +454,47 @@ Riesgos de producto (no son bugs, no hay nada roto):
 
 Trabajo pendiente de producto:
 
+- **El formulario de tour se pierde entero, sin aviso, al navegar afuera.** El
+  estado vive en un `useState` de `NewTourView`: no hay `localStorage`, no hay
+  `sessionStorage`, no hay `beforeunload` y no hay diálogo de confirmación. Salir
+  de la vista desmonta el componente y se va todo lo editado.
+
+  **No lo trajo ninguna tanda reciente: pasa hoy con el botón de atrás, con la
+  barra inferior y con cualquier navegación.** Se documenta ahora porque el aviso
+  de solicitudes pendientes del paso de disponibilidad invita a ir a Reservas, y
+  ahí se vuelve visible.
+
+  **La salida es un diálogo de confirmación al abandonar con ediciones sin
+  guardar**, y se elige justamente porque **protege todos los caminos de salida y
+  no solo ese**. Descartadas por ahora, con su motivo:
+
+  - **Borrador en `localStorage`:** más superficie de la que parece. Hay que
+    decidir cuándo se descarta, qué pasa con las fotos ya subidas y qué gana si
+    el tour se editó desde otro lado en el medio.
+  - **Resolver las solicitudes desde el propio formulario:** mete decisiones que
+    **mandan correos irreversibles** dentro de una pantalla de edición, donde no
+    existe el patrón de dos pasos de confirmación que el panel sí tiene.
+
+- **Fotos huérfanas en Supabase Storage: es deuda CON COSTO, no cosmética.**
+  `uploadOnePhoto` sube el archivo al bucket **cuando la agencia lo elige**, no
+  cuando guarda el tour (es el flujo de signed URL, que evita el límite de tamaño
+  de request de Vercel y por eso no se va a cambiar a la ligera).
+
+  Consecuencia: **cada formulario abandonado a mitad deja archivos en el bucket
+  que ningún tour referencia y que nadie borra nunca.** El borrado de fotos solo
+  ocurre al borrar un tour (`DELETE /api/tours/:id` limpia `imageUrl` e
+  `images[]`), así que una foto que nunca llegó a asociarse a un tour no entra
+  por ningún camino de limpieza.
+
+  Hoy son pocas. **Con agencias reales subiendo fotos y abandonando a mitad crece
+  sin techo**, y el almacenamiento se paga.
+
+  **Pregunta abierta, sin decidir:** ¿se limpia con un barrido periódico que
+  compare el bucket contra las URLs referenciadas, o se cambia el flujo para
+  subir recién al guardar? Lo primero no toca el flujo probado pero necesita un
+  job que hoy no existe; lo segundo elimina el problema de raíz pero cambia la
+  experiencia de carga y hay que revisar que siga esquivando el límite de Vercel.
+
 - **Una salida que pasa con solicitudes sin decidir deja al viajero colgado, y
   hoy no hay forma de cerrarla.** El panel no ofrece confirmar ni rechazar en
   salidas pasadas (`!esPasada` en el render de cada salida), así que si la

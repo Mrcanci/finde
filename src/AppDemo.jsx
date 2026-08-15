@@ -1449,14 +1449,18 @@ html{scrollbar-gutter:stable}
 .inp-err{border-color:#C0392B !important;background:rgba(229,62,62,.04) !important}
 .inp-err:focus{box-shadow:0 0 0 4px rgba(229,62,62,.18) !important;border-color:#C0392B !important}
 .field-err{font-size:11px;color:#C0392B;margin-top:4px;font-weight:600;display:flex;align-items:center;gap:4px}
-/* Aviso de carrera de cupos en el paso 3. Deliberadamente MAS pesado que
-   .field-err: no es un campo mal escrito, es un cupo que se perdio despues de
-   tres pantallas, y trae la accion para salir. El boton respeta el piso de
-   44px de la Fase 2. */
-.race{display:flex;flex-direction:column;gap:10px;padding:14px;margin-bottom:12px;border-radius:12px;background:rgba(199,97,58,.08);border-left:3px solid var(--tr-text);text-align:left}
-.race-t{font-size:14px;font-weight:700;color:var(--tr-text)}
-.race-d{font-size:13px;color:var(--ch)}
-.race-b{align-self:flex-start;min-height:44px;padding:0 16px;border-radius:10px;border:1.5px solid var(--tr-text);background:white;color:var(--tr-text);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
+/* Bloque de aviso con titulo, explicacion y (opcional) accion. Deliberadamente
+   MAS pesado que .field-err: no es un campo mal escrito, es algo que le cambia
+   el plan a la persona y que trae la salida. El boton respeta el piso de 44px
+   de la Fase 2.
+
+   El nombre describe la FORMA y no el caso, a proposito: nacio para la carrera
+   de cupos del checkout y hoy sirve tambien al aviso de solicitudes pendientes
+   del formulario de tour. Si aparece un tercer uso, no hay que renombrar. */
+.notice{display:flex;flex-direction:column;gap:10px;padding:14px;margin-bottom:12px;border-radius:12px;background:rgba(199,97,58,.08);border-left:3px solid var(--tr-text);text-align:left}
+.notice-t{font-size:14px;font-weight:700;color:var(--tr-text)}
+.notice-d{font-size:13px;color:var(--ch)}
+.notice-b{align-self:flex-start;min-height:44px;padding:0 16px;border-radius:10px;border:1.5px solid var(--tr-text);background:white;color:var(--tr-text);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
 .bk-phone-row{display:flex;gap:0}
 .bk-phone-prefix{display:flex;align-items:center;gap:6px;padding:0 12px;border:2px solid var(--sd);border-radius:14px 0 0 14px;font-size:14px;font-weight:600;background:var(--cr);color:var(--ch);border-right:none;white-space:nowrap}
 .bk-phone-prefix .wa-ic{color:#25D366;font-size:16px}
@@ -3681,30 +3685,30 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
             viajero leía "solo quedan N" y tenía que deducir solo que había que
             volver dos pasos y bajar el número. */}
         {availError && availError.forDate === date && availError.forGuests === guests && (
-          <div className="race">
-            <div className="race-t">
+          <div className="notice">
+            <div className="notice-t">
               {availError.seatsLeft <= 0
                 ? "Se agotaron los cupos de esa fecha"
                 : "Alguien acaba de tomar cupos"}
             </div>
-            <div className="race-d">
+            <div className="notice-d">
               {availError.seatsLeft <= 0
                 ? "Mientras completabas tus datos se llenó la salida. Tus datos quedan guardados."
                 : `Quedan ${availError.seatsLeft} para el ${formatLongDate(date)}. Tus datos quedan guardados.`}
             </div>
             {availError.seatsLeft <= 0 ? (
-              <button type="button" className="race-b" onClick={() => { setAvailError(null); setDate(""); setStep(1); }}>
+              <button type="button" className="notice-b" onClick={() => { setAvailError(null); setDate(""); setStep(1); }}>
                 Elegir otra fecha
               </button>
             ) : availError.seatsLeft < guests ? (
-              <button type="button" className="race-b" onClick={() => { setGuests(availError.seatsLeft); setAvailError(null); }}>
+              <button type="button" className="notice-b" onClick={() => { setGuests(availError.seatsLeft); setAvailError(null); }}>
                 Reservar para {availError.seatsLeft} {availError.seatsLeft === 1 ? "persona" : "personas"}
               </button>
             ) : (
               // seatsLeft >= guests: con el paso 1 aplicado esto ya no debería
               // pasar (el cupo alcanzaba). Queda el reintento en vez de un
               // callejón sin salida.
-              <button type="button" className="race-b" onClick={() => { setAvailError(null); submitBooking(); }}>
+              <button type="button" className="notice-b" onClick={() => { setAvailError(null); submitBooking(); }}>
                 Volver a intentar
               </button>
             )}
@@ -5308,13 +5312,13 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           {/* El texto NO dice "para poder cambiar a confirmación automática":
               el aviso está pegado a esa opción, en el momento de elegirla. */}
           {pendientes > 0 && editingTour?.salesMode !== "CUPO_FIJO" && (
-            <div className="race" style={{ marginTop: 10, marginBottom: 0 }}>
-              <div className="race-t">
+            <div className="notice" style={{ marginTop: 10, marginBottom: 0 }}>
+              <div className="notice-t">
                 {pendientes === 1
                   ? "Tienes 1 solicitud sin responder"
                   : `Tienes ${pendientes} solicitudes sin responder`}
               </div>
-              <div className="race-d">
+              <div className="notice-d">
                 {pendientes === 1 ? "Resuélvela" : "Resuélvelas"} en Reservas y vuelve.
                 Mientras tanto este tour sigue con confirmación manual.
               </div>
