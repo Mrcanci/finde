@@ -6,6 +6,59 @@
 
 ---
 
+## 2026-08-15 - Las reservas se aceptan hasta la medianoche previa a la salida
+
+**Qué se decidió.** El corte de ventas de la etapa piloto es la **medianoche del
+día anterior a la salida**, hora de Lima. Más adelante se ajusta agencia por
+agencia, según las condiciones reales de cada una.
+
+**Lo importante: no hay nada que implementar en CUPO_FIJO, ya hace exactamente
+eso.** Se verificó contra el código antes de decidir, con las funciones reales
+del repo y no por deducción. `MIN_BOOKING_LEAD_DAYS = 1` se evalúa en hora Lima
+(`limaDateISO`), así que la fecha mínima reservable es siempre mañana:
+
+| Instante (hora Lima) | Reserva para el día siguiente |
+|---|---|
+| 23:59:59.999 del día previo | **se acepta** |
+| 00:00:00 del día de la salida | rechaza |
+
+O sea que el corte cae exactamente en la medianoche pedida. **Esta decisión
+documenta el comportamiento vigente, no lo cambia.**
+
+**Qué se descartó.** Mover `MIN_BOOKING_LEAD_DAYS`, y también extender la
+evaluación de `closeTime` / `closeDaysBefore` a CUPO_FIJO ahora. Sin condiciones
+reales de ninguna agencia, cualquier corte más temprano sería una restricción
+inventada por nosotros: es más fácil apretar después, cuando una agencia lo pida,
+que aflojar una regla que ya frustró ventas.
+
+**Los dos modos tienen cortes distintos, y es intencional.** En SOLICITUD el
+corte llega antes: `closeTime` default 20:00 del día anterior (`closeDaysBefore`
+default 1), o sea cuatro horas antes que en CUPO_FIJO. No es un accidente y está
+escrito en dos lugares del repo desde antes de esta decisión. `api/bookings.ts`:
+"la MISMA hora de cierre que vence el plazo de la agencia cierra también la
+entrada de solicitudes. Sin esto, una reserva creada pasada esa hora nace con el
+plazo ya cumplido y la agencia recibe un aviso que no puede atender. En
+CUPO_FIJO no aplica: no hay nada que confirmar".
+
+El motivo de fondo: en SOLICITUD la agencia **tiene que decidir**, así que el
+corte le reserva tiempo para hacerlo. En CUPO_FIJO la reserva nace confirmada y
+no hay nada que esperar, así que el único límite razonable es la anticipación
+mínima. **Dos modos de venta distintos con cortes distintos es coherente, no una
+inconsistencia a emparejar.**
+
+**Consecuencias.**
+
+1. El pendiente de `docs/estado.md` sobre extender el cierre a CUPO_FIJO queda
+   **subordinado a esta decisión**: no se toca hasta que una agencia real pida
+   cortar antes. El cupo sigue siendo el freno de integridad; el operativo se
+   agrega cuando exista la necesidad, no antes.
+2. Cuando se ajuste por agencia, el instrumento ya existe y es por tour
+   (`closeTime` y `closeDaysBefore` son campos de `Tour`): lo que faltaría es
+   evaluarlos también en CUPO_FIJO. No hace falta schema nuevo.
+3. El calendario del viajero aplica la misma regla (`minBookingISO`), así que
+   frontend y backend cortan igual. La fuente de verdad es el backend, en hora
+   de Lima.
+
 ## 2026-08-13 - El catálogo es contenido de validación, no tracción comercial
 
 *(rescatada de la memoria automática, criterio original de julio 2026)*
