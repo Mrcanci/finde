@@ -6,6 +6,48 @@
 
 ---
 
+## 2026-08-15 - /demo se mantiene hasta el lanzamiento, y todo se construye listo para el switch
+
+**Qué se decidió.** El producto sigue viviendo en **finde.pe/demo** hasta el
+lanzamiento oficial de Finde, que es en las **próximas semanas**. **TODO se
+construye ahora**, pero preparado para que el switch de `finde.pe/demo` a
+`finde.pe` sea un **cambio mínimo y reversible**.
+
+**Qué se descartó.** Mover la raíz ahora, y también lo contrario: esperar al
+lanzamiento para empezar a construir. Las dos opciones pagan el mismo costo dos
+veces.
+
+**Razón.** El día del switch no puede ser el día en que se descubre qué faltaba.
+Si cada tanda deja el trabajo atado a `/demo`, el lanzamiento se convierte en una
+migración; si lo deja agnóstico del prefijo, es un cambio de una constante.
+
+**Consecuencia que ordena el trabajo, y es la parte accionable de esta entrada:**
+
+> **Cada tanda de acá en adelante tiene que dejar el switch más cerca, no más
+> lejos. Nada que haya que rehacer el día del lanzamiento.**
+
+En concreto, y esto se revisa al cerrar cada tanda:
+
+1. **El prefijo de las rutas es una constante, nunca un literal repetido.** Ningún
+   archivo nuevo puede escribir `/demo` a mano. Hoy los únicos dos lugares que lo
+   nombran son `src/App.jsx` (que decide Landing contra AppDemo) y los rewrites de
+   `vercel.json`. Esa cuenta no puede crecer.
+2. **Todo link interno se arma con esa constante.** Un link absoluto a `/tour/x`
+   funciona en la raíz y rompe bajo `/demo`; uno armado con el prefijo funciona en
+   los dos.
+3. **Lo que se instrumente para medir arranca antes del lanzamiento, no después.**
+   Las métricas que Finde necesita para postular en 2027 se cuentan desde el día
+   uno o no se cuentan.
+4. **Si una tanda no puede dejar el switch más cerca, deja escrito por qué**, en
+   `docs/estado.md`, para que el día del lanzamiento no aparezca de sorpresa.
+
+**El switch, cuando toque, es reversible.** Lo que lo hace reversible es
+justamente lo de arriba: si el prefijo es una constante y los rewrites cubren los
+dos caminos, volver atrás es revertir el commit que cambió la constante. Si el
+prefijo estuviera repartido en veinte archivos, no lo sería.
+
+---
+
 ## 2026-08-15 - Las reservas se aceptan hasta la medianoche previa a la salida
 
 **Qué se decidió.** El corte de ventas de la etapa piloto es la **medianoche del
