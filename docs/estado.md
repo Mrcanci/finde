@@ -159,8 +159,8 @@ Detalle completo en
 
 ### Fase 5, COMPLETA
 
-**En `main` desde el 2026-08-15, post-QA.** José la validó en dev.finde.pe: se
-ve mejor.
+**En `main` desde el 2026-08-15 (`86a4ea3`), post-QA.** José la validó en
+dev.finde.pe: se ve mejor.
 
 `.app` dejó de heredar un interlineado en píxeles. `145%` es porcentaje: se
 resolvía **una sola vez** contra el tamaño del root y bajaba como valor absoluto,
