@@ -408,6 +408,12 @@ Trabajo pendiente de producto:
   de la salida confirmada, y se decidió **anotarlo y no arreglarlo ahí**: es
   alcance nuevo, no parte del bug.
 
+  **Subordinado a la decisión del 2026-08-15** (`docs/decisiones.md`): el corte
+  de la etapa piloto es la medianoche previa a la salida, que es lo que CUPO_FIJO
+  ya hace. Este pendiente **no se toca hasta que una agencia real pida cortar
+  antes**. El instrumento ya existe y es por tour; lo que faltaría es evaluarlo
+  también en ese modo.
+
 - **El título del tour en desktop, fuera del hero.** `src/AppDemo.jsx` tiene un `<h1 class="det-tl-desktop">` con el nombre del tour que hoy computa `display:none` en todos los anchos, de 390 a 1600. **No es marcado muerto: es una intención abandonada.** La idea era el patrón de Airbnb, con el título del tour arriba y afuera de la foto en desktop, en vez de superpuesto al hero como está hoy (`.det-tl`). Quedó a medio camino: el marcado existe, el CSS que lo mostraría no. **Es trabajo del rediseño de la ficha de tour, no algo para borrar.**
 
   Ojo con un detalle al retomarlo: ese `h1` hoy no declara color propio y hereda `--text-h` del bloque `.app-demo` de `index.css`, o sea que en modo oscuro saldría casi blanco. Es el mismo patrón de los dos títulos invisibles ya arreglados (`c171347`, `e818d8e`). **No hay que arreglarlo antes: la Fase 4 del plan tipográfico lo desactiva sola** al eliminar el bloque y con él la variable. Ver `docs/plans/2026-08-13-plan-tipografia.md`.
