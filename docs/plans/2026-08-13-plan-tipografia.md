@@ -823,20 +823,71 @@ Depende de la Fase 4. Riesgo medio.
 - **Qué puede romperse:** menos de lo que dice la auditoría. Por E2 los botones no se mueven. Lo que sí se mueve es todo el texto dentro de `div`, o sea alturas de card, y ahí `.tc` (ancho fijo de 260px) y `.tg` (grilla de dos columnas en mobile) pueden dejar de tener altura pareja
 - **Cómo se valida:** home y catálogo en 390px mirando que las cards de la grilla sigan alineadas. Detalle de tour con descripción larga. Voucher completo. **Al terminar, recién ahí, el barrido de padding del Grupo B de la Fase 2**
 
+### La base es `1.5` sin unidad, y la fase va en dos pasos
+
+Aprobado el 14 ago. **Paso 1: la base**, `line-height:145%` pasa a `1.5` en `.app`, más el `118%`
+de `.app h2` a `1.18`, que es la misma forma equivocada aunque hoy no haga daño. **Paso 2: los
+display que la base perturba.** Los dos van a `dev` juntos: commits separados para que el diff sea
+atribuible, pero un estado intermedio con los títulos inflados no tiene por qué existir en una rama
+compartida.
+
+El `1.5` es el valor que menos reglas propias obliga a escribir: deja **33 de las 62 declaraciones
+de interlineado en no-op exacto** (7 en la constante CSS y 26 inline), contra 7 del segundo mejor
+candidato. Detalle en `~/Documents/finde-capturas/2026-08-14-fase5/datos/paso0-resultados.md`.
+
+### Los valores del paso 2 son los de la Fase 6, no valores nuevos
+
+**Anotado para que la Fase 6 no los rehaga.** Los interlineados que el paso 2 le pone a los display
+salen de la escala ya aprobada más abajo, y coinciden token por token:
+
+| Valor del paso 2 | Token de la Fase 6 |
+|---|---|
+| **1.2** (título de página, de sección y de formulario, 26 y 24px) | `--fs-d2` |
+| **1.3** (encabezado menor y número destacado, 22 y 20px) | `--fs-h1` |
+| **1.35** (encabezado chico, 18px) | `--fs-h2` |
+| **1.1** (los cuatro logotipos) | **caso propio, fuera de escala** |
+
+`--fs-d1` (1.15) no aparece porque el único elemento de ese tamaño, `.hero-t`, ya declara `1.15`
+propio y por eso no se mueve.
+
+Cuando la Fase 6 arme los tokens, estos selectores ya van a tener el interlineado correcto: hay que
+migrarlos al token, no recalcularlos.
+
+### El bloque de reseñas es UI muerta hoy, y es INTENCIONAL
+
+`.rev-hdr`, `.rev-big-n` y el resto de `.rev-*` de la ficha de tour están detrás de
+`totalReviews > 0`, y **los 49 tours del catálogo muestran "Nuevo"**. O sea que hoy ese bloque no
+renderiza nunca.
+
+**No es un bug ni marcado muerto.** Los ratings de siembra se sacaron del seed por la regla de nada
+falso visible al usuario real, así que "Nuevo" es la respuesta correcta mientras no exista el modelo
+`Review`. Ver `.claude/rules/frontend.md`.
+
+Consecuencia práctica para esta fase: al bloque **se le aplica el interlineado igual** (medido por
+inyección, con la cascada real), pero **no se puede validar mirando la pantalla**. Que nadie lo lea
+como defecto ni lo "arregle" mostrándolo.
+
 ### Caso de verificación medido: el badge "Finde Verificado" encoge
 
 Sale de investigar un desalineado que José reportó en el QA del 14 ago. El desalineado resultó ser otra cosa (ver abajo), pero la medición dejó un caso concreto para esta fase.
 
 `.tc-ver` y `.gc-ver` están a **9px de fuente dentro de una caja de línea de 23.2px, ratio 2.58**. El contenido real del badge mide unos 12px, pero el badge mide **29.2px de alto**, porque el interlineado heredado manda sobre el contenido.
 
-Medido en el navegador, inyectando `line-height:1.6` en `.app-demo`, que es lo que hace esta fase:
+**Corregido el 14 ago con la base ya decidida.** La primera medición se hizo inyectando
+`line-height:1.6`, que era una hipótesis, no la base aprobada. Con `1.5`, que es lo que hace el paso
+1, el número es otro y más grande:
 
-| Selector | Alto hoy | Alto con la base arreglada |
-|---|---|---|
-| `.tc-ver` | 29.2px | **22.4px** |
-| `.gc-ver` | 29.2px | **20.4px** |
+| Selector | Alto hoy | Con `1.6` (medición vieja) | **Con `1.5` (la base aprobada)** |
+|---|---|---|---|
+| `.tc-ver` | 29.2px | 22.4px | **19.5px** |
+| `.gc-ver` | 29.2px | 20.4px | **19.5px** |
 
-O sea que **el badge encoge entre 7 y 9px**, y como está en `position:absolute` sobre la foto, no empuja el layout de la card pero sí cambia su peso visual sobre la imagen. Hay que mirarlo.
+O sea que **el badge encoge 9.7px**, no entre 7 y 9. Como está en `position:absolute` sobre la foto,
+no empuja el layout de la card pero sí cambia su peso visual sobre la imagen. Hay que mirarlo.
+
+Los otros dos elementos pintados que encogen en home, medidos igual: `.hero-tag` de 35.2 a 28.5px y
+`.ai-sb-tag`, el chip "IA" del buscador, de 29.2 a 21.5px. **Ningún otro elemento con fondo o borde
+cambia de alto en todo el demo.**
 
 **Es además la mejor demostración de por qué esta fase existe:** un badge de 9px de texto ocupando 29px de alto es exactamente el síntoma de una base de interlineado en valor absoluto.
 
