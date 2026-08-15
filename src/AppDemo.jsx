@@ -553,6 +553,11 @@ function mapTourFromApi(t) {
     minQuorum: t.minQuorum ?? null,
     closeTime: t.closeTime ?? null,
     closeDaysBefore: t.closeDaysBefore ?? null,
+    // Solicitudes vigentes del tour. Mismo caso que las cuatro de arriba: solo
+    // llega en la vista del operador (GET /api/operators/me/tours) y en público
+    // no viene. Va acá porque esta función es de LISTA BLANCA: si el campo no se
+    // enumera se descarta en silencio, que es como se perdió la primera vez.
+    pendingRequests: t.pendingRequests ?? 0,
     // Fecha de creación (ISO). Se usa para ordenar el catálogo por recencia
     // ahora que no hay ratings que ordenar (ver reset de ratings 2026-06-09).
     createdAt: t.createdAt ?? null,
@@ -1449,14 +1454,18 @@ html{scrollbar-gutter:stable}
 .inp-err{border-color:#C0392B !important;background:rgba(229,62,62,.04) !important}
 .inp-err:focus{box-shadow:0 0 0 4px rgba(229,62,62,.18) !important;border-color:#C0392B !important}
 .field-err{font-size:11px;color:#C0392B;margin-top:4px;font-weight:600;display:flex;align-items:center;gap:4px}
-/* Aviso de carrera de cupos en el paso 3. Deliberadamente MAS pesado que
-   .field-err: no es un campo mal escrito, es un cupo que se perdio despues de
-   tres pantallas, y trae la accion para salir. El boton respeta el piso de
-   44px de la Fase 2. */
-.race{display:flex;flex-direction:column;gap:10px;padding:14px;margin-bottom:12px;border-radius:12px;background:rgba(199,97,58,.08);border-left:3px solid var(--tr-text);text-align:left}
-.race-t{font-size:14px;font-weight:700;color:var(--tr-text)}
-.race-d{font-size:13px;color:var(--ch)}
-.race-b{align-self:flex-start;min-height:44px;padding:0 16px;border-radius:10px;border:1.5px solid var(--tr-text);background:white;color:var(--tr-text);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
+/* Bloque de aviso con titulo, explicacion y (opcional) accion. Deliberadamente
+   MAS pesado que .field-err: no es un campo mal escrito, es algo que le cambia
+   el plan a la persona y que trae la salida. El boton respeta el piso de 44px
+   de la Fase 2.
+
+   El nombre describe la FORMA y no el caso, a proposito: nacio para la carrera
+   de cupos del checkout y hoy sirve tambien al aviso de solicitudes pendientes
+   del formulario de tour. Si aparece un tercer uso, no hay que renombrar. */
+.notice{display:flex;flex-direction:column;gap:10px;padding:14px;margin-bottom:12px;border-radius:12px;background:rgba(199,97,58,.08);border-left:3px solid var(--tr-text);text-align:left}
+.notice-t{font-size:14px;font-weight:700;color:var(--tr-text)}
+.notice-d{font-size:13px;color:var(--ch)}
+.notice-b{align-self:flex-start;min-height:44px;padding:0 16px;border-radius:10px;border:1.5px solid var(--tr-text);background:white;color:var(--tr-text);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
 .bk-phone-row{display:flex;gap:0}
 .bk-phone-prefix{display:flex;align-items:center;gap:6px;padding:0 12px;border:2px solid var(--sd);border-radius:14px 0 0 14px;font-size:14px;font-weight:600;background:var(--cr);color:var(--ch);border-right:none;white-space:nowrap}
 .bk-phone-prefix .wa-ic{color:#25D366;font-size:16px}
@@ -3681,30 +3690,30 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
             viajero leía "solo quedan N" y tenía que deducir solo que había que
             volver dos pasos y bajar el número. */}
         {availError && availError.forDate === date && availError.forGuests === guests && (
-          <div className="race">
-            <div className="race-t">
+          <div className="notice">
+            <div className="notice-t">
               {availError.seatsLeft <= 0
                 ? "Se agotaron los cupos de esa fecha"
                 : "Alguien acaba de tomar cupos"}
             </div>
-            <div className="race-d">
+            <div className="notice-d">
               {availError.seatsLeft <= 0
                 ? "Mientras completabas tus datos se llenó la salida. Tus datos quedan guardados."
                 : `Quedan ${availError.seatsLeft} para el ${formatLongDate(date)}. Tus datos quedan guardados.`}
             </div>
             {availError.seatsLeft <= 0 ? (
-              <button type="button" className="race-b" onClick={() => { setAvailError(null); setDate(""); setStep(1); }}>
+              <button type="button" className="notice-b" onClick={() => { setAvailError(null); setDate(""); setStep(1); }}>
                 Elegir otra fecha
               </button>
             ) : availError.seatsLeft < guests ? (
-              <button type="button" className="race-b" onClick={() => { setGuests(availError.seatsLeft); setAvailError(null); }}>
+              <button type="button" className="notice-b" onClick={() => { setGuests(availError.seatsLeft); setAvailError(null); }}>
                 Reservar para {availError.seatsLeft} {availError.seatsLeft === 1 ? "persona" : "personas"}
               </button>
             ) : (
               // seatsLeft >= guests: con el paso 1 aplicado esto ya no debería
               // pasar (el cupo alcanzaba). Queda el reintento en vez de un
               // callejón sin salida.
-              <button type="button" className="race-b" onClick={() => { setAvailError(null); submitBooking(); }}>
+              <button type="button" className="notice-b" onClick={() => { setAvailError(null); submitBooking(); }}>
                 Volver a intentar
               </button>
             )}
@@ -4867,6 +4876,10 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
   const [uploadError, setUploadError] = useState("");
   const [uploadProgress, setUploadProgress] = useState(null); // { done, total } | null
   const [dragOver, setDragOver] = useState(false); // feedback visual del drag-and-drop
+  // Solicitudes vigentes del tour que se está editando. Viene en el payload de
+  // GET /api/operators/me/tours, así que no cuesta una llamada extra. En un
+  // tour nuevo no hay reservas: 0, y la opción nunca se bloquea.
+  const pendientes = editingTour?.pendingRequests ?? 0;
   const u = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
 
   const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png"];
@@ -5263,12 +5276,29 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
             {[
               { id: "CUPO_FIJO", label: "Confirmación automática", desc: "Defines cuántos cupos ofreces y las reservas se confirman solas. El tour sale en la fecha reservada." },
               { id: "SOLICITUD", label: "Confirmación manual", desc: "Las reservas te llegan como solicitudes y tú decides si la salida se confirma." },
-            ].map((opt) => (
-              <div key={opt.id} onClick={() => u("salesMode", opt.id)} style={{
+            ].map((opt) => {
+              // Confirmación automática no está disponible mientras haya
+              // solicitudes sin responder: esos asientos dejan de contar para el
+              // cupo y el tour podría vender el lugar de gente que ya está
+              // esperando. El backend lo rechaza con 409 igual (esa es la guarda
+              // real); acá se avisa ANTES, en el paso donde se elige el modo, en
+              // vez de al guardar tres pantallas después.
+              //
+              // Se muestra deshabilitada en vez de dejar tocarla y revertir: el
+              // motivo se lee sin tener que provocar un error. Si el tour YA
+              // está en automática no se bloquea nunca, porque el 409 solo mira
+              // el cambio de modo, no el estado actual.
+              const bloqueada =
+                opt.id === "CUPO_FIJO" &&
+                pendientes > 0 &&
+                editingTour?.salesMode !== "CUPO_FIJO";
+              return (
+              <div key={opt.id} onClick={() => { if (!bloqueada) u("salesMode", opt.id); }} style={{
                 padding: "12px 14px", borderRadius: 12, border: "2px solid",
                 borderColor: form.salesMode === opt.id ? "var(--f)" : "var(--lg)",
                 background: form.salesMode === opt.id ? "rgba(27,58,45,.05)" : "transparent",
-                cursor: "pointer", display: "flex", alignItems: "flex-start", gap: 10
+                cursor: bloqueada ? "not-allowed" : "pointer", opacity: bloqueada ? 0.55 : 1,
+                display: "flex", alignItems: "flex-start", gap: 10
               }}>
                 <div style={{
                   width: 20, height: 20, borderRadius: "50%",
@@ -5281,8 +5311,24 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
                   <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 2 }}>{opt.desc}</div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
+          {/* El texto NO dice "para poder cambiar a confirmación automática":
+              el aviso está pegado a esa opción, en el momento de elegirla. */}
+          {pendientes > 0 && editingTour?.salesMode !== "CUPO_FIJO" && (
+            <div className="notice" style={{ marginTop: 10, marginBottom: 0 }}>
+              <div className="notice-t">
+                {pendientes === 1
+                  ? "Tienes 1 solicitud sin responder"
+                  : `Tienes ${pendientes} solicitudes sin responder`}
+              </div>
+              <div className="notice-d">
+                {pendientes === 1 ? "Resuélvela" : "Resuélvelas"} en Reservas y vuelve.
+                Mientras tanto este tour sigue con confirmación manual.
+              </div>
+            </div>
+          )}
         </div>
         {form.salesMode === "CUPO_FIJO" && (
           <div className="fg">
@@ -5692,6 +5738,10 @@ export default function AppDemo() {
         allotment: t.allotment ?? null,
         minQuorum: t.minQuorum ?? null,
         closeTime: t.closeTime ?? null,
+        // Solicitudes vigentes del tour. Viene en el MISMO payload, sin llamada
+        // extra, y es lo que deja avisar en el paso de disponibilidad en vez de
+        // al guardar. Ver el 409 de PATCH /api/tours/:id, que es la guarda real.
+        pendingRequests: t.pendingRequests ?? 0,
         photo: null,
       })));
     } catch (err) {
@@ -5888,6 +5938,11 @@ export default function AppDemo() {
     }));
     loadDepartures({ silent: true });
     setBkRefresh((n) => n + 1);
+    // Y la lista de tours, porque ahí vive `pendingRequests`: resolver una
+    // solicitud es justo lo que desbloquea la confirmación automática de ese
+    // tour, y sin esto el formulario seguiría mostrando el conteo viejo hasta
+    // recargar la página. Misma lección que el cache de disponibilidad.
+    loadOperatorTours();
     return { ok: true };
   };
 
@@ -6256,6 +6311,9 @@ export default function AppDemo() {
       allotment: apiTour.allotment ?? null,
       minQuorum: apiTour.minQuorum ?? null,
       closeTime: apiTour.closeTime ?? null,
+      // El PATCH no devuelve el conteo (no es config del tour): se conserva el
+      // que ya estaba. Se refresca solo en la próxima carga de la lista.
+      pendingRequests: t.pendingRequests ?? 0,
       photo: updated.photo || null,
       images: Array.isArray(updated.images) ? updated.images : [],
     } : t));

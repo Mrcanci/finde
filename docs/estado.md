@@ -292,79 +292,74 @@ glifo de dato vacío (`user?.email || "—"`), no prosa. Se quedan. Anotado en
 
 ## Bugs abiertos
 
-- **La reserva a veces falla aunque haya cupos suficientes: DIAGNOSTICADO y
-  ARREGLADO**, en `fix/reserva-salida-confirmada`. Pendiente de QA en
-  dev.finde.pe. No tenía nada que ver con el plan tipográfico.
+Ninguno.
 
-  **Causa:** `takeSeats` exigía `Departure.status = 'ABIERTA'`. Cuando la agencia
-  confirma una salida queda en `CONFIRMADA`, y **nada la devuelve a `ABIERTA`**,
-  así que esa fecha dejaba de vender para siempre aunque le sobrara cupo. El
-  calendario, en cambio, solo trata como llena la `CANCELADA`: seguía ofreciendo
-  la fecha. Reproducido de punta a punta en dev.finde.pe el 2026-08-15: pidiendo
-  2 personas para el 16 de agosto, el servidor responde
-  `409 {"error":"Solo quedan 5 cupos para esa fecha","seatsLeft":5}`. El mensaje
-  se contradice a sí mismo. Captura en
-  `~/Documents/finde-capturas/2026-08-15-reserva/`.
+## El motor de inventario, cerrado el 2026-08-15
 
-  **No se revirtió ninguna decisión de diseño: no había ninguna.** Ni
-  `decisiones.md`, ni la doc de la migración, ni los commits que introdujeron la
-  guarda dan una razón. Lo único documentado sobre qué significa confirmar la
-  contradice ("la agencia confirma que el tour sale, y si sale van todos"), y el
-  camino SOLICITUD nunca miró el estado, así que ya aceptaba reservas en salidas
-  confirmadas. Era una inconsistencia entre dos caminos, no una regla.
+Cinco pasos, todos aplicados. Nace del bug que José reportó el 15 de agosto ("a
+veces la reserva falla aunque el calendario muestre cupos") y termina cubriendo
+los tres problemas que la investigación destapó. **No tenía nada que ver con el
+plan tipográfico**: apareció durante el QA de la Fase 5, que no toca una línea de
+lógica.
 
-  Liberó **14 asientos vendibles** en 4 salidas futuras de "prueba".
+| Paso | Qué arregló | Commits |
+|---|---|---|
+| **1** | `takeSeats` exigía `Departure.status = 'ABIERTA'`, y como nada devuelve una salida a `ABIERTA`, confirmar una salida la dejaba **sin vender para siempre** aunque le sobrara cupo. Ahora excluye `CANCELADA`. **Liberó 14 asientos** | `c574888` |
+| **2** | `AVAIL_CACHE` no se invalidaba nunca: el calendario mostraba el cupo previo durante toda la sesión de la página. Ahora se invalida por tour y mes | `3d47306` |
+| **3** | La carrera de cupos caía en el mismo aviso de 11px que "el teléfono es inválido" y no ofrecía salida. Ahora tiene bloque propio y una acción según `seatsLeft` | `359d701` |
+| **4** | **19 solicitudes que no podían vencer nunca** (`expiresAt` NULL, anteriores a la migración del 5 de agosto). Vencidas, **36 asientos liberados**. De paso borró el daño existente del paso 5 | `9b4c4dd` |
+| **extra** | `expireStaleSolicitudes` se pasaba del timeout de la transacción con ~12 filas. **Era un 500 alcanzable en un camino de lectura**, no un riesgo teórico. Ahora va en tandas de 5 | `f4097ef` |
+| **5** | Cambiar de modo de venta con solicitudes pendientes dejaba asientos invisibles para `takeSeats` y habilitaba **sobreventa**. Ahora 409 con instrucciones | `d85ad33`, `44508c9` |
 
-  Fueron tres commits: la guarda (`c574888`), la invalidación del cache de
-  disponibilidad del cliente (`3d47306`) y el manejo del 409 de carrera
-  (`359d701`).
+### Lo que quedó demostrado, y conviene no volver a discutir
 
-- **Quedan dos problemas del mismo motor, sin arrancar** (son los pasos 4 y 5 del
-  plan acordado, y el 4 necesita una decisión de producto antes que código):
+- **El estado de la salida no es el instrumento de corte de ventas.** Los
+  instrumentos son el cupo (integridad) y la anticipación. `CONFIRMADA` significa
+  "el tour sale", no "cerramos la lista".
+- **El bloqueo del paso 5 siempre tiene salida, y es estructural.** Una solicitud
+  vigente está por fuerza en una salida futura (por el tope de la medianoche), y
+  ahí el panel sí ofrece decidir. Y **no pueden volver a existir solicitudes
+  inmortales**: hay un solo camino que crea reservas y siempre puebla `expiresAt`.
+- **El techo de 23 viajes por transacción** es del proyecto entero, no del
+  barrido. Está en `.claude/rules/api-y-schema.md`.
 
-  - **P2, solicitudes inmortales: RESUELTO el 2026-08-15.** Las 19 quedaron
-    vencidas y liberaron **36 asientos** de `seatsRequested` en 11 salidas.
-    Script: `scripts/backfill-expiresat-solicitudes.ts`, backup previo en
-    `backups/booking-antes-backfill-expiresat-20260815.sql`. Estado final: cero
-    solicitudes con `expiresAt` NULL, cero vencidas sin barrer, y los contadores
-    de las 25 salidas cuadran con sus reservas vivas. Queda **una** solicitud
-    viva en toda la base, con su `expiresAt` real en el futuro.
+### Caso conocido que NO se cubre: la salida cancelada
 
-    Lo que era, para que se entienda el arreglo: había **19 reservas en
-    SOLICITUD con `expiresAt = NULL`**, las anteriores a la migración del 5 de
-    agosto. El
-    barrido perezoso filtra por `expiresAt < now`, y NULL nunca matchea: no
-    pueden vencer jamás. **Las 19 están en salidas cuya fecha ya pasó, y el panel
-    no ofrece las acciones de confirmar ni rechazar en salidas pasadas**
-    (`!esPasada` en el render), así que tampoco se pueden resolver a mano. Hoy no
-    bloquean ventas: `seatsRequested` no lo lee ninguna validación, solo el panel
-    para mostrar. Vencerlas **no manda correos** (el vencimiento es silencioso;
-    los correos los manda la decisión de la agencia, no el barrido). Eso baja el
-    paso 4 de decisión delicada a limpieza barata.
+Si la agencia **cancela** una salida que tiene solicitudes vigentes, esas
+solicitudes **no se pueden resolver a mano**: el endpoint de decisión rechaza con
+409 cualquier acción sobre una salida `CANCELADA`. Solo salen por vencimiento.
 
-    **Cómo se ejecuta el paso 4, y la trampa que hay que esquivar.** El backfill
-    **NO debe poner `statusNew = VENCIDA` directo**: ese atajo saltea
-    `releaseRequestedSeats` y deja `seatsRequested` inflado, que es justamente el
-    síntoma que el paso existe para eliminar. Lo correcto es **rellenar
-    `expiresAt` con una fecha pasada y dejar que el barrido existente
-    (`expireStaleSolicitudes`) las tome en la próxima lectura**: ese camino ya
-    hace la transición condicional por fila y libera el contador en la misma
-    transacción, y está probado en producción. O sea que el paso 4 escribe una
-    sola columna y no toca la máquina de estados.
-  - **P3, sobreventa al cambiar de modo de venta.** Los asientos que quedaron en
-    `seatsRequested` de una etapa SOLICITUD son invisibles para `takeSeats`.
-    **El daño existente ya no está: lo borró P2 el 2026-08-15.** Los 4 asientos
-    huérfanos eran justamente las dos solicitudes inmortales de la salida
-    2026-08-09 de "prueba" (`FND-33FE6A` y `FND-412719`). Al vencerlas, el
-    contador de esa salida pasó de 4 a 0 y **los tours en estado mixto pasaron de
-    1 a 0**. Medido: esa salida podía vender 7 asientos y llevar 11 personas;
-    ahora vende 7 y lleva 7.
+**El comportamiento es correcto** (vencen solas, con la medianoche del día de
+salida como tope duro), pero durante ese lapso la agencia queda bloqueada para
+cambiar el modo de venta de ese tour **sin nada que pueda hacer al respecto**. Es
+el único caso donde el bloqueo del paso 5 no se resuelve con una acción del
+panel. Registrado, sin arreglar: la ventana es corta por construcción y la
+combinación (cancelar una salida con solicitudes vivas y además querer cambiar el
+modo de venta en ese mismo lapso) es rara.
 
-    **Por eso el paso 5 cambia de alcance: pasa de corrección a PREVENCIÓN.** No
-    hay nada que limpiar, solo que impedir que vuelva a pasar bloqueando el
-    cambio de `salesMode` con reservas vivas. Y **ya no depende de P2**, que está
-    resuelto: el bloqueo ahora siempre tiene salida, porque no quedan solicitudes
-    que no se puedan resolver.
+### Lo que queda pendiente de este dominio
+
+Ninguno es un bug: son huecos de producto, y están detallados más abajo en
+"Trabajo pendiente de producto".
+
+1. **El cierre operativo en CUPO_FIJO.** `closeTime` y `closeDaysBefore` no se
+   evalúan en ese modo, así que vende hasta la víspera y la agencia no tiene cómo
+   cortar antes. **Subordinado a la decisión del 2026-08-15**: no se toca hasta
+   que una agencia real lo pida.
+2. **El aviso al viajero cuando su solicitud vence.** El vencimiento es
+   silencioso: nadie le escribe. Hoy no duele porque son datos de prueba.
+3. **El panel sin acciones en salidas pasadas.** Una salida que pasa con
+   solicitudes sin decidir deja al viajero colgado y no hay forma de cerrarla.
+
+### Lo que NO queda pendiente
+
+- **La cancelación de reservas.** `cancelBookingInternal` existe sin ruta
+  expuesta, y es a propósito: es decisión de producto que va con Culqi.
+- **`seatsRequested` bloqueando ventas.** No lo hace y no tiene que hacerlo: es
+  progreso de quórum, no inventario comprometido.
+- **El `pg_cron` para barrer.** El barrido perezoso alcanza al volumen actual.
+
+### Datos y consecuencias que quedaron registrados
 
 - **Dos reservas de prueba intencionales, que NO se borran.** `FND-07DD62`
   (salida del 16 de agosto) y `FND-ED3818` (30 de agosto), las dos de
@@ -376,8 +371,6 @@ glifo de dato vacío (`user?.email || "—"`), no prosa. Se quedan. Anotado en
   `cancelBookingInternal` no tiene ruta expuesta, así que borrarlas sería un
   DELETE a mano que además habría que compensar en `seatsTaken`. Van en la
   checklist de limpieza previa al lanzamiento, no antes.
-
-Consecuencias registradas del backfill del 2026-08-15:
 
 - **Las 4 solicitudes de MEGATOURS desaparecen del panel de esa agencia como
   pendientes** (`FND-32AA9C`, `FND-F2B258`, `FND-DA6A0B`, `FND-1E4FB2`). Pasaron
@@ -460,6 +453,47 @@ Riesgos de producto (no son bugs, no hay nada roto):
   La canilla se cierra aparte, en `fix/prompts-sin-raya`. Eso arregla las rayas futuras, no la validación de fondo ni las 88 que ya están en la base.
 
 Trabajo pendiente de producto:
+
+- **El formulario de tour se pierde entero, sin aviso, al navegar afuera.** El
+  estado vive en un `useState` de `NewTourView`: no hay `localStorage`, no hay
+  `sessionStorage`, no hay `beforeunload` y no hay diálogo de confirmación. Salir
+  de la vista desmonta el componente y se va todo lo editado.
+
+  **No lo trajo ninguna tanda reciente: pasa hoy con el botón de atrás, con la
+  barra inferior y con cualquier navegación.** Se documenta ahora porque el aviso
+  de solicitudes pendientes del paso de disponibilidad invita a ir a Reservas, y
+  ahí se vuelve visible.
+
+  **La salida es un diálogo de confirmación al abandonar con ediciones sin
+  guardar**, y se elige justamente porque **protege todos los caminos de salida y
+  no solo ese**. Descartadas por ahora, con su motivo:
+
+  - **Borrador en `localStorage`:** más superficie de la que parece. Hay que
+    decidir cuándo se descarta, qué pasa con las fotos ya subidas y qué gana si
+    el tour se editó desde otro lado en el medio.
+  - **Resolver las solicitudes desde el propio formulario:** mete decisiones que
+    **mandan correos irreversibles** dentro de una pantalla de edición, donde no
+    existe el patrón de dos pasos de confirmación que el panel sí tiene.
+
+- **Fotos huérfanas en Supabase Storage: es deuda CON COSTO, no cosmética.**
+  `uploadOnePhoto` sube el archivo al bucket **cuando la agencia lo elige**, no
+  cuando guarda el tour (es el flujo de signed URL, que evita el límite de tamaño
+  de request de Vercel y por eso no se va a cambiar a la ligera).
+
+  Consecuencia: **cada formulario abandonado a mitad deja archivos en el bucket
+  que ningún tour referencia y que nadie borra nunca.** El borrado de fotos solo
+  ocurre al borrar un tour (`DELETE /api/tours/:id` limpia `imageUrl` e
+  `images[]`), así que una foto que nunca llegó a asociarse a un tour no entra
+  por ningún camino de limpieza.
+
+  Hoy son pocas. **Con agencias reales subiendo fotos y abandonando a mitad crece
+  sin techo**, y el almacenamiento se paga.
+
+  **Pregunta abierta, sin decidir:** ¿se limpia con un barrido periódico que
+  compare el bucket contra las URLs referenciadas, o se cambia el flujo para
+  subir recién al guardar? Lo primero no toca el flujo probado pero necesita un
+  job que hoy no existe; lo segundo elimina el problema de raíz pero cambia la
+  experiencia de carga y hay que revisar que siga esquivando el límite de Vercel.
 
 - **Una salida que pasa con solicitudes sin decidir deja al viajero colgado, y
   hoy no hay forma de cerrarla.** El panel no ofrece confirmar ni rechazar en

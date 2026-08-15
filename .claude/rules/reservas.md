@@ -58,6 +58,14 @@ una inconsistencia entre los dos caminos de venta. **No vuelvas a poner
 - **`CUPO_FIJO`**: confirmación instantánea. La reserva nace `CONFIRMADA`. No hay nada que confirmar, así que queda exento de la lógica de cierre y de vencimiento.
 - **`SOLICITUD`** (default): la reserva nace `SOLICITUD` y la agencia confirma o rechaza. Es el modo que tiene cierre, vencimiento y correos.
 
+### Cambiar de modo con solicitudes pendientes: 409
+
+`PATCH /api/tours/:id` rechaza el paso a **CUPO_FIJO** si el tour tiene solicitudes **vigentes** (`expiresAt` null o futuro, misma definición que el panel). Motivo concreto y no simetría: una solicitud pendiente retiene `seatsRequested`, y **`takeSeats` no mira ese contador**, solo `seatsTaken`. Esos asientos quedarían invisibles y el tour podría vender su cupo entero encima de gente que ya está esperando respuesta.
+
+**No se bloquea** el paso a SOLICITUD (ese modo no tiene tope por diseño, y los confirmados siguen en `seatsTaken`), ni se bloquea por reservas **CONFIRMADAS** (el cupo ya las descuenta).
+
+El 409 dice qué hacer para desbloquearse, no solo que no se puede, y siempre hay salida: como `expiresAt` topea contra la medianoche del día de salida, una solicitud vigente está por fuerza en una salida **futura**, y ahí el panel sí ofrece confirmar y rechazar.
+
 ## Vencimiento
 
 ```

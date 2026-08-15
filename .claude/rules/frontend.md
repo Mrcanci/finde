@@ -109,6 +109,54 @@ Dos cosas que siguen incompletas y hay que tratar con cuidado:
 - **Reseñas**: no hay modelo `Review` en la DB. Las que deja el viajero viven solo en el estado de sesión y se pierden al recargar. Un tour sin reseñas muestra "Nuevo", nunca un rating inventado.
 - **`USER` (`AppDemo.jsx:921`)**: mock residual ("Alejandra Quispe"). Ya no se usa para el saludo, pero sigue siendo el fallback del nombre del cliente (`:2908`, `:6194`) y el autor de las reseñas de sesión (`:5812`). Si cae en ese fallback, el usuario ve un nombre inventado, y eso rompe la regla de "nada falso visible al usuario real". Está en la checklist pre-lanzamiento.
 
+## `mapTourFromApi` es una LISTA BLANCA, y descarta en silencio
+
+Todo tour que llega del API pasa por `mapTourFromApi` (`src/AppDemo.jsx:484`),
+tanto el catálogo público como el listado del operador. **No hace spread del
+objeto de origen**: construye uno nuevo enumerando campos a mano.
+
+Consecuencia: **cualquier campo del API que no esté en esa lista se descarta sin
+error, sin warning y sin dejar rastro.** El objeto llega al componente con el
+campo en `undefined`, y si el consumidor tiene un `?? 0` o un `?? null` (que es
+lo habitual), el valor por default se ve exactamente igual que un dato real.
+
+### Agregar un campo al payload de un tour son TRES lugares, no dos
+
+1. El `select` del backend (`lib/tour-select.ts`), o el handler si el campo se
+   calcula aparte.
+2. **La lista blanca de `mapTourFromApi`.** Este es el que se olvida.
+3. El consumidor (el componente que lo lee).
+
+### El caso que costó una tanda: `pendingRequests`
+
+`GET /api/operators/me/tours` empezó a devolver `pendingRequests` (solicitudes
+vigentes por tour) para avisar en el formulario de edición que ese tour no puede
+pasar a confirmación automática. El campo se agregó **en el endpoint** y **en el
+consumidor**, y funcionaba en los dos extremos:
+
+- el API devolvía `pendingRequests: 2`, comprobado con la sesión real
+- el mapeo del dashboard decía `pendingRequests: t.pendingRequests ?? 0`
+
+Pero en el medio estaba `mapTourFromApi`, que no lo enumeraba. El `?? 0` del
+consumidor convertía el `undefined` en un 0 perfectamente creíble, la opción
+nunca se deshabilitaba, y el error volvía a aparecer al guardar, que era
+justamente lo que el cambio venía a evitar.
+
+### Cómo se verifica, y por qué mirar las puntas no alcanza
+
+**Leé el valor computado en el punto EXACTO donde se usa, no en los extremos de
+la cadena.** Comprobar que el API lo devuelve y que el componente lo lee deja sin
+examinar todos los eslabones del medio, y es ahí donde se pierde.
+
+En la práctica: abrí la vista real con la sesión real y medí el efecto
+observable, no el dato de origen. Para `pendingRequests` la prueba que cerró el
+caso fue leer la opción renderizada en el paso 3 (`cursor: pointer`, `opacity: 1`,
+sin bloque de aviso), que dice que el valor llegó en 0 aunque el API mandara 2.
+
+Es el mismo criterio que la sección de reemplazos por script de más abajo, y el
+mismo que `.claude/rules/api-y-schema.md` aplica a las transacciones: **medir el
+punto, no deducirlo de los bordes.**
+
 ## Elementos ocultos en la etapa piloto
 
 No son bugs. No los "arregles" mostrándolos:
