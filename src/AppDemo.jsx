@@ -1054,14 +1054,14 @@ html{scrollbar-gutter:stable}
 .login-hero-tex{position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent,transparent 8px,rgba(255,255,255,.02) 8px,rgba(255,255,255,.02) 16px)}
 .login-hero-logo{font-family:'DM Serif Display',Georgia,serif;font-size:42px;color:white;position:relative;z-index:2}
 .login-hero-logo span{color:var(--tr)}
-.login-hero-tagline{font-size:15px;color:rgba(255,255,255,.7);margin-top:6px;position:relative;z-index:2;line-height:1.5}
+.login-hero-tagline{font-size:15px;color:rgba(255,255,255,.7);margin-top:6px;position:relative;z-index:2}
 .login-hero-stat{display:flex;gap:20px;margin-top:20px;position:relative;z-index:2}
 .login-hero-stat-i{text-align:center}
 .login-hero-stat-v{font-size:18px;font-weight:800;color:white}
 .login-hero-stat-l{font-size:10px;color:rgba(255,255,255,.75);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
 .login-body{flex:1;padding:28px 24px;display:flex;flex-direction:column}
 .login-title{font-family:'DM Serif Display',Georgia,serif;font-size:24px;margin-bottom:4px}
-.login-sub{font-size:13px;color:var(--gy);margin-bottom:24px;line-height:1.5}
+.login-sub{font-size:13px;color:var(--gy);margin-bottom:24px}
 .login-btn{width:100%;padding:16px;border-radius:14px;background:var(--f);color:white;font-weight:700;font-size:15px;border:none;cursor:pointer;font-family:inherit;transition:.2s;margin-bottom:12px}
 .login-btn:hover{background:var(--m)}
 .login-btn:disabled{opacity:.4;cursor:not-allowed}
@@ -1072,7 +1072,7 @@ html{scrollbar-gutter:stable}
 .login-divider::before,.login-divider::after{content:'';flex:1;height:1px;background:var(--sd)}
 .login-skip{width:100%;padding:14px;border-radius:14px;background:none;border:1.5px solid var(--sd);color:var(--gy);font-weight:600;font-size:13px;cursor:pointer;font-family:inherit;transition:.2s}
 .login-skip:hover{border-color:var(--m);color:var(--ch)}
-.login-terms{font-size:11px;color:var(--gy-strong);text-align:center;margin-top:auto;padding-top:16px;line-height:1.5}
+.login-terms{font-size:11px;color:var(--gy-strong);text-align:center;margin-top:auto;padding-top:16px}
 .login-terms a{color:var(--tr-text);text-decoration:none;font-weight:600}
 /* Login input (M1: email/password). No flex:1 ni letter-spacing del campo de teléfono. */
 .login-input{width:100%;padding:13px 16px;border:2px solid var(--sd);border-radius:14px;font-size:16px;font-family:inherit;background:white;color:var(--ch);outline:none;transition:.2s;box-sizing:border-box}
@@ -1154,7 +1154,7 @@ html{scrollbar-gutter:stable}
 .sr-rating{font-size:10px;color:var(--gd)}
 .sr-viewall{padding:10px 12px;text-align:center;font-size:13px;font-weight:700;color:var(--tr-text);cursor:pointer;border-top:1px solid rgba(0,0,0,.06)}
 .sr-viewall:hover{background:var(--cr)}
-.sr-noresults{padding:16px 12px;font-size:13px;color:var(--gy);text-align:center;line-height:1.5}
+.sr-noresults{padding:16px 12px;font-size:13px;color:var(--gy);text-align:center}
 .sr-pills{display:flex;flex-wrap:wrap;gap:6px;padding:8px 12px;justify-content:center}
 .sr-ai-hint{padding:6px 12px;font-size:11px;color:var(--m);font-weight:600;display:flex;align-items:center;gap:4px}
 .sr-clear{background:none;border:none;font-size:16px;color:var(--gy);cursor:pointer;padding:4px 8px;margin-left:auto;flex-shrink:0;min-height:44px}
@@ -1165,7 +1165,7 @@ html{scrollbar-gutter:stable}
 .ai-result-ic{width:28px;height:28px;border-radius:8px;background:rgba(45,90,61,.1);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;color:var(--f)}
 .ai-result-t{font-size:12px;font-weight:600;color:var(--f)}
 .ai-result-b{font-size:11px;color:var(--gy-strong);margin-top:2px;line-height:1.4}
-.ai-result-x{font-size:13px;color:var(--ch);margin-top:8px;padding-top:8px;line-height:1.55;border-top:1px solid rgba(0,0,0,.08)}
+.ai-result-x{font-size:13px;color:var(--ch);margin-top:8px;padding-top:8px;border-top:1px solid rgba(0,0,0,.08)}
 /* Loading reusa exactamente el mismo banner que el resultado IA: solo el
    ícono pulsa para indicar actividad, sin cambios de color. */
 .ai-result.loading .ai-result-ic{animation:pulse 1.4s ease-in-out infinite}
@@ -1224,7 +1224,7 @@ html{scrollbar-gutter:stable}
 .city-empty{margin:0 16px 24px;padding:32px 20px;background:var(--cr);border-radius:20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}
 .city-empty-ic{width:48px;height:48px;border-radius:50%;background:rgba(199,97,58,.12);color:var(--tr);display:flex;align-items:center;justify-content:center;margin-bottom:4px}
 .city-empty-tl{font-family:'DM Serif Display',Georgia,serif;font-size:18px;color:var(--ch);max-width:260px}
-.city-empty-sub{font-size:13px;color:var(--gy-strong);max-width:300px;line-height:1.45}
+.city-empty-sub{font-size:13px;color:var(--gy-strong);max-width:300px}
 .city-empty-btn{margin-top:8px;padding:10px 18px;border-radius:999px;border:none;background:var(--f);color:white;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;transition:.2s}
 .city-empty-btn:hover{background:var(--m);box-shadow:0 4px 12px rgba(27,58,45,.18)}
 
@@ -1388,7 +1388,7 @@ html{scrollbar-gutter:stable}
 .voucher-more{font-size:11px;color:var(--gy-strong);margin-top:8px}
 .voucher-cancel{padding:12px 14px;background:var(--cr);border-radius:10px;border-left:3px solid var(--f)}
 .voucher-cancel-t{font-size:12px;font-weight:700;color:var(--f);margin-bottom:4px;display:flex;align-items:center;gap:6px}
-.voucher-cancel-d{font-size:12px;color:var(--gy-strong);line-height:1.5}
+.voucher-cancel-d{font-size:12px;color:var(--gy-strong)}
 .voucher-pay-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px;color:var(--ch)}
 .voucher-pay-row .l{color:var(--gy)}
 .voucher-pay-row.total{padding-top:10px;margin-top:6px;border-top:1px solid rgba(0,0,0,.08);font-size:15px;font-weight:800;color:var(--f)}
@@ -1586,7 +1586,7 @@ html{scrollbar-gutter:stable}
 /* La pregunta se lee como parte de SU fila, no como un bloque suelto al final
    de la card: borde izquierdo + fondo suave la atan a la reserva de arriba. */
 .sal-bk-q-box{margin:0 0 12px;padding:10px 12px;border-left:3px solid var(--tr);background:var(--cr);border-radius:0 10px 10px 0}
-.sal-bk-q{font-size:12.5px;font-weight:700;color:var(--ch);margin-bottom:9px;line-height:1.45}
+.sal-bk-q{font-size:12.5px;font-weight:700;color:var(--ch);margin-bottom:9px}
 /* Botones deliberadamente más chicos que los de la salida (que son flex:1,
    13px, padding 11px): el alcance de la acción es menor y se tiene que ver. */
 .sal-bk-actions{display:flex;gap:8px}
@@ -1596,14 +1596,14 @@ html{scrollbar-gutter:stable}
 .sal-plazo.soft{color:#8A6A12;font-weight:700}
 .sal-plazo.hard{color:var(--tr-text);font-weight:800}
 /* Aviso informativo de reglas dentro del bloque de confirmación manual. */
-.sale-note{margin-top:-4px;margin-bottom:16px;padding:11px 13px;border-radius:10px;background:var(--cr);color:var(--ch);font-size:11.5px;line-height:1.55}
+.sale-note{margin-top:-4px;margin-bottom:16px;padding:11px 13px;border-radius:10px;background:var(--cr);color:var(--ch);font-size:11.5px}
 
 /* AI Content Creator */
 .ai-cc{margin:0 0 16px 0;padding:20px;background:linear-gradient(135deg,rgba(45,90,61,.06),rgba(45,90,61,.02));border:1.5px solid rgba(45,90,61,.15);border-radius:16px}
 .ai-cc-h{display:flex;align-items:center;gap:8px;margin-bottom:12px}
 .ai-cc-h span{font-size:18px}
 .ai-cc-h h3{font-size:15px;font-weight:700;color:var(--f)}
-.ai-cc-desc{font-size:12px;color:var(--gy);margin-bottom:14px;line-height:1.5}
+.ai-cc-desc{font-size:12px;color:var(--gy);margin-bottom:14px}
 .ai-cc-input{width:100%;padding:11px;border:1.5px solid var(--sd);border-radius:10px;font-size:16px;font-family:inherit;background:white;color:var(--ch);outline:none;resize:vertical;min-height:70px;transition:.2s}
 .ai-cc-input:focus{border-color:var(--m)}
 .ai-cc-btn{margin-top:10px;padding:10px 20px;border-radius:100px;background:var(--gd);color:white;font-weight:700;font-size:12px;border:none;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px}
@@ -1625,7 +1625,7 @@ html{scrollbar-gutter:stable}
 .biz-badge.ok{background:rgba(45,90,61,.1);color:var(--m)}
 .biz-badge.pending{background:rgba(212,168,67,.15);color:var(--gd-text)}
 .biz-badge.no{background:rgba(199,97,58,.1);color:var(--tr-text)}
-.biz-note{font-size:12px;color:var(--gy-strong);line-height:1.5;padding:12px;background:var(--cr);border-radius:10px;margin-top:12px}
+.biz-note{font-size:12px;color:var(--gy-strong);padding:12px;background:var(--cr);border-radius:10px;margin-top:12px}
 .biz-radio{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
 .biz-radio label{display:flex;align-items:center;gap:6px;padding:10px 16px;border-radius:10px;border:2px solid var(--sd);cursor:pointer;font-size:13px;font-weight:600;transition:.2s}
 .biz-radio label.on{border-color:var(--f);background:rgba(45,90,61,.04)}
@@ -2673,7 +2673,7 @@ function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
         ) : !geminiLoading && !(hasSearched && filt.length === 0 && apiReasoning) && (hasSearched && filt.length === 0 ? (
           <div style={{ padding: "32px 16px 24px", textAlign: "center", color: "var(--gy)", minHeight: 180 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ch)", marginBottom: 6 }}>Todavía no tenemos tours para esa búsqueda</div>
-            <div style={{ fontSize: 12, lineHeight: 1.5 }}>Prueba con otras palabras o mira las categorías.</div>
+            <div style={{ fontSize: 12 }}>Prueba con otras palabras o mira las categorías.</div>
           </div>
         ) : (
           <>
@@ -2881,7 +2881,7 @@ function DetailView({ tour, go, pick, onBook, reviews }) {
               <div style={{ fontSize: 12, fontWeight: 700, color: "var(--f)", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
                 <ShieldCheck size={14} strokeWidth={1.5} /> Política de cancelación: {pol.label}
               </div>
-              <div style={{ fontSize: 12, color: "var(--gy)", lineHeight: 1.5 }}>{pol.short}</div>
+              <div style={{ fontSize: 12, color: "var(--gy)" }}>{pol.short}</div>
             </div>
           );
         })()}
@@ -3476,7 +3476,7 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
               Fecha seleccionada: <strong style={{ color: "var(--f)" }}>{formatLongDate(date)}</strong>
             </div>
           ) : !hasAvailableDates ? (
-            <div style={{ marginTop: 10, padding: 10, background: "rgba(199,97,58,.08)", borderRadius: 10, fontSize: 12, color: "var(--tr)", lineHeight: 1.5 }}>
+            <div style={{ marginTop: 10, padding: 10, background: "rgba(199,97,58,.08)", borderRadius: 10, fontSize: 12, color: "var(--tr)" }}>
               Sin fechas disponibles próximamente. Escríbele a la agencia por WhatsApp.
             </div>
           ) : null}
@@ -3492,7 +3492,7 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
               <div style={{ fontSize: 12, fontWeight: 700, color: "var(--f)", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
                 <ShieldCheck size={14} strokeWidth={1.5} /> Política de cancelación: {pol.label}
               </div>
-              <div style={{ fontSize: 12, color: "var(--gy)", lineHeight: 1.5 }}>{pol.short}</div>
+              <div style={{ fontSize: 12, color: "var(--gy)" }}>{pol.short}</div>
             </div>
           );
         })()}
@@ -3522,7 +3522,7 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
               llevan letras, y un teclado numérico las escondía. */}
           <input id="bkf-doc" className={`inp${touched.doc && !docIdValid ? " inp-err" : ""}`} placeholder="DNI, pasaporte o carnet de extranjería" value={docId} onChange={(e) => setDocId(e.target.value)} onBlur={() => setTouched(t => ({ ...t, doc: true }))} maxLength={20} inputMode="text" />
           {/* Finalidad declarada del dato (Ley 29733): se pide porque se usa. */}
-          <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 6, lineHeight: 1.5 }}>La agencia lo necesita para registrarte como pasajero del tour.</div>
+          <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 6 }}>La agencia lo necesita para registrarte como pasajero del tour.</div>
           {touched.doc && !docIdValid && <div className="field-err">Revisa tu número de documento</div>}
         </div>
         {/* Resumen + política movidos aquí desde el ex-step de pago: el viajero
@@ -3543,12 +3543,12 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
               <div style={{ fontSize: 12, fontWeight: 700, color: "var(--f)", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
                 <ShieldCheck size={14} strokeWidth={1.5} /> Política de cancelación: {pol.label}
               </div>
-              <div style={{ fontSize: 12, color: "var(--gy)", lineHeight: 1.5 }}>{pol.short}</div>
+              <div style={{ fontSize: 12, color: "var(--gy)" }}>{pol.short}</div>
             </div>
           );
         })()}
         {!DEMO_PAYMENT_FLOW && (
-        <div style={{ fontSize: 12, color: "var(--gy)", lineHeight: 1.5, marginBottom: 14, textAlign: "center" }}>
+        <div style={{ fontSize: 12, color: "var(--gy)", marginBottom: 14, textAlign: "center" }}>
           Al confirmar, coordinarás el pago y los detalles directamente con la agencia por WhatsApp.
         </div>
         )}
@@ -3583,7 +3583,7 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
               <div style={{ fontSize: 12, fontWeight: 700, color: "var(--f)", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
                 <ShieldCheck size={14} strokeWidth={1.5} /> Política de cancelación: {pol.label}
               </div>
-              <div style={{ fontSize: 12, color: "var(--gy)", lineHeight: 1.5 }}>{pol.short}</div>
+              <div style={{ fontSize: 12, color: "var(--gy)" }}>{pol.short}</div>
             </div>
           );
         })()}
@@ -3872,7 +3872,7 @@ function ProfileView({ go, onLogout }) {
             <label className="lbl">RUC <span style={{ color: "var(--tr)" }}>*</span> <span style={{ color: "var(--gy)", fontWeight: 400 }}>(11 dígitos)</span></label>
             <input className={`inp${opForm.ruc && !opRucValid ? " inp-err" : ""}`} value={opForm.ruc} onChange={(e) => updOp("ruc", e.target.value.replace(/\D/g, ""))} maxLength={11} placeholder="11 dígitos" inputMode="numeric" />
             {opForm.ruc && !opRucValid && <div className="field-err">El RUC tiene 11 dígitos</div>}
-            <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 6, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 6 }}>
               Solo agencias con RUC activo pueden vender en Finde. Validaremos contra SUNAT.
             </div>
           </div>
@@ -3883,7 +3883,7 @@ function ProfileView({ go, onLogout }) {
               onChange={(e) => setOpAcceptTerms(e.target.checked)}
               style={{ marginTop: 3, width: 18, height: 18, accentColor: "var(--f)", flexShrink: 0, cursor: "pointer" }}
             />
-            <span style={{ fontSize: 12, color: "var(--ch)", lineHeight: 1.5 }}>
+            <span style={{ fontSize: 12, color: "var(--ch)" }}>
               Acepto los <span style={{ color: "var(--f)", fontWeight: 700, textDecoration: "underline" }}>Términos y Condiciones</span> de Finde y confirmo que la información proporcionada es verídica.
             </span>
           </label>
@@ -4311,7 +4311,7 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
           <div style={{ textAlign: "center", padding: "48px 24px", color: "var(--gy)" }}>
             <Smartphone size={28} strokeWidth={1.5} style={{ color: "var(--lg)", marginBottom: 12 }} />
             <div style={{ fontWeight: 700, fontSize: 15, color: "var(--ch)", marginBottom: 6 }}>Aún no tienes reservas</div>
-            <div style={{ fontSize: 13, lineHeight: 1.5 }}>Cuando un viajero reserve uno de tus tours, aparecerá aquí y podrás coordinar con él por WhatsApp.</div>
+            <div style={{ fontSize: 13 }}>Cuando un viajero reserve uno de tus tours, aparecerá aquí y podrás coordinar con él por WhatsApp.</div>
           </div>
         ) : (
           <>
@@ -4399,7 +4399,7 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
                 <Smartphone size={16} strokeWidth={1.5} /> Contactar por WhatsApp
               </a>
             ) : (
-              <div style={{ textAlign: "center", padding: "12px 0", color: "var(--gy)", fontSize: 13, lineHeight: 1.5 }}>
+              <div style={{ textAlign: "center", padding: "12px 0", color: "var(--gy)", fontSize: 13 }}>
                 {/* Describe lo que pasó sin culpar al dato del viajero, y
                     deriva al canal que sí existe (el email está arriba). */}
                 {b.phone
@@ -4495,7 +4495,7 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
                   <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user?.email || operator?.email || "—"}</span>
                   <span style={{ fontSize: 11, fontWeight: 600, flexShrink: 0 }}>No editable</span>
                 </div>
-                <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 4, lineHeight: 1.5 }}>Email de tu cuenta · no editable.</div>
+                <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 4 }}>Email de tu cuenta · no editable.</div>
               </div>
               {bizError && <div className="field-err" style={{ marginBottom: 10 }}>{bizError}</div>}
               <div style={{ display: "flex", gap: 8 }}>
@@ -4519,7 +4519,7 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
                 <ShieldCheck size={18} strokeWidth={1.5} style={{ color: "var(--m)", flexShrink: 0 }} />
                 <span className="biz-badge ok"><Check size={12} strokeWidth={2} /> Finde Verificado</span>
               </div>
-              <div style={{ fontSize: 13, color: "var(--ch)", lineHeight: 1.5 }}>Tu negocio está verificado. Tus tours muestran el sello “Finde Verificado”.</div>
+              <div style={{ fontSize: 13, color: "var(--ch)" }}>Tu negocio está verificado. Tus tours muestran el sello “Finde Verificado”.</div>
               {operator?.mincetur && (
                 <div style={{ fontSize: 12, color: "var(--gy)", marginTop: 8 }}>N° MINCETUR: <strong style={{ color: "var(--ch)" }}>{operator.mincetur}</strong></div>
               )}
@@ -4531,7 +4531,7 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
                 <Clock size={18} strokeWidth={1.5} style={{ color: "var(--gd)", flexShrink: 0 }} />
                 <span className="biz-badge pending"><Clock size={12} strokeWidth={1.5} /> En revisión</span>
               </div>
-              <div style={{ fontSize: 13, color: "var(--ch)", lineHeight: 1.5 }}>Recibimos tu N° MINCETUR y lo estamos validando. Te avisaremos cuando la verificación esté lista; mientras tanto tus tours ya pueden publicarse.</div>
+              <div style={{ fontSize: 13, color: "var(--ch)" }}>Recibimos tu N° MINCETUR y lo estamos validando. Te avisaremos cuando la verificación esté lista; mientras tanto tus tours ya pueden publicarse.</div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--sd)" }}>
                 <div style={{ fontSize: 12, color: "var(--gy)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>N° MINCETUR: <strong style={{ color: "var(--ch)" }}>{operator.mincetur}</strong></div>
                 <button onClick={startMincInput} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", color: "var(--f)", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}><Pencil size={13} strokeWidth={1.5} /> Editar</button>
@@ -4541,7 +4541,7 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
             // ── Sin enviar (o editando): CTA + input ──
             <div style={{ padding: 14, borderRadius: 12, background: "rgba(212,168,67,.08)", borderLeft: "3px solid var(--gd)" }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ch)", marginBottom: 6 }}>Verifica tu agencia</div>
-              <div style={{ fontSize: 13, color: "var(--ch)", lineHeight: 1.5, marginBottom: 12 }}>Envía tu N° de registro MINCETUR para que Finde verifique tu agencia. Al verificarte, tus tours muestran el sello “Finde Verificado”.</div>
+              <div style={{ fontSize: 13, color: "var(--ch)", marginBottom: 12 }}>Envía tu N° de registro MINCETUR para que Finde verifique tu agencia. Al verificarte, tus tours muestran el sello “Finde Verificado”.</div>
               <div className="fg" style={{ marginBottom: 10 }}>
                 <label className="lbl">N° de registro MINCETUR</label>
                 <input className={`inp${mincForm && !minceturValid ? " inp-err" : ""}`} value={mincForm} onChange={(e) => setMincForm(e.target.value)} maxLength={30} placeholder="Ej. CAL-12345" />
@@ -4638,7 +4638,7 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
             <div style={{ fontSize: 16, fontWeight: 800, color: "var(--ch)", marginBottom: 6 }}>
               ¿Borrar este tour?
             </div>
-            <div style={{ fontSize: 13, color: "var(--gy)", lineHeight: 1.5, marginBottom: 16 }}>
+            <div style={{ fontSize: 13, color: "var(--gy)", marginBottom: 16 }}>
               "{confirmDel.title}" se eliminará de forma permanente. Esta acción no se puede deshacer.
               {" "}Si el tour tiene reservas no se podrá borrar: en ese caso, pausalo para ocultarlo del catálogo sin perder las reservas.
             </div>
@@ -4951,7 +4951,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         </div>
         <div className="fg">
           <label className="lbl" htmlFor="nt-meeting">Punto de encuentro <span style={{ color: "var(--tr)" }}>*</span></label>
-          <div style={{ fontSize: 11, color: "var(--gy)", marginBottom: 8, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 11, color: "var(--gy)", marginBottom: 8 }}>
             Lugar exacto donde tus viajeros te encontrarán (ej. "Frente a Larcomar, tienda Inkawasi, segundo piso")
           </div>
           <input
@@ -4988,7 +4988,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         </div>
         <div className="fg">
           <label className="lbl" htmlFor="nt-photos">Fotos del tour <span style={{ color: "var(--gy)", fontWeight: 500 }}>(opcional)</span></label>
-          <div style={{ fontSize: 11, color: "var(--gy)", marginBottom: 10, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 11, color: "var(--gy)", marginBottom: 10 }}>
             La portada (marcada con <Star size={10} strokeWidth={2} fill="currentColor" style={{ display: "inline", verticalAlign: "middle", color: "var(--gd)" }} />) se muestra en el listado. Puedes subir hasta {MAX_GALLERY}; el orden de la galería es el de subida.
           </div>
           {/* Grilla de miniaturas: portada marcada, X para quitar, "Hacer portada". */}
@@ -5163,7 +5163,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
                 }}>{form.salesMode === opt.id ? "●" : ""}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ch)" }}>{opt.label}</div>
-                  <div style={{ fontSize: 11, color: "var(--gy)", lineHeight: 1.5, marginTop: 2 }}>{opt.desc}</div>
+                  <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 2 }}>{opt.desc}</div>
                 </div>
               </div>
             ))}
@@ -5179,7 +5179,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           <div className="fg">
             <label className="lbl" htmlFor="nt-close-time">Hora límite para confirmar</label>
             <input id="nt-close-time" className="inp" type="time" value={form.closeTime} onChange={(e) => u("closeTime", e.target.value)} />
-            <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 6, lineHeight: 1.5 }}>El día anterior a la salida, a esta hora, vence tu plazo para confirmar. Las solicitudes también vencen a los 3 días de recibidas, y siempre antes de la medianoche previa a la salida.</div>
+            <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 6 }}>El día anterior a la salida, a esta hora, vence tu plazo para confirmar. Las solicitudes también vencen a los 3 días de recibidas, y siempre antes de la medianoche previa a la salida.</div>
           </div>
           <div className="fg">
             <label className="lbl" htmlFor="nt-min-quorum">Mínimo de personas (opcional)</label>
@@ -5220,7 +5220,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         {/* Calendario de excepciones — Reglas v1.2 §3.2 */}
         <div className="fg" style={{ marginTop: 4 }}>
           <label className="lbl">Calendario de excepciones</label>
-          <div style={{ fontSize: 11, color: "var(--gy)", lineHeight: 1.5, marginBottom: 12 }}>
+          <div style={{ fontSize: 11, color: "var(--gy)", marginBottom: 12 }}>
             Por defecto, tu tour opera todos los días marcados arriba. Aquí puedes <strong>excluir</strong> fechas (feriados, mantenimiento) o <strong>agregar</strong> fechas extras fuera del patrón. Si solo operas según los días marcados, deja este calendario en blanco.
           </div>
           <MonthCalendar
@@ -5269,7 +5269,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         {SHOW_CANCELLATION_POLICY && (
         <div className="fg">
           <label className="lbl">Política de cancelación</label>
-          <div style={{ fontSize: 11, color: "var(--gy)", marginBottom: 8, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 11, color: "var(--gy)", marginBottom: 8 }}>
             Elige la que aplica a este tour. Recomendamos <strong>Flexible</strong> para tours cortos.
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -5293,7 +5293,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
                 }}>{form.cancellation === opt.id ? "●" : ""}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ch)" }}>{opt.label}</div>
-                  <div style={{ fontSize: 11, color: "var(--gy)", lineHeight: 1.5, marginTop: 2 }}>{opt.desc}</div>
+                  <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 2 }}>{opt.desc}</div>
                 </div>
               </div>
             ))}
@@ -5301,7 +5301,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         </div>
         )}
         {form.days.length === 0 && form.addedDates.length === 0 && (
-          <div style={{ padding: 10, background: "rgba(199,97,58,.08)", borderRadius: 10, fontSize: 12, color: "var(--tr)", lineHeight: 1.5, marginTop: 8, marginBottom: 8 }}>
+          <div style={{ padding: 10, background: "rgba(199,97,58,.08)", borderRadius: 10, fontSize: 12, color: "var(--tr)", marginTop: 8, marginBottom: 8 }}>
             Configura al menos un día recurrente o agrega fechas específicas en el calendario
           </div>
         )}
@@ -5409,7 +5409,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           </div>
         )}
 
-        <div style={{ padding: 12, background: "rgba(45,90,61,.05)", borderRadius: 12, marginBottom: 16, fontSize: 12, color: "var(--gy)", lineHeight: 1.5 }}>
+        <div style={{ padding: 12, background: "rgba(45,90,61,.05)", borderRadius: 12, marginBottom: 16, fontSize: 12, color: "var(--gy)" }}>
           Al publicar, tu tour quedará visible de inmediato en Finde.
         </div>
         {submitError && (
