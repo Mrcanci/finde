@@ -330,7 +330,18 @@ glifo de dato vacío (`user?.email || "—"`), no prosa. Se quedan. Anotado en
     (`!esPasada` en el render), así que tampoco se pueden resolver a mano. Hoy no
     bloquean ventas: `seatsRequested` no lo lee ninguna validación, solo el panel
     para mostrar. Vencerlas **no manda correos** (el vencimiento es silencioso;
-    los correos los manda la decisión de la agencia, no el barrido).
+    los correos los manda la decisión de la agencia, no el barrido). Eso baja el
+    paso 4 de decisión delicada a limpieza barata.
+
+    **Cómo se ejecuta el paso 4, y la trampa que hay que esquivar.** El backfill
+    **NO debe poner `statusNew = VENCIDA` directo**: ese atajo saltea
+    `releaseRequestedSeats` y deja `seatsRequested` inflado, que es justamente el
+    síntoma que el paso existe para eliminar. Lo correcto es **rellenar
+    `expiresAt` con una fecha pasada y dejar que el barrido existente
+    (`expireStaleSolicitudes`) las tome en la próxima lectura**: ese camino ya
+    hace la transición condicional por fila y libera el contador en la misma
+    transacción, y está probado en producción. O sea que el paso 4 escribe una
+    sola columna y no toca la máquina de estados.
   - **P3, sobreventa al cambiar de modo de venta.** Los asientos que quedaron en
     `seatsRequested` de una etapa SOLICITUD son invisibles para `takeSeats`.
     Exposición real hoy: **un solo tour** ("prueba", 4 asientos) y en una salida
@@ -363,6 +374,25 @@ Riesgos de producto (no son bugs, no hay nada roto):
   La canilla se cierra aparte, en `fix/prompts-sin-raya`. Eso arregla las rayas futuras, no la validación de fondo ni las 88 que ya están en la base.
 
 Trabajo pendiente de producto:
+
+- **Una salida que pasa con solicitudes sin decidir deja al viajero colgado, y
+  hoy no hay forma de cerrarla.** El panel no ofrece confirmar ni rechazar en
+  salidas pasadas (`!esPasada` en el render de cada salida), así que si la
+  agencia no decide a tiempo, esa solicitud ya no se puede resolver. El barrido
+  perezoso la vence **en silencio**: nadie le avisa al viajero, que se queda
+  esperando una respuesta que no va a llegar.
+
+  **No es un bug: es un hueco de producto.** Hoy no duele porque las 19 que están
+  en esa situación son datos de prueba. **Con MEGATOURS operando de verdad sí
+  duele**, porque el que espera es un viajero real que reservó y nunca supo qué
+  pasó.
+
+  Dos cosas a resolver cuando toque, y son independientes:
+  1. **Que el vencimiento le avise al viajero.** Hoy `expireStaleSolicitudes` no
+     manda nada; la doc de la migración ya tenía anotado el aviso automático como
+     upgrade con `pg_cron`.
+  2. **Que el panel permita cerrar salidas pasadas.** El backend ya lo acepta
+     (solo bloquea `CANCELADA`); lo que falta es la acción en la interfaz.
 
 - **El cierre de venta (`closeTime` / `closeDaysBefore`) no se evalúa en
   CUPO_FIJO.** `api/bookings.ts` solo lo mira `if (tour.salesMode === "SOLICITUD")`,
