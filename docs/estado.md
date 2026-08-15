@@ -360,11 +360,26 @@ glifo de dato vacío (`user?.email || "—"`), no prosa. Se quedan. Anotado en
     1 a 0**. Medido: esa salida podía vender 7 asientos y llevar 11 personas;
     ahora vende 7 y lleva 7.
 
-    **Por eso el paso 5 cambia de alcance: pasa de corrección a PREVENCIÓN.** No
-    hay nada que limpiar, solo que impedir que vuelva a pasar bloqueando el
-    cambio de `salesMode` con reservas vivas. Y **ya no depende de P2**, que está
-    resuelto: el bloqueo ahora siempre tiene salida, porque no quedan solicitudes
-    que no se puedan resolver.
+    **Por eso el paso 5 cambió de alcance: pasó de corrección a PREVENCIÓN**, y
+    **quedó hecho el 2026-08-15**. `PATCH /api/tours/:id` devuelve 409 al pasar un
+    tour a CUPO_FIJO si tiene solicitudes vigentes.
+
+    **Qué cuenta como reserva viva, y por qué solo eso.** Solo las SOLICITUD
+    vigentes (`expiresAt` null o en el futuro, la misma definición que usa el
+    panel), y solo en la dirección hacia CUPO_FIJO. Las CONFIRMADAS no bloquean:
+    viven en `seatsTaken`, que `takeSeats` **sí** mira, así que el cupo ya las
+    descuenta y trabar por ellas sería trabar sin riesgo detrás. Pasar a
+    SOLICITUD tampoco bloquea: ese modo no tiene tope por diseño y no queda
+    ningún contador invisible.
+
+    **El bloqueo siempre tiene salida, y es demostrable.** Como
+    `expiresAt = min(cierre, creación+72h, medianoche del día de salida)`, una
+    solicitud que todavía no venció pertenece por fuerza a una **salida futura**,
+    y en las futuras el panel sí ofrece confirmar y rechazar. Verificado sobre
+    los datos: cero solicitudes vigentes en salidas pasadas.
+
+    Medido sobre los 49 tours: **se bloquearía 1** ("prueba manual", con una
+    solicitud vigente), y los otros 48 pueden cambiar de modo sin trabas.
 
 - **Dos reservas de prueba intencionales, que NO se borran.** `FND-07DD62`
   (salida del 16 de agosto) y `FND-ED3818` (30 de agosto), las dos de
