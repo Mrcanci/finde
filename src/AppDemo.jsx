@@ -258,23 +258,46 @@ function ensureAvailabilityFields(t) {
 // In-flight dedupeado; un fallo no se cachea (reintenta el próximo montaje).
 const AVAIL_CACHE = new Map(); // `${tourId}:${y}-${m}` → availability | null
 const AVAIL_INFLIGHT = new Map();
+// Generación por clave: la sube cada invalidación. Un fetch en vuelo que
+// arrancó antes NO escribe el cache al volver, o resucitaría el dato viejo
+// justo después de haberlo tirado.
+const AVAIL_EPOCH = new Map();
+const availKey = (tourId, y, m) => `${tourId}:${y}-${m}`;
+// Invalida el mes de UNA fecha de un tour. El alcance es el mes y no el tour
+// porque la clave ya es por tour y mes y los meses son disjuntos: tirar el tour
+// entero obligaría a re-pedir meses que nadie miró.
+// Se llama en los dos momentos en que sabemos que el dato local quedó viejo:
+// una reserva creada (el cupo bajó) y una reserva rechazada por el servidor
+// (el cache mintió, por eso llegamos hasta el paso 3).
+function invalidateMonthAvailability(tourId, iso) {
+  if (!tourId || !iso) return;
+  const [y, m] = iso.split("-").map(Number);
+  if (!y || !m) return;
+  const key = availKey(tourId, y, m);
+  AVAIL_CACHE.delete(key);
+  AVAIL_INFLIGHT.delete(key);
+  AVAIL_EPOCH.set(key, (AVAIL_EPOCH.get(key) || 0) + 1);
+}
 function limaCurrentYM() {
   const [y, m] = todayISO().split("-").map(Number);
   return { y, m };
 }
 async function fetchMonthAvailability(tourId, y, m) {
-  const key = `${tourId}:${y}-${m}`;
+  const key = availKey(tourId, y, m);
   if (AVAIL_CACHE.has(key)) return AVAIL_CACHE.get(key);
   if (AVAIL_INFLIGHT.has(key)) return AVAIL_INFLIGHT.get(key);
   const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
   const mm = String(m).padStart(2, "0");
+  const epoch = AVAIL_EPOCH.get(key) || 0;
   const p = (async () => {
     try {
       const r = await fetch(`/api/tours/${tourId}?from=${y}-${mm}-01&to=${y}-${mm}-${String(lastDay).padStart(2, "0")}`);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
       const a = data.availability ?? null;
-      AVAIL_CACHE.set(key, a);
+      // Si alguien invalidó mientras esto viajaba, el dato ya nació viejo: se
+      // devuelve para quien lo pidió pero no se cachea.
+      if ((AVAIL_EPOCH.get(key) || 0) === epoch) AVAIL_CACHE.set(key, a);
       return a;
     } catch (err) {
       console.error("Error cargando disponibilidad de cupos:", err);
@@ -1426,6 +1449,14 @@ html{scrollbar-gutter:stable}
 .inp-err{border-color:#C0392B !important;background:rgba(229,62,62,.04) !important}
 .inp-err:focus{box-shadow:0 0 0 4px rgba(229,62,62,.18) !important;border-color:#C0392B !important}
 .field-err{font-size:11px;color:#C0392B;margin-top:4px;font-weight:600;display:flex;align-items:center;gap:4px}
+/* Aviso de carrera de cupos en el paso 3. Deliberadamente MAS pesado que
+   .field-err: no es un campo mal escrito, es un cupo que se perdio despues de
+   tres pantallas, y trae la accion para salir. El boton respeta el piso de
+   44px de la Fase 2. */
+.race{display:flex;flex-direction:column;gap:10px;padding:14px;margin-bottom:12px;border-radius:12px;background:rgba(199,97,58,.08);border-left:3px solid var(--tr-text);text-align:left}
+.race-t{font-size:14px;font-weight:700;color:var(--tr-text)}
+.race-d{font-size:13px;color:var(--ch)}
+.race-b{align-self:flex-start;min-height:44px;padding:0 16px;border-radius:10px;border:1.5px solid var(--tr-text);background:white;color:var(--tr-text);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
 .bk-phone-row{display:flex;gap:0}
 .bk-phone-prefix{display:flex;align-items:center;gap:6px;padding:0 12px;border:2px solid var(--sd);border-radius:14px 0 0 14px;font-size:14px;font-weight:600;background:var(--cr);color:var(--ch);border-right:none;white-space:nowrap}
 .bk-phone-prefix .wa-ic{color:#25D366;font-size:16px}
@@ -3183,6 +3214,12 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
   const [bookingCode] = useState(() => Math.random().toString(36).substring(2, 8).toUpperCase());
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  // Carrera de cupos: alguien tomó asientos mientras el viajero llenaba sus
+  // datos. Es el ÚNICO error del paso 3 que ninguna validación de cliente puede
+  // evitar, así que se maneja aparte del resto (que son fallos de escritura o
+  // de red) y con la jerarquía que le corresponde: el viajero ya invirtió tres
+  // pantallas. { seatsLeft, message }.
+  const [availError, setAvailError] = useState(null);
   const [serverBooking, setServerBooking] = useState(null);
   // Disponibilidad de cupos por mes visible (solo CUPO_FIJO): fechas llenas se
   // deshabilitan en el calendario y 1-3 restantes muestran el aviso en la
@@ -3212,11 +3249,19 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
     if (availSalesMode !== "CUPO_FIJO" || !availTourId) return;
     const a = await fetchMonthAvailability(availTourId, y, m);
     if (!a) return;
-    // Merge acumulativo e idempotente: cada mes aporta fechas disjuntas.
+    // Merge acumulativo entre meses (cada uno aporta fechas disjuntas) pero
+    // AUTORITATIVO dentro del mes que acaba de llegar: sus fechas se descartan
+    // primero y se re-siembran con lo que dijo el servidor. Sin eso una fecha
+    // que se liberó seguiría marcada como llena para siempre, que es la cara
+    // opuesta del bug que arregla este viaje.
+    const pref = `${y}-${String(m).padStart(2, "0")}-`;
     setAvail((prev) => {
-      const full = new Set(prev.full);
+      const full = new Set([...prev.full].filter((dt) => !dt.startsWith(pref)));
       (a.full || []).forEach((dt) => full.add(dt));
-      return { full, low: { ...prev.low, ...(a.low || {}) }, base: a.base ?? prev.base };
+      const low = Object.fromEntries(
+        Object.entries(prev.low).filter(([dt]) => !dt.startsWith(pref))
+      );
+      return { full, low: { ...low, ...(a.low || {}) }, base: a.base ?? prev.base };
     });
   }, [availTourId, availSalesMode]);
 
@@ -3253,6 +3298,7 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
   const submitBooking = async () => {
     setSubmitting(true);
     setSubmitError("");
+    setAvailError(null);
     // Demo: si el tour es un mock local (id numérico) el backend rechazaría
     // el POST por validar tourId como CUID. Simulamos confirmación localmente
     // y registramos el viaje en TripsView. Fase 2: seedear mocks en DB.
@@ -3303,9 +3349,43 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
       });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
+        // El servidor rechazó: el dato local de cupos ya no es confiable, sea
+        // cual sea el motivo. Tirar el mes de esa fecha antes de mostrar nada,
+        // para que volver al paso 1 muestre números reales y no los que
+        // acaban de fallar.
+        invalidateMonthAvailability(tour.id, date);
+        // Y re-pedirlo, sin bloquear el mensaje de error: para cuando el
+        // viajero vuelva al paso 1 el calendario ya tiene el número real.
+        const [ey, em] = date.split("-").map(Number);
+        void loadMonthAvailability(ey, em);
+        // El backend manda seatsLeft SOLO cuando el rechazo es por cupo
+        // (AvailabilityError de takeSeats). Ese número es la verdad más fresca
+        // que existe sobre esa fecha, así que se aplica al calendario sin pedir
+        // nada, y decide qué salida se le ofrece al viajero.
+        if (r.status === 409 && typeof err.seatsLeft === "number") {
+          const left = err.seatsLeft;
+          setAvail((prev) => {
+            const full = new Set(prev.full);
+            const low = { ...prev.low };
+            if (left <= 0) { full.add(date); delete low[date]; }
+            else { full.delete(date); if (left <= 3) low[date] = left; else delete low[date]; }
+            return { ...prev, full, low };
+          });
+          // Se guarda la combinación a la que el aviso pertenece (fecha y
+          // personas). Al render se compara: si el viajero ya cambió alguna de
+          // las dos, el aviso deja de aplicar y desaparece solo. Así no hace
+          // falta un efecto que lo limpie, que además dispara renders en
+          // cascada (regla react-hooks del proyecto).
+          // El finally de abajo apaga `submitting` también en este return.
+          setAvailError({ seatsLeft: left, forDate: date, forGuests: guests });
+          return;
+        }
         throw new Error(err.error || `HTTP ${r.status}`);
       }
       const data = await r.json();
+      // Reserva creada: el cupo de esa fecha bajó. Sin esto el calendario sigue
+      // mostrando el número previo durante toda la sesión de la página.
+      invalidateMonthAvailability(tour.id, date);
       setServerBooking(data.booking || null);
       // Registrar también el viaje en el estado local para que aparezca en
       // TripsView. Reusamos el mismo handler que el flujo simulado: TripsView
@@ -3595,6 +3675,41 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
             </div>
           ))}
         </div>
+        {/* Carrera de cupos: no es un error de formulario, así que no usa el
+            mismo aviso chico de 12px que "el teléfono es inválido". Dice qué
+            pasó y OFRECE LA SALIDA, que es lo que faltaba: hasta ahora el
+            viajero leía "solo quedan N" y tenía que deducir solo que había que
+            volver dos pasos y bajar el número. */}
+        {availError && availError.forDate === date && availError.forGuests === guests && (
+          <div className="race">
+            <div className="race-t">
+              {availError.seatsLeft <= 0
+                ? "Se agotaron los cupos de esa fecha"
+                : "Alguien acaba de tomar cupos"}
+            </div>
+            <div className="race-d">
+              {availError.seatsLeft <= 0
+                ? "Mientras completabas tus datos se llenó la salida. Tus datos quedan guardados."
+                : `Quedan ${availError.seatsLeft} para el ${formatLongDate(date)}. Tus datos quedan guardados.`}
+            </div>
+            {availError.seatsLeft <= 0 ? (
+              <button type="button" className="race-b" onClick={() => { setAvailError(null); setDate(""); setStep(1); }}>
+                Elegir otra fecha
+              </button>
+            ) : availError.seatsLeft < guests ? (
+              <button type="button" className="race-b" onClick={() => { setGuests(availError.seatsLeft); setAvailError(null); }}>
+                Reservar para {availError.seatsLeft} {availError.seatsLeft === 1 ? "persona" : "personas"}
+              </button>
+            ) : (
+              // seatsLeft >= guests: con el paso 1 aplicado esto ya no debería
+              // pasar (el cupo alcanzaba). Queda el reintento en vez de un
+              // callejón sin salida.
+              <button type="button" className="race-b" onClick={() => { setAvailError(null); submitBooking(); }}>
+                Volver a intentar
+              </button>
+            )}
+          </div>
+        )}
         {submitError && <div className="field-err" style={{ marginBottom: 12 }}>{submitError}</div>}
         <button className={`mbtn ${pay === "yape" ? "yp" : ""}`} disabled={submitting} onClick={submitBooking}>
           {submitting

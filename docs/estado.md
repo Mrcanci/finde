@@ -292,15 +292,62 @@ glifo de dato vacío (`user?.email || "—"`), no prosa. Se quedan. Anotado en
 
 ## Bugs abiertos
 
-- **La reserva a veces falla aunque haya cupos suficientes.** Reportado por José
-  el 2026-08-15, sin reproducción sistemática todavía. **No tiene nada que ver
-  con el plan tipográfico**: apareció durante el QA de la Fase 5 pero la Fase 5
-  no toca ni una línea de lógica, solo interlineado. Se investiga aparte, en su
-  propia tanda y con su propia rama. Sin arrancar.
+- **La reserva a veces falla aunque haya cupos suficientes: DIAGNOSTICADO y
+  ARREGLADO**, en `fix/reserva-salida-confirmada`. Pendiente de QA en
+  dev.finde.pe. No tenía nada que ver con el plan tipográfico.
 
-  Por dónde empezar cuando se abra: el motor de inventario (`lib/inventory.ts`,
-  materialización perezosa y toma de cupo atómica), `api/bookings.ts` y el estado
-  de la salida. Ver `.claude/rules/reservas.md`.
+  **Causa:** `takeSeats` exigía `Departure.status = 'ABIERTA'`. Cuando la agencia
+  confirma una salida queda en `CONFIRMADA`, y **nada la devuelve a `ABIERTA`**,
+  así que esa fecha dejaba de vender para siempre aunque le sobrara cupo. El
+  calendario, en cambio, solo trata como llena la `CANCELADA`: seguía ofreciendo
+  la fecha. Reproducido de punta a punta en dev.finde.pe el 2026-08-15: pidiendo
+  2 personas para el 16 de agosto, el servidor responde
+  `409 {"error":"Solo quedan 5 cupos para esa fecha","seatsLeft":5}`. El mensaje
+  se contradice a sí mismo. Captura en
+  `~/Documents/finde-capturas/2026-08-15-reserva/`.
+
+  **No se revirtió ninguna decisión de diseño: no había ninguna.** Ni
+  `decisiones.md`, ni la doc de la migración, ni los commits que introdujeron la
+  guarda dan una razón. Lo único documentado sobre qué significa confirmar la
+  contradice ("la agencia confirma que el tour sale, y si sale van todos"), y el
+  camino SOLICITUD nunca miró el estado, así que ya aceptaba reservas en salidas
+  confirmadas. Era una inconsistencia entre dos caminos, no una regla.
+
+  Liberó **14 asientos vendibles** en 4 salidas futuras de "prueba".
+
+  Fueron tres commits: la guarda (`c574888`), la invalidación del cache de
+  disponibilidad del cliente (`3d47306`) y el manejo del 409 de carrera
+  (`359d701`).
+
+- **Quedan dos problemas del mismo motor, sin arrancar** (son los pasos 4 y 5 del
+  plan acordado, y el 4 necesita una decisión de producto antes que código):
+
+  - **P2, solicitudes inmortales.** Hay **19 reservas en SOLICITUD con
+    `expiresAt = NULL`**, las anteriores a la migración del 5 de agosto. El
+    barrido perezoso filtra por `expiresAt < now`, y NULL nunca matchea: no
+    pueden vencer jamás. **Las 19 están en salidas cuya fecha ya pasó, y el panel
+    no ofrece las acciones de confirmar ni rechazar en salidas pasadas**
+    (`!esPasada` en el render), así que tampoco se pueden resolver a mano. Hoy no
+    bloquean ventas: `seatsRequested` no lo lee ninguna validación, solo el panel
+    para mostrar. Vencerlas **no manda correos** (el vencimiento es silencioso;
+    los correos los manda la decisión de la agencia, no el barrido). Eso baja el
+    paso 4 de decisión delicada a limpieza barata.
+
+    **Cómo se ejecuta el paso 4, y la trampa que hay que esquivar.** El backfill
+    **NO debe poner `statusNew = VENCIDA` directo**: ese atajo saltea
+    `releaseRequestedSeats` y deja `seatsRequested` inflado, que es justamente el
+    síntoma que el paso existe para eliminar. Lo correcto es **rellenar
+    `expiresAt` con una fecha pasada y dejar que el barrido existente
+    (`expireStaleSolicitudes`) las tome en la próxima lectura**: ese camino ya
+    hace la transición condicional por fila y libera el contador en la misma
+    transacción, y está probado en producción. O sea que el paso 4 escribe una
+    sola columna y no toca la máquina de estados.
+  - **P3, sobreventa al cambiar de modo de venta.** Los asientos que quedaron en
+    `seatsRequested` de una etapa SOLICITUD son invisibles para `takeSeats`.
+    Exposición real hoy: **un solo tour** ("prueba", 4 asientos) y en una salida
+    ya pasada, o sea riesgo vivo cero. La opción elegida es bloquear el cambio de
+    `salesMode` con reservas vivas, y **depende de P2**: con solicitudes
+    inmortales en salidas pasadas, el bloqueo no tendría salida.
 
 Pendientes de performance:
 
@@ -327,6 +374,39 @@ Riesgos de producto (no son bugs, no hay nada roto):
   La canilla se cierra aparte, en `fix/prompts-sin-raya`. Eso arregla las rayas futuras, no la validación de fondo ni las 88 que ya están en la base.
 
 Trabajo pendiente de producto:
+
+- **Una salida que pasa con solicitudes sin decidir deja al viajero colgado, y
+  hoy no hay forma de cerrarla.** El panel no ofrece confirmar ni rechazar en
+  salidas pasadas (`!esPasada` en el render de cada salida), así que si la
+  agencia no decide a tiempo, esa solicitud ya no se puede resolver. El barrido
+  perezoso la vence **en silencio**: nadie le avisa al viajero, que se queda
+  esperando una respuesta que no va a llegar.
+
+  **No es un bug: es un hueco de producto.** Hoy no duele porque las 19 que están
+  en esa situación son datos de prueba. **Con MEGATOURS operando de verdad sí
+  duele**, porque el que espera es un viajero real que reservó y nunca supo qué
+  pasó.
+
+  Dos cosas a resolver cuando toque, y son independientes:
+  1. **Que el vencimiento le avise al viajero.** Hoy `expireStaleSolicitudes` no
+     manda nada; la doc de la migración ya tenía anotado el aviso automático como
+     upgrade con `pg_cron`.
+  2. **Que el panel permita cerrar salidas pasadas.** El backend ya lo acepta
+     (solo bloquea `CANCELADA`); lo que falta es la acción en la interfaz.
+
+- **El cierre de venta (`closeTime` / `closeDaysBefore`) no se evalúa en
+  CUPO_FIJO.** `api/bookings.ts` solo lo mira `if (tour.salesMode === "SOLICITUD")`,
+  así que un tour de cupo fijo vende hasta la víspera y no tiene forma de cortar
+  antes. El campo existe en el schema y la agencia lo puede configurar, pero en
+  ese modo no hace nada: el único tour CUPO_FIJO de la base ("prueba") los tiene
+  los dos en NULL, o sea que ni siquiera se nota.
+
+  **El cupo sigue siendo el freno de integridad** (nunca se vende más de lo que
+  entra) y eso funciona. **Lo que falta es el freno operativo**: que la agencia
+  pueda dejar de recibir reservas con antelación aunque queden asientos, porque
+  a cierta hora ya cerró la lista con el transportista. Salió al arreglar el bug
+  de la salida confirmada, y se decidió **anotarlo y no arreglarlo ahí**: es
+  alcance nuevo, no parte del bug.
 
 - **El título del tour en desktop, fuera del hero.** `src/AppDemo.jsx` tiene un `<h1 class="det-tl-desktop">` con el nombre del tour que hoy computa `display:none` en todos los anchos, de 390 a 1600. **No es marcado muerto: es una intención abandonada.** La idea era el patrón de Airbnb, con el título del tour arriba y afuera de la foto en desktop, en vez de superpuesto al hero como está hoy (`.det-tl`). Quedó a medio camino: el marcado existe, el CSS que lo mostraría no. **Es trabajo del rediseño de la ficha de tour, no algo para borrar.**
 
