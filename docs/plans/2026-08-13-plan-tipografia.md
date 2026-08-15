@@ -1,7 +1,7 @@
 # Plan tipográfico del demo
 
 **Fecha:** 13 ago 2026 · **Rama de origen:** `dev` · **Fuente:** `docs/audits/2026-08-13-typography-audit.md`
-**Estado al 2026-08-14:** Fases 0 a 3 en `main` (`af7c0b1`). **Fase 4 COMPLETA y en `main`** (`6f3bbed`), post-QA. **La siguiente es la Fase 5.**
+**Estado al 2026-08-15:** Fases 0 a 3 en `main` (`af7c0b1`). Fase 4 en `main` (`6f3bbed`). **Fase 5 COMPLETA y en `main`**, post-QA. **La siguiente es la Fase 6**, y antes que ella conviene hacer el barrido de padding del Grupo B, que la Fase 5 desbloqueó.
 
 Este plan reordena los hallazgos de la auditoría tipográfica y **corrige seis errores de análisis que se le encontraron al verificarla**. La auditoría se trata como hipótesis, no como verdad. Cuando este plan y la auditoría se contradicen, manda este plan.
 
@@ -346,6 +346,8 @@ Clasificación preliminar, a confirmar contra el JSX al empezar la fase. El marc
 **`.bn-i` está en el Grupo A por clasificación, pero igual no se toca en esta fase.** Es `<button>`, así que su padding sería estable si se tocara; el problema es otro: su altura no la da el padding sino el ícono de 22px que apila adentro, o sea que ajustarle el padding no es la palanca correcta.
 
 **Hallazgo que la auditoría no tiene:** los ocho targets de su §9 son **todos controles nativos**, o sea Grupo A. Eso significa que la Fase 2 se puede hacer entera ahora y nada de ella se deshace en la Fase 5. Pero también significa que **la auditoría nunca inventarió las zonas tocables que no son controles nativos** (cards, filas de listado, opciones de sheet). Ese barrido del Grupo B queda pendiente y se hace después de la Fase 5.
+
+**DESBLOQUEADO el 2026-08-15**, con la Fase 5 en `main`. Era lo único que la esperaba: el padding del Grupo B había que calcularlo con la base nueva puesta, porque esas zonas sí heredan interlineado. **El inventario hay que armarlo**, no existe: el §9 de la auditoría solo listó controles nativos.
 
 ---
 
@@ -813,7 +815,7 @@ habría aparecido una cursiva sintética a 11px, así que se sacó el `font-styl
 
 ---
 
-## Fase 5 · Interlineado base y ritmo vertical ← LA SIGUIENTE
+## Fase 5 · Interlineado base y ritmo vertical ✅ COMPLETA
 
 Depende de la Fase 4. Riesgo medio.
 
@@ -925,7 +927,69 @@ La confirmación experimental cerró el caso en dos mediciones: bajar el interli
 
 ---
 
-## Fase 6 · La escala en tokens
+### Cierre de la Fase 5
+
+**En `main` desde el 2026-08-15, post-QA.** QA hecho por José en dev.finde.pe.
+
+| Paso | Commit | Qué hizo |
+|---|---|---|
+| 1 | `b1e83ba` | La base de `.app` a `1.5` sin unidad, y el `h2` de `118%` a `1.18` |
+| 2 | `fe85c1f` | Interlineado propio a los 22 display que la base perturba, más `.gcnt` a `min-width:60px` |
+| 3 | `f4941b6` | Borra las 37 declaraciones que quedaron en no-op |
+
+Los tres fueron juntos a `dev`: un estado intermedio con los títulos inflados no
+tenía por qué existir en una rama compartida.
+
+**Las declaraciones de interlineado pasan de 62 a 32.** El paso 2 suma 7 y el
+paso 3 saca 37. La cuenta vieja de "62 a 25" se hizo antes de que el paso 2
+existiera.
+
+#### Cómo se validó
+
+Volcado de `getComputedStyle` de todos los elementos, 20 vistas por dos anchos,
+con las reglas del bundle compilado aplicadas sobre el CSSOM de la app real.
+
+| Criterio | Resultado |
+|---|---|
+| Ancho | **cero elementos** en las 40 mediciones, en los tres pasos |
+| Los dos calendarios | **0 de 31 celdas** cada uno |
+| Áreas táctiles | `.chip`, `.sl`, `.city-btn`, `.tn-btn` en **44px exactos** |
+| Filas de `.gc` y `.tc` | **cero desparejas**, antes y después |
+| Barras fijas | `.tn`, `.ai-sb`, `.bn`, `.hero`: idénticas |
+| Las 33 declaraciones puras del paso 3 | computan **el mismo `line-height`** con la regla y sin ella |
+
+#### Cuatro cosas que quedaron aprendidas
+
+1. **La lectura estática volvió a sobreestimar, por quinta vez en este plan.**
+   Daba 39 reglas de display sin interlineado propio; midiendo son 30, y de esas
+   4 no se mueven porque otra regla del mismo selector ya les declara el valor
+   (`.hero-t`, `.det-hero .det-tl` y los dos `h2`). Contar declaraciones no
+   sustituye medir.
+2. **Clasificar por tamaño no alcanza: hay que clasificar por rol.** `.ai-sb-ic`
+   figuraba como encabezado de 18px y es un `<span>` que solo contiene un SVG.
+   Va a `1`, como `.bn-i .ni`. Con él se reclasificaron los números destacados
+   (`.bb-p`, `.sum-t`, `.dsh-s-v`, `.pf-stat-v`, `.gcnt`, `.login-hero-stat-v`):
+   son datos de una línea cuyo alto lo absorbe un contenedor con padding propio,
+   así que la caja de línea no les aporta legibilidad, solo aire impredecible.
+3. **El login se midió montando la vista entera**, no por inyección de un
+   selector suelto. Importaba porque `.login-hero` es `flex:0 0 280px` con
+   `justify-content:flex-end` y **`overflow:hidden`**: si el contenido no entra,
+   se recorta por arriba en silencio. Medido: el logotipo pasa de 23.2 a 46.2px y
+   quedan **60.2px de holgura**.
+4. **La hoja de notificaciones en mobile queda fuera del alcance de `.app`.**
+   `createPortal` al `body`, computa `line-height:normal`.
+
+#### Pendiente cosmético que sale del QA
+
+La etiqueta **"Último cupo"** del calendario de reserva, `AppDemo.jsx:437`, a
+`fontSize: 8`. **Anotada y sin arreglar a propósito.** Vive dentro de una celda
+de 36px con `whiteSpace:nowrap`: cualquier aumento la rompe, y es exactamente el
+punto frágil que la Fase 7 ya tiene marcado. Se arregla ahí, con el resto de los
+inline, no por su cuenta.
+
+---
+
+## Fase 6 · La escala en tokens ← LA SIGUIENTE
 
 La fase grande. Deuda pura, riesgo alto, ninguna urgencia.
 
@@ -978,6 +1042,11 @@ A 390px la celda de `.tg` deja ~155px útiles. A 15px con peso 700 entran ~19 ca
 **⚠️ Ese ~155px hay que RE-MEDIRLO después de la Fase 4, no antes.** El `border-inline` del bloque `.app-demo` también aplica a 390px, donde el ancho lo manda `max-width:100%`: con los dos bordes de 1px el contenido mide **388px**, y sin ellos mide **390px**. O sea que cada celda de `.tg` pasa de ~155px a ~156px cuando la Fase 4 borre el bloque.
 
 No cambia la conclusión (el clamp sigue haciendo falta), pero **el número de partida cambia**, y toda la cuenta de caracteres por línea de esta mitigación está hecha sobre 155. Se recalcula con la Fase 4 ya aplicada.
+
+**DESBLOQUEADO el 2026-08-15.** Y la Fase 5 acota el trabajo con un dato medido:
+**no cambia ni un ancho en todo el demo**, cero elementos en 40 mediciones sobre
+20 vistas. O sea que el número sale de medir con la Fase 4 aplicada y **ya no se
+mueve más**: se puede recalcular de una y confiar en el resultado.
 
 Ya hay evidencia de que ese píxel decide: en la simulación del Paso 0 de la Fase 4, **el único elemento de todo el demo que reflowea son esos 2px sobre `.gc-t`**, en el tour "Caral", que pasa de tres líneas a dos.
 
