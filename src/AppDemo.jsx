@@ -258,23 +258,46 @@ function ensureAvailabilityFields(t) {
 // In-flight dedupeado; un fallo no se cachea (reintenta el próximo montaje).
 const AVAIL_CACHE = new Map(); // `${tourId}:${y}-${m}` → availability | null
 const AVAIL_INFLIGHT = new Map();
+// Generación por clave: la sube cada invalidación. Un fetch en vuelo que
+// arrancó antes NO escribe el cache al volver, o resucitaría el dato viejo
+// justo después de haberlo tirado.
+const AVAIL_EPOCH = new Map();
+const availKey = (tourId, y, m) => `${tourId}:${y}-${m}`;
+// Invalida el mes de UNA fecha de un tour. El alcance es el mes y no el tour
+// porque la clave ya es por tour y mes y los meses son disjuntos: tirar el tour
+// entero obligaría a re-pedir meses que nadie miró.
+// Se llama en los dos momentos en que sabemos que el dato local quedó viejo:
+// una reserva creada (el cupo bajó) y una reserva rechazada por el servidor
+// (el cache mintió, por eso llegamos hasta el paso 3).
+function invalidateMonthAvailability(tourId, iso) {
+  if (!tourId || !iso) return;
+  const [y, m] = iso.split("-").map(Number);
+  if (!y || !m) return;
+  const key = availKey(tourId, y, m);
+  AVAIL_CACHE.delete(key);
+  AVAIL_INFLIGHT.delete(key);
+  AVAIL_EPOCH.set(key, (AVAIL_EPOCH.get(key) || 0) + 1);
+}
 function limaCurrentYM() {
   const [y, m] = todayISO().split("-").map(Number);
   return { y, m };
 }
 async function fetchMonthAvailability(tourId, y, m) {
-  const key = `${tourId}:${y}-${m}`;
+  const key = availKey(tourId, y, m);
   if (AVAIL_CACHE.has(key)) return AVAIL_CACHE.get(key);
   if (AVAIL_INFLIGHT.has(key)) return AVAIL_INFLIGHT.get(key);
   const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
   const mm = String(m).padStart(2, "0");
+  const epoch = AVAIL_EPOCH.get(key) || 0;
   const p = (async () => {
     try {
       const r = await fetch(`/api/tours/${tourId}?from=${y}-${mm}-01&to=${y}-${mm}-${String(lastDay).padStart(2, "0")}`);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
       const a = data.availability ?? null;
-      AVAIL_CACHE.set(key, a);
+      // Si alguien invalidó mientras esto viajaba, el dato ya nació viejo: se
+      // devuelve para quien lo pidió pero no se cachea.
+      if ((AVAIL_EPOCH.get(key) || 0) === epoch) AVAIL_CACHE.set(key, a);
       return a;
     } catch (err) {
       console.error("Error cargando disponibilidad de cupos:", err);
@@ -3212,11 +3235,19 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
     if (availSalesMode !== "CUPO_FIJO" || !availTourId) return;
     const a = await fetchMonthAvailability(availTourId, y, m);
     if (!a) return;
-    // Merge acumulativo e idempotente: cada mes aporta fechas disjuntas.
+    // Merge acumulativo entre meses (cada uno aporta fechas disjuntas) pero
+    // AUTORITATIVO dentro del mes que acaba de llegar: sus fechas se descartan
+    // primero y se re-siembran con lo que dijo el servidor. Sin eso una fecha
+    // que se liberó seguiría marcada como llena para siempre, que es la cara
+    // opuesta del bug que arregla este viaje.
+    const pref = `${y}-${String(m).padStart(2, "0")}-`;
     setAvail((prev) => {
-      const full = new Set(prev.full);
+      const full = new Set([...prev.full].filter((dt) => !dt.startsWith(pref)));
       (a.full || []).forEach((dt) => full.add(dt));
-      return { full, low: { ...prev.low, ...(a.low || {}) }, base: a.base ?? prev.base };
+      const low = Object.fromEntries(
+        Object.entries(prev.low).filter(([dt]) => !dt.startsWith(pref))
+      );
+      return { full, low: { ...low, ...(a.low || {}) }, base: a.base ?? prev.base };
     });
   }, [availTourId, availSalesMode]);
 
@@ -3303,9 +3334,21 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
       });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
+        // El servidor rechazó: el dato local de cupos ya no es confiable, sea
+        // cual sea el motivo. Tirar el mes de esa fecha antes de mostrar nada,
+        // para que volver al paso 1 muestre números reales y no los que
+        // acaban de fallar.
+        invalidateMonthAvailability(tour.id, date);
+        // Y re-pedirlo, sin bloquear el mensaje de error: para cuando el
+        // viajero vuelva al paso 1 el calendario ya tiene el número real.
+        const [ey, em] = date.split("-").map(Number);
+        void loadMonthAvailability(ey, em);
         throw new Error(err.error || `HTTP ${r.status}`);
       }
       const data = await r.json();
+      // Reserva creada: el cupo de esa fecha bajó. Sin esto el calendario sigue
+      // mostrando el número previo durante toda la sesión de la página.
+      invalidateMonthAvailability(tour.id, date);
       setServerBooking(data.booking || null);
       // Registrar también el viaje en el estado local para que aparezca en
       // TripsView. Reusamos el mismo handler que el flujo simulado: TripsView
