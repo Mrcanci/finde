@@ -953,10 +953,14 @@ html{scrollbar-gutter:stable}
    El centrado en particular sostiene 128 selectores, mas los dos calendarios,
    que suman 81 elementos sin clase y por eso no figuran en ninguna lista.
 
+   OJO: el line-height ya NO es replica. La Fase 5 lo paso de 145% a 1.5 sin
+   unidad, que es el unico cambio de esta linea respecto de lo que imponia el
+   bloque. El de .app h2 paso de 118% a 1.18 por el mismo motivo.
+
    NO se replican a proposito, y eso tambien esta decidido: border-inline
    (estetica de scaffold de Vite), color-scheme, font-synthesis,
    text-rendering y box-sizing. El min-height ya lo declara .app arriba. */
-.app{width:1126px;max-width:100%;margin:0 auto;text-align:center;display:flex;flex-direction:column;font-size:18px;line-height:145%;letter-spacing:.18px}
+.app{width:1126px;max-width:100%;margin:0 auto;text-align:center;display:flex;flex-direction:column;font-size:18px;line-height:1.5;letter-spacing:.18px}
 @media(max-width:1024px){.app{font-size:16px}}
 /* Los tres h2 del demo (.npage-h h2, .tp-h h2 y .tdet-h) heredan CUATRO
    propiedades de .app-demo h2, no solo el peso. El 400 va explicito porque DM
@@ -964,7 +968,7 @@ html{scrollbar-gutter:stable}
    font-synthesis:none impide inventarlo, asi que declarar 400 preserva el
    render exacto. .tdet-h conserva su margin-bottom:14px propio, que gana por
    especificidad. */
-.app h2{font-weight:400;line-height:118%;letter-spacing:-.24px;margin:0 0 8px}
+.app h2{font-weight:400;line-height:1.18;letter-spacing:-.24px;margin:0 0 8px}
 
 /* Focus accesible — solo navegación con teclado */
 .app :focus{outline:none}
