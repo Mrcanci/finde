@@ -32,13 +32,57 @@ arrancó cubrió gates de sesión, permisos del backend y RLS; el hallazgo centr
 es que **el backend ya está abierto y la base no necesita nada**: lo que falta es
 frontend, y sobre todo **URLs**, que hoy no existen.
 
-En QA, en la rama `fix/auth-endpoints-ia`: **los dos endpoints de IA pasan a
-exigir perfil de agencia.** Ver abajo.
+**Mergeado a `dev` y pendiente de QA en dev.finde.pe**: los dos endpoints de IA
+pasan a exigir perfil de agencia. Ver abajo.
+
+**La secuencia hasta el lanzamiento**, en orden y con sus dependencias:
+
+| # | Tanda | Depende de | Reversible |
+|---|---|---|---|
+| 0 | Endpoints de IA con auth | nada | sí |
+| 1 | Analítica base (`page_view`, `tour_view`, `search_performed`) | nada | sí |
+| 2 | Router con `BASE_PATH` y URL por tour | 1 | sí |
+| 3 | Modal de cuenta en el checkout, navegación abierta | 2 | sí |
+| 4 | Eventos del embudo (`booking_started`, `auth_prompted`, ...) | 3 | sí |
+| 5 | Meta tags por tour (prerender en build), `robots.txt`, `sitemap.xml` | 2 | sí |
+| 6 | Día del switch: `BASE_PATH` a `""` más el rewrite de la raíz | todo | el código sí, el SEO no |
+
+La tanda 2 arranca con las tres definiciones que pide la decisión de la URL del
+tour (`docs/decisiones.md`): caracteres del sufijo, normalización del título a
+slug, y qué pasa con un slug vacío.
 
 **Lo próximo es la Fase 6 del plan tipográfico**, la escala en tokens, que no se
 empieza sin visto bueno explícito. Antes que ella conviene hacer el **barrido de
 padding del Grupo B**, que la Fase 5 acaba de desbloquear y es más chico. Los dos
 quedan detrás del frente de lanzamiento, que tiene fecha y ellos no.
+
+### La analítica va primera, pero su fecha límite real es el SWITCH
+
+**Precisión que evita esperar datos que todavía no van a existir.** Hoy no hay
+**nada** instrumentado: ni Plausible, ni GA, ni PostHog, ni `@vercel/analytics`,
+ni un helper propio. Verificado contra `src/`, `api/`, `index.html`, `vercel.json`
+y `package.json`.
+
+Va primera en la secuencia por dos razones, y ninguna es que vaya a dar números
+ya: **es barata** (cero funciones serverless, es script de cliente) y **no se
+recupera hacia atrás** (el visitante que no se contó no se cuenta después).
+
+**Pero mientras el producto viva en `/demo` con el gate de login, no va a contar
+casi nada.** El tráfico de hoy es José, el equipo y quien recibe el link a mano.
+Los números recién empiezan a significar algo cuando la navegación esté abierta
+(tanda 3) y sobre todo cuando la raíz sea el producto (tanda 6).
+
+**Su fecha límite real es el switch, no hoy.** Se instrumenta antes para que el
+día uno esté contando, no para leer el dashboard esta semana. Si alguien mira los
+números antes del switch y los ve planos, **eso es lo esperado y no es un fallo de
+la instrumentación.**
+
+Vale aparte: la mitad de las métricas que hay que demostrar **ya se pueden contar
+hoy desde la base**, sin instrumentar nada. Reservas confirmadas, GMV, agencias
+verificadas y % fuera del eje Lima-Cusco salen de una consulta a `Booking`,
+`Operator` y `Tour`; las búsquedas ya viven en `SearchLog`. Lo que falta
+instrumentar es **solo el top of funnel**: visitantes, vistas de ficha y reservas
+iniciadas.
 
 ### Los endpoints de IA exigen agencia (rama `fix/auth-endpoints-ia`)
 
@@ -54,13 +98,101 @@ Los dos pasan por `requireOperator`. Se verificó que ningún llamador queda afu
   botón**, porque no viajaba el header `Authorization`.
 - `generate-quechua` **no tiene ningún llamador**. El toggle QU de la ficha pasó
   a leer las columnas persistidas, y `scripts/backfill-quechua.ts` le pega
-  directo a Anthropic sin pasar por el endpoint. Queda ocupando **uno de los 12
-  slots de función de Vercel Hobby sin servir a nadie**, y ese slot es
-  exactamente el que haría falta para servir meta tags a los bots.
+  directo a Anthropic sin pasar por el endpoint. Ver abajo: es el slot designado
+  a liberar.
 
 El 403 del backend dice "Requiere perfil de operador", vocabulario interno que no
 existe en la interfaz. El frontend lo traduce: 401 es "Tu sesión venció" y 403 es
 "Necesitas un perfil de agencia para usar el generador".
+
+### `generate-quechua` es el slot designado a liberar cuando arranque Culqi
+
+**No se borra ahora.** Para los meta tags por tour se eligió **prerender en
+build**, que cuesta **cero funciones**, así que el slot no hace falta para eso.
+Borrarlo hoy sería trabajo sin destinatario.
+
+**Pero estamos en 12 de 12**, que es el techo de Vercel Hobby, y **Culqi va a
+necesitar endpoints**: crear cargo, recibir el webhook y consultar estado son tres
+como mínimo. Cuando eso arranque, hay que sacar algo, y **este es el candidato
+designado**, por tres motivos:
+
+1. **No lo llama nadie.** Borrarlo no rompe ninguna pantalla ni ningún script.
+2. **Su capacidad no se pierde.** `scripts/backfill-quechua.ts` traduce igual, con
+   el mismo prompt, pegándole directo a Anthropic. La traducción a quechua sigue
+   siendo posible sin el endpoint.
+3. **Hoy no llega a ningún usuario.** La capa de display de quechua no existe: las
+   columnas `titleQu`, `descQu` y compañía se llenan pero no se muestran.
+
+Si algún día se retoma el quechua en el producto y hace falta traducir en vivo, el
+camino no es revivir este archivo suelto sino **consolidarlo en una ruta dinámica**,
+como ya se hizo con `api/operators/me/[resource].ts`. El límite de 12 se resuelve
+consolidando, no borrando para siempre.
+
+Anotado el 2026-08-15, junto con la decisión de dejarlo vivo por ahora.
+
+## BLOQUEANTE DE LANZAMIENTO: el sello de verificación afirma algo falso
+
+**Esto no es deuda de datos ni un ítem de checklist. Es el badge de verificación
+de Finde afirmando algo falso, y sobre ese badge descansa toda la propuesta de
+valor del producto.** Subió de categoría el 2026-08-15, al abrirse el frente de
+navegación abierta.
+
+**El switch no se hace con esto sin resolver.**
+
+### Qué es, exactamente
+
+| Caso | Cuántas | Qué tienen | Por qué es falso |
+|---|---|---|---|
+| Agencias del seed | **8** | `verified: true`, **sin RUC y sin MINCETUR** | Un sello sin ningún respaldo detrás |
+| "Descubre el Perú" (`demo@finde.pe`) | **1** | `verified: true`, RUC `20601234567`, MINCETUR `REG12345` | **Datos inventados con formato válido**, que pasan por reales |
+
+Las 8 del seed, todas sin `userId`: Amazonía Viva, Andes Auténticos, Colca
+Adventures, Inka Trail Co, Lima Cultural Tours, Norte Salvaje, Pachamama Sagrada
+y Perú Total Tours.
+
+**El segundo caso es el más grave de los dos.** Las 8 no tienen datos: el problema
+ahí es un sello vacío. "Descubre el Perú" tiene datos que **parecen reales**, y sus
+5 tours salen al catálogo público con el sello al lado de un RUC inventado. Un
+viajero que quiera comprobar la agencia va a buscar ese RUC en SUNAT y no va a
+encontrar nada, que es exactamente el escenario que la regla existe para evitar.
+
+### Por qué sube de categoría ahora
+
+**Hoy lo ve quien encuentra el demo.** Después de las tandas de navegación abierta
+y URLs lo va a ver **Google**, y con el tiempo **una agencia real** que compare su
+propio proceso de verificación contra el de estas nueve, o **MINCETUR**.
+
+Y hay un agravante de secuencia: el prerender de meta tags (tanda 5) **congela el
+contenido en HTML estático indexable**. Un sello falso publicado así no se
+deshace apagándolo en la base: queda en el índice de Google hasta el próximo
+crawl. Es la clase de error que se arregla en minutos antes de publicar y en
+semanas después.
+
+Choca de frente con dos reglas de la casa, no con una:
+
+- "Nada falso visible al usuario real: sin ratings inventados, sin datos mock, sin
+  moderación simulada."
+- La verificación manual contra SUNAT y MINCETUR **es el proceso vigente** y es lo
+  que se afirma en el copy. Nueve agencias con el sello sin haber pasado por él
+  vacían esa afirmación.
+
+### Salidas posibles
+
+Cualquiera de las tres cierra el bloqueante, y se elige caso por caso:
+
+1. **Cargar RUC y MINCETUR reales** y verificarlos a mano, como se hace con las
+   agencias de verdad.
+2. **Bajar `verified` a `false`.** El tour sigue en el catálogo, sin sello. Es la
+   salida más barata y la que menos rompe.
+3. **Sacar los tours del catálogo público** (`active: false`).
+
+Para "Descubre el Perú" hay una decisión extra que tomar: es **la cuenta de
+presentaciones**, así que hay que resolver cómo sigue sirviendo para demos sin
+quedar publicada como agencia verificada.
+
+**Nada de esto se toca sin decisión explícita de José**, porque son escrituras en
+la base de producción sobre datos que el catálogo público está mostrando ahora
+mismo.
 
 ## Plan tipográfico: dónde quedó, al 2026-08-15
 
@@ -638,12 +770,7 @@ Local, dev.finde.pe y producción usan **la misma base**. Estos son los números
 ## Antes de lanzar a usuarios reales
 
 - [ ] **Reactivar "Confirm email" en Supabase** (desactivado para acelerar el MVP).
-- [ ] **Arreglar las 8 agencias del seed con `verified: true` sin RUC ni MINCETUR.** Hoy el catálogo público las muestra como verificadas cuando no pasaron ninguna verificación. Choca de frente con la regla "nada falso visible al usuario real". Son las 8 sin `userId`: Amazonía Viva, Andes Auténticos, Colca Adventures, Inka Trail Co, Lima Cultural Tours, Norte Salvaje, Pachamama Sagrada y Perú Total Tours. O se les carga RUC y MINCETUR reales, o se les baja `verified` a false.
-- [ ] **"Descubre el Perú" (`demo@finde.pe`): incumplimiento de la regla de no mostrar nada falso al usuario real.** Está `verified: true` con RUC `20601234567` y MINCETUR `REG12345`. Son valores de demo, pero **con formato válido**, así que pasan por reales a la vista de cualquiera.
-
-  **Es un caso distinto del de las 8 agencias del seed, y más grave.** Las 8 no tienen datos: el problema ahí es un sello sin respaldo. Esta tiene **datos falsos que parecen reales**, y sus 5 tours salen al catálogo público con el sello de verificada al lado de un RUC inventado. Un viajero que quiera comprobar la agencia va a buscar ese RUC en SUNAT y no va a encontrar nada, que es exactamente el escenario que la regla existe para evitar.
-
-  Resolverlo antes de lanzar: o se cargan RUC y MINCETUR reales, o se baja `verified` a false, o los tours salen del catálogo público. Es la cuenta de presentaciones, así que hay que decidir cómo sigue sirviendo para demos sin quedar publicada como agencia verificada.
+- 🚫 **El sello de verificación falso (8 del seed más "Descubre el Perú") SALIÓ de esta checklist el 2026-08-15.** Subió a **BLOQUEANTE DE LANZAMIENTO** y tiene sección propia más arriba en este documento. No es un ítem que se tilda entre otros: **el switch no se hace sin resolverlo.**
 - [ ] **Borrar los datos de prueba.** Inventario concreto:
   - Tours de `hola@finde.pe` ("Tour Prueba", sin verificar): **dos**, `"prueba"` (2026-07-28) y `"prueba manual"` (2026-08-13). Los dos están activos y visibles en el catálogo público.
   - Las **37 reservas** son de prueba salvo revisión caso por caso. Cuentas que las crearon: `hola@finde.pe`, `test@finde.pe`, `demo@finde.pe`, `megatours@finde.pe` y **`totemhubapp@gmail.com`** (ojo: esta no es `@finde.pe`, el criterio de "cuentas @finde.pe" la deja afuera). **La agencia MEGATOURS no se toca** (ver abajo); lo que se borra son las reservas de prueba hechas desde esa cuenta y las que caen sobre sus tours.

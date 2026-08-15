@@ -6,6 +6,54 @@
 
 ---
 
+## 2026-08-15 - La URL del tour es slug más sufijo del id
+
+**Qué se decidió.** La ruta pública de un tour es
+**`/tour/<slug-del-titulo>-<sufijo-del-cuid>`**, por ejemplo
+`/tour/laguna-humantay-full-day-abc123`. El slug **se deriva del título al
+renderizar**; lo que resuelve la ruta es **solo el sufijo del id**.
+
+**Qué se descartó.** Las otras dos opciones que estaban sobre la mesa:
+
+- **CUID pelado (`/tour/cmoh8rd3t000zvpn2vn252gw0`).** Estable y sin trabajo, pero
+  tira la palabra clave, que es justo lo que se comparte por WhatsApp.
+- **Slug puro con columna `slug` en el schema.** Obliga a migración, a manejo de
+  colisiones y a decidir qué pasa cuando una agencia edita el título.
+
+**Por qué esta, y en este orden de peso:**
+
+1. **No necesita columna nueva.** Cero cambios de schema, cero migración.
+2. **No necesita manejo de colisiones.** El id desambigua. Dos tours con el mismo
+   título conviven sin lógica extra.
+3. **El título puede cambiar y la URL vieja sigue resolviendo**, porque el
+   matcheo ignora la parte del slug. Si el slug recibido difiere del canónico, se
+   redirige con **301** al canónico.
+4. **Gana la palabra clave en la URL**, que importa para búsqueda y sobre todo
+   para el link compartido por WhatsApp, donde la URL se lee antes que el preview.
+
+**Por qué se decide ANTES de implementar.** Cambiar URLs ya indexadas cuesta
+redirects para siempre. Esta entrada existe para que la tanda del router no
+tenga que elegir en el momento.
+
+**Consecuencias.**
+
+1. **Va con el router de la tanda 2**, y se resuelve con la misma constante
+   `BASE_PATH` de la decisión de abajo: la ruta es `${BASE_PATH}/tour/...`, nunca
+   un literal.
+2. **El 301 al canónico es parte del alcance, no un extra.** Sin él, el mismo
+   tour queda accesible bajo infinitas URLs y Google reparte la señal entre
+   todas.
+3. **La tanda 2 tiene que definir y documentar tres cosas antes de escribir
+   código**, y las tres son decisiones que después cuestan redirects:
+   - **Cuántos caracteres del CUID** se usan como sufijo.
+   - **Cómo se normaliza el título a slug**: tildes, ñ, espacios, signos,
+     mayúsculas, largo máximo.
+   - **Qué pasa si el slug queda vacío** porque el título es solo símbolos.
+4. **El sufijo se toma del final del CUID, no del principio.** Los CUID comparten
+   prefijo entre registros creados cerca en el tiempo; la entropía está al final.
+
+---
+
 ## 2026-08-15 - /demo se mantiene hasta el lanzamiento, y todo se construye listo para el switch
 
 **Qué se decidió.** El producto sigue viviendo en **finde.pe/demo** hasta el
