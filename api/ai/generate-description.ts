@@ -10,6 +10,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
 import { anthropic, MODEL } from "../../lib/anthropic.js";
 import { rateLimit, ipFromRequest } from "../../lib/rate-limit.js";
+import { requireOperator } from "../../lib/auth.js";
 
 const CATEGORIES = ["adventure", "cultural", "gastronomy", "nature", "mystic"] as const;
 
@@ -200,6 +201,17 @@ export default async function handler(
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     res.status(405).json({ error: "Método no permitido" });
+    return;
+  }
+
+  // Solo agencias: este endpoint gasta tokens de Claude en cada llamada y su
+  // único consumidor es el paso 4 del formulario de tour, que ya vive detrás
+  // del panel. Sin esta guarda, el rate limit por IP (10/min) era la única
+  // defensa de un costo variable abierto a internet. 401 sin sesión, 403 si la
+  // cuenta no es agencia; requireOperator ya respondió en ambos casos.
+  try {
+    await requireOperator(req, res);
+  } catch {
     return;
   }
 

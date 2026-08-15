@@ -25,10 +25,42 @@
 
 ## En curso
 
-Nada arrancado. **Lo próximo es la Fase 6 del plan tipográfico**, la escala en
-tokens, que no se empieza sin visto bueno explícito. Antes que ella conviene
-hacer el **barrido de padding del Grupo B**, que la Fase 5 acaba de desbloquear
-y es más chico.
+**Frente abierto el 2026-08-15: navegación abierta y camino al lanzamiento.**
+Ver la decisión del 2026-08-15 en `docs/decisiones.md` (`/demo` se queda hasta el
+lanzamiento, y cada tanda deja el switch más cerca). La investigación que lo
+arrancó cubrió gates de sesión, permisos del backend y RLS; el hallazgo central
+es que **el backend ya está abierto y la base no necesita nada**: lo que falta es
+frontend, y sobre todo **URLs**, que hoy no existen.
+
+En QA, en la rama `fix/auth-endpoints-ia`: **los dos endpoints de IA pasan a
+exigir perfil de agencia.** Ver abajo.
+
+**Lo próximo es la Fase 6 del plan tipográfico**, la escala en tokens, que no se
+empieza sin visto bueno explícito. Antes que ella conviene hacer el **barrido de
+padding del Grupo B**, que la Fase 5 acaba de desbloquear y es más chico. Los dos
+quedan detrás del frente de lanzamiento, que tiene fecha y ellos no.
+
+### Los endpoints de IA exigen agencia (rama `fix/auth-endpoints-ia`)
+
+`POST /api/ai/generate-description` y `POST /api/ai/generate-quechua` no pedían
+sesión. Son **llamadas pagas a la API de Claude** y su única defensa era el rate
+limit de 10 por minuto por IP, o sea un costo variable abierto a internet.
+
+Los dos pasan por `requireOperator`. Se verificó que ningún llamador queda afuera:
+
+- `generate-description` tiene **un solo llamador**, el paso 4 de `NewTourView`
+  (`src/AppDemo.jsx`), que ya vive detrás del panel. Ese llamador usaba `fetch`
+  pelado y pasó a `authFetch`: **sin ese tercer cambio la guarda rompía el
+  botón**, porque no viajaba el header `Authorization`.
+- `generate-quechua` **no tiene ningún llamador**. El toggle QU de la ficha pasó
+  a leer las columnas persistidas, y `scripts/backfill-quechua.ts` le pega
+  directo a Anthropic sin pasar por el endpoint. Queda ocupando **uno de los 12
+  slots de función de Vercel Hobby sin servir a nadie**, y ese slot es
+  exactamente el que haría falta para servir meta tags a los bots.
+
+El 403 del backend dice "Requiere perfil de operador", vocabulario interno que no
+existe en la interfaz. El frontend lo traduce: 401 es "Tu sesión venció" y 403 es
+"Necesitas un perfil de agencia para usar el generador".
 
 ## Plan tipográfico: dónde quedó, al 2026-08-15
 
