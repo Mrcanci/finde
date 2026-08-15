@@ -1,7 +1,7 @@
 # Plan tipográfico del demo
 
 **Fecha:** 13 ago 2026 · **Rama de origen:** `dev` · **Fuente:** `docs/audits/2026-08-13-typography-audit.md`
-**Estado al 2026-08-15:** Fases 0 a 3 en `main` (`af7c0b1`). Fase 4 en `main` (`6f3bbed`). **Fase 5 COMPLETA y en `main`**, post-QA. **La siguiente es la Fase 6**, y antes que ella conviene hacer el barrido de padding del Grupo B, que la Fase 5 desbloqueó.
+**Estado al 2026-08-15:** Fases 0 a 3 en `main` (`af7c0b1`). Fase 4 en `main` (`6f3bbed`). **Fase 5 COMPLETA y en `main`** (`86a4ea3`), post-QA. **La siguiente es la Fase 6**, y antes que ella conviene hacer el barrido de padding del Grupo B, que la Fase 5 desbloqueó.
 
 Este plan reordena los hallazgos de la auditoría tipográfica y **corrige seis errores de análisis que se le encontraron al verificarla**. La auditoría se trata como hipótesis, no como verdad. Cuando este plan y la auditoría se contradicen, manda este plan.
 
@@ -929,7 +929,7 @@ La confirmación experimental cerró el caso en dos mediciones: bajar el interli
 
 ### Cierre de la Fase 5
 
-**En `main` desde el 2026-08-15, post-QA.** QA hecho por José en dev.finde.pe.
+**En `main` desde el 2026-08-15 (`86a4ea3`), post-QA.** QA hecho por José en dev.finde.pe.
 
 | Paso | Commit | Qué hizo |
 |---|---|---|
