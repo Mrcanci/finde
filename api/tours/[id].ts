@@ -456,6 +456,24 @@ async function handlePatch(
   // solicitud que no venció pertenece por fuerza a una salida futura, y en las
   // salidas futuras el panel sí ofrece confirmar y rechazar. La agencia se
   // desbloquea sola, sin que nadie toque la base.
+  //
+  // La rama `expiresAt: null` es DEFENSIVA Y ESTÁ MUERTA, y eso es lo que
+  // vuelve estructural a la garantía de arriba. Verificado el 2026-08-15
+  // recorriendo el código entero: **hay un solo lugar que crea una reserva**,
+  // api/bookings.ts, y ahí `expiresAt` es null si y solo si el modo es
+  // CUPO_FIJO (o sea, si NO nace como SOLICITUD); en el otro camino siempre
+  // sale de solicitudExpiresAt, que devuelve una fecha, nunca null. Los dos
+  // únicos lugares que escriben `expiresAt: null` (la decisión de la agencia y
+  // la cancelación interna) lo hacen en la misma operación en que mandan la
+  // reserva a un estado terminal, así que un null jamás convive con SOLICITUD.
+  // Y el backfill viejo que originó las 19 inmortales solo tocaba reservas con
+  // statusNew NULL, de las que ya no queda ninguna.
+  //
+  // Consecuencia: en el peor de los casos este bloqueo se resuelve SOLO, por
+  // vencimiento, en la medianoche del día de salida como tope duro. No puede
+  // volver a existir una solicitud que no venza nunca y trabe la configuración
+  // para siempre. Si algún día aparece otro camino que cree reservas, esa
+  // propiedad hay que volver a verificarla acá.
   if (
     body.salesMode !== undefined &&
     body.salesMode !== existing.salesMode &&
