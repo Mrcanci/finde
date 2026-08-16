@@ -44,7 +44,7 @@ arrancada.** No se empieza sin visto bueno explícito.
 | # | Tanda | Depende de | Reversible |
 |---|---|---|---|
 | 0 | ✅ Endpoints de IA con auth, **en `main`** | nada | sí |
-| 1 | Analítica base (`page_view`, `tour_view`, `search_performed`) | nada | sí |
+| 1 | Analítica base: SOLO Vercel Analytics (reducida) | nada | sí |
 | 2 | Router con `BASE_PATH` y URL por tour | 1 | sí |
 | 3 | Modal de cuenta en el checkout, navegación abierta | 2 | sí |
 | 4 | Eventos del embudo (`booking_started`, `auth_prompted`, ...) | 3 | sí |
@@ -59,6 +59,93 @@ slug, y qué pasa con un slug vacío.
 empieza sin visto bueno explícito. Antes que ella conviene hacer el **barrido de
 padding del Grupo B**, que la Fase 5 acaba de desbloquear y es más chico. Los dos
 quedan detrás del frente de lanzamiento, que tiene fecha y ellos no.
+
+### Tanda 1, REDUCIDA a Vercel Analytics (decisión de José, 2026-08-15)
+
+**La tanda 1 se redujo a instalar Vercel Web Analytics. Nada más.** Decisión de
+José: **la experiencia de usuario va primero y no se suma peso sin certeza de que
+valga la pena.**
+
+**PostHog se pospone, no se descarta.** El motivo no es solo el peso: **hoy no
+mediría nada útil.** Los eventos que lo justifican (dónde se cae la gente en el
+checkout) dependen del modal de cuenta, que es la **tanda 3**. Instalarlo ahora
+sería cargar peso para leer un dashboard vacío.
+
+**Queda como decisión pendiente, a tomar antes del switch**, con la app ya
+terminada y **con la línea base de esta tanda como referencia**. El criterio para
+aceptarlo o rechazarlo se fija en ese momento, con números reales, no ahora.
+
+**Si PostHog no entra, la alternativa es armar los embudos con consultas a la
+base**: más trabajo de nuestro lado, **cero peso en el cliente**. No es un plan B
+degradado, es un intercambio distinto.
+
+**Lo que Vercel Analytics sí da, y alcanza para varias de las métricas:**
+visitantes, páginas vistas y **origen del tráfico**. Ese último es el que **prueba
+que Google y WhatsApp traen gente**, que es exactamente el argumento del canal
+barato. Lo que no da es el embudo interno del checkout.
+
+#### Línea base medida, contra la que se evalúa PostHog después
+
+Medido el 2026-08-15 con Lighthouse 12.8.2, preset **mobile**: 1638 Kbps de
+bajada, 150 ms de RTT y **CPU 4x más lenta** (4G y gama media). Cinco corridas por
+lado sobre `npm run build` servido con `vite preview`; se reportan **medianas de
+las corridas válidas**, porque una de cada cinco falla con `NO_FCP`.
+
+| Métrica | Antes | Después | Delta |
+|---|---|---|---|
+| Bundle JS (gzip) | 183.19 kB | 184.23 kB | **+1.04 kB** |
+| Bytes transferidos | 6.527.044 | 6.528.216 | **+1.172 bytes** |
+| LCP (mediana) | 6.728 ms | 6.916 ms | +188 ms |
+| TTI (mediana) | 7.032 ms | 7.231 ms | +199 ms |
+| Total Blocking Time | 0 ms | 0 ms | **sin cambio** |
+
+**Los deltas de LCP y TTI están DENTRO del ruido de medición y no se pueden
+atribuir al cambio.** Solo del lado "antes", el LCP osciló entre 6.313 y 6.836 ms,
+o sea **523 ms de dispersión entre corridas**: más del doble que el delta. Lo que
+sí es exacto y reproducible es el peso: **+1,04 kB comprimidos y cero tiempo de
+bloqueo del hilo principal.**
+
+A eso hay que sumarle **el script que sirve Vercel en runtime**, que no está en el
+bundle y por eso no aparece arriba: **2.495 bytes, 1.271 comprimidos**, medidos
+contra un despliegue real de Vercel. En local ese pedido da 404 y no pasa nada.
+
+**Total honesto del costo de esta tanda: unos 2,3 kB comprimidos y cero bloqueo.**
+
+**La ficha de tour no se pudo medir por separado, y esa imposibilidad ES el
+hallazgo:** hoy no es una carga de página, es un cambio de `useState`, así que no
+tiene URL y Lighthouse no la puede abrir. Es justo lo que resuelve la tanda 2.
+Hasta entonces, lo medible es cuánto agrega en red: las portadas reales del
+catálogo público pesan **entre 94 kB y 977 kB, con mediana de 276 kB**, y una
+ficha con galería de tres fotos ronda los **800 kB**.
+
+#### Hallazgo grande que salió de medir, y NO se arregla en esta tanda
+
+**Abrir `/demo` descarga 6,1 MB de imágenes de la landing que el usuario nunca
+ve.** Es el 96% del peso de la carga.
+
+| Qué | Peso |
+|---|---|
+| Imágenes de la landing (7 archivos) | **6.130 kB** |
+| Todo lo demás (bundle, fuentes, documento, CSS, dos fetch) | **244 kB** |
+
+`oxapampa.jpg` sola pesa **4.288 kB**.
+
+**La causa está en `src/App.jsx` y es de una línea.** `showDemo` arranca en
+`false` y recién se corrige dentro de un `useEffect`, o sea **después del primer
+render**. En ese primer render se monta `<Landing />`, el navegador dispara la
+descarga de sus imágenes, y un instante después React la desmonta y monta
+`<AppDemo />`. Las imágenes ya salieron.
+
+Solo `src/Landing.jsx` referencia `/destinations` y `/mockups`, así que no hay
+duda de a quién pertenecen. **ESLint ya lo venía marcando** con
+`react-hooks/set-state-in-effect` en `src/App.jsx:13`, sin que nadie atara el
+warning a su consecuencia.
+
+**No se tocó en esta tanda, a propósito**: el alcance era instalar Vercel
+Analytics y nada más. Queda anotado como el candidato número uno de rendimiento,
+**por encima del code splitting del bundle**: son 6,1 MB contra 184 kB. El arreglo
+es calcular `isDemo` durante el render en vez de en un efecto, **y no toca
+`Landing.jsx`**.
 
 ### La analítica va primera, pero su fecha límite real es el SWITCH
 
@@ -87,6 +174,42 @@ verificadas y % fuera del eje Lima-Cusco salen de una consulta a `Booking`,
 `Operator` y `Tour`; las búsquedas ya viven en `SearchLog`. Lo que falta
 instrumentar es **solo el top of funnel**: visitantes, vistas de ficha y reservas
 iniciadas.
+
+#### Qué recolecta Vercel Analytics, y qué dice la Ley 29733
+
+Verificado contra la documentación oficial de Vercel el 2026-08-15, no de memoria.
+
+**No guarda IP ni nada identificable.** Sin cookies de terceros. Al visitante lo
+identifica con un **hash del request entrante**, y **la sesión se descarta a las
+24 horas**. No permite reconstruir la navegación de una persona entre sitios ni
+identificarla.
+
+Los diez datos que guarda por evento: momento, URL, ruta dinámica, referrer,
+query params filtrados, geolocalización (país, región, ciudad), sistema operativo
+y versión, navegador y versión, tipo de dispositivo, y versión del script.
+
+**Conclusión: nada de esto es dato personal bajo la Ley 29733, y puede ir a
+producción.** La geolocalización es a nivel ciudad y viene desagregada de
+cualquier identificador.
+
+**Pero hay un riesgo a futuro, y es nuestro, no de Vercel: la URL se guarda.**
+Hoy no importa porque la app no tiene URLs. **Desde la tanda 2 sí las va a
+tener**, y ahí hay que mirar dos casos antes de que salgan:
+
+- `/mis-reservas/:code` llevaría el código de reserva (`FND-XXXXXX`) a los
+  servidores de Vercel.
+- Cualquier query param que se agregue después.
+
+**El instrumento existe y es la función `beforeSend` del propio paquete**, que
+deja reescribir o descartar la URL antes de enviarla. **Es trabajo de la tanda 2,
+no de esta**, pero se decide ahí y no cuando ya esté publicado.
+
+Un detalle operativo para el QA: la versión 2 del paquete usa **Resilient
+Intake**, que arma la URL del script con una semilla generada en build. En un
+proyecto con `framework: null` como este hay que **confirmar que el pedido del
+script responde 200 y no 404**, porque de eso depende que se registre algo.
+También hay que **activar Web Analytics en el dashboard de Vercel**: sin ese
+interruptor el paquete no reporta nada.
 
 ### Tanda 0, CERRADA: los endpoints de IA exigen agencia
 
