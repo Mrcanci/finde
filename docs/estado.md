@@ -24,17 +24,21 @@ lanzamiento, y **cada tanda tiene que dejar el switch más cerca, no más lejos*
 | 2 | Router con `BASE_PATH` y URL por tour | 1 | ✅ en `main` |
 | 3 | Modal de cuenta en el checkout, navegación abierta | 2 ✅ | **la siguiente** |
 | 4 | Eventos del embudo | 3 | esperando |
-| 5 | Meta tags por tour, `robots.txt`, `sitemap.xml` | 2 ✅ | **desbloqueada, investigada** |
+| 5 | Meta tags por tour (pasos 1 a 4) | 2 ✅ | 🔨 **en QA**. `robots.txt` y `sitemap.xml` van con el switch |
 | 6 | Día del switch: `BASE_PATH` a `""` más el rewrite de la raíz | todo | el código es reversible, el SEO no |
 
 **Las tandas 3 y 5 ya no dependen una de la otra** y ninguna está arrancada.
 
 - **La 3** abre la navegación por defecto. Hoy `/demo` pelado **sigue mostrando el
   login**: la 2 solo abrió los deep links. De la 3 depende la 4.
-- **La 5 es la que convierte el trabajo de la 2 en tráfico.** Sin ella las fichas
-  tienen dirección pero **comparten título y descripción** al compartirse. **Ya
-  está investigada**: el plan y los datos están en
-  `docs/historia/2026-08-router-y-urls.md` y en el reporte de la sesión.
+- **La 5 está EN QA** (`feat/prerender-meta-tags`, tag `pre-prerender`). Cada
+  ficha tiene ahora su HTML estático con title, description y og: propios, más
+  `noindex` mientras el producto viva en `/demo`. **Cuesta cero funciones
+  serverless y no toca `vercel.json`.**
+  **Falta el paso 5**, que es sacar el `noindex` y publicar `robots.txt` y
+  `sitemap.xml`: eso va **el día del switch**, no antes. Publicar un sitemap hoy
+  sería invitar a indexar lo que el `noindex` bloquea, y listaría las 37 URLs que
+  se borran en el lanzamiento.
 
 **Antes de la 5 hay que tener los datos limpios**: el prerender **congela el
 contenido en HTML indexable**, así que lo que esté mal ese día queda en el índice

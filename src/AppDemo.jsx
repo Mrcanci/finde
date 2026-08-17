@@ -6698,7 +6698,9 @@ export default function AppDemo() {
       if (window.location.pathname !== canonPath) {
         window.history.replaceState(window.history.state, "", canonPath);
       }
-    } else if (link) {
+    } else if (link && !link.dataset.prerender) {
+      // Solo se saca el canonical que puso ESTA app. El que trae el HTML
+      // estático del prerender lleva data-prerender y se respeta.
       link.remove();
     }
     let robots = document.querySelector('meta[name="robots"]');
@@ -6709,7 +6711,14 @@ export default function AppDemo() {
         document.head.appendChild(robots);
       }
       robots.content = "noindex";
-    } else if (robots) {
+    } else if (robots && !robots.dataset.prerender) {
+      // ESTA LÍNEA ES LA QUE IMPORTA, y el `!robots.dataset.prerender` no es
+      // cosmético. Las fichas prerenderizadas traen `noindex` en el HTML porque
+      // el producto todavía vive en /demo y no se indexa. Sin esta condición, el
+      // efecto lo BORRABA al montar la app, y el noindex solo sobrevivía hasta
+      // que el JavaScript arrancaba. Un crawler que ejecuta JS lo veía
+      // desaparecer y Google indexaba /demo, que es de las pocas cosas de esta
+      // tanda que no se deshacen rápido.
       robots.remove();
     }
   }, [canonPath, noindex]);
