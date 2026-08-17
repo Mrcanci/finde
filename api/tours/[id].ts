@@ -43,6 +43,58 @@ const paramsSchema = z.object({
   id: z.string().min(1),
 });
 
+// ── Resolución por SUFIJO del cuid (para la URL pública del tour) ──
+//
+// La ruta pública es /tour/<slug>-<sufijo>, y el sufijo son los 6 últimos
+// caracteres del cuid (ver docs/decisiones.md). Este GET acepta las dos formas:
+// el cuid entero de 25 caracteres, como siempre, o el sufijo de 6.
+//
+// Va acá y NO en un endpoint nuevo porque Vercel Hobby permite 12 funciones y
+// hay exactamente 12. Este archivo ya existe, así que la ruta pública sale
+// gratis en slots.
+const SUFFIX_RE = /^[a-z0-9]{6}$/;
+
+// Encuentra el tour por sufijo. Devuelve el id, o null si no hay ninguno.
+//
+// La colisión de sufijos es improbable (el 1% se alcanza recién a los 6.615
+// tours) pero no imposible, así que hay red: si aparece más de uno, se desempata
+// con el slug que venía en la URL. Si sigue ambiguo, null. Una colisión DEGRADA
+// en vez de romper.
+//
+// El LIKE '%sufijo' no usa índice: es un barrido secuencial. Medido con 49
+// tours son 0,065 ms, más rápido que el índice por id porque la tabla entra en
+// una página. Si algún día molesta, la salida es un índice por expresión
+// right(id, 6), que Prisma no sabe expresar y hay que crear con SQL crudo.
+async function resolveBySuffix(
+  suffix: string,
+  slug: string | null
+): Promise<string | null> {
+  const candidatos = await db.tour.findMany({
+    where: { id: { endsWith: suffix } },
+    select: { id: true, title: true, city: true },
+  });
+  if (candidatos.length === 0) return null;
+  if (candidatos.length === 1) return candidatos[0].id;
+  console.warn(`[tours] colisión de sufijo "${suffix}": ${candidatos.length} tours`);
+  if (!slug) return null;
+  // Mismo slugify que src/lib/routes.js. Está duplicado a propósito: el backend
+  // no importa del frontend, y son cinco líneas. Si alguna vez divergen, el
+  // único efecto es que un desempate falle y responda 404, no un dato erróneo.
+  const norm = (t: string): string =>
+    (t || "")
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/ñ/gi, "n")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/-{2,}/g, "-")
+      .replace(/^-+|-+$/g, "");
+  const exactos = candidatos.filter(
+    (c) => norm(c.title).startsWith(slug) || norm(c.city).startsWith(slug)
+  );
+  return exactos.length === 1 ? exactos[0].id : null;
+}
+
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -74,7 +126,22 @@ export default async function handler(
     return;
   }
 
-  const { id } = parsed.data;
+  const { id: param } = parsed.data;
+
+  // El parámetro puede ser el cuid entero (25 chars, como siempre) o el sufijo
+  // de 6 que usa la URL pública. ?slug= es opcional y solo sirve para desempatar
+  // una colisión de sufijos.
+  let id = param;
+  if (SUFFIX_RE.test(param)) {
+    const sq = req.query.slug;
+    const slug = (Array.isArray(sq) ? sq[0] : sq) ?? null;
+    const resuelto = await resolveBySuffix(param, slug);
+    if (!resuelto) {
+      res.status(404).json({ error: "Tour no encontrado" });
+      return;
+    }
+    id = resuelto;
+  }
 
   // Rango opcional ?from=&to= (YYYY-MM-DD, máx 62 días): disponibilidad de
   // cupos para el calendario del viajero. Ambos o ninguno.
