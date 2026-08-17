@@ -1,7 +1,7 @@
 # Estado del proyecto
 
 > **El presente. Se lee al empezar cada tanda y se actualiza en el mismo commit al cerrarla.**
-> Última actualización: 2026-08-16.
+> Última actualización: 2026-08-17.
 >
 > **Lo que ya se hizo NO vive acá**, vive en `docs/historia/`. Ver el índice al final.
 
@@ -24,33 +24,39 @@ lanzamiento, y **cada tanda tiene que dejar el switch más cerca, no más lejos*
 | 2 | Router con `BASE_PATH` y URL por tour | 1 | ✅ en `main` |
 | 3 | Modal de cuenta en el checkout, navegación abierta | 2 ✅ | **la siguiente** |
 | 4 | Eventos del embudo | 3 | esperando |
-| 5 | Meta tags por tour, más la metadata obligatoria del formulario | 2 ✅ | 🔨 **en QA**. `robots.txt` y `sitemap.xml` van con el switch |
+| 5 | Meta tags por tour, más la metadata obligatoria del formulario | 2 ✅ | ✅ en `main`. `robots.txt` y `sitemap.xml` van con el switch |
+| 5B | Activar un tour exige la metadata mínima | 5 ✅ | 🔨 **en QA** |
 | 6 | Día del switch: `BASE_PATH` a `""` más el rewrite de la raíz | todo | el código es reversible, el SEO no |
 
-**Las tandas 3 y 5 ya no dependen una de la otra** y ninguna está arrancada.
+**La 5 cerró el 2026-08-17. La 3 sigue sin arrancar** y las dos ya no dependen
+una de la otra.
 
 - **La 3** abre la navegación por defecto. Hoy `/demo` pelado **sigue mostrando el
-  login**: la 2 solo abrió los deep links. De la 3 depende la 4.
-- **La 5 está EN QA** (`feat/prerender-meta-tags`, tag `pre-prerender`). Cada
-  ficha tiene ahora su HTML estático con title, description y og: propios, más
-  `noindex` mientras el producto viva en `/demo`. **Cuesta cero funciones
-  serverless y no toca `vercel.json`.**
-  **Va junto con la metadata obligatoria del formulario**: `shortPitch` de 40 a 80
-  y descripción de 300 pasan a ser requeridos, la portada también, y hay avisos
-  para la foto chica y el título corto. El motivo está medido: **ninguno de los 5
-  tours que cargó una agencia real tenía `shortPitch`, y los 37 del seed sí**,
-  porque el campo no existía en el formulario. Detalle en
-  `docs/historia/2026-08-router-y-urls.md`.
+  login**: la 2 solo abrió los deep links. De la 3 depende la 4. **Es la siguiente.**
+- **La 5 está en `main`.** Cada ficha tiene su HTML estático con title,
+  description y og: propios, más `noindex` mientras el producto viva en `/demo`.
+  **Cuesta cero funciones serverless.**
+  **Fue junto con la metadata obligatoria del formulario**: `shortPitch` de 40 a 80
+  y descripción de 300 pasan a ser requeridos, y la portada también. El motivo
+  está medido: **ninguno de los 5 tours que cargó una agencia real tenía
+  `shortPitch`, y los 37 del seed sí**, porque el campo no existía en el
+  formulario. Detalle en `docs/historia/2026-08-router-y-urls.md`.
 
   **Falta el paso 5**, que es sacar el `noindex` y publicar `robots.txt` y
   `sitemap.xml`: eso va **el día del switch**, no antes. Publicar un sitemap hoy
   sería invitar a indexar lo que el `noindex` bloquea, y listaría las 37 URLs que
   se borran en el lanzamiento.
+- **La 5B está EN QA** (`fix/activar-exige-metadata`). Cierra el agujero que
+  encontró José: el formulario exigía la metadata pero **"activar" no pasa por el
+  formulario**, así que desde el panel se podía devolver al catálogo un tour sin
+  gancho. La condición vive ahora en `lib/tour-input.ts` con los números que usa
+  el formulario, y el PATCH la llama cuando el cuerpo pide `active:true`.
 
-**Antes de la 5 hay que tener los datos limpios**: el prerender **congela el
-contenido en HTML indexable**, así que lo que esté mal ese día queda en el índice
-de Google hasta el próximo crawl. Y **37 de los 42 tours públicos se borran en el
-lanzamiento**: prerenderizarlos hoy fabrica URLs que van a morir.
+**El prerender ya corre en CADA deploy, así que los datos sucios se congelan en
+HTML indexable** y quedan en el índice de Google hasta el próximo crawl. Hoy lo
+tapa el `noindex`; **el día del switch deja de taparlo**. Y **37 de los 42 tours
+públicos se borran en el lanzamiento**, así que sus URLs prerenderizadas van a
+morir: es otra razón para no publicar el sitemap antes.
 
 ### Fuera del frente de lanzamiento
 
@@ -118,7 +124,7 @@ Ninguno.
 - [ ] **Reactivar "Confirm email" en Supabase** (desactivado para acelerar el MVP).
 - [x] **El sello de verificación falso: CERRADO el 2026-08-16.** Fue el único bloqueante de lanzamiento y El registro completo está en `docs/historia/2026-08-sello-verificacion.md`. Resultado: **42 tours visibles y MEGATOURS como la única agencia con sello, que es la única que lo tiene de verdad.**
 - [ ] **Borrar los datos de prueba.** Inventario concreto:
-  - Tours de `hola@finde.pe` ("Tour Prueba", sin verificar): **dos**, `"prueba"` (2026-07-28) y `"prueba manual"` (2026-08-13). Los dos están activos y visibles en el catálogo público.
+  - Tours de `hola@finde.pe` ("Tour Prueba", sin verificar): **dos**, `"prueba"` (2026-07-28) y `"prueba manual"` (2026-08-13). **Los dos están pausados**: `"prueba manual"` ya lo estaba y `"prueba"` se pausó el 2026-08-17, porque seguía en el catálogo público con 15 caracteres de descripción. Falta borrarlos.
   - Las **37 reservas** son de prueba salvo revisión caso por caso. Cuentas que las crearon: `hola@finde.pe`, `test@finde.pe`, `demo@finde.pe`, `megatours@finde.pe` y **`totemhubapp@gmail.com`** (ojo: esta no es `@finde.pe`. Y el criterio **nunca** es el dominio: ver `.claude/rules/api-y-schema.md`, porque MEGATOURS también es `@finde.pe`). **La agencia MEGATOURS no se toca** (ver el ítem de coordinación en esta misma lista); lo que se borra son las reservas de prueba hechas desde esa cuenta y las que caen sobre sus tours.
   - Las **25 salidas**, incluidas 7 del tour "prueba".
   - Agencias sin tours creadas en pruebas: `test@finde.pe` (jose luis cancino cuellar), `op-test@finde.pe` (Tours Test), `totemhubapp@gmail.com` (Totem Travels).

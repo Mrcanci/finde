@@ -6413,7 +6413,13 @@ export default function AppDemo() {
     if (!res.ok) {
       revert();
       if (res.status === 403) return { ok: false, error: "No puedes modificar este tour." };
-      return { ok: false, error: "No pudimos actualizar el estado del tour. Intenta de nuevo." };
+      // El mensaje del servidor SE USA, no se tira. Cuando activar se bloquea
+      // por metadata faltante, el backend responde qué falta y en qué paso del
+      // formulario se arregla; antes ese texto se descartaba y la agencia leía
+      // "no pudimos actualizar", que no dice qué hacer. El cartel que lo muestra
+      // ya existe en DashView (toggleErr).
+      const delServidor = await res.json().then(d => d?.error).catch(() => null);
+      return { ok: false, error: delServidor || "No pudimos actualizar el estado del tour. Intenta de nuevo." };
     }
     // Sincroniza el catálogo público con el estado real (el backend filtra active).
     await loadPublicTours();
