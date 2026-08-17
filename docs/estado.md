@@ -37,10 +37,24 @@ depende de ninguna de las dos.** El detalle de lo cerrado está en
 
 **Lo que queda abierto del frente de SEO, y no se toca antes de tiempo:**
 
-- **El paso 5 de la tanda 5**: sacar el `noindex` y publicar `robots.txt` y
-  `sitemap.xml`. **Va el día del switch, no antes.** Publicar un sitemap hoy sería
-  invitar a indexar lo que el `noindex` bloquea, y listaría las 37 URLs que se
-  borran en el lanzamiento.
+- **El `noindex` general de `/demo` YA ESTÁ**, desde el 2026-08-17: una etiqueta
+  en `index.html`, la plantilla de la SPA, así que cubre la portada, el buscador
+  y cualquier URL huérfana además de las fichas. **Nada bajo `/demo` se indexa.**
+  Es una de las dos líneas que se tocan el día del switch.
+- **El paso 5 de la tanda 5 tiene TRES piezas, no dos.** Va el día del switch,
+  no antes:
+  1. **Sacar el `noindex`**: borrar la etiqueta de `index.html`. Las fichas se
+     arreglan solas al poner `BASE_PATH` en `""`, porque el prerender decide con
+     `NOINDEX = BASE_PATH !== ""`.
+  2. **Publicar `robots.txt` y `sitemap.xml`.** Hoy sería invitar a indexar lo
+     que el `noindex` bloquea, y listaría las 37 URLs que se borran.
+  3. **Resolver las URLs de tours que no existen.** *(Descubierta el 2026-08-17,
+     no estaba en el plan original.)* Hoy responden **200 con la portada
+     genérica**, no 404: el rewrite de `/demo/:path*` las captura antes de que
+     Vercel llegue a su fase de error. Para Google eso es un soft 404. **Mientras
+     dure el `noindex` general no hace daño; el día que se saque, sí.** Y es
+     justo cuando más van a existir, porque se borran los 37 tours del seed.
+     Análisis y opciones en `docs/audits/2026-08-17-noindex-y-urls-huerfanas.md`.
 - **El prerender corre en CADA deploy**, así que **los datos sucios se congelan
   en HTML indexable** y quedan en el índice de Google hasta el próximo crawl. Hoy
   lo tapa el `noindex`; el día del switch deja de taparlo. Es la razón por la que
