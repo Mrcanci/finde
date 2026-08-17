@@ -8,6 +8,41 @@
 > la decisión pendiente escrita al lado. Lo que está roto va en "Bugs abiertos"
 > de `docs/estado.md`.
 
+## Pendiente de lanzamiento: el SMTP de los correos de auth
+
+**Conectar Resend como SMTP propio en Supabase.** Hoy Custom SMTP está
+**apagado**, así que los correos de autenticación salen por el remitente por
+defecto de Supabase, que en el plan Free tiene un tope bajo por hora. **Sirve
+para probar, no para operar.**
+
+**No es una mejora, es un pendiente de lanzamiento**, y el motivo es que hay
+tres cosas atadas al mismo cambio que hoy figuran sueltas:
+
+- **Reactivar "Confirm email"**, que hoy está apagado (`mailer_autoconfirm: true`
+  en `/auth/v1/settings`, medido el 2026-08-17). Cada registro pasa a mandar un
+  correo por ese remitente.
+- **El código de 6 dígitos del modal de cuenta**, que es la alternativa natural a
+  la contraseña y manda un correo por cada intento de entrar.
+- **Cualquier recuperación de contraseña**, que también sale por ahí.
+
+**Es configuración, no desarrollo.** Resend ya está andando para los correos
+transaccionales, con `RESEND_API_KEY` cargada en los tres entornos: lo que falta
+es apuntar el SMTP de Supabase al mismo proveedor.
+
+### El orden importa, y hoy no estaba escrito en ningún lado
+
+**Mientras "Confirm email" siga apagado, el alta desde el modal de cuenta loguea
+al instante y el viajero sigue reservando sin salir de la pantalla.** Eso es lo
+que deja que el modal de la tanda 3 funcione con correo y contraseña.
+
+**El día que se reactive, ese camino se rompe**, salvo que el modal maneje el
+estado "revisa tu correo": el viajero crearía la cuenta, no quedaría logueado, y
+el checkout se cortaría justo ahí, con la fecha y los cupos ya elegidos.
+
+> **Reactivar "Confirm email" sin tocar el modal rompe el checkout.** No es un
+> efecto lateral a vigilar, es la consecuencia directa, y por eso los dos ítems
+> van juntos o no van.
+
 ## Riesgos de producto
 
 No son bugs: no hay nada roto.
