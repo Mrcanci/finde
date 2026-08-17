@@ -86,6 +86,36 @@ Bucket **`tour-images`**: lectura pública, límite 5MB, MIME `image/jpeg` y `im
 
 Flujo: `POST /api/uploads/tour-image` (tras `requireOperator`) emite una **signed upload URL** y el navegador sube el archivo **directo** a Storage. El archivo nunca pasa por la función, así que esquiva el límite de request de Vercel. Ruta `{operatorId}/{uuid}.{ext}`; la `publicUrl` resultante se guarda en `Tour.imageUrl`.
 
+## El plan de Supabase es FREE, y el límite que muerde es el EGRESS
+
+**Confirmado el 2026-08-16.** No es un detalle de facturación: **el plan Free no
+cobra excedente, RESTRINGE.** Agotar la cuota no es una factura a fin de mes, es
+que la plataforma **deja de servir**.
+
+| Recurso | Tope | Uso al 2026-08-16 |
+|---|---|---|
+| Storage | 1 GB | 0,027 GB |
+| **Egress** | **5 GB al mes** | 0,126 GB |
+| Database | 0,5 GB | 0,029 GB |
+
+**El almacenamiento se llena una vez y se ve venir. El egress se consume en CADA
+visita y se recarga cada mes**, así que es el que se toca primero, y por dos
+órdenes de magnitud: llenar 1 GB requiere unos 64 tours con fotos sin procesar;
+agotar el egress requiere **26 visitas al catálogo**.
+
+**Consecuencia al escribir código:** cualquier cosa que aumente los bytes que
+Supabase sirve por visita (una foto más pesada, un `select` más gordo, una imagen
+que pasa de un CDN externo a nuestro bucket) sale de esa cuota. **Antes de sumar
+peso a un camino público, hacer la cuenta de cuántas visitas mensuales lo
+agotan.**
+
+**Y `Storage Image Transformations` no está disponible en este plan**, así que
+Supabase no puede achicar imágenes del lado del servidor. Por eso el
+procesamiento vive en el navegador (`src/lib/image-resize.js`) y no es una
+preferencia: es el único camino.
+
+La medición completa está en `docs/historia/2026-08-rendimiento-imagenes.md`.
+
 ## Límite de plataforma (crítico)
 
 **Vercel Hobby permite 12 funciones serverless. `/api/` tiene hoy exactamente 12 archivos.** No se puede agregar uno sin sacar otro. Antes de crear un endpoint, consolidar en una ruta dinámica existente.
@@ -98,6 +128,28 @@ api/ai/generate-quechua.ts       api/me.ts         api/search-reasoning.ts
 api/bookings.ts                  api/operators.ts  api/tours/index.ts
 api/operators/me/[resource].ts   api/tours/[id].ts api/uploads/tour-image.ts
 ```
+
+### El slot designado a liberar: `generate-quechua`
+
+**Cuando haga falta un endpoint nuevo, el que sale es `api/ai/generate-quechua.ts`.**
+Está decidido y anotado desde el 2026-08-16, para no tener que reabrir la
+discusión con la urgencia encima.
+
+Los tres motivos:
+
+1. **No lo llama nadie.** El toggle QU de la ficha lee las columnas persistidas, y
+   `scripts/backfill-quechua.ts` le pega directo a Anthropic sin pasar por el
+   endpoint. Borrarlo no rompe ninguna pantalla ni ningún script.
+2. **Su capacidad no se pierde**: el script de backfill traduce igual, con el
+   mismo prompt.
+3. **Hoy no llega a ningún usuario**: la capa de display de quechua no existe.
+
+**El destinatario previsto es Culqi**, que necesita al menos tres endpoints (crear
+cargo, webhook, estado).
+
+Y si algún día se retoma el quechua en vivo, **el camino no es revivir el archivo
+suelto sino consolidarlo en una ruta dinámica**, como se hizo con
+`api/operators/me/[resource].ts`. El límite de 12 se resuelve consolidando.
 
 ### `api/operators/me/[resource].ts`, el endpoint consolidado
 
@@ -194,6 +246,7 @@ Al agregar un campo de este tipo: agregar, no reemplazar; mapear el nombre públ
 - `Tour.imageUrl` es la portada; `Tour.images[]` es la galería multi-foto.
 - Columnas quechua espejadas: `titleQu`, `descQu`, `shortPitchQu`, `meetingPointQu`, `includedQu[]`, `excludedQu[]`. null o array vacío = sin traducir.
 - `Operator.userId` y `Booking.userId` son FK **lógicas** a `auth.users` de Supabase. Prisma no las maneja. Nullable a propósito: las agencias del seed no tienen dueño.
+- **Para separar cuentas internas de agencias reales, el criterio NUNCA es el dominio `@finde.pe`.** MEGATOURS, la agencia piloto real y hoy la única con el sello ganado, usa `megatours@finde.pe`: **comparte dominio con las cuentas de prueba**. Un filtro del tipo `email LIKE '%@finde.pe'`, que es la forma obvia de escribir "sacar lo interno del catálogo", **le borra el sello a la única agencia que lo tiene y baja sus tours reales**. Las cuentas se nombran **una por una**, con su email exacto, y después se verifica que el piloto quedó intacto. Pasó de verdad el 2026-08-16 y se detectó antes de aplicar; ver `docs/historia/2026-08-sello-verificacion.md` y `scripts/limpiar-sello-verificacion.ts`.
 - `Booking.userDocument` (DNI, pasaporte o CE) se llama así y no `userDocId` para no confundirlo con `userId`. Solo se expone a la agencia dueña del tour.
 - `Tour.embedding` es `Unsupported("vector(1024)")`: no se puede leer ni escribir por el cliente Prisma normal, va por `$queryRaw` / `$executeRaw`.
 
@@ -223,4 +276,43 @@ El frontend es una SPA **sin router library**. Esos rewrites hacen que cualquier
 
 - **Agregar una ruta de página no se hace acá.** Se hace en el switch de `src/AppDemo.jsx` (ver `.claude/rules/frontend.md`).
 - Si algún día se agrega un prefijo de URL nuevo, hay que sumar el rewrite o va a dar 404 en producción y funcionar en `npm run dev`.
-- `framework: null` y `buildCommand: "vite build"`: Vercel no autodetecta nada. Cambiar el build se hace en este archivo.
+- `framework: null`: Vercel no autodetecta nada. **El build que corre Vercel es el `buildCommand` de este archivo, no el script `build` de `package.json`.**
+
+### El `buildCommand` delega en `npm run build`, y no es cosmético
+
+```json
+"buildCommand": "npm run build"
+```
+
+**Así el build queda definido en UN solo lugar (`package.json`) y `vercel.json`
+solo delega.** Si acá se escribe la cadena de comandos completa quedan dos
+definiciones del build que pueden separarse sin que nadie se entere, que es
+exactamente lo que pasó.
+
+#### El caso que confirmó la regla: el prerender que nunca corrió
+
+**La regla de arriba ya estaba escrita el 2026-08-16 y aun así se rompió al día
+siguiente.** El paso de prerender (`scripts/prerender.ts`, los meta tags por
+tour) se agregó al script `build` de `package.json`, y se verificó corriendo
+`npm run build` en local: 43 fichas escritas, con su `noindex`. Todo verde.
+
+**Pero `vercel.json` decía `"buildCommand": "vite build"`, así que Vercel nunca
+ejecutó el paso.** El deploy salió con los meta tags genéricos y sin `noindex`,
+y lo encontró José usando el sitio, no la verificación.
+
+La medición que lo cerró, un comando cada una:
+
+| Comando | Fichas generadas | `noindex` |
+|---|---|---|
+| `vite build` (lo que corría Vercel) | **0** | no |
+| `npm run build` (lo que se verificó) | **43** | sí |
+
+**La lección es la diferencia entre medir el punto y medir un borde parecido.**
+Correr `npm run build` en local no prueba nada sobre el deploy: prueba el
+comando que uno eligió correr. El punto exacto era **qué comando ejecuta
+Vercel**, y eso se lee en `vercel.json`, que es este archivo, donde la regla ya
+estaba.
+
+**Al tocar el build:** el cambio va en `package.json`, y se verifica que
+`vercel.json` siga delegando. Si algún día alguien vuelve a poner acá la cadena
+completa, esta sección explica por qué no.

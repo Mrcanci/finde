@@ -107,6 +107,23 @@ Consecuencia buscada: el cierre nunca está en el pasado al crear, así que **ni
 
 La agencia confirma o rechaza **en lote** (toda la salida) o **puntualmente** (una sola solicitud, `f499fda`). Dos pasos de confirmación en la UI, y una sola decisión abierta a la vez (`60d8b8f`), porque la acción manda correos a los viajeros y **no se puede deshacer**.
 
+## Los mensajes le hablan a la agencia en el vocabulario de la INTERFAZ
+
+**Nunca en nombres del enum.** Los mensajes del motor decían "cupo fijo", "modo
+solicitud" y "panel de salidas", y **ninguno de los tres existe en la pantalla**.
+
+| En el código | En la interfaz |
+|---|---|
+| `CUPO_FIJO` | **Confirmación automática** |
+| `SOLICITUD` | **Confirmación manual** |
+| el panel de salidas | **Reservas**, que es el nombre de la pestaña |
+| `allotment` | **Cupos por salida**, que es la etiqueta del campo |
+
+**Si un mensaje nuevo nombra un `salesMode` o una sección, se verifica contra el
+código de la UI y no contra lo que suena bien.** Dos de los tres casos que se
+corrigieron el 2026-08-15 eran preexistentes: nadie los había leído desde el lado
+de la agencia.
+
 ## Estados
 
 `BookingStatus`: `SOLICITUD | CONFIRMADA | RECHAZADA | VENCIDA | CANCELADA`

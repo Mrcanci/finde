@@ -15,6 +15,12 @@
 // El prefijo. El día del switch esto pasa a "" y es el cambio de una línea.
 // El otro lugar que hay que tocar ese día es el rewrite catch-all de
 // vercel.json, que hoy no hace falta porque /demo/:path* ya cubre todo.
+/**
+ * @type {string} Anotado como string a propósito, no como el literal "/demo".
+ * Sin esto TypeScript lo infiere como tipo literal y marca cualquier
+ * comparación contra "" como código muerto, cuando es exactamente lo que va a
+ * pasar el día del switch.
+ */
 export const BASE_PATH = "/demo";
 
 // Caracteres del CUID que se usan como sufijo. Seis, y el número está medido:

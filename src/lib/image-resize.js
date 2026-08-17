@@ -26,6 +26,13 @@ export const JPEG_QUALITY = 0.82;
 // se achica antes de subir, lo que sale siempre entra holgado en el bucket.
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
+// Piso para que la tarjeta de WhatsApp salga GRANDE. Facebook, que es el crawler
+// que usa WhatsApp, documenta que por debajo de 600x315 la tarjeta se muestra
+// chica. No bloquea nada: el redimensionado nunca agranda, así que una foto de
+// 400x300 se sube igual. Solo sirve para avisarle a la agencia.
+export const OG_MIN_WIDTH = 600;
+export const OG_MIN_HEIGHT = 315;
+
 // Tipos que aceptamos de entrada. Alineado con la config del bucket y con lo que
 // promete el formulario.
 export const ALLOWED_INPUT_TYPES = ["image/jpeg", "image/png"];
@@ -145,6 +152,7 @@ export async function resizeImageForUpload(file) {
       originalBytes: file.size,
       resultBytes: file.size,
       processed: false,
+      chicaParaCompartir: srcW < OG_MIN_WIDTH || srcH < OG_MIN_HEIGHT,
     };
   }
 
@@ -156,5 +164,6 @@ export async function resizeImageForUpload(file) {
     originalBytes: file.size,
     resultBytes: blob.size,
     processed: true,
+    chicaParaCompartir: w < OG_MIN_WIDTH || h < OG_MIN_HEIGHT,
   };
 }

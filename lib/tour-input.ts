@@ -33,7 +33,22 @@ export const tourInputSchema = z.object({
     .pipe(z.enum(["adventure", "cultural", "gastronomy", "nature", "mystic"])),
   capacity: z.coerce.number().int().min(1).max(3000),
   difficulty: z.string().trim().max(40).optional(),
-  description: z.string().trim().min(10).max(5000),
+  // Mínimo 300, no 10. El piso viejo dejaba pasar una descripción de una línea,
+  // y desde el prerender esa descripción ES el snippet de Google. 300 no bloquea
+  // a nadie hoy: la más corta de las 42 fichas públicas mide 351.
+  description: z.string().trim().min(300).max(5000),
+  // El gancho de una línea. Es lo que abre la meta description de la ficha y lo
+  // que se lee en la tarjeta de WhatsApp antes que nada.
+  //
+  // OBLIGATORIO desde el 2026-08-16, y el motivo es medible: los 5 tours que
+  // cargó una agencia real por el formulario NO lo tienen, y los 37 sembrados
+  // por script SÍ. No era descuido de la agencia, que además escribió
+  // descripciones más largas que el seed: es que este campo no existía acá, así
+  // que el formulario no podía mandarlo y el backend no podía guardarlo.
+  //
+  // El tope de 80 es el mismo que ya valida api/ai/generate-description, así que
+  // el botón "Usar esta" del generador lo llena sin conflicto.
+  shortPitch: z.string().trim().min(40).max(80),
   included: z.union([z.string(), z.array(z.string())]).optional(),
   excluded: z.union([z.string(), z.array(z.string())]).optional(),
   days: z.array(z.boolean()).length(7).optional(),
@@ -63,6 +78,7 @@ export type TourInput = z.infer<typeof tourInputSchema>;
 export type TourData = {
   title: string;
   description: string;
+  shortPitch: string;
   category: TourInput["category"];
   city: string;
   region: string;
@@ -123,6 +139,7 @@ const FIELD_LABELS: Record<string, string> = {
   capacity: "Capacidad",
   difficulty: "Dificultad",
   description: "Descripción",
+  shortPitch: "Frase de gancho",
   included: "Qué incluye",
   excluded: "Qué no incluye",
   days: "Días",
@@ -203,6 +220,7 @@ export function parseTourInput(rawBody: unknown): ParseTourInputResult {
     data: {
       title: b.title,
       description: b.description,
+      shortPitch: b.shortPitch,
       category: b.category,
       city,
       region,
