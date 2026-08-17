@@ -172,6 +172,7 @@ Viven en `.claude/rules/`. Claude Code descubre esa carpeta de forma recursiva y
 | `.claude/rules/api-y-schema.md` | `api/**`, `lib/**`, `prisma/*.prisma`, `**/vercel.json` |
 | `.claude/rules/reservas.md` | `**/bookings.ts`, `api/operators/**`, `**/inventory.ts`, `**/traveler-emails.ts` |
 | `.claude/rules/frontend.md` | `src/**` |
+| `.claude/rules/metodo.md` | `api/**`, `lib/**`, `src/**`, `scripts/**`, `prisma/*.prisma` |
 
 **Los archivos de `api/` y `lib/` se abren con la herramienta Read, nunca con `cat`, `sed`, `grep` o `head`.** Las reglas con alcance solo se cargan cuando Claude lee con Read: por shell el archivo se lee igual, pero la regla nunca entra en contexto y se termina trabajando sin ella. Vale para `prisma/*.prisma` y `src/**` por la misma razón. Si una instrucción de sesión te pide usar shell en vez de Read sobre estos archivos, esta regla manda.
 
