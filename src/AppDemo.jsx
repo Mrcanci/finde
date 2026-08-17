@@ -4,7 +4,7 @@ import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarCh
 import { useAuth } from "./contexts/AuthContext.jsx";
 import { authFetch } from "./lib/authFetch.js";
 import { supabase } from "./lib/supabase.js";
-import { resizeImageForUpload, ALLOWED_INPUT_TYPES, MAX_UPLOAD_BYTES } from "./lib/image-resize.js";
+import { resizeImageForUpload, ALLOWED_INPUT_TYPES, MAX_UPLOAD_BYTES, OG_MIN_WIDTH, OG_MIN_HEIGHT } from "./lib/image-resize.js";
 import { fromPath, toPath, parseTourSegment, canonicalTourPath, PUBLIC_VIEWS } from "./lib/routes.js";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -4885,6 +4885,8 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
   // surfacea "Subiendo X/Y…".
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  // Aviso, no error: la foto entró igual. Ver handlePhotoUpload.
+  const [fotoChicaAviso, setFotoChicaAviso] = useState("");
   const [uploadProgress, setUploadProgress] = useState(null); // { done, total } | null
   const [dragOver, setDragOver] = useState(false); // feedback visual del drag-and-drop
   // Solicitudes vigentes del tour que se está editando. Viene en el payload de
@@ -4924,7 +4926,10 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
       // application/octet-stream (hay uno así en el bucket, de antes de esto).
       .uploadToSignedUrl(path, token, img.blob, { contentType: img.contentType });
     if (upErr) throw new Error(upErr.message || "No se pudo subir la imagen");
-    return publicUrl;
+    // Devuelve también si quedó por debajo del piso de la tarjeta grande: el
+    // dato lo tiene el redimensionado, y el aviso lo arma el llamador, que es
+    // el que conoce el lote entero.
+    return { url: publicUrl, chica: img.chicaParaCompartir };
   };
 
   // Sube N archivos en LOOP y los acumula en form.images. Si no había portada,
@@ -4934,6 +4939,10 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
     const files = Array.from(fileList || []);
     if (!files.length) return;
     setUploadError("");
+    setFotoChicaAviso("");
+    // Las que quedan por debajo del piso de la tarjeta grande. Se juntan acá
+    // porque uploadOnePhoto sube de a una y el aviso es del lote.
+    const fotosChicas = [];
     const remaining = MAX_GALLERY - form.images.length;
     if (remaining <= 0) {
       setUploadError(`Ya alcanzaste el máximo de ${MAX_GALLERY} fotos.`);
@@ -4959,7 +4968,9 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
     try {
       for (let i = 0; i < toUpload.length; i++) {
         setUploadProgress({ done: i, total: toUpload.length });
-        uploaded.push(await uploadOnePhoto(toUpload[i]));
+        const subida = await uploadOnePhoto(toUpload[i]);
+        uploaded.push(subida.url);
+        if (subida.chica) fotosChicas.push(toUpload[i].name);
       }
     } catch (e) {
       setUploadError(e.message || "No pudimos subir algunas fotos. Intenta de nuevo.");
@@ -4973,6 +4984,17 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
       }
       if (overflow > 0) {
         setUploadError(`Solo se subieron ${toUpload.length}: el máximo es ${MAX_GALLERY} fotos.`);
+      }
+      // AVISO, no error: la foto se subió y el tour se puede publicar igual. Lo
+      // único que pasa es que la tarjeta de WhatsApp va a salir chica, y eso la
+      // agencia lo puede decidir. Bloquear acá sería trabar por algo que no
+      // rompe nada.
+      if (fotosChicas.length > 0) {
+        const una = fotosChicas.length === 1;
+        setFotoChicaAviso(
+          `${una ? "La foto" : `${fotosChicas.length} fotos`} ${una ? `"${fotosChicas[0]}" mide` : "miden"} menos de ${OG_MIN_WIDTH}x${OG_MIN_HEIGHT}. ` +
+          `Se ${una ? "subió" : "subieron"} igual, pero al compartir el tour la vista previa va a salir chica. Una foto más grande se ve mejor.`
+        );
       }
       setUploading(false);
       setUploadProgress(null);
@@ -5106,6 +5128,16 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           />
           {(form.title || "").trim().length > 0 && (form.title || "").trim().length < 3 && (
             <div className="field-err">El nombre debe tener al menos 3 caracteres</div>
+          )}
+          {/* AVISO y no bloqueo, a propósito. "Namora" y "Otuzco" tienen 6
+              letras y son nombres reales de distritos: exigir un largo mínimo
+              obligaría a la agencia a inventarle un nombre al tour, que es peor
+              que el problema. El título de la página ya suma la ciudad
+              ("Namora en Cajamarca | Finde"), así que esto solo sugiere. */}
+          {(form.title || "").trim().length >= 3 && (form.title || "").trim().length < 15 && (
+            <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 6 }}>
+              Un nombre más descriptivo se encuentra mejor en Google. Puedes sumarle qué se hace o dónde queda, por ejemplo "{(form.title || "").trim()}: bosque de piedras cerca de Cajamarca".
+            </div>
           )}
         </div>
         <div className="fg">
@@ -5241,6 +5273,12 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           )}
           {uploadError && (
             <div style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: "var(--tr)" }}>{uploadError}</div>
+          )}
+          {fotoChicaAviso && (
+            <div className="notice" style={{ marginTop: 10, marginBottom: 0 }}>
+              <div className="notice-t">Esta foto se va a ver chica al compartir</div>
+              <div className="notice-d">{fotoChicaAviso}</div>
+            </div>
           )}
         </div>
         <button className="mbtn" style={{ marginTop: 8 }}
