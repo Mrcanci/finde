@@ -4,7 +4,7 @@ import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarCh
 import { useAuth } from "./contexts/AuthContext.jsx";
 import { authFetch } from "./lib/authFetch.js";
 import { supabase } from "./lib/supabase.js";
-import { resizeImageForUpload, ALLOWED_INPUT_TYPES, MAX_UPLOAD_BYTES } from "./lib/image-resize.js";
+import { resizeImageForUpload, ALLOWED_INPUT_TYPES, MAX_UPLOAD_BYTES, OG_MIN_WIDTH, OG_MIN_HEIGHT } from "./lib/image-resize.js";
 import { fromPath, toPath, parseTourSegment, canonicalTourPath, PUBLIC_VIEWS } from "./lib/routes.js";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -522,6 +522,10 @@ function mapTourFromApi(t) {
     desc: t.description,
     descQu: t.descQu ?? "",
     aiSummary: t.shortPitch || "",
+    // El campo crudo, además de aiSummary. El formulario de edición lo necesita
+    // para prellenarlo, y esta lista blanca descarta en silencio lo que no
+    // enumera: es el error que costó una tanda con pendingRequests.
+    shortPitch: t.shortPitch ?? "",
     // Traducciones quechua persistidas (DETAIL_SELECT). "" si sin traducir.
     // Disponibles para el render bajo el toggle QU cuando exista un sitio que
     // las muestre (hoy: shortPitch va a aiSummary y meetingPoint vive en el
@@ -754,6 +758,7 @@ function tourFormToApiBody(f) {
     capacity: f.capacity,
     difficulty: f.difficulty || undefined,
     description: f.description,
+    shortPitch: f.shortPitch,
     included: f.included || "",
     excluded: f.excluded || "",
     days: DAY_CODES.map((code) => (f.days || []).includes(code)),
@@ -4831,6 +4836,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
     capacity: String(editingTour.capacity || ""),
     difficulty: editingTour.difficulty || "Moderada",
     description: editingTour.description || "",
+    shortPitch: editingTour.shortPitch || "",
     included: editingTour.included || "",
     excluded: editingTour.excluded || "",
     days: editingTour.days || [],
@@ -4851,7 +4857,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
     photo: initPhoto,
   } : {
     title: "", location: "", meetingPoint: "", category: "adventure", duration: "", price: "",
-    capacity: "", difficulty: "Moderada", description: "", included: "", excluded: "",
+    capacity: "", difficulty: "Moderada", description: "", shortPitch: "", included: "", excluded: "",
     days: [], excludedDates: [], addedDates: [], startTime: "08:00", cancellation: "flexible",
     // Default de venta para tour NUEVO: confirmación automática (CUPO_FIJO).
     // No coincide con el default del motor (SOLICITUD) a propósito: ese sigue
@@ -4860,6 +4866,9 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
     salesMode: "CUPO_FIJO", allotment: "", closeTime: "20:00", minQuorum: "",
     images: [], photo: null
   });
+  // { description, shortPitch }. Antes acá solo se guardaba la descripción y el
+  // shortPitch que el endpoint ya devolvía se tiraba, que es la razón de fondo
+  // por la que ningún tour cargado por formulario lo tiene.
   const [aiDesc, setAiDesc] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
@@ -4876,6 +4885,8 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
   // surfacea "Subiendo X/Y…".
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  // Aviso, no error: la foto entró igual. Ver handlePhotoUpload.
+  const [fotoChicaAviso, setFotoChicaAviso] = useState("");
   const [uploadProgress, setUploadProgress] = useState(null); // { done, total } | null
   const [dragOver, setDragOver] = useState(false); // feedback visual del drag-and-drop
   // Solicitudes vigentes del tour que se está editando. Viene en el payload de
@@ -4915,7 +4926,10 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
       // application/octet-stream (hay uno así en el bucket, de antes de esto).
       .uploadToSignedUrl(path, token, img.blob, { contentType: img.contentType });
     if (upErr) throw new Error(upErr.message || "No se pudo subir la imagen");
-    return publicUrl;
+    // Devuelve también si quedó por debajo del piso de la tarjeta grande: el
+    // dato lo tiene el redimensionado, y el aviso lo arma el llamador, que es
+    // el que conoce el lote entero.
+    return { url: publicUrl, chica: img.chicaParaCompartir };
   };
 
   // Sube N archivos en LOOP y los acumula en form.images. Si no había portada,
@@ -4925,6 +4939,10 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
     const files = Array.from(fileList || []);
     if (!files.length) return;
     setUploadError("");
+    setFotoChicaAviso("");
+    // Las que quedan por debajo del piso de la tarjeta grande. Se juntan acá
+    // porque uploadOnePhoto sube de a una y el aviso es del lote.
+    const fotosChicas = [];
     const remaining = MAX_GALLERY - form.images.length;
     if (remaining <= 0) {
       setUploadError(`Ya alcanzaste el máximo de ${MAX_GALLERY} fotos.`);
@@ -4950,7 +4968,9 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
     try {
       for (let i = 0; i < toUpload.length; i++) {
         setUploadProgress({ done: i, total: toUpload.length });
-        uploaded.push(await uploadOnePhoto(toUpload[i]));
+        const subida = await uploadOnePhoto(toUpload[i]);
+        uploaded.push(subida.url);
+        if (subida.chica) fotosChicas.push(toUpload[i].name);
       }
     } catch (e) {
       setUploadError(e.message || "No pudimos subir algunas fotos. Intenta de nuevo.");
@@ -4964,6 +4984,17 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
       }
       if (overflow > 0) {
         setUploadError(`Solo se subieron ${toUpload.length}: el máximo es ${MAX_GALLERY} fotos.`);
+      }
+      // AVISO, no error: la foto se subió y el tour se puede publicar igual. Lo
+      // único que pasa es que la tarjeta de WhatsApp va a salir chica, y eso la
+      // agencia lo puede decidir. Bloquear acá sería trabar por algo que no
+      // rompe nada.
+      if (fotosChicas.length > 0) {
+        const una = fotosChicas.length === 1;
+        setFotoChicaAviso(
+          `${una ? "La foto" : `${fotosChicas.length} fotos`} ${una ? `"${fotosChicas[0]}" mide` : "miden"} menos de ${OG_MIN_WIDTH}x${OG_MIN_HEIGHT}. ` +
+          `Se ${una ? "subió" : "subieron"} igual, pero al compartir el tour la vista previa va a salir chica. Una foto más grande se ve mejor.`
+        );
       }
       setUploading(false);
       setUploadProgress(null);
@@ -5029,7 +5060,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         throw new Error(err.error || `HTTP ${r.status}`);
       }
       const data = await r.json();
-      setAiDesc(data.description || "");
+      setAiDesc({ description: data.description || "", shortPitch: data.shortPitch || "" });
     } catch (e) {
       setAiError(e.name === "AbortError"
         ? "La generación tardó demasiado. Intenta de nuevo."
@@ -5070,6 +5101,10 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
   const capacityInRange = Number.isInteger(capacityNum) && capacityNum >= 1 && capacityNum <= 3000;
   // Requerido (sin default): vacío es inválido y bloquea el "Siguiente".
   const capacityValid = capacityRaw !== "" && capacityInRange;
+  // Mismo rango que lib/tour-input.ts. El tope de 80 es además el que ya valida
+  // el generador de IA, así que "Usar esta" nunca produce un valor inválido.
+  const pitchLen = (form.shortPitch || "").trim().length;
+  const pitchValid = pitchLen >= 40 && pitchLen <= 80;
 
   return (
     <div className="bkf fu">
@@ -5093,6 +5128,16 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           />
           {(form.title || "").trim().length > 0 && (form.title || "").trim().length < 3 && (
             <div className="field-err">El nombre debe tener al menos 3 caracteres</div>
+          )}
+          {/* AVISO y no bloqueo, a propósito. "Namora" y "Otuzco" tienen 6
+              letras y son nombres reales de distritos: exigir un largo mínimo
+              obligaría a la agencia a inventarle un nombre al tour, que es peor
+              que el problema. El título de la página ya suma la ciudad
+              ("Namora en Cajamarca | Finde"), así que esto solo sugiere. */}
+          {(form.title || "").trim().length >= 3 && (form.title || "").trim().length < 15 && (
+            <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 6 }}>
+              Un nombre más descriptivo se encuentra mejor en Google. Puedes sumarle qué se hace o dónde queda, por ejemplo "{(form.title || "").trim()}: bosque de piedras cerca de Cajamarca".
+            </div>
           )}
         </div>
         <div className="fg">
@@ -5228,6 +5273,12 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           )}
           {uploadError && (
             <div style={{ marginTop: 8, fontSize: 12, fontWeight: 600, color: "var(--tr)" }}>{uploadError}</div>
+          )}
+          {fotoChicaAviso && (
+            <div className="notice" style={{ marginTop: 10, marginBottom: 0 }}>
+              <div className="notice-t">Esta foto se va a ver chica al compartir</div>
+              <div className="notice-d">{fotoChicaAviso}</div>
+            </div>
           )}
         </div>
         <button className="mbtn" style={{ marginTop: 8 }}
@@ -5499,15 +5550,37 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         <div className="bkf-t">Descripción</div>
         <div className="bkf-sub">Paso 4 de 5 · Escríbela tú o usa la IA</div>
         <div className="fg">
+          <label className="lbl" htmlFor="nt-pitch">Frase de gancho <span style={{ color: "var(--tr)" }}>*</span></label>
+          <div style={{ fontSize: 11, color: "var(--gy)", marginBottom: 8 }}>
+            Una línea que resuma el tour. Es lo primero que se lee cuando alguien comparte tu tour por WhatsApp o lo encuentra en Google.
+          </div>
+          <input
+            id="nt-pitch"
+            className={`inp${(form.shortPitch || "").trim().length > 0 && !pitchValid ? " inp-err" : ""}`}
+            placeholder="Ej: Camina entre bosques de piedra a 3.500 metros, a una hora de Cajamarca"
+            maxLength={80}
+            value={form.shortPitch}
+            onChange={(e) => u("shortPitch", e.target.value)}
+          />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+            {(form.shortPitch || "").trim().length > 0 && !pitchValid
+              ? <span className="field-err">Entre 40 y 80 caracteres</span>
+              : <span style={{ fontSize: 11, color: "var(--gy)", fontWeight: 600 }}>Entre 40 y 80 caracteres</span>}
+            <span style={{ fontSize: 11, fontWeight: 600, color: pitchValid ? "var(--m)" : "var(--gy)" }}>
+              {(form.shortPitch || "").trim().length}/80
+            </span>
+          </div>
+        </div>
+        <div className="fg">
           <label className="lbl" htmlFor="nt-description">Descripción del tour <span style={{ color: "var(--tr)" }}>*</span></label>
           <textarea id="nt-description" className="ai-cc-input" style={{ minHeight: 100 }} placeholder="Describe tu tour con detalle: qué verán los viajeros, qué lo hace especial y qué pueden esperar…"
             value={form.description} onChange={(e) => u("description", e.target.value)} />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-            {(form.description || "").trim().length > 0 && (form.description || "").trim().length < 10
-              ? <span className="field-err">Mínimo 10 caracteres</span>
-              : <span style={{ fontSize: 11, color: "var(--gy)", fontWeight: 600 }}>Mínimo 10 caracteres</span>}
-            <span style={{ fontSize: 11, fontWeight: 600, color: (form.description || "").trim().length >= 10 ? "var(--m)" : "var(--gy)" }}>
-              {(form.description || "").trim().length}/10
+            {(form.description || "").trim().length > 0 && (form.description || "").trim().length < 300
+              ? <span className="field-err">Mínimo 300 caracteres</span>
+              : <span style={{ fontSize: 11, color: "var(--gy)", fontWeight: 600 }}>Mínimo 300 caracteres</span>}
+            <span style={{ fontSize: 11, fontWeight: 600, color: (form.description || "").trim().length >= 300 ? "var(--m)" : "var(--gy)" }}>
+              {(form.description || "").trim().length}/300
             </span>
           </div>
         </div>
@@ -5521,18 +5594,21 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           {aiError && <div className="field-err" style={{ marginTop: 8 }}>{aiError}</div>}
           {aiDesc && (
             <div style={{ marginTop: 12, padding: 12, background: "white", borderRadius: 10, fontSize: 13, lineHeight: 1.6, color: "var(--ch)" }}>
-              {aiDesc}
+              {aiDesc.shortPitch && (
+                <div style={{ fontWeight: 700, marginBottom: 8 }}>{aiDesc.shortPitch}</div>
+              )}
+              {aiDesc.description}
               <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 8 }}>Revisa y edita antes de publicar. La IA puede agregar detalles que tu tour no incluye.</div>
               <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                 <button style={{ padding: "10px 18px", borderRadius: 8, background: "var(--f)", color: "white", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
-                  onClick={() => u("description", aiDesc)}>Usar esta</button>
+                  onClick={() => { u("description", aiDesc.description); if (aiDesc.shortPitch) u("shortPitch", aiDesc.shortPitch); }}>Usar esta</button>
                 <button style={{ padding: "6px 14px", borderRadius: 8, background: "var(--sd)", color: "var(--ch)", border: "none", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
                   onClick={generateAiDesc}>Regenerar</button>
               </div>
             </div>
           )}
         </div>
-        <button className="mbtn" disabled={(form.description || "").trim().length < 10} onClick={() => setStep(5)}>Siguiente</button>
+        <button className="mbtn" disabled={(form.description || "").trim().length < 300 || !pitchValid} onClick={() => setStep(5)}>Siguiente</button>
       </div>}
 
       {/* Step 5: Revisión y publicar */}
@@ -5601,7 +5677,13 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         {submitError && (
           <div className="field-err" style={{ marginBottom: 10, textAlign: "center" }}>{submitError}</div>
         )}
-        <button className="mbtn" disabled={submitting} onClick={async () => {
+        {!form.photo && !isEditing && (
+          <div className="notice" style={{ marginBottom: 12 }}>
+            <div className="notice-t">Falta la foto de portada</div>
+            <div className="notice-d">Es la que se ve cuando alguien comparte tu tour por WhatsApp. Sin foto, el enlace sale sin imagen. Vuelve al paso 1 para subirla.</div>
+          </div>
+        )}
+        <button className="mbtn" disabled={submitting || (!form.photo && !isEditing)} onClick={async () => {
           setSubmitError("");
           setSubmitting(true);
           if (isEditing) {
@@ -5818,6 +5900,7 @@ export default function AppDemo() {
         capacity: String(t.capacity || ""),
         difficulty: t.difficulty || "Moderada",
         description: t.desc || "",
+        shortPitch: t.shortPitch || "",
         included: Array.isArray(t.included) ? t.included.join(", ") : (t.included || ""),
         excluded: Array.isArray(t.excluded) ? t.excluded.join(", ") : (t.excluded || ""),
         days: t.days || DEFAULT_DAYS,

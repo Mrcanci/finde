@@ -88,3 +88,62 @@ router habilita casi gratis pero es otra cosa.
 
 **`vercel.json` no se tocó.** El rewrite `/demo/:path*` ya cubre cualquier
 profundidad; el catch-all de la raíz recién hace falta el día del switch.
+
+
+---
+
+## La metadata de los tours nuevos, cerrada el 2026-08-16
+
+**El prerender es automático, pero la calidad de los datos no.** El script usa lo
+que hay en la base, así que un tour sin `shortPitch` sale así en Google y en
+WhatsApp. Con más agencias entrando, esto se repetía sin arreglo.
+
+### El hallazgo que lo hizo obligatorio
+
+| Origen | Tours | Con `shortPitch` | Título promedio | Descripción promedio |
+|---|---|---|---|---|
+| **Formulario** (agencia real) | 5 | **0 de 5** | **11** | **1.407** |
+| Seed (script) | 37 | **37 de 37** | 38 | 1.061 |
+
+**Ninguno de los cinco tours que cargó una agencia real por el formulario tiene
+`shortPitch`. Los treinta y siete sembrados por script lo tienen todos.**
+
+**No era descuido de la agencia:** el campo **no existía en `lib/tour-input.ts`**,
+así que el formulario no podía mandarlo y el backend no podía guardarlo. Solo lo
+llenó el seed, por script.
+
+Y la prueba de que la voluntad nunca fue el problema está en la última columna:
+**la agencia escribió descripciones más largas que el seed**, 1.407 caracteres
+contra 1.061. **Nunca se lo pidieron.**
+
+**Sin arreglarlo, cada agencia que entrara repetía exactamente lo mismo.**
+
+### Qué se decidió, y qué bloquea y qué no
+
+| Qué | Regla | Bloquea o avisa |
+|---|---|---|
+| `shortPitch` | 40 a 80 caracteres | **BLOQUEA** |
+| Descripción | mínimo 300, era 10 | **BLOQUEA** |
+| Portada | al menos una foto | **BLOQUEA** |
+| Dimensiones de la portada | aviso bajo 600x315 | avisa |
+| Título corto | aviso bajo 15 caracteres | avisa |
+
+**`shortPitch` bloquea porque la fricción es un clic:** el generador de IA **ya
+devolvía el campo validado** y el frontend lo tiraba en
+`setAiDesc(data.description)`. Esa línea es la razón de fondo del hallazgo. Ahora
+"Usar esta" llena los dos campos.
+
+**El mínimo de 300 no bloquea a nadie hoy:** la descripción más corta de las 42
+fichas públicas mide 351. Es un piso que solo ataja el caso patológico.
+
+**La portada bloquea porque el formulario NO distingue guardar de publicar.** Se
+verificó antes de decidirlo: no existe el concepto de borrador en el código,
+`active` nace en `true` y crear un tour lo publica al instante. Un tour sin foto
+sería un tour público sin foto, y sin `og:image` el link compartido no tiene
+tarjeta.
+
+**El título AVISA y no bloquea, y es la decisión más discutida.** "Namora" y
+"Otuzco" tienen 6 letras y son **nombres reales de distritos de Cajamarca**.
+Exigir un largo mínimo obligaría a la agencia a inventarle un nombre al tour, que
+es peor que el problema. Y el caso ya está resuelto donde corresponde: el
+prerender emite `Namora en Cajamarca | Finde`.

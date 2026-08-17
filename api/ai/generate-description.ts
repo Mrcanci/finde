@@ -1,8 +1,14 @@
 // api/ai/generate-description.ts
 // POST /api/ai/generate-description — generador IA B2B para operadores.
 // Recibe datos básicos del tour (título, categoría, duración, ciudad, highlights)
-// y devuelve description (200-300 palabras), shortPitch (≤80 chars) y
-// seoKeywords (5-8 keywords). Claude Sonnet 4.6 con tool_use forzado.
+// y devuelve description (200-300 palabras) y shortPitch (≤80 chars).
+// Claude Sonnet 4.6 con tool_use forzado.
+//
+// seoKeywords SE SACÓ el 2026-08-16. El modelo lo generaba, el endpoint lo
+// validaba, y NO EXISTE la columna donde guardarlo: se descartaba entero. Eran
+// tokens pagados por algo que nadie leía nunca. Si algún día hace falta, se
+// agrega la columna y se vuelve a pedir; es más barato que persistir un campo
+// que nadie usa.
 // Reintento con feedback si la validación post-Claude falla; 502 si vuelve a
 // fallar; 500 ante errores de red/SDK persistentes.
 
@@ -36,7 +42,6 @@ type Body = z.infer<typeof bodySchema>;
 interface GeneratedContent {
   description: string;
   shortPitch: string;
-  seoKeywords: string[];
 }
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -62,11 +67,6 @@ REGLAS DE CONTENIDO:
    - Bien: "Trekking 6km a 5,200 msnm con vista al Ausangate"
    - Mal: "Descubre la magia de los Andes" / "Una experiencia única"
 
-3. seoKeywords (5-8 keywords):
-   - Útiles para SEO orgánico de Google peruano.
-   - Mezcla: nombre del tour, ciudad/región, categoría, términos de búsqueda real ("tour", "full day", "trekking", "city tour").
-   - Incluye SIEMPRE el topónimo específico (no solo "Cusco": también "Valle Sagrado", "Ollantaytambo", lo que aplique).
-   - Sin hashtags, sin comillas, en minúsculas, sin tildes opcionales (Google maneja ambas).
 
 CLICHÉS PROHIBIDOS. Si usas alguno de estos, fallaste:
 - "experiencia mágica", "experiencia inolvidable", "experiencia única"
@@ -78,7 +78,7 @@ CLICHÉS PROHIBIDOS. Si usas alguno de estos, fallaste:
 - exclamaciones excesivas con "!" (máximo cero, idealmente)
 - adjetivos vacíos en cadena ("hermoso, increíble, espectacular")
 
-PUNTUACIÓN (vale para description, shortPitch y seoKeywords):
+PUNTUACIÓN (vale para description y shortPitch):
 - NUNCA uses la raya larga (guion largo, U+2014) en el texto. Si necesitas una pausa, usa coma, dos puntos o punto.
 
 ESTILO DE REFERENCIA (así escribe Finde):
@@ -89,7 +89,7 @@ Llama SIEMPRE la herramienta generar_ficha_tour. No respondas en texto libre.`;
 const TOOL = {
   name: "generar_ficha_tour",
   description:
-    "Genera la ficha pública del tour: descripción larga, gancho corto y keywords SEO.",
+    "Genera la ficha pública del tour: descripción larga y gancho corto.",
   input_schema: {
     type: "object" as const,
     properties: {
@@ -103,16 +103,8 @@ const TOOL = {
         description:
           "Gancho de máximo 80 caracteres con el dato más distintivo del tour. Sin clichés.",
       },
-      seoKeywords: {
-        type: "array",
-        items: { type: "string" },
-        minItems: 5,
-        maxItems: 8,
-        description:
-          "Entre 5 y 8 keywords SEO útiles, en minúsculas, incluyendo topónimos específicos.",
-      },
     },
-    required: ["description", "shortPitch", "seoKeywords"],
+    required: ["description", "shortPitch"],
     additionalProperties: false,
   },
 };
@@ -167,14 +159,10 @@ async function llamarClaude(messages: ChatMessage[]): Promise<GeneratedContent> 
   if (typeof out.shortPitch !== "string") {
     throw new Error("shortPitch no es string");
   }
-  if (!Array.isArray(out.seoKeywords)) {
-    throw new Error("seoKeywords no es array");
-  }
 
   return {
     description: out.description.trim(),
     shortPitch: out.shortPitch.trim(),
-    seoKeywords: out.seoKeywords.map((k) => k.trim().toLowerCase()),
   };
 }
 
@@ -184,12 +172,6 @@ function validarSalida(c: GeneratedContent): string | null {
   }
   if (c.shortPitch.length === 0 || c.shortPitch.length > 80) {
     return `shortPitch fuera de rango (${c.shortPitch.length} chars, requerido 1-80)`;
-  }
-  if (c.seoKeywords.length < 5 || c.seoKeywords.length > 8) {
-    return `seoKeywords fuera de rango (${c.seoKeywords.length} items, requerido 5-8)`;
-  }
-  if (c.seoKeywords.some((k) => k.length === 0)) {
-    return "seoKeywords contiene strings vacíos";
   }
   return null;
 }
@@ -268,7 +250,7 @@ export default async function handler(
           },
           {
             role: "user",
-            content: `El intento anterior falló: ${errorValidacion}. Genera de nuevo respetando estrictamente los rangos especificados en las reglas (description 1000-2500 caracteres, shortPitch ≤80 caracteres, seoKeywords 5-8 items).`,
+            content: `El intento anterior falló: ${errorValidacion}. Genera de nuevo respetando estrictamente los rangos especificados en las reglas (description 1000-2500 caracteres, shortPitch ≤80 caracteres).`,
           },
         ];
       }

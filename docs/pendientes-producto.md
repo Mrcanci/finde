@@ -26,6 +26,37 @@ No son bugs: no hay nada roto.
 
   La canilla se cierra aparte, en `fix/prompts-sin-raya`. Eso arregla las rayas futuras, no la validación de fondo ni las 88 que ya están en la base.
 
+## El deploy hook del prerender
+
+**Anotado, NO implementado.** El disparador es explícito:
+
+> **Cuando entre la SEGUNDA agencia real que cargue tours.**
+
+**Por qué no ahora.** El prerender solo corre en deploy, así que un tour nuevo no
+tiene tarjeta de WhatsApp hasta el próximo build. Pero hoy la única agencia que
+carga tours es MEGATOURS y sus cinco fichas ya están prerenderizadas: conectar el
+hook ahora es **infraestructura sin usuario**.
+
+**Por qué cambió respecto de lo que se había decidido antes.** El 2026-08-16 se
+resolvió "aceptar el retraso hasta el lanzamiento", y era correcto **porque el
+retraso no tenía consecuencia visible**. Ahora sí la tiene: sin build, un tour
+nuevo se comparte sin tarjeta.
+
+**Cómo se haría.** Un `POST` saliente al deploy hook de Vercel desde los handlers
+que ya existen (`POST` y `PUT /api/tours`), vía `waitUntil` para que quede fuera
+del camino crítico. **Cuesta cero funciones serverless.**
+
+**La ventana de agrupación es parte del diseño, no un detalle.** Una agencia que
+edita un tour cinco veces dispararía cinco builds, y **Vercel Hobby limita los
+despliegues por día**. Hay que mirar ese número antes de conectarlo y agrupar los
+disparos en una ventana de varios minutos. Sin eso, el hook se convierte en una
+forma de agotar la cuota de deploys de la cuenta.
+
+**Cuánto cuesta el prerender en el build**, medido en local el 2026-08-16:
+`prisma generate` 1,6 s, `vite build` 0,8 s y el prerender **3,0 s**, de los
+cuales 1,5 son la consulta de los 42 tours. **No pude medir los tiempos reales de
+Vercel**: su API responde 403 con las credenciales de esta sesión.
+
 ## Pendientes de rendimiento
 
 - **El bundle pasa los 500 kB y Vite lo avisa en cada build** (673 kB, 184 kB comprimido, en un solo chunk). No es urgente para el piloto, pero sí para el mercado real: Android de gama media sobre 4G peruano, con objetivo de LCP bajo 3 segundos. `src/AppDemo.jsx` son más de 6200 líneas que hoy viajan enteras aunque el usuario solo abra el home. Candidato claro a code splitting por vista, que es como ya está organizado el archivo (el switch de `effectiveView`). Sin fecha ni tanda asignada.
