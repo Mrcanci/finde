@@ -25,43 +25,26 @@ lanzamiento, y **cada tanda tiene que dejar el switch más cerca, no más lejos*
 | 3 | Modal de cuenta en el checkout, navegación abierta | 2 ✅ | **la siguiente** |
 | 4 | Eventos del embudo | 3 | esperando |
 | 5 | Meta tags por tour, más la metadata obligatoria del formulario | 2 ✅ | ✅ en `main`. `robots.txt` y `sitemap.xml` van con el switch |
-| 5B | Activar un tour exige la metadata mínima, y el panel avisa antes | 5 ✅ | 🔨 **en QA** |
+| 5B | Activar un tour exige la metadata mínima, y el panel avisa antes | 5 ✅ | ✅ en `main` |
 | 6 | Día del switch: `BASE_PATH` a `""` más el rewrite de la raíz | todo | el código es reversible, el SEO no |
 
-**La 5 cerró el 2026-08-17. La 3 sigue sin arrancar** y las dos ya no dependen
-una de la otra.
+**Las 5 y 5B cerraron el 2026-08-17 y están en `main`. La 3 es la siguiente y no
+depende de ninguna de las dos.** El detalle de lo cerrado está en
+`docs/historia/2026-08-router-y-urls.md`.
 
 - **La 3** abre la navegación por defecto. Hoy `/demo` pelado **sigue mostrando el
-  login**: la 2 solo abrió los deep links. De la 3 depende la 4. **Es la siguiente.**
-- **La 5 está en `main`.** Cada ficha tiene su HTML estático con title,
-  description y og: propios, más `noindex` mientras el producto viva en `/demo`.
-  **Cuesta cero funciones serverless.**
-  **Fue junto con la metadata obligatoria del formulario**: `shortPitch` de 40 a 80
-  y descripción de 300 pasan a ser requeridos, y la portada también. El motivo
-  está medido: **ninguno de los 5 tours que cargó una agencia real tenía
-  `shortPitch`, y los 37 del seed sí**, porque el campo no existía en el
-  formulario. Detalle en `docs/historia/2026-08-router-y-urls.md`.
+  login**: la 2 solo abrió los deep links. De la 3 depende la 4.
 
-  **Falta el paso 5**, que es sacar el `noindex` y publicar `robots.txt` y
-  `sitemap.xml`: eso va **el día del switch**, no antes. Publicar un sitemap hoy
-  sería invitar a indexar lo que el `noindex` bloquea, y listaría las 37 URLs que
-  se borran en el lanzamiento.
-- **La 5B está EN QA.** Cierra el agujero que encontró José: el formulario
-  exigía la metadata pero **"activar" no pasa por el formulario**, así que desde
-  el panel se podía devolver al catálogo un tour sin gancho. Defensa en dos
-  capas: el PATCH lo bloquea (es la guarda real) y **el panel apaga el
-  interruptor de entrada**, con el motivo visible en la tarjeta.
+**Lo que queda abierto del frente de SEO, y no se toca antes de tiempo:**
 
-  **La condición vive en `lib/tour-publish.js`, sin dependencias, y la importan
-  los dos lados.** Esa es la parte que hay que no romper: si alguien le agrega un
-  import, el frontend deja de poder usarla y vuelve la copia. Ver
-  `.claude/rules/api-y-schema.md`.
-
-**El prerender ya corre en CADA deploy, así que los datos sucios se congelan en
-HTML indexable** y quedan en el índice de Google hasta el próximo crawl. Hoy lo
-tapa el `noindex`; **el día del switch deja de taparlo**. Y **37 de los 42 tours
-públicos se borran en el lanzamiento**, así que sus URLs prerenderizadas van a
-morir: es otra razón para no publicar el sitemap antes.
+- **El paso 5 de la tanda 5**: sacar el `noindex` y publicar `robots.txt` y
+  `sitemap.xml`. **Va el día del switch, no antes.** Publicar un sitemap hoy sería
+  invitar a indexar lo que el `noindex` bloquea, y listaría las 37 URLs que se
+  borran en el lanzamiento.
+- **El prerender corre en CADA deploy**, así que **los datos sucios se congelan
+  en HTML indexable** y quedan en el índice de Google hasta el próximo crawl. Hoy
+  lo tapa el `noindex`; el día del switch deja de taparlo. Es la razón por la que
+  la limpieza de datos de prueba va **antes** del switch, no después.
 
 ### Fuera del frente de lanzamiento
 
@@ -74,6 +57,8 @@ morir: es otra razón para no publicar el sitemap antes.
   la pestaña "Ingresos" del dashboard, hoy oculta. Ver `docs/decisiones.md`.
 
 ## Terminado y mergeado
+
+- **SEO de las fichas (tandas 5 y 5B, 2026-08-17)**: cada tour tiene su HTML estático con title, description y `og:` propios, generado en cada deploy y con `noindex` mientras el producto viva en `/demo`. La metadata mínima (gancho de 40 a 80, descripción de 300, portada) es obligatoria **por los dos caminos**: al guardar en el formulario y al activar desde el panel, con la condición compartida en `lib/tour-publish.js`. El panel apaga el interruptor de entrada y dice qué falta.
 
 - **tours-db-i18n**: tours migrados de array hardcoded a DB, con embeddings Voyage, 6 categorías sincronizadas con el enum, skeleton loading y dropdown AI_SUGGESTIONS.
 - **M1 Auth**: Supabase Auth email + password, sesión persistente en localStorage, `isOperator` derivado de la DB.
