@@ -6860,17 +6860,27 @@ export default function AppDemo() {
       if (!robots) {
         robots = document.createElement("meta");
         robots.name = "robots";
+        // Marca de propiedad: este efecto SOLO borra lo que él mismo creó.
+        robots.dataset.spa = "1";
         document.head.appendChild(robots);
       }
       robots.content = "noindex";
-    } else if (robots && !robots.dataset.prerender) {
-      // ESTA LÍNEA ES LA QUE IMPORTA, y el `!robots.dataset.prerender` no es
-      // cosmético. Las fichas prerenderizadas traen `noindex` en el HTML porque
-      // el producto todavía vive en /demo y no se indexa. Sin esta condición, el
-      // efecto lo BORRABA al montar la app, y el noindex solo sobrevivía hasta
-      // que el JavaScript arrancaba. Un crawler que ejecuta JS lo veía
-      // desaparecer y Google indexaba /demo, que es de las pocas cosas de esta
-      // tanda que no se deshacen rápido.
+    } else if (robots && robots.dataset.spa === "1") {
+      // ESTA CONDICIÓN ES LA QUE IMPORTA, y ya falló DOS VECES, una por cada
+      // lado. El efecto no puede borrar una etiqueta `robots` que venía en el
+      // HTML: solo la suya.
+      //
+      // 1º: las fichas prerenderizadas traen `noindex` en el HTML. El efecto lo
+      //     borraba al montar, así que sobrevivía solo hasta que arrancaba el
+      //     JavaScript. Se tapó con `!robots.dataset.prerender`.
+      // 2º: el 2026-08-17 se agregó el `noindex` general a index.html, que NO
+      //     lleva ese atributo, así que la excepción anterior no lo cubría y el
+      //     efecto volvía a borrarlo en la portada y el buscador. Justo las dos
+      //     pantallas que esa línea venía a proteger.
+      //
+      // Preguntar "¿de quién es esta etiqueta?" en vez de ir listando las que
+      // hay que respetar cierra la familia entera: cualquier `robots` que se
+      // agregue al HTML mañana queda a salvo sin tocar esto.
       robots.remove();
     }
   }, [canonPath, noindex]);
