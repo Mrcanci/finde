@@ -436,7 +436,11 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
                 ? "Sin cupos"
                 : belowMin
                 ? (minDateNote || `Requiere al menos ${MIN_BOOKING_LEAD_DAYS} día${MIN_BOOKING_LEAD_DAYS > 1 ? "s" : ""} de anticipación`)
-                : "Este día la agencia no tiene salidas")
+                // "Salidas" es la fila de Departure que ve la agencia en su
+                // panel. Al viajero se le habla de que el tour sale o no sale,
+                // que es lo que ya dice la línea de abajo del calendario
+                // ("Este tour solo sale los sábados y domingos").
+                : "Este tour no sale este día")
             : undefined;
           // El aviso solo se pinta en fechas elegibles; la celda no cambia de
           // tamaño (minHeight/aspectRatio fijos, la fila no crece).
@@ -3671,7 +3675,12 @@ function BookingView({ tour, go, onLocalBookingSuccess, onNeedAccount }) {
       </div>
       <div className="notice-d">
         {availError.seatsLeft <= 0
-          ? "Mientras completabas tus datos se llenó la salida. Tus datos quedan guardados."
+          // "Se ocuparon" cuelga de "los cupos" del título de arriba, así que no
+          // repite. Y no dice QUIÉN los tomó a propósito: seatsLeft <= 0 también
+          // da cero si la agencia bajó el cupo con allotmentOverride, así que
+          // culpar a otro viajero sería inventar un hecho, justo en la pantalla
+          // donde la persona ya está molesta.
+          ? "Se ocuparon mientras completabas tus datos. Tus datos quedan guardados."
           : `Quedan ${availError.seatsLeft} para el ${formatLongDate(date)}. Tus datos quedan guardados.`}
       </div>
       {availError.seatsLeft <= 0 ? (
