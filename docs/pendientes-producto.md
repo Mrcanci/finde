@@ -33,15 +33,20 @@ es apuntar el SMTP de Supabase al mismo proveedor.
 
 **Mientras "Confirm email" siga apagado, el alta desde el modal de cuenta loguea
 al instante y el viajero sigue reservando sin salir de la pantalla.** Eso es lo
-que deja que el modal de la tanda 3 funcione con correo y contraseña.
+que deja que el modal funcione con correo y contraseña.
 
-**El día que se reactive, ese camino se rompe**, salvo que el modal maneje el
-estado "revisa tu correo": el viajero crearía la cuenta, no quedaría logueado, y
-el checkout se cortaría justo ahí, con la fecha y los cupos ya elegidos.
+**El día que se reactive, el alta deja de devolver sesión y el checkout se corta
+ahí**, con la fecha y los cupos ya elegidos.
 
-> **Reactivar "Confirm email" sin tocar el modal rompe el checkout.** No es un
-> efecto lateral a vigilar, es la consecuencia directa, y por eso los dos ítems
-> van juntos o no van.
+**El modal ya lo maneja, así que no va a romper en silencio.** `AuthForm` mira si
+el alta devolvió sesión y, si no vino, muestra "Te enviamos un correo para
+confirmar tu cuenta. Ábrelo y vuelve acá para continuar." en vez de avanzar el
+checkout hacia un 401 tres pantallas después. **Lo que no hace es evitar el
+corte**: el viajero igual tiene que salir al correo y volver.
+
+> Reactivarlo sigue siendo una decisión de producto y no un interruptor: cambia
+> el alta de "entras y sigues reservando" a "entras, sales al correo y vuelves".
+> Por eso va después del SMTP propio, no antes.
 
 ## Riesgos de producto
 
@@ -129,6 +134,24 @@ Vercel**: su API responde 403 con las credenciales de esta sesión.
   **Tanda aparte, con su propia verificación de cambio de cuenta.** Sin fecha.
 
 ## Huecos de producto
+
+- **El autocompletado de Chrome deja el botón de entrar en gris.** Chrome
+  rellena el correo y la contraseña, se ven escritos en pantalla, y el botón
+  sigue deshabilitado hasta que el usuario toca una tecla en alguno de los dos
+  campos. Es el desencuentro clásico entre el autofill del navegador y el estado
+  de React: el `onChange` no llega, así que `canSubmit` sigue en falso mientras
+  los campos se ven llenos.
+
+  **Es preexistente, no lo trajo el modal de cuenta**, y estaba en la pantalla de
+  login desde M1. **Pero sube de prioridad**, y ese es el motivo de anotarlo
+  ahora: desde la tanda 3 el mismo formulario aparece dentro del checkout, así
+  que ahora está en el camino de una reserva. Alguien que ya eligió fecha y
+  cupos ve sus datos puestos y un botón que no responde, y la lectura natural es
+  que Finde está roto.
+
+  **No se arregla acá.** Queda anotado con su síntoma para que la tanda que lo
+  tome sepa qué está buscando, porque desde afuera parece un bug de validación y
+  no lo es.
 
 - **El formulario de tour se pierde entero, sin aviso, al navegar afuera.** El
   estado vive en un `useState` de `NewTourView`: no hay `localStorage`, no hay
