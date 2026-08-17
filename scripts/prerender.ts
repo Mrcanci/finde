@@ -80,9 +80,29 @@ function titulo(t: { title: string; city: string }): string {
 // eso quedaría a menos de la mitad. Y CINCO tours no lo tienen, que son
 // justamente los 5 de MEGATOURS, la única agencia real. Por eso se concatena con
 // la descripción, que arranca con los datos concretos.
+//
+// Los dos textos se PEGAN con un punto en el medio. Sin él salía "…en Pacífico
+// norte Salida 7:30 AM…", dos oraciones cosidas sin corte, y eso se lee en cada
+// previsualización de WhatsApp y en cada resultado de Google.
+//
+// Medido sobre los 37 ganchos activos al 2026-08-17: **ninguno** termina en
+// puntuación, así que hoy el separador siempre hace falta. La guarda de abajo es
+// para el gancho que una agencia escriba mañana cerrando con punto: ahí agregar
+// otro daría "norte.. Salida".
+//
+// El gancho no se toca en la base. Esta normalización vive acá, al emitir el
+// tag, igual que el recorte de la portada de Unsplash.
 function descripcion(t: { shortPitch: string | null; description: string }): string {
-  const partes = [t.shortPitch?.trim(), t.description?.trim()].filter(Boolean);
-  return recortar(partes.join(" "), 155);
+  const gancho = (t.shortPitch || "").trim();
+  const cuerpo = (t.description || "").trim();
+  if (!gancho) return recortar(cuerpo, 155);
+  if (!cuerpo) return recortar(gancho, 155);
+  // Una coma o un punto y coma al final quedan raros delante de otra oración, y
+  // agregarles un punto da "norte,.". Se reemplazan; una puntuación de cierre
+  // (. ! ? …) se respeta tal cual.
+  const limpio = gancho.replace(/[,;:]+$/, "");
+  const yaCierra = /[.!?…]$/.test(limpio);
+  return recortar(`${limpio}${yaCierra ? "" : "."} ${cuerpo}`, 155);
 }
 
 // La portada, ajustada a lo que pide una tarjeta grande.
