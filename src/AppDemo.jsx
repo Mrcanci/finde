@@ -5,7 +5,7 @@ import { useAuth } from "./contexts/AuthContext.jsx";
 import { authFetch } from "./lib/authFetch.js";
 import { supabase } from "./lib/supabase.js";
 import { resizeImageForUpload, ALLOWED_INPUT_TYPES, MAX_UPLOAD_BYTES, OG_MIN_WIDTH, OG_MIN_HEIGHT } from "./lib/image-resize.js";
-import { fromPath, toPath, parseTourSegment, canonicalTourPath, PUBLIC_VIEWS } from "./lib/routes.js";
+import { fromPath, toPath, parseTourSegment, canonicalTourPath } from "./lib/routes.js";
 // La condición de publicar y sus números salen del MISMO módulo que usa el
 // backend. No se copian acá: ver lib/tour-publish.js.
 import { faltaParaPublicar, PITCH_MIN, PITCH_MAX, DESC_MIN } from "../lib/tour-publish.js";
@@ -1112,6 +1112,24 @@ html{scrollbar-gutter:stable}
 .login-skip:hover{border-color:var(--m);color:var(--ch)}
 .login-terms{font-size:11px;color:var(--gy-strong);text-align:center;margin-top:auto;padding-top:16px}
 .login-terms a{color:var(--tr-text);text-decoration:none;font-weight:600}
+/* Modal de cuenta. NO se portaliza a document.body a propósito: las variables
+   de marca (--f, --cr, --gy-strong...) se declaran en .app, así que un portal
+   fuera de ese árbol dejaría a .login-btn con background:var(--f) sin resolver.
+   .app no declara transform ni filter, así que position:fixed adentro cubre el
+   viewport igual y no necesita escapar de nada. */
+.acc-backdrop{position:fixed;inset:0;background:rgba(27,58,45,.45);z-index:120;animation:fadeUp .18s ease-out}
+.acc-modal{position:fixed;z-index:121;left:50%;top:50%;transform:translate(-50%,-50%);width:min(420px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow-y:auto;background:white;border-radius:20px;padding:28px 24px 24px;box-shadow:0 20px 60px rgba(0,0,0,.22);text-align:left;animation:fadeUp .2s ease-out}
+.acc-close{position:absolute;top:14px;right:14px;background:transparent;border:0;padding:6px;cursor:pointer;color:var(--gy);display:flex;align-items:center;border-radius:8px;transition:.2s}
+.acc-close:hover{background:var(--cr);color:var(--ch)}
+.acc-modal-h{margin-bottom:20px;padding-right:28px}
+.acc-t{font-family:'DM Serif Display',Georgia,serif;font-size:24px;color:var(--f);margin-bottom:8px;line-height:1.2;letter-spacing:0}
+.acc-d{font-size:14px;color:var(--gy-strong);line-height:1.5}
+.acc-calma{display:flex;align-items:center;gap:8px;margin-top:14px;padding:10px 12px;background:var(--cr);border-radius:10px;font-size:12px;color:var(--f);font-weight:600;line-height:1.4}
+.acc-calma svg{flex-shrink:0}
+@media(max-width:639px){
+  /* Hoja inferior, mismo patrón que el sheet de notificaciones. */
+  .acc-modal{left:0;right:0;bottom:0;top:auto;transform:none;width:auto;border-radius:20px 20px 0 0;max-height:88vh;padding:24px 20px 28px;animation:slideUp .25s ease-out}
+}
 /* Login input (M1: email/password). No flex:1 ni letter-spacing del campo de teléfono. */
 .login-input{width:100%;padding:13px 16px;border:2px solid var(--sd);border-radius:14px;font-size:16px;font-family:inherit;background:white;color:var(--ch);outline:none;transition:.2s;box-sizing:border-box}
 .login-input:focus{border-color:var(--m);box-shadow:0 0 0 4px var(--focus)}
@@ -2140,13 +2158,40 @@ function GCard({ t, onClick }) {
   );
 }
 
-function LoginView({ go, loginMsg, onGuest }) {
+// Traduce los errores de Supabase Auth a algo que el viajero entienda. Vive a
+// nivel de módulo porque lo usan los DOS lados que muestran el formulario: la
+// pantalla de login y el modal de cuenta.
+function translateAuthError(message) {
+  const m = (message || "").toLowerCase();
+  if (m.includes("invalid login credentials")) return "Email o contraseña incorrectos.";
+  if (m.includes("already registered")) return "Ya existe una cuenta con ese email. Intenta iniciar sesión.";
+  if (m.includes("email not confirmed")) return "Confirma tu email antes de iniciar sesión.";
+  if (m.includes("password should be at least")) return "La contraseña debe tener al menos 6 caracteres.";
+  if (m.includes("rate limit") || m.includes("too many")) return "Demasiados intentos. Espera un momento.";
+  if (m.includes("invalid email") || m.includes("not a valid email")) return "Email inválido.";
+  return "No pudimos completar la operación. Intenta de nuevo.";
+}
+
+// El formulario de correo y contraseña, solo, y SIN NAVEGAR.
+//
+// Está extraído a propósito. LoginView terminaba con go("home") o
+// go("welcome"), y el modal de cuenta necesita exactamente lo contrario: que el
+// viajero se quede donde estaba, con su fecha y sus cupos. Reusar LoginView tal
+// cual lo habría sacado del flujo de reserva.
+//
+// `mode` viene de afuera porque la pantalla de login muestra un título que
+// depende de él ("Inicia sesión" contra "Crea tu cuenta") y el modal no: el
+// modal ya tiene su propio encabezado y repetirlo sería decir dos veces lo
+// mismo. Ese título entra por `heading`, entre las pestañas y los campos, que
+// es donde estaba. onSuccess({ isSignIn }) decide qué pasa después, y es lo
+// único que cambia entre los dos usos.
+function AuthForm({ mode, onModeChange, onSuccess, heading = null }) {
   const { signInWithPassword, signUpWithPassword } = useAuth();
-  const [mode, setMode] = useState("signin"); // "signin" | "signup"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [aviso, setAviso] = useState("");
   const [busy, setBusy] = useState(false);
 
   const isSignIn = mode === "signin";
@@ -2154,35 +2199,222 @@ function LoginView({ go, loginMsg, onGuest }) {
   const validPassword = password.length >= 6;
   const canSubmit = !busy && validEmail && validPassword;
 
-  function translateError(message) {
-    const m = (message || "").toLowerCase();
-    if (m.includes("invalid login credentials")) return "Email o contraseña incorrectos.";
-    if (m.includes("already registered")) return "Ya existe una cuenta con ese email. Intenta iniciar sesión.";
-    if (m.includes("email not confirmed")) return "Confirma tu email antes de iniciar sesión.";
-    if (m.includes("password should be at least")) return "La contraseña debe tener al menos 6 caracteres.";
-    if (m.includes("rate limit") || m.includes("too many")) return "Demasiados intentos. Espera un momento.";
-    if (m.includes("invalid email") || m.includes("not a valid email")) return "Email inválido.";
-    return "No pudimos completar la operación. Intenta de nuevo.";
-  }
-
   async function handleSubmit() {
     if (!canSubmit) return;
     setError("");
+    setAviso("");
     setBusy(true);
     const fn = isSignIn ? signInWithPassword : signUpWithPassword;
-    const { error: authError } = await fn({ email: email.trim(), password });
+    const { data, error: authError } = await fn({ email: email.trim(), password });
     setBusy(false);
     if (authError) {
-      setError(translateError(authError.message));
+      setError(translateAuthError(authError.message));
       return;
     }
-    go(isSignIn ? "home" : "welcome");
+    // Alta SIN sesión de vuelta = "Confirm email" está prendido en Supabase.
+    // Hoy está APAGADO (mailer_autoconfirm), así que este camino no corre; la
+    // guarda existe para el día que se reactive, que es un pendiente de
+    // lanzamiento anotado en docs/pendientes-producto.md. Sin ella, onSuccess
+    // avanzaría el checkout con el viajero todavía sin sesión y el POST moriría
+    // con 401 tres pantallas después, sin explicar nada.
+    if (!isSignIn && data && !data.session) {
+      setAviso("Te enviamos un correo para confirmar tu cuenta. Ábrelo y vuelve aquí para continuar.");
+      return;
+    }
+    onSuccess({ isSignIn });
   }
 
   function toggleMode() {
-    setMode(isSignIn ? "signup" : "signin");
+    onModeChange(isSignIn ? "signup" : "signin");
     setError("");
+    setAviso("");
   }
+
+  return (
+    <>
+      <div className="login-tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={isSignIn}
+          className={`login-tab ${isSignIn ? "on" : ""}`}
+          onClick={() => { if (!isSignIn) toggleMode(); }}
+        >
+          Iniciar sesión
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={!isSignIn}
+          className={`login-tab ${!isSignIn ? "on" : ""}`}
+          onClick={() => { if (isSignIn) toggleMode(); }}
+        >
+          Crear cuenta
+        </button>
+      </div>
+
+      {heading}
+
+      <input
+        className="login-input"
+        type="email"
+        autoComplete="email"
+        placeholder="tucorreo@ejemplo.com"
+        value={email}
+        onChange={(e) => { setEmail(e.target.value); if (error) setError(""); }}
+        style={{ marginBottom: 10 }}
+      />
+
+      <div style={{ position: "relative", marginBottom: 12 }}>
+        <input
+          className="login-input"
+          type={showPassword ? "text" : "password"}
+          autoComplete={isSignIn ? "current-password" : "new-password"}
+          placeholder="Contraseña (mínimo 6 caracteres)"
+          value={password}
+          onChange={(e) => { setPassword(e.target.value); if (error) setError(""); }}
+          onKeyDown={(e) => { if (e.key === "Enter" && canSubmit) handleSubmit(); }}
+          style={{ paddingRight: 44 }}
+        />
+        <button
+          type="button"
+          aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+          onClick={() => setShowPassword((s) => !s)}
+          style={{
+            position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+            background: "transparent", border: 0, cursor: "pointer", padding: 6,
+            color: "#8A8A85", display: "flex", alignItems: "center",
+          }}
+        >
+          {showPassword ? <EyeOff size={18} strokeWidth={1.5} /> : <Eye size={18} strokeWidth={1.5} />}
+        </button>
+      </div>
+
+      {error && (
+        <div className="login-banner" style={{ background: "rgba(199,97,58,0.12)", color: "#C7613A" }}>
+          {error}
+        </div>
+      )}
+      {aviso && (
+        <div className="login-banner" role="status">
+          <Info size={16} strokeWidth={2} aria-hidden="true" />
+          <span>{aviso}</span>
+        </div>
+      )}
+
+      <button
+        className="login-btn"
+        disabled={!canSubmit}
+        onClick={handleSubmit}
+      >
+        {busy ? "..." : isSignIn ? "Entrar" : "Crear cuenta"}
+      </button>
+    </>
+  );
+}
+
+// Una sola definición del texto legal. Lo muestran la pantalla de login y el
+// modal de cuenta, y tienen que decir lo mismo: si vive en dos lugares, tarde o
+// temprano dicen cosas distintas.
+function TermsLine({ style }) {
+  return (
+    <div className="login-terms" style={style}>
+      Al continuar, aceptas los <a href="#">Términos de uso</a> y la <a href="#">Política de privacidad</a> de Finde
+    </div>
+  );
+}
+
+// Por qué se pide la cuenta, según por dónde entró el viajero. El copy dice el
+// MOTIVO y no solo pide: alguien a quien esto le aparece en el medio de una
+// reserva tiene que entender qué gana y, sobre todo, que no pierde lo que ya
+// eligió.
+const ACCOUNT_REASONS = {
+  booking: {
+    motivo: "Para reservar necesitas una cuenta. Ahí queda tu reserva, con su código y los datos de la agencia.",
+    calma: "No pierdes la fecha ni los cupos que elegiste.",
+  },
+  trips: {
+    motivo: "Tus reservas viven en tu cuenta. Inicia sesión y las tienes todas aquí, con su código y su voucher.",
+    calma: null,
+  },
+  profile: {
+    motivo: "Tu perfil vive en tu cuenta. Y si tienes una agencia de turismo, desde ahí activas tu panel.",
+    calma: null,
+  },
+  notifications: {
+    // "Salida" es como la agencia ve la fecha en su panel. El viajero hizo una
+    // RESERVA, y ese es el vocabulario que le toca (mismo criterio que
+    // "confirmación automática" en vez de "cupo fijo", ver
+    // .claude/rules/reservas.md).
+    motivo: "Tus avisos viven en tu cuenta. Ahí te avisamos cuando la agencia confirma tu reserva.",
+    calma: null,
+  },
+  default: {
+    motivo: "Esta parte de Finde es tuya, así que necesitas una cuenta para verla.",
+    calma: null,
+  },
+};
+
+// El modal de cuenta. UNO SOLO para los tres puntos de entrada: el checkout,
+// "Mis reservas" y "Perfil". Se escribe una vez y se pide la cuenta siempre
+// igual, en vez de un modal por un lado y una pantalla completa por el otro.
+//
+// Va montado dentro de .app, no portalizado: ver el comentario del CSS.
+function AccountModal({ reason, onClose, onSuccess }) {
+  const [mode, setMode] = useState("signin");
+  const r = ACCOUNT_REASONS[reason] || ACCOUNT_REASONS.default;
+
+  // onClose en un ref. El modal se abre desde dos lados (un click o la URL) y
+  // cada uno pasa un handler distinto, así que exigir que sean estables para
+  // que el efecto de abajo no se re-suscriba sería una condición escondida
+  // sobre quien lo usa. Con el ref, el efecto corre UNA vez y siempre llama al
+  // handler vigente.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; });
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onCloseRef.current(); };
+    window.addEventListener("keydown", onKey);
+    // El fondo no scrollea mientras el modal está abierto: en el checkout,
+    // debajo hay un calendario y perder la posición al cerrar sería justo lo
+    // que este modal viene a evitar.
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  return (
+    <>
+      <div className="acc-backdrop" onClick={onClose} />
+      <div className="acc-modal" role="dialog" aria-modal="true" aria-labelledby="acc-modal-t">
+        <button type="button" className="acc-close" onClick={onClose} aria-label="Cerrar">
+          <X size={18} strokeWidth={1.5} />
+        </button>
+        <div className="acc-modal-h">
+          {/* "Inicia sesión o regístrate", nunca "Crea tu cuenta": no presume
+              que el viajero sea nuevo. Quien ya tiene cuenta no tiene que leer
+              una invitación a crear otra. */}
+          <div className="acc-t" id="acc-modal-t">Inicia sesión o regístrate</div>
+          <div className="acc-d">{r.motivo}</div>
+          {r.calma && (
+            <div className="acc-calma">
+              <Lock size={14} strokeWidth={1.5} /> {r.calma}
+            </div>
+          )}
+        </div>
+        <AuthForm mode={mode} onModeChange={setMode} onSuccess={onSuccess} />
+        <TermsLine style={{ marginTop: 4, paddingTop: 4 }} />
+      </div>
+    </>
+  );
+}
+
+function LoginView({ go, loginMsg, onGuest }) {
+  const [mode, setMode] = useState("signin"); // "signin" | "signup"
+  const isSignIn = mode === "signin";
 
   return (
     <div className="login fu">
@@ -2204,87 +2436,29 @@ function LoginView({ go, loginMsg, onGuest }) {
           </div>
         )}
 
-        <div className="login-tabs" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={isSignIn}
-            className={`login-tab ${isSignIn ? "on" : ""}`}
-            onClick={() => { if (!isSignIn) toggleMode(); }}
-          >
-            Iniciar sesión
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={!isSignIn}
-            className={`login-tab ${!isSignIn ? "on" : ""}`}
-            onClick={() => { if (isSignIn) toggleMode(); }}
-          >
-            Crear cuenta
-          </button>
-        </div>
-
-        <div className="login-title">{isSignIn ? "Inicia sesión" : "Crea tu cuenta"}</div>
-        <div className="login-sub">
-          {isSignIn ? "Ingresa con tu email y contraseña" : "Regístrate con email y contraseña para empezar"}
-        </div>
-
-        <input
-          className="login-input"
-          type="email"
-          autoComplete="email"
-          placeholder="tucorreo@ejemplo.com"
-          value={email}
-          onChange={(e) => { setEmail(e.target.value); if (error) setError(""); }}
-          style={{ marginBottom: 10 }}
+        {/* El título depende del modo y va entre las pestañas y los campos, por
+            eso `mode` vive acá y entra al formulario como `heading`. El modal
+            no lo pasa: ya tiene su propio encabezado. */}
+        <AuthForm
+          mode={mode}
+          onModeChange={setMode}
+          onSuccess={({ isSignIn: entro }) => go(entro ? "home" : "welcome")}
+          heading={
+            <>
+              <div className="login-title">{isSignIn ? "Inicia sesión" : "Crea tu cuenta"}</div>
+              <div className="login-sub">
+                {isSignIn ? "Ingresa con tu email y contraseña" : "Regístrate con email y contraseña para empezar"}
+              </div>
+            </>
+          }
         />
-
-        <div style={{ position: "relative", marginBottom: 12 }}>
-          <input
-            className="login-input"
-            type={showPassword ? "text" : "password"}
-            autoComplete={isSignIn ? "current-password" : "new-password"}
-            placeholder="Contraseña (mínimo 6 caracteres)"
-            value={password}
-            onChange={(e) => { setPassword(e.target.value); if (error) setError(""); }}
-            onKeyDown={(e) => { if (e.key === "Enter" && canSubmit) handleSubmit(); }}
-            style={{ paddingRight: 44 }}
-          />
-          <button
-            type="button"
-            aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-            onClick={() => setShowPassword((s) => !s)}
-            style={{
-              position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
-              background: "transparent", border: 0, cursor: "pointer", padding: 6,
-              color: "#8A8A85", display: "flex", alignItems: "center",
-            }}
-          >
-            {showPassword ? <EyeOff size={18} strokeWidth={1.5} /> : <Eye size={18} strokeWidth={1.5} />}
-          </button>
-        </div>
-
-        {error && (
-          <div className="login-banner" style={{ background: "rgba(199,97,58,0.12)", color: "#C7613A" }}>
-            {error}
-          </div>
-        )}
-
-        <button
-          className="login-btn"
-          disabled={!canSubmit}
-          onClick={handleSubmit}
-        >
-          {busy ? "..." : isSignIn ? "Entrar" : "Crear cuenta"}
-        </button>
 
         <div className="login-divider">o</div>
         <button className="login-skip" onClick={onGuest}>Explorar sin cuenta</button>
 
         {/* TODO(M1 sub-paso 8): enlace "¿Eres agencia de turismo?" para onboarding de operador. */}
 
-        <div className="login-terms">Al continuar, aceptas los <a href="#">Términos de uso</a> y la <a href="#">Política de privacidad</a> de Finde</div>
+        <TermsLine />
       </div>
     </div>
   );
@@ -3206,7 +3380,7 @@ function VoucherDetail({ trip }) {
   );
 }
 
-function BookingView({ tour, go, onLocalBookingSuccess }) {
+function BookingView({ tour, go, onLocalBookingSuccess, onNeedAccount }) {
   const { user } = useAuth();
   const [step, setStep] = useState(1);
   // Numeración derivada del flag: en modo demo el pago es el paso 3 y el voucher
@@ -3223,9 +3397,22 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
   // El email sí se prefilla del token (real) más abajo.
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  // Prellenar con el email del usuario logueado. El backend ignora este valor
-  // y usa el del token; lo mostramos sólo para que el usuario vea su identidad.
-  const [email, setEmail] = useState(user?.email || "");
+  // El email sale de la CUENTA y se DERIVA, no se copia a estado.
+  //
+  // Antes era un useState prellenado con user?.email, y ese prefill corre una
+  // sola vez, al montar. Desde que la navegación se abrió, el visitante entra a
+  // reservar SIN cuenta: montaba con el campo vacío, se logueaba después en el
+  // modal, y el campo se quedaba con lo que él escribiera. O sea que veía un
+  // correo que no es al que le llega nada, porque el backend usa el del token y
+  // descarta este (api/bookings.ts). Un dato que parece dato y no lo es.
+  //
+  // Derivarlo lo arregla de raíz en vez de re-sincronizarlo: con cuenta, el
+  // campo muestra SIEMPRE el correo real y va de solo lectura, así lo que se ve
+  // es lo que el backend va a usar. `emailTipeado` queda como respaldo para el
+  // caso sin cuenta, que hoy no llega hasta acá.
+  const accountEmail = user?.email || "";
+  const [emailTipeado, setEmailTipeado] = useState("");
+  const email = accountEmail || emailTipeado;
   const [docId, setDocId] = useState("");
   // Touched por campo: el error de cada campo aparece al abandonarlo (onBlur)
   // inválido; el botón de continuar queda deshabilitado hasta que todo valide.
@@ -3313,6 +3500,15 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
   useEffect(() => {
     if (typeof window !== "undefined") window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, [step]);
+
+  // El muro de cuenta vive ACÁ, y este es el punto exacto: el viajero ya eligió
+  // fecha y cupos y tiene el total a la vista, así que entiende por qué se le
+  // pide. El modal se abre encima, BookingView no se desmonta y no hay ninguna
+  // navegación, así que al volver el paso, la fecha y los cupos siguen puestos.
+  const continuarADatos = () => {
+    if (!user && onNeedAccount) { onNeedAccount(() => setStep(2)); return; }
+    setStep(2);
+  };
 
   const submitBooking = async () => {
     setSubmitting(true);
@@ -3450,6 +3646,52 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
   // desalineadas que tenía el teléfono.
   const docIdValid = /^[A-Za-z0-9-]{6,20}$/.test(docId.trim());
   const step2Valid = nameValid && phoneValid && emailValid && docIdValid;
+
+  // El aviso de carrera de cupos va DONDE SE PUEDE DISPARAR EL POST, no en un
+  // paso concreto. Estaba escrito adentro del paso de pago, y ese es el error de
+  // siempre: la guarda quedó atada al camino donde se pensó y no al estado que
+  // protege (ver .claude/rules/api-y-schema.md).
+  //
+  // Concretamente, submitBooking se invoca desde DOS lugares según el flag: el
+  // paso de pago (DEMO_PAYMENT_FLOW en true) y el botón "Confirmar reserva" del
+  // paso 2 (en false). Por el segundo camino el 409 por cupo no tenía dónde
+  // mostrarse, y el fallo es MUDO: submitBooking hace `return` sin lanzar, así
+  // que submitError queda vacío y lo único que se ve es que el botón apaga su
+  // "Procesando reserva…". La pantalla deja de responder sin decir por qué.
+  //
+  // Se define una vez y se renderiza en los dos pasos. Solo aparece si el aviso
+  // sigue aplicando a lo elegido: si el viajero ya cambió la fecha o la cantidad
+  // de personas, deja de aplicar y desaparece solo, sin efecto que lo limpie.
+  const avisoCupos = availError && availError.forDate === date && availError.forGuests === guests ? (
+    <div className="notice">
+      <div className="notice-t">
+        {availError.seatsLeft <= 0
+          ? "Se agotaron los cupos de esa fecha"
+          : "Alguien acaba de tomar cupos"}
+      </div>
+      <div className="notice-d">
+        {availError.seatsLeft <= 0
+          ? "Mientras completabas tus datos se llenó la salida. Tus datos quedan guardados."
+          : `Quedan ${availError.seatsLeft} para el ${formatLongDate(date)}. Tus datos quedan guardados.`}
+      </div>
+      {availError.seatsLeft <= 0 ? (
+        <button type="button" className="notice-b" onClick={() => { setAvailError(null); setDate(""); setStep(1); }}>
+          Elegir otra fecha
+        </button>
+      ) : availError.seatsLeft < guests ? (
+        <button type="button" className="notice-b" onClick={() => { setGuests(availError.seatsLeft); setAvailError(null); }}>
+          Reservar para {availError.seatsLeft} {availError.seatsLeft === 1 ? "persona" : "personas"}
+        </button>
+      ) : (
+        // seatsLeft >= guests: con el paso 1 aplicado esto ya no debería pasar
+        // (el cupo alcanzaba). Queda el reintento en vez de un callejón sin
+        // salida.
+        <button type="button" className="notice-b" onClick={() => { setAvailError(null); submitBooking(); }}>
+          Volver a intentar
+        </button>
+      )}
+    </div>
+  ) : null;
 
   if (step === VOUCHER_STEP) {
     // Construimos el trip equivalente al que terminó en TripsView para que el
@@ -3595,7 +3837,7 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
             </div>
           );
         })()}
-        <button className="mbtn" disabled={!date} onClick={() => setStep(2)}>Continuar</button>
+        <button className="mbtn" disabled={!date} onClick={continuarADatos}>Continuar</button>
       </div>}
 
       {step === 2 && <div className="fu">
@@ -3612,7 +3854,8 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
         </div>
         <div className="fg">
           <label className="lbl" htmlFor="bkf-email">Email</label>
-          <input id="bkf-email" className={`inp${touched.email && !emailValid ? " inp-err" : ""}`} placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => setTouched(t => ({ ...t, email: true }))} type="email" />
+          <input id="bkf-email" className={`inp${touched.email && !emailValid ? " inp-err" : ""}`} placeholder="tu@email.com" value={email} onChange={(e) => setEmailTipeado(e.target.value)} onBlur={() => setTouched(t => ({ ...t, email: true }))} type="email" readOnly={!!accountEmail} style={accountEmail ? { background: "var(--cr)", color: "var(--gy-strong)" } : undefined} />
+          {accountEmail && <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 6 }}>Es el correo de tu cuenta. Ahí te escribimos sobre esta reserva.</div>}
           {touched.email && !emailValid && <div className="field-err">Revisa tu email: ahí te enviamos el voucher</div>}
         </div>
         <div className="fg">
@@ -3651,6 +3894,11 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
           Al confirmar, coordinarás el pago y los detalles directamente con la agencia por WhatsApp.
         </div>
         )}
+        {/* En el flujo sin pago el POST sale de ESTE paso, así que el aviso de
+            carrera de cupos tiene que existir acá. Con DEMO_PAYMENT_FLOW en true
+            nunca se llena desde este botón y no se ve: no molesta, y el día que
+            el flag se apague la falla deja de ser muda. */}
+        {avisoCupos}
         {submitError && <div className="field-err" style={{ marginBottom: 12 }}>{submitError}</div>}
         {DEMO_PAYMENT_FLOW ? (
           <button className="mbtn" disabled={submitting || !step2Valid} onClick={() => { if (!step2Valid) return; setStep(PAYMENT_STEP); }}>
@@ -3698,37 +3946,9 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
             mismo aviso chico de 12px que "el teléfono es inválido". Dice qué
             pasó y OFRECE LA SALIDA, que es lo que faltaba: hasta ahora el
             viajero leía "solo quedan N" y tenía que deducir solo que había que
-            volver dos pasos y bajar el número. */}
-        {availError && availError.forDate === date && availError.forGuests === guests && (
-          <div className="notice">
-            <div className="notice-t">
-              {availError.seatsLeft <= 0
-                ? "Se agotaron los cupos de esa fecha"
-                : "Alguien acaba de tomar cupos"}
-            </div>
-            <div className="notice-d">
-              {availError.seatsLeft <= 0
-                ? "Mientras completabas tus datos se llenó la salida. Tus datos quedan guardados."
-                : `Quedan ${availError.seatsLeft} para el ${formatLongDate(date)}. Tus datos quedan guardados.`}
-            </div>
-            {availError.seatsLeft <= 0 ? (
-              <button type="button" className="notice-b" onClick={() => { setAvailError(null); setDate(""); setStep(1); }}>
-                Elegir otra fecha
-              </button>
-            ) : availError.seatsLeft < guests ? (
-              <button type="button" className="notice-b" onClick={() => { setGuests(availError.seatsLeft); setAvailError(null); }}>
-                Reservar para {availError.seatsLeft} {availError.seatsLeft === 1 ? "persona" : "personas"}
-              </button>
-            ) : (
-              // seatsLeft >= guests: con el paso 1 aplicado esto ya no debería
-              // pasar (el cupo alcanzaba). Queda el reintento en vez de un
-              // callejón sin salida.
-              <button type="button" className="notice-b" onClick={() => { setAvailError(null); submitBooking(); }}>
-                Volver a intentar
-              </button>
-            )}
-          </div>
-        )}
+            volver dos pasos y bajar el número. Se define arriba (avisoCupos) y
+            se renderiza también en el paso 2, porque el POST sale de los dos. */}
+        {avisoCupos}
         {submitError && <div className="field-err" style={{ marginBottom: 12 }}>{submitError}</div>}
         <button className={`mbtn ${pay === "yape" ? "yp" : ""}`} disabled={submitting} onClick={submitBooking}>
           {submitting
@@ -5806,33 +6026,60 @@ function NotFoundView({ go, deTour }) {
   );
 }
 
-// Vistas públicas: un invitado ("Explorar sin cuenta") puede verlas sin sesión.
-// Todo lo demás (booking, trips, trip-detail, profile, dashboard, new-tour,
-// notifications) es privado y lo rebota el guard de effectiveView al login.
-const GUEST_VIEWS = ["home", "catalog", "detail", "login", "welcome", "not-found"];
+// Las vistas que se ven SIN CUENTA. Desde la tanda 3 esto no es un "modo
+// invitado" que haya que prender: es el estado normal de quien entra a Finde.
+//
+// "booking" está en la lista A PROPÓSITO. El muro de cuenta se movió al
+// checkout: el viajero elige fecha y cupos y ve el total, y recién ahí se le
+// pide la cuenta. Si "booking" no estuviera acá, el guard de effectiveView
+// rebotaría la vista ANTES de que BookingView se monte, así que no habría
+// dónde mostrar ese pedido.
+//
+// Lo que sigue siendo privado y cae al login: trips, trip-detail, profile,
+// dashboard, new-tour y notifications.
+const GUEST_VIEWS = ["home", "catalog", "detail", "booking", "login", "welcome", "not-found"];
+
+// Las vistas que EXIGEN cuenta. Es el complemento de GUEST_VIEWS, y existe
+// aparte porque la guarda no se hace en cada botón sino en go(), que es el
+// único embudo por donde pasa toda la navegación de la app.
+//
+// Eso no es prolijidad: escribir la guarda en la barra de abajo habría dejado
+// abierto el pie de página, que también manda a "Mis reservas" y a
+// notificaciones, y los destinos de las notificaciones. Es la misma lección que
+// ya costó dos veces en el backend (ver .claude/rules/api-y-schema.md): la
+// guarda va en el estado que se protege, no en el camino que la descubrió.
+//
+// "booking" NO está acá a propósito: a reservar se entra sin cuenta, y la
+// cuenta se pide adentro, cuando el viajero ya eligió fecha y cupos.
+const ACCOUNT_VIEWS = ["trips", "trip-detail", "profile", "notifications", "dashboard", "new-tour"];
 
 // La vista con la que arranca la app, leída de la URL DURANTE el render.
 // Mismo criterio que src/App.jsx: leer la URL no necesita estado ni efecto, es
 // un dato del documento que ya existe cuando React monta.
+//
+// El respaldo sin window es "home" y no "login" desde la tanda 3: la app ya no
+// arranca en el login por defecto.
 function initialRoute() {
-  if (typeof window === "undefined") return { view: "login", params: {} };
+  if (typeof window === "undefined") return { view: "home", params: {} };
   return fromPath(window.location.pathname);
 }
 
-// Un deep link a una vista PÚBLICA prende el modo invitado, o el visitante que
-// llega de Google rebotaría al login y el router no serviría para su propósito.
-//
-// Ojo con el borde, que es lo que mantiene esto separado de la tanda 3: solo
-// cuenta como deep link una ruta que NO es la raíz. Entrar a /demo pelado sigue
-// mostrando el login, como siempre. Abrir la navegación por defecto es la
-// tanda 3, no esta.
-function isPublicDeepLink(route) {
-  if (typeof window === "undefined") return false;
-  const raiz = toPath("home");
-  const aqui = window.location.pathname.replace(/\/+$/, "") || "/";
-  if (aqui === raiz.replace(/\/+$/, "")) return false;
-  return PUBLIC_VIEWS.includes(route.view);
+// La pestaña de la barra que le corresponde a una vista. Existe porque `nav`
+// arrancaba SIEMPRE en "explore", aunque la URL apuntara a otra cosa: abrir
+// /demo/mis-reservas dejaba marcado "Explorar" sobre la pantalla de reservas.
+// Se nota más ahora, porque entrar desde el modal aterriza en la vista pedida
+// sin pasar por navigateTo.
+function navFor(view) {
+  if (view === "catalog") return "search";
+  if (view === "trips" || view === "trip-detail") return "trips";
+  if (view === "profile") return "profile";
+  return "explore";
 }
+
+// Acá vivía isPublicDeepLink, que prendía el modo invitado SOLO para un deep
+// link a una vista pública y dejaba el /demo pelado en el login. Era la mitad
+// que la tanda 2 podía abrir sin abrir la navegación entera. La tanda 3 la
+// abrió, así que la excepción sobra: ya no hay ningún modo que prender.
 
 // ── MAIN ──────────────────────────────────────────────
 export default function AppDemo() {
@@ -5843,9 +6090,6 @@ export default function AppDemo() {
   const [view, setView] = useState(route0.view);
   // Parámetros de la ruta actual (el segmento de la ficha, el código del viaje).
   const [routeParams, setRouteParams] = useState(route0.params);
-  // Modo invitado explícito: sin él, el guard de effectiveView rebotaría al
-  // login cualquier vista sin sesión y "Explorar sin cuenta" no navegaría.
-  const [guest, setGuest] = useState(() => isPublicDeepLink(route0));
   const [tour, setTour] = useState(null);
   // Hidratación de un link frío: el tour que se pide al servidor por su sufijo
   // cuando alguien abre /tour/<slug>-<sufijo> sin haber pasado por el catálogo.
@@ -5855,7 +6099,7 @@ export default function AppDemo() {
   // dispara renders en cascada y lo marca ESLint): es simplemente que todavía no
   // llegó la respuesta de ESTE sufijo.
   const [deepFetch, setDeepFetch] = useState({ suffix: null, tour: null, failed: false });
-  const [nav, setNav] = useState("explore");
+  const [nav, setNav] = useState(() => navFor(route0.view));
   const [cat, setCat] = useState("all");
   // IDs de notificaciones ya vistas (persisten en localStorage). El read de cada
   // notificación derivada se calcula contra este set (no hay modelo Notification).
@@ -6247,6 +6491,24 @@ export default function AppDemo() {
   const [editingTour, setEditingTour] = useState(null);
   const [dashTab, setDashTab] = useState("bookings");
   const [loginMsg, setLoginMsg] = useState("");
+  // Modal de cuenta: UNO SOLO para los tres puntos de entrada (el checkout,
+  // "Mis reservas" y "Perfil"). Guarda el motivo, que es lo que decide el copy,
+  // y qué hacer cuando el viajero ya entró.
+  //
+  // `onDone` es la clave del pedido: la acción que se estaba intentando queda
+  // pendiente y se ejecuta al terminar, así el viajero retoma exactamente donde
+  // estaba. En el checkout eso es avanzar al paso 2, con la fecha, los cupos y
+  // el total intactos, porque el modal se monta ENCIMA y BookingView nunca se
+  // desmonta.
+  const [accountAsk, setAccountAsk] = useState(null);
+  const askAccount = useCallback((reason, onDone) => setAccountAsk({ reason, onDone }), []);
+  // Estable a propósito: AccountModal lo usa dentro de un efecto (Escape).
+  const closeAccountAsk = useCallback(() => setAccountAsk(null), []);
+  const handleAccountSuccess = () => {
+    const done = accountAsk?.onDone;
+    setAccountAsk(null);
+    done?.();
+  };
   const [reviews, setReviews] = useState({});
   const [currentTrip, setCurrentTrip] = useState(null);
   const ref = useRef(null);
@@ -6294,7 +6556,8 @@ export default function AppDemo() {
   // params: { tour } para la ficha y la reserva, { code } para el detalle de un
   // viaje. Se guardan en estado porque el render los necesita antes de que
   // llegue el dato del servidor.
-  const go = (v, params = {}) => {
+  // La navegación de verdad, sin guarda. go() la envuelve.
+  const navigateTo = (v, params = {}) => {
     if (v !== "login") setLoginMsg("");
     if (params.tour) setTour(params.tour);
     setView(v);
@@ -6309,6 +6572,23 @@ export default function AppDemo() {
     if (v === "catalog") setNav("search");
     if (v === "trips") setNav("trips");
     if (v === "profile") setNav("profile");
+  };
+
+  // Y acá la guarda, en el embudo. Una vista que exige cuenta, sin sesión, abre
+  // el MISMO modal que el checkout en vez de mandar a una pantalla completa de
+  // login: pedir la cuenta de dos formas distintas según por dónde entraste es
+  // justo lo que esto evita. Si el viajero entra, se completa la navegación que
+  // había pedido; si cierra el modal, se queda donde estaba.
+  //
+  // El respaldo de effectiveView sigue existiendo y NO sobra: cubre el caso de
+  // escribir /demo/perfil en la barra sin sesión, donde no hay ninguna pantalla
+  // debajo sobre la cual poner un modal.
+  const go = (v, params = {}) => {
+    if (!user && ACCOUNT_VIEWS.includes(v)) {
+      askAccount(v, () => navigateTo(v, params));
+      return;
+    }
+    navigateTo(v, params);
   };
 
   // El botón de atrás del navegador. Sin esto saca al usuario de la app entera,
@@ -6374,14 +6654,18 @@ export default function AppDemo() {
       : !resuelto ? "loading"
         : deepFetch.failed ? "missing" : "ready";
   const deepTour = resuelto && !deepFetch.failed ? deepFetch.tour : null;
-  const handleGuest = () => { setGuest(true); go("home"); };
-  // El logout apaga el modo invitado: cerrar sesión vuelve al login normal, no
-  // deja al usuario navegando el catálogo como invitado.
-  const handleLogout = async () => { setGuest(false); await signOut(); };
-  const handleBook = () => {
-    if (!user) { setLoginMsg("Inicia sesión o regístrate para reservar tu tour"); go("login"); }
-    else go("booking", { tour: currentTour });
-  };
+  const handleGuest = () => go("home");
+  // Cerrar sesión deja al usuario navegando como visitante, no contra un muro.
+  // Antes apagaba el modo invitado y lo mandaba al login, que era coherente
+  // cuando el /demo pelado también pedía cuenta. Ya no la pide, así que dejarlo
+  // en el login sería un muro que desaparece con solo recargar.
+  const handleLogout = async () => { await signOut(); go("home"); };
+  // El muro de cuenta YA NO ESTÁ ACÁ. Entrar a reservar es navegación normal: el
+  // viajero elige fecha y cupos y ve el total, y la cuenta se le pide recién en
+  // el checkout. Ese pedido es el modal del paso 3 de la tanda, que todavía no
+  // existe: hasta que exista, un visitante sin cuenta llega hasta el final del
+  // formulario y el POST le responde 401.
+  const handleBook = () => go("booking", { tour: currentTour });
   const handleReview = (tripId, tourId, rating, text) => {
     const newReview = { id: Date.now(), author: USER.name, avatar: USER.avatar, rating, text, date: "Hoy" };
     setReviews(prev => ({ ...prev, [tourId]: [newReview, ...(prev[tourId] || [])] }));
@@ -6402,7 +6686,16 @@ export default function AppDemo() {
       return { ...t, reviews: newCount, rating: newRating };
     }));
   };
-  const navGo = (id) => { setNav(id); if (id === "explore") go("home"); else if (id === "search") go("catalog"); else if (id === "trips") go("trips"); else if (id === "profile") go("profile"); };
+  // Sin setNav propio: navigateTo ya sincroniza la pestaña activa, y hacerlo
+  // acá además la prendía ANTES de navegar. Con el modal en el medio eso se
+  // veía: tocabas "Mis reservas" sin cuenta y la pestaña quedaba marcada sobre
+  // la pantalla anterior aunque cerraras el modal sin entrar.
+  const navGo = (id) => {
+    if (id === "explore") go("home");
+    else if (id === "search") go("catalog");
+    else if (id === "trips") go("trips");
+    else if (id === "profile") go("profile");
+  };
 
   // Tocar una notificación: marca vista (persistente) + navega a su destino. El
   // target "dashboard" (notif del operador) abre la pestaña Reservas; el resto
@@ -6788,20 +7081,38 @@ export default function AppDemo() {
   // - sin sesión en una vista protegida (logout o expiración de sesión) →
   //   "login". Guard derivado durante el render (no useEffect/setState): sin
   //   flash ni render extra. En el re-login, LoginView hace go("home").
-  // - sin sesión y sin modo invitado → solo login/welcome.
-  // - sin sesión en modo invitado → además las vistas públicas (GUEST_VIEWS);
-  //   una vista privada (reservar, viajes, perfil...) sigue cayendo al login.
-  // Con sesión, `guest` es irrelevante: la primera rama manda.
-  const allowedWithoutSession = guest ? GUEST_VIEWS : ["login", "welcome"];
+  // - sin sesión → se ven las vistas de GUEST_VIEWS, siempre y sin prender
+  //   ningún modo. Hasta la tanda 3 esto dependía de un flag `guest` que
+  //   arrancaba apagado, y por eso el /demo pelado caía al login; ya no existe.
+  // - sin sesión y con la URL apuntando a una vista que exige cuenta → el
+  //   INICIO con el modal encima (ver pideCuentaPorUrl, abajo).
+  const allowedWithoutSession = GUEST_VIEWS;
+
+  // Alguien escribió /demo/perfil, o abrió un link viejo, y no tiene sesión.
+  //
+  // Antes esto caía en la pantalla completa de login, y el problema no era la
+  // incoherencia con el modal: era que SE PERDÍA LA INTENCIÓN. El viajero
+  // entraba y aterrizaba en el inicio, no en el perfil que había pedido.
+  //
+  // La salida es mostrar el inicio con el modal encima, y lo bueno es que no
+  // hay que recordar a dónde iba: `view` NUNCA cambia, así que en cuanto hay
+  // sesión esta condición se apaga sola y la vista pedida se renderiza. El
+  // destino no se guarda en ningún lado porque ya está en la URL.
+  const pideCuentaPorUrl = !user && ACCOUNT_VIEWS.includes(view);
   // El panel expulsa a "home" SOLO cuando el perfil de operador ya está
   // resuelto y dice que no es operador. Mientras resuelve (operatorResolved
   // false), el render de "dashboard" muestra "Cargando tu panel…" en vez de
   // decidir con el isOperator=false transitorio (guard derivado, sin flash).
   const effectiveView =
     user && view === "login" ? "home"
-      : !user && !allowedWithoutSession.includes(view) ? "login"
-        : view === "dashboard" && operatorResolved && !isOperator ? "home"
-          : view;
+      : pideCuentaPorUrl ? "home"
+        // Respaldo, y hoy es SOLO respaldo: GUEST_VIEWS y ACCOUNT_VIEWS cubren
+        // las 13 vistas del router entre las dos, así que por acá no pasa
+        // nadie. Se queda para que una vista nueva sin clasificar caiga en el
+        // login en vez de renderizarse sin sesión.
+        : !user && !allowedWithoutSession.includes(view) ? "login"
+          : view === "dashboard" && operatorResolved && !isOperator ? "home"
+            : view;
   const isAuth = !["login", "welcome"].includes(effectiveView);
   const showNav = isAuth && !["booking", "detail", "new-tour", "trip-detail"].includes(effectiveView);
   const showHeader = isAuth && !["booking", "new-tour"].includes(effectiveView);
@@ -6918,7 +7229,7 @@ export default function AppDemo() {
             ? <NotFoundView go={go} deTour />
             : <div className="fu" style={{ minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--gy)", fontSize: 14, fontWeight: 600 }}>Cargando el tour…</div>)}
         {effectiveView === "booking" && (currentTour
-          ? <BookingView tour={currentTour} go={go} onLocalBookingSuccess={handleAddLocalTrip} />
+          ? <BookingView tour={currentTour} go={go} onLocalBookingSuccess={handleAddLocalTrip} onNeedAccount={(onDone) => askAccount("booking", onDone)} />
           : deepState === "missing"
             ? <NotFoundView go={go} deTour />
             : <div className="fu" style={{ minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--gy)", fontSize: 14, fontWeight: 600 }}>Cargando el tour…</div>)}
@@ -6932,6 +7243,27 @@ export default function AppDemo() {
         {effectiveView === "new-tour" && <NewTourView go={go} editingTour={editingTour} onSaveTour={handleSaveTour} onCreateTour={handleCreateTour} onCancel={handleCancelTour} />}
         {showFooter && <Footer go={go} />}
         {showNav && <BNav active={nav} go={navGo} />}
+        {/* Dentro de .app y no portalizado: ahí viven las variables de marca.
+            El modal se abre por dos caminos y cada uno cierra distinto:
+            - por un click (accountAsk): al entrar se completa la navegación que
+              se había pedido, y cerrar simplemente lo saca.
+            - por la URL (pideCuentaPorUrl): al entrar no hay nada que hacer,
+              porque `view` ya apunta al destino y la condición se apaga sola.
+              Cerrar SÍ tiene que navegar al inicio: si no, `view` seguiría
+              siendo la vista privada y el modal se reabriría solo. */}
+        {accountAsk ? (
+          <AccountModal
+            reason={accountAsk.reason}
+            onClose={closeAccountAsk}
+            onSuccess={handleAccountSuccess}
+          />
+        ) : pideCuentaPorUrl ? (
+          <AccountModal
+            reason={view}
+            onClose={() => navigateTo("home")}
+            onSuccess={closeAccountAsk}
+          />
+        ) : null}
       </div>
     </>
   );
