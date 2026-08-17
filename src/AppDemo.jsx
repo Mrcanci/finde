@@ -4,6 +4,7 @@ import { Sparkles, Mountain, Landmark, UtensilsCrossed, Trees, Bell, User, BarCh
 import { useAuth } from "./contexts/AuthContext.jsx";
 import { authFetch } from "./lib/authFetch.js";
 import { supabase } from "./lib/supabase.js";
+import { resizeImageForUpload, ALLOWED_INPUT_TYPES, MAX_UPLOAD_BYTES } from "./lib/image-resize.js";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // FINDE v3 — AI-Native Marketplace
@@ -4882,17 +4883,25 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
   const pendientes = editingTour?.pendingRequests ?? 0;
   const u = (k, v) => setForm(prev => ({ ...prev, [k]: v }));
 
-  const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png"];
-  const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5MB, alineado con el bucket.
   const MAX_GALLERY = 8; // tope de fotos por tour.
+  // El tope de tamaño y los tipos admitidos viven en lib/image-resize.js: como
+  // la foto se achica ANTES de subir, el límite que importa es el de ENTRADA
+  // (25 MB, para no colgar el navegador decodificando), no el del bucket.
+  const mbs = (bytes) => (bytes / 1048576).toFixed(1);
 
   // Sube una sola foto y devuelve su URL pública (reusa el endpoint de signed
   // URL; el archivo nunca pasa por la function → esquiva el límite de Vercel).
+  // Antes de subir, la achica a 1600 px y la recomprime: lo que viaja son ~150 kB
+  // en vez de los 4 MB que salen del celular. Ver lib/image-resize.js.
   const uploadOnePhoto = async (file) => {
+    const img = await resizeImageForUpload(file);
     const r = await authFetch("/api/uploads/tour-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contentType: file.type }),
+      // El contentType es el de SALIDA, no el del archivo elegido: un PNG que se
+      // recomprimió sale como image/jpeg y la extensión del bucket se deriva de
+      // acá. Mandar el de entrada guardaría un JPEG con nombre .png.
+      body: JSON.stringify({ contentType: img.contentType }),
     });
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
@@ -4901,7 +4910,9 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
     const { token, path, publicUrl } = await r.json();
     const { error: upErr } = await supabase.storage
       .from("tour-images")
-      .uploadToSignedUrl(path, token, file);
+      // contentType explícito: un Blob sin tipo declarado se guarda como
+      // application/octet-stream (hay uno así en el bucket, de antes de esto).
+      .uploadToSignedUrl(path, token, img.blob, { contentType: img.contentType });
     if (upErr) throw new Error(upErr.message || "No se pudo subir la imagen");
     return publicUrl;
   };
@@ -4921,13 +4932,15 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
     const toUpload = files.slice(0, remaining);
     const overflow = files.length - toUpload.length;
     // Validar TODO el lote antes de subir nada (UX: no subir a medias por uno malo).
+    // Los mensajes NOMBRAN el archivo: antes decían "una imagen" y la agencia
+    // tenía que adivinar cuál de las cinco era.
     for (const file of toUpload) {
-      if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
-        setUploadError("Formato no válido. Sube imágenes JPG o PNG.");
+      if (!ALLOWED_INPUT_TYPES.includes(file.type)) {
+        setUploadError(`"${file.name}" no es JPG ni PNG. Quítala y vuelve a intentar.`);
         return;
       }
-      if (file.size > MAX_PHOTO_BYTES) {
-        setUploadError("Una imagen supera los 5MB. Elige versiones más livianas.");
+      if (file.size > MAX_UPLOAD_BYTES) {
+        setUploadError(`"${file.name}" pesa ${mbs(file.size)} MB y el máximo es ${mbs(MAX_UPLOAD_BYTES)} MB. Quítala y vuelve a intentar.`);
         return;
       }
     }
@@ -5197,7 +5210,10 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
               }}>
               <Camera size={28} strokeWidth={1.5} style={{ color: "var(--f)" }} />
               <span style={{ fontSize: 13, fontWeight: 600, color: "var(--f)" }}>{form.images.length ? "Agregar más fotos" : "Subir fotos"}</span>
-              <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>Arrastra fotos aquí o haz click para elegir · hasta {MAX_GALLERY} · JPG o PNG · máx 5MB c/u</span>
+              {/* El tope pasa de 5 a 25 MB porque la foto se achica en el
+                  navegador antes de subir: la agencia puede elegir lo que salió
+                  del celular sin pensar en el tamaño. */}
+              <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>Arrastra fotos aquí o haz click para elegir · hasta {MAX_GALLERY} · JPG o PNG · las achicamos por ti</span>
               {form.images.length === 0 && (
                 <span style={{ fontSize: 11, color: "var(--gy)", textAlign: "center" }}>Opcional por ahora. Sin foto usamos un diseño por defecto.</span>
               )}

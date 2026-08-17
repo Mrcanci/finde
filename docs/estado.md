@@ -26,6 +26,7 @@
 - **Vercel Web Analytics** (`8681dee`). Tanda 1, reducida a eso por decisión de José. Costo medido: unos 2,3 kB comprimidos y cero bloqueo del hilo principal.
 - **La landing deja de cargarse en `/demo`** (`d916e65`). Tanda 1B, cerrada post-QA el 2026-08-16. Bytes de `/demo`: **6.528.216 a 232.992, un 96,4% menos**.
 - **Las fotos de destinos de la landing, a 800 px** (`5575328`). Tanda 1C, cerrada post-QA el 2026-08-16. Bytes de la landing: **6.526.560 a 976.569, un 85% menos**.
+- **Las fotos que suben las agencias se achican en el navegador** (`62a1d1a`). Cerrada post-QA el 2026-08-16. Era la **condición** que imponía el plan Free de Supabase: una foto real de 4.062 kB sube como **203 kB**.
 
 ## En curso
 
@@ -53,8 +54,9 @@ con las tres definiciones que pide la decisión de la URL del tour.
 gravedad:
 
 1. **El sello de verificación falso.** Bloqueante de lanzamiento, sección propia.
-2. **Procesar las fotos que suben las agencias.** Condición para que la plataforma
-   funcione con tráfico, con el plan Free confirmado. Sección propia.
+2. ~~Procesar las fotos que suben las agencias.~~ **RESUELTO el 2026-08-16 y en
+   `main`.** Era la condición que imponía el plan Free. Sección propia, ahora
+   como registro de lo que se hizo.
 
 **La secuencia hasta el lanzamiento**, en orden y con sus dependencias:
 
@@ -78,6 +80,11 @@ slug, y qué pasa con un slug vacío.
 empieza sin visto bueno explícito. Antes que ella conviene hacer el **barrido de
 padding del Grupo B**, que la Fase 5 acaba de desbloquear y es más chico. Los dos
 quedan detrás del frente de lanzamiento, que tiene fecha y ellos no.
+
+**Y la Fase 6 tiene ahora un requisito previo: la elección tipográfica.** Ver
+"Auditoría de identidad visual, pendiente" más abajo. La Fase 6 asigna tamaños e
+interlineados por token, y cada tipografía tiene su propia altura de x: **si la
+fuente cambia después, hay que recalcular la escala entera.**
 
 ### Tanda 1, REDUCIDA a Vercel Analytics (decisión de José, 2026-08-15)
 
@@ -691,6 +698,110 @@ Estos dos ítems vienen del **título de una tanda del 2026-08-13, "Refina gener
 
 **Los dos hay que definirlos o eliminarlos.** Si al leer esto nadie recuerda a qué se referían, borralos: un pendiente que nadie puede accionar solo genera ruido en cada tanda.
 
+## Auditoría de identidad visual, pendiente. Distinta de la auditoría tipográfica de agosto
+
+> **Esto es una auditoría PENDIENTE, no un plan de ejecución.** Queda registrada
+> para abordarla más adelante. Nada de lo que sigue está decidido ni empezado.
+
+### Qué la origina
+
+José, el **2026-08-16**, mirando el home: los títulos de sección le parecen
+**"hechos por IA"**. Al conversarlo quedó claro que **no es sobre esos títulos**:
+es sobre **todo el producto**.
+
+### Por qué no la cubre la auditoría anterior
+
+La de agosto midió **mecánica**: contraste WCAG, tamaños de fuente, interlineado,
+áreas táctiles, jerarquía. Todo verificable con números, y por eso se pudo
+ejecutar en fases con mediciones antes y después.
+
+**Esta es de criterio de diseño:** si el producto se ve como algo hecho por
+alguien con intención, o como una plantilla. **No se mide, se juzga.** Son dos
+preguntas distintas y la segunda no se responde con las herramientas de la
+primera.
+
+### Por qué importa para el negocio, y no es vanidad
+
+**Finde vende confianza.** Un viajero que pone S/300 en una plataforma que no
+conoce necesita creer que **hay gente real detrás**. Y una agencia que entra al
+panel decide ahí si vale la pena subir sus tours.
+
+**Una interfaz que se lee como plantilla generada debilita las dos cosas antes de
+la primera palabra.**
+
+### Qué tendría que cubrir, sin resolverlo ahora
+
+**1. La elección tipográfica.** **DM Serif Display más Plus Jakarta Sans es la
+combinación por defecto del estilo asociado a IA de 2023-2024** (plantillas de
+Framer, Webflow, landings generadas).
+
+- Alternativas a evaluar: **Fraunces**, **Newsreader**, **Bricolage Grotesque**.
+- **Ojo con Instrument Serif:** está reemplazando a DM Serif como **la nueva
+  fuente por defecto de IA**. Cambiar a ella sería mudarse al mismo problema un
+  año más tarde.
+- **Y hay una opción que no cambia de fuente: usar el serif MENOS y con más
+  intención.** Hoy está en el logo, el hero, **cada** título de sección, los
+  títulos de página y los del panel.
+
+**2. La paleta.** Verde bosque, terracota, crema y dorado es coherente y andina.
+Lo que hay que revisar es **si se usa con intención o por inercia**, y si el
+**dorado** (hoy casi solo en las estrellas) **tiene trabajo real que hacer**.
+
+**3. Las cards de tour.** Hay **dos diseños para el mismo objeto**: `.tc` del
+carrusel y `.gc` de la grilla, con escalas, radios y paddings distintos. **Airbnb
+usa una sola card en todos los contextos.**
+
+**4. La ficha de tour.** El diagnóstico ya está hecho de la primera conversación:
+
+- El **título va sobre la foto**, y Airbnb no lo hace.
+- **Falta el bloque "Qué harás"** con itinerario.
+- **La agencia verificada está subdimensionada**, siendo el diferenciador del
+  producto.
+- **Falta el mapa** del punto de encuentro.
+
+**5. El panel de agencia.** **Nunca se auditó visualmente.** Es la pantalla que
+decide si una agencia confía en la plataforma.
+
+**6. Los estados vacíos, de carga y de error.** Nunca se revisaron **como
+conjunto**.
+
+**7. Iconografía, ilustración y microinteracciones.** Hoy **no hay criterio
+declarado** sobre ninguna de las tres.
+
+### Cómo NO hacerla
+
+**Leyendo CSS y midiendo números. Eso ya se hizo y no responde esta pregunta.**
+
+Hay que **mirar pantallas completas, en contexto**, y compararlas contra
+referentes reales (**Airbnb Experiences, Civitatis, GetYourGuide**) preguntando
+**qué comunica cada una, no qué mide**.
+
+### Cuándo
+
+**El punto 1 tiene fecha: la elección tipográfica se decide ANTES de la Fase 6.**
+Esa fase asigna tamaños e interlineados por token, y **cada tipografía tiene su
+propia altura de x**. Cambiar la fuente después **obliga a recalcular la escala
+entera**.
+
+**El resto no bloquea el lanzamiento**, pero conviene resolverlo **antes de que el
+prerender congele el diseño en HTML indexable** (tanda 5 del camino al
+lanzamiento).
+
+### Y esto pesa MÁS que todo lo anterior: tres cosas de CONTENIDO
+
+**Comunican "esto no es real" con más fuerza que cualquier decisión de diseño, y
+no se arreglan diseñando.**
+
+1. **Los 49 tours dicen "Nuevo".** Es **honesto** (los ratings falsos se sacaron a
+   propósito, ver la regla de nada falso visible), pero **visualmente comunica
+   catálogo vacío**. Un marketplace real tiene mezcla. **Hay que decidir qué
+   mostrar mientras no haya reseñas reales.**
+2. **Varias fotos tienen la marca de agua de MEGATOURS quemada en la esquina.** La
+   foto pertenece a la agencia y **lo dice encima del producto**. Es **tema de
+   onboarding, no de UI**.
+3. **Una card sale con cuadro blanco sin foto** ("prueba manual"). Ya está en la
+   checklist de limpieza.
+
 ## Em-dashes: las cuatro canillas, cerradas
 
 Cerrado el 2026-08-14. El canon prohíbe la raya en copy y en texto generado
@@ -903,7 +1014,7 @@ Pendientes de performance:
 
 - **El bundle pasa los 500 kB y Vite lo avisa en cada build** (673 kB, 184 kB comprimido, en un solo chunk). No es urgente para el piloto, pero sí para el mercado real: Android de gama media sobre 4G peruano, con objetivo de LCP bajo 3 segundos. `src/AppDemo.jsx` son más de 6200 líneas que hoy viajan enteras aunque el usuario solo abra el home. Candidato claro a code splitting por vista, que es como ya está organizado el archivo (el switch de `effectiveView`). Sin fecha ni tanda asignada.
 
-  **Ojo con la prioridad, que las mediciones del 2026-08-16 dieron vuelta.** Este pendiente figuraba como el número uno de rendimiento y no lo era: las tandas 1B y 1C sacaron **11,8 MB** entre las dos, más de sesenta veces el bundle comprimido entero. **Lo que pesa son imágenes, no JavaScript.** El code splitting entra después de que las fotos estén resueltas en las dos puntas (la landing, ya hecha, y las que suben las agencias, que es la condición del plan Free).
+  **Ojo con la prioridad, que las mediciones del 2026-08-16 dieron vuelta.** Este pendiente figuraba como el número uno de rendimiento y no lo era: las tandas 1B y 1C sacaron **11,8 MB** entre las dos, más de sesenta veces el bundle comprimido entero. **Lo que pesa son imágenes, no JavaScript.** **Las dos puntas del problema de imágenes ya están resueltas**: la landing (tanda 1C) y las que suben las agencias (procesamiento en el navegador). Con eso, el code splitting sí pasa a ser el próximo pendiente de rendimiento.
 
 ### Tanda 1C, CERRADA: las imágenes de la landing
 
@@ -1095,10 +1206,18 @@ Local, dev.finde.pe y producción usan **la misma base**. Estos son los números
 - Categorías: adventure 19, cultural 16, nature 9, mystic 3, gastronomy 2.
 - `FeaturedSearch`: 32 filas. `SearchLog`: 271 filas.
 
-## CONDICIÓN PARA QUE LA PLATAFORMA FUNCIONE CON TRÁFICO: procesar las fotos
+## Procesar las fotos, RESUELTO. Era la condición para que la plataforma funcione con tráfico
 
-**Investigado el 2026-08-16, sin implementar.** La foto que sube una agencia se
-guarda **tal cual**, al tamaño que salió del celular.
+> **CERRADO y en `main` desde el 2026-08-16 (`62a1d1a`), post-QA.** José lo validó
+> en dev.finde.pe con **una foto de paisaje sacada con un iPhone, de las que antes
+> se rechazaban**: ahora sube sin decir nada.
+>
+> Ver "La implementación" al final de esta sección, con los números medidos en un
+> navegador real. **El resto queda como el diagnóstico que la originó**, porque
+> explica por qué era una condición y no una mejora.
+
+**Diagnóstico (2026-08-16).** La foto que sube una agencia se guardaba **tal
+cual**, al tamaño que salió del celular.
 
 **Esto dejó de ser "conviene hacerlo" y pasó a ser condición para que la
 plataforma funcione con tráfico.** Lo que lo movió de categoría es el plan de
@@ -1140,7 +1259,7 @@ las llamadas de Auth, que son de pocos kB.
 |---|---|---|
 | **Hoy** | 3,6 MB | **~1.450** |
 | **Sin procesar, portadas de 4 MB** | 194,6 MB | **~26** |
-| **Con el arreglo, 1600 px** | 7,4 MB | **~692** |
+| **Con el arreglo, 1600 px** | 9,9 MB | **~518** |
 
 **Veintiséis visitas.** Ese es el número que convierte el pendiente en una
 condición: con fotos sin procesar, **la plataforma deja de servir imágenes antes
@@ -1275,10 +1394,14 @@ dos con margen**, y para las tarjetas del catálogo (360 px como mucho) sobra.
 | Ancho | JPEG | WebP |
 |---|---|---|
 | 1200 px | 101 kB | 62 kB |
-| **1600 px** | **151 kB** | 97 kB |
+| **1600 px** | **151 kB** | 97 kB |  ← estimado con ffmpeg; medido en el navegador dio **203 kB**
 | 2000 px | 211 kB | 131 kB |
 
-**De 4.062 kB a 151 kB: un 96,3% menos.**
+**De 4.062 kB a 151 kB: un 96,3% menos.** **Corrección post-implementación: el
+navegador da 203 kB, no 151.** El 151 salió de `ffmpeg`, y el codificador JPEG de
+Chrome no produce el mismo archivo con la misma calidad nominal. **El ahorro real
+sigue siendo del 95%** y la decisión de 1600 px con calidad 0.82 no cambia; lo que
+estaba mal era la predicción del tamaño, no el parámetro.
 
 **WebP: todavía no, y el motivo es concreto.** El bucket declara
 `allowed_mime_types = {image/jpeg, image/png}`, así que **un WebP lo rechaza**.
@@ -1322,7 +1445,7 @@ Los archivos por tour rondan **4** (MEGATOURS: 28 archivos para 5 tours).
 | Escenario | Por tour | Tours que entran en 1 GB |
 |---|---|---|
 | Sin procesar, fotos de 4 MB | 16 MB | **~64** |
-| Con el arreglo, 151 kB | 600 kB | **~1.700** |
+| Con el arreglo, 203 kB medidos | 812 kB | **~1.290** |
 
 **Plan confirmado el 2026-08-16: FREE.** Así que el tope real es 1 GB, y con fotos
 sin procesar el bucket se llena con **64 tours**: un número perfectamente
@@ -1333,10 +1456,95 @@ requiere que las agencias suban 64 tours; agotar el egress requiere **26 visitas
 El techo que se toca primero, y por dos órdenes de magnitud, es el de
 transferencia. Ver la sección del egress más arriba.
 
+### La implementación (2026-08-16, `feat/procesar-fotos-agencia`, pendiente de QA)
+
+**Archivo nuevo `src/lib/image-resize.js`**, llamado desde `uploadOnePhoto`.
+`createImageBitmap` más canvas más `toBlob`. **Cero dependencias nuevas**, y el
+bundle comprimido sube **0,72 kB** (184,23 a 184,95).
+
+Parámetros tal como quedaron decididos en la investigación, sin recalcular:
+**1600 px de ancho máximo y calidad JPEG 0.82.**
+
+#### Las tres trampas, resueltas y verificadas en un navegador real
+
+Verificado con un banco de pruebas que ejecuta el módulo en Chrome, **sin subir
+nada al bucket**: el conteo quedó en 44 archivos y 26 MB, igual que antes.
+
+| Caso | Resultado | Peso |
+|---|---|---|
+| **Vertical de celular** (4000x3000 con EXIF Orientation=6) | **1600x2133, VERTICAL.** La rotación se aplicó | 427 kB a **93 kB** |
+| **PNG con transparencia** (12,6 MB) | Convertido a JPEG, **el píxel de la zona transparente da `rgb(255,255,255)`** | 12.921 kB a **256 kB** |
+| **Archivo de 25,3 MB** | `ImageTooLargeError` **antes de decodificar**, y el mensaje **nombra el archivo** | rechazado |
+| **Foto real del bucket** (la más pesada que subió una cuenta) | 1600x1200 | 4.062 kB a **203 kB, un 95% menos** |
+| **Imagen ya chica** (540x360) | **No se agrandó**, se conserva el original | sin cambio |
+
+**Y el QA lo confirmó con hardware real:** José subió en dev.finde.pe **una foto
+de paisaje sacada con un iPhone, de las que antes se rechazaban por pasar los
+5 MB**, y entró sin decir nada. Es la prueba que la verificación en el banco no
+podía dar: ahí el EXIF era sintético y acá lo escribió una cámara de verdad.
+
+**La regla de "nunca agrandar" se implementó también acá**, igual que en la tanda
+1C: si el resultado pesa más que el original, se sube el original. Es lo que hace
+que una foto ya optimizada no empeore al pasar por el procesamiento.
+
+#### Dos cosas que la verificación destapó y conviene no perder
+
+1. **La primera versión de la prueba del PNG daba un falso negativo.** Leía el
+   color de un píxel transparente **del PNG original**, que siempre da
+   `rgb(0,0,0)` porque el canal alfa no se lee en el RGB. El fondo blanco solo se
+   puede comprobar **sobre un PNG lo bastante grande como para que el JPEG gane**,
+   que es cuando de verdad hay conversión. Con un PNG chico se conserva el
+   original y no hay nada que comprobar.
+2. **El `contentType` que viaja al endpoint es el de SALIDA, no el del archivo
+   elegido.** Un PNG que se recomprimió sale como `image/jpeg`, y de ese valor el
+   backend deriva la extensión del archivo en el bucket. Mandar el de entrada
+   guardaría un JPEG con nombre `.png`. Además ahora el `uploadToSignedUrl` manda
+   `contentType` explícito: **hay un archivo en el bucket guardado como
+   `application/octet-stream`** y esto es lo que evita que vuelva a pasar.
+
+#### Por qué el rechazo aparecía con unas fotos y no con otras
+
+**Lo reportó José en el QA, y explica un fenómeno que hasta ahora parecía
+caprichoso: con la misma cámara, unas fotos se rechazaban y otras no.**
+
+**Las fotos de paisaje de día pesan mucho más que las de interior.** No es la
+cámara ni la resolución: es que **los degradados de cielo y la textura de
+vegetación comprimen mal en JPEG**. El formato guarda bien las zonas planas y las
+transiciones suaves largas; un cielo con degradado sutil y un cerro lleno de
+follaje son justo lo contrario, y el archivo se dispara.
+
+**Esto importa porque el catálogo de Finde es exactamente eso: paisaje de día.**
+El caso que peor comprime es el caso normal del producto, no la excepción. Con el
+límite viejo de 5 MB, la agencia que sacaba la foto del tour al aire libre era la
+que se comía el rechazo, y la que fotografiaba un interior pasaba sin problema.
+
+**El procesamiento lo resuelve igual, y por el orden en que hace las cosas:
+achica ANTES de comprimir.** El costo de un cielo difícil se paga sobre 1600 px
+de ancho, no sobre 4000, así que el archivo final queda en el mismo rango para
+una foto de paisaje que para una de interior. **Es la razón de fondo por la que
+redimensionar gana por lejos sobre recomprimir**, que ya se había medido en la
+tanda 1C sin entender del todo por qué.
+
+#### El límite de 5 MB desapareció del producto
+
+El tope de entrada pasó a **25 MB y reemplaza al de 5**, no se suma: como la foto
+se achica antes de subir, lo que sale entra holgado en el bucket sin importar de
+qué tamaño se partió.
+
+- El mensaje **"Una imagen supera los 5MB. Elige versiones más livianas"** ya no
+  existe.
+- El copy del formulario dice **"las achicamos por ti"** en vez de "máx 5MB c/u".
+- **Los mensajes de rechazo ahora nombran el archivo.** Antes decían "una imagen"
+  y la agencia tenía que adivinar cuál de las cinco era.
+
+**Lo que NO se cambió, a propósito:** que un archivo inválido aborte el lote
+entero. Está comentado en el código como decisión de UX ("no subir a medias por
+uno malo") y con el tope en 25 MB el caso casi desaparece. Lo que se arregló es
+que ahora se sabe **cuál** archivo fue.
+
 ## Antes de lanzar a usuarios reales
 
-- [ ] **Procesar las fotos en el navegador antes de subirlas. CONDICIÓN, no mejora.** Sección propia
-      arriba. Va **antes** de onboardear agencias reales, no después.
+- [x] **Procesar las fotos en el navegador antes de subirlas.** ~~CONDICIÓN, no mejora.~~ **HECHO el 2026-08-16** (`62a1d1a`), antes de onboardear ninguna agencia real, que era el punto. Sección propia arriba.
 - [ ] **Reactivar "Confirm email" en Supabase** (desactivado para acelerar el MVP).
 - 🚫 **El sello de verificación falso (8 del seed más "Descubre el Perú") SALIÓ de esta checklist el 2026-08-15.** Subió a **BLOQUEANTE DE LANZAMIENTO** y tiene sección propia más arriba en este documento. No es un ítem que se tilda entre otros: **el switch no se hace sin resolverlo.**
 - [ ] **Borrar los datos de prueba.** Inventario concreto:
