@@ -1206,8 +1206,13 @@ Local, dev.finde.pe y producción usan **la misma base**. Estos son los números
 
 ## CONDICIÓN PARA QUE LA PLATAFORMA FUNCIONE CON TRÁFICO: procesar las fotos
 
-**Investigado el 2026-08-16, sin implementar.** La foto que sube una agencia se
-guarda **tal cual**, al tamaño que salió del celular.
+> **IMPLEMENTADO el 2026-08-16 en `feat/procesar-fotos-agencia`, pendiente de
+> QA.** Ver "La implementación" al final de esta sección, con los números
+> medidos en un navegador real. El resto queda como el diagnóstico que la
+> originó.
+
+**Diagnóstico (2026-08-16).** La foto que sube una agencia se guardaba **tal
+cual**, al tamaño que salió del celular.
 
 **Esto dejó de ser "conviene hacerlo" y pasó a ser condición para que la
 plataforma funcione con tráfico.** Lo que lo movió de categoría es el plan de
@@ -1249,7 +1254,7 @@ las llamadas de Auth, que son de pocos kB.
 |---|---|---|
 | **Hoy** | 3,6 MB | **~1.450** |
 | **Sin procesar, portadas de 4 MB** | 194,6 MB | **~26** |
-| **Con el arreglo, 1600 px** | 7,4 MB | **~692** |
+| **Con el arreglo, 1600 px** | 9,9 MB | **~518** |
 
 **Veintiséis visitas.** Ese es el número que convierte el pendiente en una
 condición: con fotos sin procesar, **la plataforma deja de servir imágenes antes
@@ -1384,10 +1389,14 @@ dos con margen**, y para las tarjetas del catálogo (360 px como mucho) sobra.
 | Ancho | JPEG | WebP |
 |---|---|---|
 | 1200 px | 101 kB | 62 kB |
-| **1600 px** | **151 kB** | 97 kB |
+| **1600 px** | **151 kB** | 97 kB |  ← estimado con ffmpeg; medido en el navegador dio **203 kB**
 | 2000 px | 211 kB | 131 kB |
 
-**De 4.062 kB a 151 kB: un 96,3% menos.**
+**De 4.062 kB a 151 kB: un 96,3% menos.** **Corrección post-implementación: el
+navegador da 203 kB, no 151.** El 151 salió de `ffmpeg`, y el codificador JPEG de
+Chrome no produce el mismo archivo con la misma calidad nominal. **El ahorro real
+sigue siendo del 95%** y la decisión de 1600 px con calidad 0.82 no cambia; lo que
+estaba mal era la predicción del tamaño, no el parámetro.
 
 **WebP: todavía no, y el motivo es concreto.** El bucket declara
 `allowed_mime_types = {image/jpeg, image/png}`, así que **un WebP lo rechaza**.
@@ -1431,7 +1440,7 @@ Los archivos por tour rondan **4** (MEGATOURS: 28 archivos para 5 tours).
 | Escenario | Por tour | Tours que entran en 1 GB |
 |---|---|---|
 | Sin procesar, fotos de 4 MB | 16 MB | **~64** |
-| Con el arreglo, 151 kB | 600 kB | **~1.700** |
+| Con el arreglo, 203 kB medidos | 812 kB | **~1.290** |
 
 **Plan confirmado el 2026-08-16: FREE.** Así que el tope real es 1 GB, y con fotos
 sin procesar el bucket se llena con **64 tours**: un número perfectamente
@@ -1441,6 +1450,64 @@ alcanzable este año.
 requiere que las agencias suban 64 tours; agotar el egress requiere **26 visitas**.
 El techo que se toca primero, y por dos órdenes de magnitud, es el de
 transferencia. Ver la sección del egress más arriba.
+
+### La implementación (2026-08-16, `feat/procesar-fotos-agencia`, pendiente de QA)
+
+**Archivo nuevo `src/lib/image-resize.js`**, llamado desde `uploadOnePhoto`.
+`createImageBitmap` más canvas más `toBlob`. **Cero dependencias nuevas**, y el
+bundle comprimido sube **0,72 kB** (184,23 a 184,95).
+
+Parámetros tal como quedaron decididos en la investigación, sin recalcular:
+**1600 px de ancho máximo y calidad JPEG 0.82.**
+
+#### Las tres trampas, resueltas y verificadas en un navegador real
+
+Verificado con un banco de pruebas que ejecuta el módulo en Chrome, **sin subir
+nada al bucket**: el conteo quedó en 44 archivos y 26 MB, igual que antes.
+
+| Caso | Resultado | Peso |
+|---|---|---|
+| **Vertical de celular** (4000x3000 con EXIF Orientation=6) | **1600x2133, VERTICAL.** La rotación se aplicó | 427 kB a **93 kB** |
+| **PNG con transparencia** (12,6 MB) | Convertido a JPEG, **el píxel de la zona transparente da `rgb(255,255,255)`** | 12.921 kB a **256 kB** |
+| **Archivo de 25,3 MB** | `ImageTooLargeError` **antes de decodificar**, y el mensaje **nombra el archivo** | rechazado |
+| **Foto real del bucket** (la más pesada que subió una cuenta) | 1600x1200 | 4.062 kB a **203 kB, un 95% menos** |
+| **Imagen ya chica** (540x360) | **No se agrandó**, se conserva el original | sin cambio |
+
+**La regla de "nunca agrandar" se implementó también acá**, igual que en la tanda
+1C: si el resultado pesa más que el original, se sube el original. Es lo que hace
+que una foto ya optimizada no empeore al pasar por el procesamiento.
+
+#### Dos cosas que la verificación destapó y conviene no perder
+
+1. **La primera versión de la prueba del PNG daba un falso negativo.** Leía el
+   color de un píxel transparente **del PNG original**, que siempre da
+   `rgb(0,0,0)` porque el canal alfa no se lee en el RGB. El fondo blanco solo se
+   puede comprobar **sobre un PNG lo bastante grande como para que el JPEG gane**,
+   que es cuando de verdad hay conversión. Con un PNG chico se conserva el
+   original y no hay nada que comprobar.
+2. **El `contentType` que viaja al endpoint es el de SALIDA, no el del archivo
+   elegido.** Un PNG que se recomprimió sale como `image/jpeg`, y de ese valor el
+   backend deriva la extensión del archivo en el bucket. Mandar el de entrada
+   guardaría un JPEG con nombre `.png`. Además ahora el `uploadToSignedUrl` manda
+   `contentType` explícito: **hay un archivo en el bucket guardado como
+   `application/octet-stream`** y esto es lo que evita que vuelva a pasar.
+
+#### El límite de 5 MB desapareció del producto
+
+El tope de entrada pasó a **25 MB y reemplaza al de 5**, no se suma: como la foto
+se achica antes de subir, lo que sale entra holgado en el bucket sin importar de
+qué tamaño se partió.
+
+- El mensaje **"Una imagen supera los 5MB. Elige versiones más livianas"** ya no
+  existe.
+- El copy del formulario dice **"las achicamos por ti"** en vez de "máx 5MB c/u".
+- **Los mensajes de rechazo ahora nombran el archivo.** Antes decían "una imagen"
+  y la agencia tenía que adivinar cuál de las cinco era.
+
+**Lo que NO se cambió, a propósito:** que un archivo inválido aborte el lote
+entero. Está comentado en el código como decisión de UX ("no subir a medias por
+uno malo") y con el tope en 25 MB el caso casi desaparece. Lo que se arregló es
+que ahora se sabe **cuál** archivo fue.
 
 ## Antes de lanzar a usuarios reales
 
