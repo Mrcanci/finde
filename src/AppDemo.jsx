@@ -6,6 +6,9 @@ import { authFetch } from "./lib/authFetch.js";
 import { supabase } from "./lib/supabase.js";
 import { resizeImageForUpload, ALLOWED_INPUT_TYPES, MAX_UPLOAD_BYTES, OG_MIN_WIDTH, OG_MIN_HEIGHT } from "./lib/image-resize.js";
 import { fromPath, toPath, parseTourSegment, canonicalTourPath, PUBLIC_VIEWS } from "./lib/routes.js";
+// La condición de publicar y sus números salen del MISMO módulo que usa el
+// backend. No se copian acá: ver lib/tour-publish.js.
+import { faltaParaPublicar, PITCH_MIN, PITCH_MAX, DESC_MIN } from "../lib/tour-publish.js";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // FINDE v3 — AI-Native Marketplace
@@ -4381,10 +4384,21 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
   // M2.3: el toggle persiste vía PATCH (delegado a onToggleActive en AppDemo,
   // que hace la actualización optimista + revert). Aquí solo surfaceamos el error.
   const [toggleErr, setToggleErr] = useState("");
+  // Cuál tour tiene un PATCH en vuelo. Es el mismo patrón de bizBusy/mincBusy y
+  // faltaba solo acá: sin esto, un segundo clic sobre el interruptor lee el
+  // estado que la actualización optimista YA cambió y manda el cuerpo CONTRARIO,
+  // así que salen dos peticiones opuestas y gana la que responda última.
+  const [togglingId, setTogglingId] = useState(null);
   const handleToggle = async (t) => {
+    if (togglingId !== null) return;
     setToggleErr("");
-    const r = await onToggleActive(t);
-    if (!r?.ok) setToggleErr(r?.error || "No pudimos actualizar el estado del tour.");
+    setTogglingId(t.id);
+    try {
+      const r = await onToggleActive(t);
+      if (!r?.ok) setToggleErr(r?.error || "No pudimos actualizar el estado del tour.");
+    } finally {
+      setTogglingId(null);
+    }
   };
 
   // Sub-paso M2.6b: borrado de tour CON confirmación. `confirmDel` guarda el
@@ -4693,7 +4707,24 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
         {toggleErr && (
           <div className="field-err" style={{ margin: "0 0 12px", textAlign: "center" }}>{toggleErr}</div>
         )}
-        {opTours.map((t) => (
+        {opTours.map((t) => {
+          // OJO CON EL NOMBRE DE LA PORTADA. El objeto de esta tarjeta la llama
+          // `image`, no `imageUrl`: el payload del API pasa por mapTourFromApi
+          // (imageUrl -> image) y el mapeo del dashboard mantiene `image`. Si
+          // se le pasara `t.imageUrl` llegaría undefined y el aviso diría que
+          // falta la foto en tours que sí la tienen. Verificado contra la
+          // respuesta real de /api/operators/me/tours el 2026-08-17.
+          const falta = faltaParaPublicar({
+            shortPitch: t.shortPitch,
+            description: t.description,
+            imageUrl: t.image,
+          });
+          // Solo estorba para PUBLICAR. Un tour ya publicado se puede pausar
+          // siempre, igual que la guarda del servidor, que solo mira el pedido
+          // de active:true.
+          const bloqueado = !t.active && falta.length > 0;
+          const ocupado = togglingId === t.id;
+          return (
           <div key={t.id} className="dsh-ls" style={{ flexDirection: "column", gap: 0, padding: 0, overflow: "hidden" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: 12 }}>
               <div className="dsh-ls-img" style={{ ...imgBg(t.image), flexShrink: 0 }} />
@@ -4712,11 +4743,19 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
                   <div className="dsh-ls-st">S/ <span className="v">{t.price}</span></div>
                 </div>
               </div>
-              <button onClick={(e) => { e.stopPropagation(); handleToggle(t); }} style={{
-                width: 44, height: 24, borderRadius: 12, flexShrink: 0, border: "none", padding: 0,
-                background: t.active ? "var(--f)" : "var(--lg)",
-                position: "relative", cursor: "pointer", transition: "background .2s"
-              }}>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleToggle(t); }}
+                disabled={bloqueado || ocupado}
+                aria-label={bloqueado
+                  ? "No se puede publicar: al tour le falta información"
+                  : t.active ? "Pausar este tour" : "Publicar este tour"}
+                style={{
+                  width: 44, height: 24, borderRadius: 12, flexShrink: 0, border: "none", padding: 0,
+                  background: t.active ? "var(--f)" : "var(--lg)",
+                  position: "relative", transition: "background .2s, opacity .2s",
+                  cursor: bloqueado ? "not-allowed" : ocupado ? "wait" : "pointer",
+                  opacity: bloqueado ? 0.45 : ocupado ? 0.6 : 1
+                }}>
                 <div style={{
                   position: "absolute", top: 3, width: 18, height: 18, borderRadius: "50%",
                   background: "white", transition: "left .2s", pointerEvents: "none",
@@ -4724,6 +4763,24 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
                 }} />
               </button>
             </div>
+            {/* El motivo va VISIBLE en la tarjeta, no en un tooltip: en un
+                celular no hay hover, y el control es un interruptor sin
+                etiqueta donde no habría dónde colgarlo. Mismo criterio que el
+                aviso de solicitudes pendientes del paso 3 del formulario.
+                Se listan TODAS las condiciones que fallan, no la primera: un
+                tour puede fallar las tres y la agencia tiene que verlas juntas
+                en vez de descubrirlas de a una. */}
+            {bloqueado && (
+              <div className="notice" style={{ margin: "0 12px 12px" }}>
+                <div className="notice-t">Para publicarlo falta:</div>
+                <div className="notice-d">
+                  <ul style={{ margin: "4px 0 0", paddingLeft: 16 }}>
+                    {falta.map((f) => <li key={f}>{f}</li>)}
+                  </ul>
+                  <div style={{ marginTop: 6 }}>Edítalo para completarlo.</div>
+                </div>
+              </div>
+            )}
             <div style={{ borderTop: "1px solid var(--cr)", display: "flex" }}>
               <button style={{
                 flex: 1, padding: "9px 0", background: "none", border: "none",
@@ -4737,7 +4794,8 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
               }} onClick={() => askDelete(t)}><Trash2 size={13} strokeWidth={1.5} /> Borrar</button>
             </div>
           </div>
-        ))}
+          );
+        })}
         <div style={{ padding: 16 }}>
           <button className="mbtn" style={{ background: "var(--tr)" }} onClick={() => go("new-tour")}>+ Agregar nuevo tour</button>
         </div>
@@ -5104,7 +5162,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
   // Mismo rango que lib/tour-input.ts. El tope de 80 es además el que ya valida
   // el generador de IA, así que "Usar esta" nunca produce un valor inválido.
   const pitchLen = (form.shortPitch || "").trim().length;
-  const pitchValid = pitchLen >= 40 && pitchLen <= 80;
+  const pitchValid = pitchLen >= PITCH_MIN && pitchLen <= PITCH_MAX;
 
   return (
     <div className="bkf fu">
@@ -5558,16 +5616,16 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
             id="nt-pitch"
             className={`inp${(form.shortPitch || "").trim().length > 0 && !pitchValid ? " inp-err" : ""}`}
             placeholder="Ej: Camina entre bosques de piedra a 3.500 metros, a una hora de Cajamarca"
-            maxLength={80}
+            maxLength={PITCH_MAX}
             value={form.shortPitch}
             onChange={(e) => u("shortPitch", e.target.value)}
           />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
             {(form.shortPitch || "").trim().length > 0 && !pitchValid
-              ? <span className="field-err">Entre 40 y 80 caracteres</span>
-              : <span style={{ fontSize: 11, color: "var(--gy)", fontWeight: 600 }}>Entre 40 y 80 caracteres</span>}
+              ? <span className="field-err">Entre {PITCH_MIN} y {PITCH_MAX} caracteres</span>
+              : <span style={{ fontSize: 11, color: "var(--gy)", fontWeight: 600 }}>Entre {PITCH_MIN} y {PITCH_MAX} caracteres</span>}
             <span style={{ fontSize: 11, fontWeight: 600, color: pitchValid ? "var(--m)" : "var(--gy)" }}>
-              {(form.shortPitch || "").trim().length}/80
+              {(form.shortPitch || "").trim().length}/{PITCH_MAX}
             </span>
           </div>
         </div>
@@ -5576,11 +5634,11 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           <textarea id="nt-description" className="ai-cc-input" style={{ minHeight: 100 }} placeholder="Describe tu tour con detalle: qué verán los viajeros, qué lo hace especial y qué pueden esperar…"
             value={form.description} onChange={(e) => u("description", e.target.value)} />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-            {(form.description || "").trim().length > 0 && (form.description || "").trim().length < 300
-              ? <span className="field-err">Mínimo 300 caracteres</span>
-              : <span style={{ fontSize: 11, color: "var(--gy)", fontWeight: 600 }}>Mínimo 300 caracteres</span>}
-            <span style={{ fontSize: 11, fontWeight: 600, color: (form.description || "").trim().length >= 300 ? "var(--m)" : "var(--gy)" }}>
-              {(form.description || "").trim().length}/300
+            {(form.description || "").trim().length > 0 && (form.description || "").trim().length < DESC_MIN
+              ? <span className="field-err">Mínimo {DESC_MIN} caracteres</span>
+              : <span style={{ fontSize: 11, color: "var(--gy)", fontWeight: 600 }}>Mínimo {DESC_MIN} caracteres</span>}
+            <span style={{ fontSize: 11, fontWeight: 600, color: (form.description || "").trim().length >= DESC_MIN ? "var(--m)" : "var(--gy)" }}>
+              {(form.description || "").trim().length}/{DESC_MIN}
             </span>
           </div>
         </div>
@@ -5608,7 +5666,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
             </div>
           )}
         </div>
-        <button className="mbtn" disabled={(form.description || "").trim().length < 300 || !pitchValid} onClick={() => setStep(5)}>Siguiente</button>
+        <button className="mbtn" disabled={(form.description || "").trim().length < DESC_MIN || !pitchValid} onClick={() => setStep(5)}>Siguiente</button>
       </div>}
 
       {/* Step 5: Revisión y publicar */}
@@ -6413,7 +6471,13 @@ export default function AppDemo() {
     if (!res.ok) {
       revert();
       if (res.status === 403) return { ok: false, error: "No puedes modificar este tour." };
-      return { ok: false, error: "No pudimos actualizar el estado del tour. Intenta de nuevo." };
+      // El mensaje del servidor SE USA, no se tira. Cuando activar se bloquea
+      // por metadata faltante, el backend responde qué falta y en qué paso del
+      // formulario se arregla; antes ese texto se descartaba y la agencia leía
+      // "no pudimos actualizar", que no dice qué hacer. El cartel que lo muestra
+      // ya existe en DashView (toggleErr).
+      const delServidor = await res.json().then(d => d?.error).catch(() => null);
+      return { ok: false, error: delServidor || "No pudimos actualizar el estado del tour. Intenta de nuevo." };
     }
     // Sincroniza el catálogo público con el estado real (el backend filtra active).
     await loadPublicTours();

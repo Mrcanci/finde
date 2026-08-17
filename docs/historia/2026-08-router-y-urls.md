@@ -147,3 +147,107 @@ tarjeta.
 Exigir un largo mínimo obligaría a la agencia a inventarle un nombre al tour, que
 es peor que el problema. Y el caso ya está resuelto donde corresponde: el
 prerender emite `Namora en Cajamarca | Finde`.
+
+---
+
+## El agujero de activar, cerrado el 2026-08-17
+
+**La metadata obligatoria de arriba tenía un agujero, y lo encontró José usando
+el panel, no leyendo código.** El formulario bloqueaba guardar sin gancho, pero
+**"activar" no pasa por el formulario**: usa `PATCH /api/tours/:id`, que tiene su
+propio schema pensado para la config de venta y nunca miraba el contenido. Se
+podía apretar el interruptor y devolver al catálogo público un tour sin gancho.
+
+**Es la tercera vez que aparece la misma forma**: una guarda puesta en un camino
+y no en el otro que llega al mismo estado (antes: `takeSeats` exigía `ABIERTA` y
+`addRequestedSeats` no miraba nada). La lección se promovió a
+`.claude/rules/api-y-schema.md`, que se carga sola al tocar `api/`.
+
+### La regla se enunció sobre el ESTADO, no sobre la acción
+
+No es "al crear" ni "al editar": **un tour no puede estar en `active=true` sin su
+metadata mínima**, y se valida donde `active` pasa a true. Enunciada así, la
+pregunta "¿por dónde más se llega a ese estado?" sale sola. Son dos caminos: el
+POST que crea (ya cubierto) y el PATCH que activa (el PUT no toca `active`).
+
+Se dispara solo cuando el cuerpo **pide** `active:true`, así que pausar nunca se
+bloquea y cambiar el modo de venta de un tour ya publicado tampoco. Los 5 tours
+de MEGATOURS que estaban activos sin gancho **siguieron publicados**: solo
+tendrían que completarlo si alguna vez los pausan.
+
+### Compartir la condición costó un archivo nuevo, y valió
+
+La condición nació en `lib/tour-input.ts`, que importa zod, Prisma y Voyage. **El
+frontend no podía usarla sin arrastrar todo eso al navegador**, así que la única
+salida aparente era copiarla. José lo vetó: una copia se desincroniza el día que
+se agregue un cuarto campo obligatorio.
+
+La salida fue **`lib/tour-publish.js`, sin ninguna dependencia**. Verificado en
+los tres puntos donde podía fallar, antes de escribir nada:
+
+| Riesgo | Resultado |
+|---|---|
+| Que Vite no empaquete un archivo fuera de `src/` | entra al bundle |
+| Que `tsc` rechace un `.js` compartido en `lib/` | limpio |
+| **Que la función serverless se despliegue sin él** | `vercel build` lo mete en `api/tours/[id].func/lib/tour-publish.js` |
+
+**El tercero era el que importaba**: un import que compila pero no se despliega
+rompe en producción y no en la prueba.
+
+**No aplicó el precedente del `slugify` duplicado** (`api/tours/[id].ts:85`). Ese
+se justifica porque si divergen el único efecto es un 404; acá divergir hace que
+el panel muestre como publicable un tour que el servidor rechaza.
+
+Al buscar copias aparecieron **cuatro**, una más de la esperada: el formulario
+tenía sus propios 40, 80 y 300 escritos a mano en siete lugares.
+
+### El aviso temprano: el problema no era la lentitud
+
+José reportó que el interruptor "tardaba". **No tardaba: se contradecía.** Tiene
+actualización optimista, así que al apretarlo se movía al instante y parecía que
+había funcionado; un segundo después volvía solo y recién ahí aparecía el error.
+
+El dato para decidirlo **ya estaba en el cliente**. Ahora la tarjeta lo calcula
+con la misma condición del servidor y el interruptor nace apagado, con el motivo
+visible debajo. La guarda del servidor se queda: es la que protege de verdad.
+
+**El motivo va visible y no en un tooltip**, y eso corrigió la intuición inicial:
+en un celular no hay hover, y el control es un interruptor de 44x24 sin etiqueta
+donde no habría dónde colgarlo. Mismo criterio que el aviso de solicitudes
+pendientes del formulario.
+
+**La trampa que casi entra:** la tarjeta del panel llama `image` a la portada, no
+`imageUrl`. El payload pasa por dos mapeos y **la descripción vuelve a su nombre
+original pero la portada no**. Pasarle `t.imageUrl` habría dado `undefined` y el
+aviso habría dicho "falta la foto" sobre tours que sí la tienen. Se evitó
+leyendo la respuesta real del API con la sesión abierta antes de escribir la
+condición. Anotado en `.claude/rules/frontend.md`.
+
+También se le puso bandera de ocupado, que era **el único de los cuatro botones
+del panel sin ella**. Sin eso, el segundo clic leía el estado que la
+actualización optimista ya había cambiado y mandaba el cuerpo contrario: dos
+peticiones opuestas, y ganaba la que respondiera última.
+
+### El prerender que Vercel nunca corrió
+
+**La tanda 5 estuvo rota en el deploy dos días sin que nadie lo notara.** El paso
+de prerender se agregó al script `build` de `package.json` y se verificó
+corriendo `npm run build` en local: 43 fichas, con su `noindex`. Todo verde.
+
+**Pero `vercel.json` decía `"buildCommand": "vite build"`**, así que Vercel nunca
+lo ejecutó. Los deploys salían con los meta tags genéricos.
+
+| Comando | Fichas | `noindex` |
+|---|---|---|
+| `vite build` (lo que corría Vercel) | **0** | no |
+| `npm run build` (lo que se verificó) | **43** | sí |
+
+**La regla ya estaba escrita en `.claude/rules/api-y-schema.md` y no se aplicó**:
+se verificó el build local en vez del comando que corre Vercel. Es la diferencia
+entre medir el punto y medir un borde parecido. Hoy el `buildCommand` delega en
+`npm run build`, así que el build queda definido en un solo lugar.
+
+De paso salió que la meta description pegaba el gancho con la descripción sin
+separador ("...en Pacífico norte Salida 7:30 AM..."). Medido sobre los 37 ganchos
+activos: ninguno termina en puntuación, así que el punto siempre hace falta; la
+guarda de no duplicarlo es para el gancho que se escriba mañana con punto.

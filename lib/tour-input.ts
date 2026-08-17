@@ -6,6 +6,19 @@
 import { z } from "zod";
 import { db } from "./db.js";
 import { voyage, MODEL_EMBED, DIM } from "./voyage.js";
+import { PITCH_MIN, PITCH_MAX, DESC_MIN } from "./tour-publish.js";
+
+// Los mínimos para publicar viven en lib/tour-publish.js, que NO tiene
+// dependencias y por eso lo puede importar también el frontend. El schema de
+// abajo usa esos números y `api/tours/[id].ts` usa la condición: los dos
+// caminos citan la misma fuente. Ver ese archivo para el porqué de la forma.
+export {
+  PITCH_MIN,
+  PITCH_MAX,
+  DESC_MIN,
+  faltaParaPublicar,
+  mensajeFaltaParaPublicar,
+} from "./tour-publish.js";
 
 // UI (flexible/...) → enum CancellationPolicy del schema.
 const CANCEL_MAP = {
@@ -36,7 +49,7 @@ export const tourInputSchema = z.object({
   // Mínimo 300, no 10. El piso viejo dejaba pasar una descripción de una línea,
   // y desde el prerender esa descripción ES el snippet de Google. 300 no bloquea
   // a nadie hoy: la más corta de las 42 fichas públicas mide 351.
-  description: z.string().trim().min(300).max(5000),
+  description: z.string().trim().min(DESC_MIN).max(5000),
   // El gancho de una línea. Es lo que abre la meta description de la ficha y lo
   // que se lee en la tarjeta de WhatsApp antes que nada.
   //
@@ -48,7 +61,7 @@ export const tourInputSchema = z.object({
   //
   // El tope de 80 es el mismo que ya valida api/ai/generate-description, así que
   // el botón "Usar esta" del generador lo llena sin conflicto.
-  shortPitch: z.string().trim().min(40).max(80),
+  shortPitch: z.string().trim().min(PITCH_MIN).max(PITCH_MAX),
   included: z.union([z.string(), z.array(z.string())]).optional(),
   excluded: z.union([z.string(), z.array(z.string())]).optional(),
   days: z.array(z.boolean()).length(7).optional(),

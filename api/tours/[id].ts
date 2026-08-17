@@ -13,7 +13,12 @@ import {
 } from "../../lib/tour-select.js";
 import { requireOperator } from "../../lib/auth.js";
 import { limaDateISO } from "../../lib/inventory.js";
-import { parseTourInput, embedTourSafe } from "../../lib/tour-input.js";
+import {
+  parseTourInput,
+  embedTourSafe,
+  faltaParaPublicar,
+  mensajeFaltaParaPublicar,
+} from "../../lib/tour-input.js";
 import { supabaseAdmin } from "../../lib/supabase-admin.js";
 
 const STORAGE_BUCKET = "tour-images";
@@ -463,6 +468,10 @@ async function handlePatch(
       minQuorum: true,
       closeTime: true,
       closeDaysBefore: true,
+      // Para la guarda de publicación de más abajo.
+      shortPitch: true,
+      description: true,
+      imageUrl: true,
     },
   });
   if (!existing) {
@@ -474,9 +483,38 @@ async function handlePatch(
     return;
   }
 
+  const body = parsed.data;
+
+  // ── Publicar exige la metadata mínima ──
+  //
+  // La barrera del formulario (POST y PUT pasan por parseTourInput) NO cubría
+  // este camino: el PATCH tiene su propio schema, pensado para la config de
+  // venta, y nunca miraba el contenido. Así se podía apretar "activar" en el
+  // panel y devolver al catálogo público un tour sin gancho, que es lo que se
+  // comparte por WhatsApp y lo que Google usa de snippet.
+  //
+  // Es el mismo patrón que ya apareció con el motor de inventario: la guarda
+  // puesta en un camino y no en el otro. Por eso la condición vive en
+  // lib/tour-input.ts, junto a los números que valida el formulario, y no acá.
+  //
+  // Se dispara cuando el cuerpo PIDE active:true, no cuando el tour ya lo está.
+  // Así pausar nunca se bloquea, y cambiar el modo de venta de un tour ya
+  // publicado tampoco: lo único que se impide es que uno incompleto ENTRE al
+  // catálogo. Los 5 tours de MEGATOURS que hoy están activos sin gancho siguen
+  // publicados; solo tendrán que completarlo si alguna vez los pausan.
+  if (body.active === true) {
+    const falta = faltaParaPublicar(existing);
+    if (falta.length > 0) {
+      res.status(400).json({
+        error: mensajeFaltaParaPublicar(falta),
+        missing: falta,
+      });
+      return;
+    }
+  }
+
   // Estado resultante = entrante ?? actual (undefined preserva; null limpia y
   // vuelve al default del motor).
-  const body = parsed.data;
   const next = {
     salesMode: body.salesMode ?? existing.salesMode,
     allotment: body.allotment === undefined ? existing.allotment : body.allotment,

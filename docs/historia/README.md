@@ -28,7 +28,7 @@ promovió a `.claude/rules/`, y `docs/estado.md` volvió a ser un estado.
 |---|---|
 | `2026-08-motor-inventario.md` | Los cinco pasos del motor de salidas y cupos, la sobreventa, el `P2028` del barrido |
 | `2026-08-rendimiento-imagenes.md` | Las tandas 1B y 1C, y el procesamiento de fotos en el navegador. **11,8 MB sacados entre las tres** |
-| `2026-08-router-y-urls.md` | La tanda 2: URLs por vista, deep link a la ficha, la pantalla de 404 |
+| `2026-08-router-y-urls.md` | URLs por vista y deep links (tanda 2), los meta tags por tour y el prerender (tanda 5), la metadata obligatoria y el agujero de activar (tanda 5B) |
 | `2026-08-sello-verificacion.md` | El bloqueante de lanzamiento: nueve agencias con el sello sin tenerlo ganado |
 | `2026-08-tipografia.md` | Las fases 0 a 5 del plan tipográfico y el cierre de las cuatro canillas de em-dashes |
 | `2026-08-analitica-y-endpoints-ia.md` | Vercel Analytics, su costo medido, y los endpoints de IA que pasaron a exigir agencia |

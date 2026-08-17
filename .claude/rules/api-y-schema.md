@@ -175,6 +175,53 @@ Todo pasa por `requireOperator`. Antes de escribir sobre un tour o una salida ha
 - Los GET públicos (`/api/tours`, `/api/tours/[id]`) filtran `active: true`. Un tour pausado responde 404 en el detalle.
 - `DELETE /api/tours/[id]` **responde 409 si el tour tiene reservas** e invita a pausar. El FK `Booking.tourId` es `onDelete: Restrict`: es la red de seguridad a nivel DB para que borrar un tour nunca evapore reservas en silencio. Si el borrado procede, también limpia la foto del bucket `tour-images` (las URLs externas del seed se dejan intactas; un fallo de Storage no rompe el borrado).
 
+## La guarda va en el ESTADO que se protege, no en el camino que la descubrió
+
+**Patrón que ya se repitió dos veces, las dos con la misma forma:** una regla se
+escribe en el camino donde se pensó, y el otro camino que llega al mismo estado
+queda abierto. No es descuido, es que **el segundo camino casi nunca se parece al
+primero**, así que no aparece al leer el código del primero.
+
+| Regla | Dónde estaba | Camino que quedaba abierto |
+|---|---|---|
+| Una salida tiene que estar `ABIERTA` para vender | `takeSeats` la exigía | `addRequestedSeats` no miraba el estado |
+| Un tour publicado necesita gancho, descripción y portada | el formulario, vía `parseTourInput` (POST y PUT) | `PATCH /api/tours/:id` con `{active:true}`, que tiene su propio schema de config de venta |
+
+**El segundo lo encontró José apretando "activar" en el panel, no una lectura del
+código.** Desde afuera los dos caminos ni se parecen: uno es un formulario de
+cinco pasos y el otro es un botón.
+
+### Cómo se escribe para que no vuelva a pasar
+
+1. **Enunciá la regla sobre el ESTADO, no sobre la acción.** No es "al crear" ni
+   "al editar": es **"un tour no puede estar en `active=true` sin su metadata
+   mínima"**. Enunciada así, la pregunta siguiente sale sola: ¿por dónde más se
+   llega a ese estado?
+2. **Enumerá TODOS los caminos que escriben ese campo antes de arreglar uno.**
+   Un `grep` del nombre de la columna sobre `api/` y `lib/` toma segundos y es la
+   diferencia entre tapar el síntoma y cerrar la regla. Para `active` son dos:
+   el POST que crea y el PATCH que activa (el PUT no lo toca).
+3. **La condición vive en UN lugar, con sus números.** `faltaParaPublicar` y las
+   constantes `PITCH_MIN`, `PITCH_MAX` y `DESC_MIN` están en
+   **`lib/tour-publish.js`**, que **no tiene ninguna dependencia** justamente
+   para que lo puedan importar los dos lados: el backend y el navegador.
+
+   **Ese archivo sin imports no es un detalle de estilo.** La condición nació en
+   `lib/tour-input.ts`, que importa zod, Prisma y Voyage, así que el frontend no
+   podía usarla sin arrastrar todo eso al bundle, y la única salida aparente era
+   copiarla. Sacar la parte pura a su propio archivo fue lo que permitió
+   compartirla de verdad. **Si alguna vez le agregás un import a
+   `tour-publish.js`, rompés esa propiedad y volvés a forzar la copia.**
+
+   Vive en `lib/` y no en `src/` a propósito: así la función serverless hace un
+   import normal de la carpeta de al lado y el que cruza carpetas es Vite.
+   Verificado con `vercel build` el 2026-08-17: el archivo viaja dentro del
+   bundle desplegado (`api/tours/[id].func/lib/tour-publish.js`). **Un import que
+   compila pero no se despliega rompe en producción y no en la prueba**, así que
+   ese es el chequeo que vale, no `tsc`.
+4. **El mensaje dice QUÉ falta y DÓNDE se arregla**, nombrando el campo como lo
+   llama la interfaz y el paso del formulario. "No se pudo" obliga a adivinar.
+
 ## `gateOperatorMincetur`
 
 `lib/tour-select.ts:126`. Regla de compliance, no de presentación:
