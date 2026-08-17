@@ -120,6 +120,28 @@ error, sin warning y sin dejar rastro.** El objeto llega al componente con el
 campo en `undefined`, y si el consumidor tiene un `?? 0` o un `?? null` (que es
 lo habitual), el valor por default se ve exactamente igual que un dato real.
 
+### La tarjeta del panel pasa por DOS mapeos, y los nombres cambian
+
+Un tour del dashboard **no tiene los nombres del API**. Pasa por
+`mapTourFromApi` y después por el mapeo de `loadOperatorTours`, y cada uno
+renombra:
+
+| Campo | API | tras `mapTourFromApi` | **en la tarjeta del panel** |
+|---|---|---|---|
+| gancho | `shortPitch` | `shortPitch` | `shortPitch` |
+| descripción | `description` | `desc` | `description` (vuelve al nombre original) |
+| **portada** | `imageUrl` | `image` | **`image`** (no vuelve nunca) |
+
+**La descripción hace un viaje de ida y vuelta y la portada no.** Por eso
+escribir `t.imageUrl` sobre un objeto de `opTours` no falla: da `undefined`, y
+una condición que lo lea va a decir "falta la foto" sobre un tour que la tiene.
+**Un dato inventado que parece dato es peor que un error**, que es la misma razón
+por la que existe la sección de abajo.
+
+Pasó al escribir la guarda de publicar en el panel (2026-08-17). Se evitó
+leyendo la respuesta real del API con la sesión abierta antes de escribir la
+condición, no deduciéndola del código.
+
 ### Agregar un campo al payload de un tour son TRES lugares, no dos
 
 1. El `select` del backend (`lib/tour-select.ts`), o el handler si el campo se
