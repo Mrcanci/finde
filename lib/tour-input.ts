@@ -7,6 +7,56 @@ import { z } from "zod";
 import { db } from "./db.js";
 import { voyage, MODEL_EMBED, DIM } from "./voyage.js";
 
+// ── Los mínimos para que un tour esté PUBLICADO ──
+//
+// La regla NO es "al crear" ni "al editar": es que **un tour no puede estar en
+// active=true sin su metadata mínima**, y se valida en el punto donde `active`
+// pasa a true, venga por donde venga.
+//
+// Los tres números viven acá UNA sola vez y los usan los dos caminos: el schema
+// de abajo (que valida el formulario, en POST y PUT) y `faltaParaPublicar` (que
+// valida el PATCH de activar). Si estuvieran escritos en los dos lados se
+// separarían, que es exactamente la clase de agujero que esto viene a cerrar.
+export const PITCH_MIN = 40;
+export const PITCH_MAX = 80;
+export const DESC_MIN = 300;
+
+// Lo que le falta a un tour para poder estar publicado. Array vacío = puede.
+//
+// Cada ítem nombra el campo COMO LO LLAMA LA INTERFAZ y en qué paso del
+// formulario se arregla, porque el mensaje tiene que decir qué hacer, no solo
+// que no se puede. La foto va en el paso 1 y el gancho y la descripción en el 4:
+// si esos pasos se reordenan, esto se actualiza con ellos.
+export function faltaParaPublicar(t: {
+  shortPitch: string | null;
+  description: string | null;
+  imageUrl: string | null;
+}): string[] {
+  const falta: string[] = [];
+  const gancho = (t.shortPitch || "").trim();
+  const cuerpo = (t.description || "").trim();
+  if (gancho.length < PITCH_MIN || gancho.length > PITCH_MAX) {
+    falta.push(`la frase de gancho, de ${PITCH_MIN} a ${PITCH_MAX} caracteres (paso 4)`);
+  }
+  if (cuerpo.length < DESC_MIN) {
+    falta.push(`una descripción de al menos ${DESC_MIN} caracteres (paso 4)`);
+  }
+  if (!t.imageUrl) {
+    falta.push("la foto de portada (paso 1)");
+  }
+  return falta;
+}
+
+// El mensaje, armado en un solo lugar para que cualquier camino que bloquee una
+// publicación diga lo mismo.
+export function mensajeFaltaParaPublicar(falta: string[]): string {
+  const lista =
+    falta.length === 1
+      ? falta[0]
+      : `${falta.slice(0, -1).join(", ")} y ${falta[falta.length - 1]}`;
+  return `Para publicar este tour falta ${lista}. Edítalo, completa lo que falte y vuelve a activarlo.`;
+}
+
 // UI (flexible/...) → enum CancellationPolicy del schema.
 const CANCEL_MAP = {
   flexible: "Flexible",
@@ -36,7 +86,7 @@ export const tourInputSchema = z.object({
   // Mínimo 300, no 10. El piso viejo dejaba pasar una descripción de una línea,
   // y desde el prerender esa descripción ES el snippet de Google. 300 no bloquea
   // a nadie hoy: la más corta de las 42 fichas públicas mide 351.
-  description: z.string().trim().min(300).max(5000),
+  description: z.string().trim().min(DESC_MIN).max(5000),
   // El gancho de una línea. Es lo que abre la meta description de la ficha y lo
   // que se lee en la tarjeta de WhatsApp antes que nada.
   //
@@ -48,7 +98,7 @@ export const tourInputSchema = z.object({
   //
   // El tope de 80 es el mismo que ya valida api/ai/generate-description, así que
   // el botón "Usar esta" del generador lo llena sin conflicto.
-  shortPitch: z.string().trim().min(40).max(80),
+  shortPitch: z.string().trim().min(PITCH_MIN).max(PITCH_MAX),
   included: z.union([z.string(), z.array(z.string())]).optional(),
   excluded: z.union([z.string(), z.array(z.string())]).optional(),
   days: z.array(z.boolean()).length(7).optional(),
