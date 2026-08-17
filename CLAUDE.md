@@ -20,6 +20,8 @@ La verificación contra SUNAT y MINCETUR **existe y está vigente, pero la hace 
 Lo que sí importa al escribir: cuando el copy dice "validamos el RUC en SUNAT", eso describe **el proceso**, no una integración. No lo cites como comportamiento del código.
 
 Estado actual del trabajo: leer `docs/estado.md` antes de empezar cualquier tanda.
+**Son unas 170 líneas y se lee entero**: si vuelve a crecer, hay que podarlo (ver
+`.claude/rules/metodo.md`, "Cómo se escribe la documentación").
 
 ## Cómo comunicarte conmigo
 
@@ -154,11 +156,13 @@ Trampa conocida: `DATABASE_URL`, `DIRECT_URL`, `ANTHROPIC_API_KEY` y `VOYAGE_API
 
 | Archivo | Qué es |
 |---|---|
-| `docs/estado.md` | Dónde quedó el trabajo. **Leer al empezar cada tanda, actualizar en el mismo commit al cerrarla.** |
+| `docs/estado.md` | **El presente**: dónde quedó el trabajo, qué está abierto, qué no se puede romper. **Leer al empezar cada tanda, actualizar en el mismo commit al cerrarla.** Es corto a propósito: el detalle de lo ya hecho NO va acá. |
+| `docs/historia/` | **Lo que ya se hizo**, con su investigación y su medición. Un archivo por dominio, índice en su `README.md`. Se lee solo cuando hace falta reconstruir por qué algo se hizo así. |
+| `docs/pendientes-producto.md` | El razonamiento entero de los pendientes que `estado.md` lista. |
 | `docs/decisiones.md` | Por qué se decidió cada cosa. Solo se agrega, nunca se borra. |
 | `finde-reglas-negocio-v1_3.md` | Comisiones, cancelaciones, verificación, compliance. En la raíz. |
 | `docs/migrations/` | Historial de cambios de schema con su razón. Índice en `docs/migrations/README.md`. |
-| `docs/audits/` | Auditorías de estado y de incidentes. |
+| `docs/audits/` | Auditorías de estado y de incidentes, y diagnósticos pendientes de ejecución. |
 | `docs/roadmap-mvp.md` | Fases M1 a M6. |
 
 **La fuente de verdad vive en el repo, no en la memoria automática de Claude.** El estado es `docs/estado.md` y las decisiones son `docs/decisiones.md`; la memoria automática es un apunte de un momento dado y envejece sin avisar. Si algo vale la pena recordar entre sesiones, va al repo, no a la memoria (auditoría del 2026-08-13: se borraron las seis notas que había, todas desactualizadas o duplicadas).
