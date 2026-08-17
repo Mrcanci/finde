@@ -5,7 +5,7 @@ import { useAuth } from "./contexts/AuthContext.jsx";
 import { authFetch } from "./lib/authFetch.js";
 import { supabase } from "./lib/supabase.js";
 import { resizeImageForUpload, ALLOWED_INPUT_TYPES, MAX_UPLOAD_BYTES } from "./lib/image-resize.js";
-import { fromPath, toPath, parseTourSegment, PUBLIC_VIEWS } from "./lib/routes.js";
+import { fromPath, toPath, parseTourSegment, canonicalTourPath, PUBLIC_VIEWS } from "./lib/routes.js";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // FINDE v3 — AI-Native Marketplace
@@ -6221,6 +6221,7 @@ export default function AppDemo() {
 
   // El estado visible, derivado. "loading" es "la respuesta de este sufijo
   // todavía no llegó", no un estado que alguien tenga que setear.
+  //
   const resuelto = deepFetch.suffix && deepFetch.suffix === deepSuffix;
   const deepState = !necesitaTour ? "idle"
     : !segParsed ? "missing"
@@ -6662,6 +6663,56 @@ export default function AppDemo() {
     if (!seg) return null;
     return tours.find(t => t.id.endsWith(seg.suffix)) || deepTour;
   })();
+
+  // ── Canonicalización, que reemplaza al 301 que la decisión pedía ──
+  //
+  // Un 301 es una respuesta HTTP y en una SPA pura NO HAY SERVIDOR que la emita:
+  // los redirects de vercel.json son patrones estáticos y no pueden conocer el
+  // slug canónico de un tour, que sale de la base. Ver docs/decisiones.md, que
+  // se corrigió por esto.
+  //
+  // En su lugar, dos cosas que sí se pueden y cuestan cero:
+  //   1. rel=canonical, que es el instrumento que Google define para consolidar
+  //      señal entre URLs equivalentes. Es lo que evita el contenido duplicado
+  //      cuando una agencia edita el título y la URL vieja sigue circulando.
+  //   2. replaceState al canónico, para que la barra se autocorrija sin recargar
+  //      y sin ensuciar el historial (replace y no push: el usuario no navegó).
+  //
+  // Y noindex en la pantalla de "no encontrado": sin eso Google indexaría los
+  // 404 como páginas normales, porque el servidor responde 200 con la cáscara
+  // de la SPA. Es un soft 404 y esto es lo que lo evita.
+  const canonPath = effectiveView === "detail" && currentTour
+    ? canonicalTourPath(currentTour)
+    : null;
+  const noindex = effectiveView === "not-found" || deepState === "missing";
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    let link = document.querySelector('link[rel="canonical"]');
+    if (canonPath) {
+      if (!link) {
+        link = document.createElement("link");
+        link.rel = "canonical";
+        document.head.appendChild(link);
+      }
+      link.href = window.location.origin + canonPath;
+      if (window.location.pathname !== canonPath) {
+        window.history.replaceState(window.history.state, "", canonPath);
+      }
+    } else if (link) {
+      link.remove();
+    }
+    let robots = document.querySelector('meta[name="robots"]');
+    if (noindex) {
+      if (!robots) {
+        robots = document.createElement("meta");
+        robots.name = "robots";
+        document.head.appendChild(robots);
+      }
+      robots.content = "noindex";
+    } else if (robots) {
+      robots.remove();
+    }
+  }, [canonPath, noindex]);
   // M2.3: el catálogo se filtra en el BACKEND (GET /api/tours solo devuelve
   // active:true). Ya no hay filtro local por el flag de opTours (que solo servía
   // para el propio operador y no para otros usuarios). `tours` ya viene filtrado;

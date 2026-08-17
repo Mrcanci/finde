@@ -1,5 +1,6 @@
 import Landing from "./Landing";
 import AppDemo from "./AppDemo";
+import { BASE_PATH } from "./lib/routes.js";
 
 // La URL se lee DURANTE el render, no en un useEffect.
 //
@@ -14,10 +15,15 @@ import AppDemo from "./AppDemo";
 // Leer la URL acá no necesita estado: es un dato del documento que ya existe
 // cuando React monta, y sin router todavía no cambia sin recargar. Cuando la
 // tanda 2 traiga el router, este es el punto que pasa a consumir BASE_PATH.
+// El prefijo sale de la constante, no de un literal. Es la última mención de
+// "/demo" que quedaba fuera de src/lib/routes.js: el día del switch se cambia
+// BASE_PATH ahí y este archivo no se toca.
 function isDemoUrl() {
   if (typeof window === "undefined") return false;
+  if (!BASE_PATH) return true; // sin prefijo, la raíz YA es el producto
   return (
-    window.location.pathname.includes("/demo") ||
+    window.location.pathname === BASE_PATH ||
+    window.location.pathname.startsWith(BASE_PATH + "/") ||
     window.location.search.includes("demo")
   );
 }
