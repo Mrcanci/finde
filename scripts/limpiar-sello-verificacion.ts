@@ -26,10 +26,28 @@
 //      presentaciones. No se le baja verified porque el sello es lo que se
 //      muestra en las demos; lo que no puede es estar publicada.
 //
-// MEGATOURS NO SE TOCA: es la agencia piloto real, con RUC y MINCETUR reales.
-// Ojo con esto, que es la trampa del caso: su email es megatours@finde.pe, o
-// sea que CUALQUIER criterio basado en el dominio @finde.pe la barre junto con
-// las cuentas internas. Acá las cuentas se nombran una por una a propósito.
+//   3. "Tour Prueba" (hola@finde.pe): sus dos tours, "prueba" y "prueba
+//      manual", salen del catálogo con active = false. NO se borran: son los
+//      tours sobre los que se hizo todo el QA del motor de inventario y siguen
+//      siendo usables desde el panel. No tienen sello, pero tienen
+//      descripciones que dicen "asdasdasd" en el catálogo público, y eso
+//      comunica "esto es una demo" con la misma fuerza que un badge falso, que
+//      es la percepción que esta tanda existe para arreglar.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+// EL CRITERIO NUNCA ES EL DOMINIO @finde.pe. NUNCA.
+//
+// MEGATOURS, la agencia piloto REAL y la única con el sello ganado, usa
+// megatours@finde.pe. Comparte dominio con las cuentas internas.
+//
+// O sea que un filtro del tipo `email LIKE '%@finde.pe'`, que es la forma obvia
+// de escribir "sacar las cuentas internas del catálogo", **le borra el sello a
+// la única agencia que lo tiene ganado y baja sus 5 tours reales**. Sería el
+// mismo error que esta tanda viene a arreglar, cometido al arreglarlo.
+//
+// Por eso acá las cuentas se nombran UNA POR UNA, con su email exacto, y hay
+// una verificación posterior que comprueba que MEGATOURS quedó intacta.
+// ─────────────────────────────────────────────────────────────────────────────
 
 import { PrismaClient } from "@prisma/client";
 
@@ -38,8 +56,14 @@ const APPLY = process.argv.includes("--apply");
 
 // La cuenta de demostraciones, por email exacto. Nunca por dominio.
 const EMAIL_DEMO = "demo@finde.pe";
+// La cuenta de pruebas internas, por email exacto. Nunca por dominio.
+const EMAIL_PRUEBA = "hola@finde.pe";
 // La agencia piloto real. Se nombra para poder afirmar que quedó intacta.
 const EMAIL_PILOTO = "megatours@finde.pe";
+// Los datos reales del piloto, para verificar que no se movieron. Si alguna vez
+// cambian de verdad, se actualizan acá a mano y a propósito.
+const PILOTO_RUC = "20602865356";
+const PILOTO_MINCETUR = "201-2025-DIRCETURCAJ";
 
 // Cuántas agencias del seed esperamos encontrar. Si el número no coincide, el
 // script para: significa que la base cambió y hay que volver a mirar.
@@ -135,30 +159,51 @@ async function main(): Promise<void> {
   }
   console.log("    Ninguna sin RUC ni MINCETUR. Nada más que limpiar.");
 
-  // ── 5. Cuentas internas con tours todavía públicos ──
-  // No es parte de las dos decisiones: se REPORTA para que se decida aparte.
-  const internas = await db.operator.findMany({
-    where: { email: { in: ["hola@finde.pe", "test@finde.pe", "op-test@finde.pe", "totemhubapp@gmail.com"] } },
+  // ── 5. La cuenta de pruebas internas ──
+  // No tiene el sello, así que no es parte del bloqueante del badge, pero sus
+  // tours dicen "asdasdasd" en el catálogo público y comunican "esto es una
+  // demo" igual de fuerte. Salen del catálogo; NO se borran.
+  const prueba = await db.operator.findUnique({
+    where: { email: EMAIL_PRUEBA },
+    select: { id: true, name: true, verified: true },
+  });
+  const toursPrueba = prueba
+    ? await db.tour.findMany({
+        where: { operatorId: prueba.id },
+        select: { id: true, title: true, active: true, _count: { select: { bookings: true } } },
+        orderBy: { title: "asc" },
+      })
+    : [];
+  const pruebaABajar = toursPrueba.filter((t) => t.active);
+
+  linea();
+  console.log(`\n[5] CUENTA DE PRUEBAS INTERNAS: ${prueba?.name} (${EMAIL_PRUEBA})`);
+  console.log(`    Sin sello (verified=${prueba?.verified}), así que no es parte del bloqueante del badge.`);
+  console.log(`    Pero sus descripciones dicen "asdasdasd" en el catálogo público.`);
+  console.log(`    Acción: los tours salen del catálogo. NO se borran: son los del QA`);
+  console.log(`            del motor de inventario y siguen usables desde el panel.\n`);
+  for (const t of toursPrueba) {
+    const marca = t.active ? "SALE DEL CATÁLOGO" : "ya estaba fuera";
+    console.log(`    ${t.title.padEnd(38)} ${marca.padEnd(20)} ${t._count.bookings} reservas`);
+  }
+
+  // Las otras cuentas internas: solo se reportan, no tienen tours.
+  const otrasInternas = await db.operator.findMany({
+    where: { email: { in: ["test@finde.pe", "op-test@finde.pe", "totemhubapp@gmail.com"] } },
     select: { name: true, email: true, verified: true, tours: { where: { active: true }, select: { title: true } } },
   });
-  const conTours = internas.filter((o) => o.tours.length > 0);
-  linea();
-  console.log(`\n[5] OTRAS CUENTAS INTERNAS CON TOURS PÚBLICOS: ${conTours.length}`);
-  if (conTours.length === 0) {
-    console.log("    Ninguna.");
-  } else {
-    for (const o of conTours) {
-      console.log(`    ${o.name} (${o.email}) verified=${o.verified}`);
-      for (const t of o.tours) console.log(`        ${t.title}`);
-    }
-    console.log("\n    ESTE SCRIPT NO LAS TOCA: no está en las dos decisiones tomadas.");
-    console.log("    Ninguna tiene el sello puesto, así que no son parte del bloqueante.");
-    console.log("    Están en la checklist de borrar datos de prueba. Decisión aparte.");
+  const otrasConTours = otrasInternas.filter((o) => o.tours.length > 0);
+  console.log(`\n    Otras cuentas internas con tours públicos: ${otrasConTours.length}`);
+  for (const o of otrasConTours) {
+    console.log(`      ${o.name} (${o.email}) verified=${o.verified}: ${o.tours.map((t) => t.title).join(", ")}`);
   }
 
   // ── 6. Cómo queda el catálogo público ──
   const antes = await db.tour.count({ where: { active: true } });
-  const idsFuera = new Set(aBajar.map((t) => t.id));
+  // Los dos grupos que salen del catálogo, juntos: la cuenta de demos y la de
+  // pruebas internas. Las agencias del seed NO salen, solo pierden el sello.
+  const todosABajar = [...aBajar, ...pruebaABajar];
+  const idsFuera = new Set(todosABajar.map((t) => t.id));
   const visibles = await db.tour.findMany({
     where: { active: true },
     select: { id: true, operator: { select: { name: true, verified: true, email: true } } },
@@ -177,7 +222,7 @@ async function main(): Promise<void> {
   linea();
   console.log(`\n[6] CÓMO QUEDA EL CATÁLOGO PÚBLICO`);
   console.log(`    Tours visibles ahora: ${antes}`);
-  console.log(`    Tours que salen:      ${aBajar.length}`);
+  console.log(`    Tours que salen:      ${todosABajar.length}  (${aBajar.length} de la cuenta demo, ${pruebaABajar.length} de la de pruebas)`);
   console.log(`    Tours visibles al final: ${resultantes.length}\n`);
   console.log(`    ${"AGENCIA".padEnd(24)} ${"TOURS".padEnd(7)} ${"VERIFICADA".padEnd(12)} EMAIL`);
   for (const [nombre, d] of [...porAgencia.entries()].sort((a, b) => b[1].n - a[1].n)) {
@@ -200,7 +245,7 @@ async function main(): Promise<void> {
     data: { verified: false },
   });
   const r2 = await db.tour.updateMany({
-    where: { id: { in: aBajar.map((t) => t.id) } },
+    where: { id: { in: todosABajar.map((t) => t.id) } },
     data: { active: false },
   });
   console.log(`\nAPLICADO: ${r1.count} agencias sin sello, ${r2.count} tours fuera del catálogo.`);
@@ -212,11 +257,18 @@ async function main(): Promise<void> {
   });
   const pilotoOk = await db.operator.findUnique({
     where: { email: EMAIL_PILOTO },
-    select: { verified: true },
+    select: { verified: true, ruc: true, mincetur: true, tours: { where: { active: true }, select: { id: true } } },
   });
+  const pilotoIntacto =
+    pilotoOk?.verified === true &&
+    pilotoOk?.ruc === PILOTO_RUC &&
+    pilotoOk?.mincetur === PILOTO_MINCETUR;
   console.log(`VERIFICACIÓN: agencias con sello sin RUC o sin MINCETUR: ${quedanSinRespaldo} (esperado 0)`);
   console.log(`VERIFICACIÓN: ${EMAIL_PILOTO} verified=${pilotoOk?.verified} (esperado true)`);
-  if (quedanSinRespaldo !== 0 || pilotoOk?.verified !== true) {
+  console.log(`VERIFICACIÓN: ${EMAIL_PILOTO} RUC=${pilotoOk?.ruc} (esperado ${PILOTO_RUC})`);
+  console.log(`VERIFICACIÓN: ${EMAIL_PILOTO} MINCETUR=${pilotoOk?.mincetur} (esperado ${PILOTO_MINCETUR})`);
+  console.log(`VERIFICACIÓN: ${EMAIL_PILOTO} tours públicos=${pilotoOk?.tours.length} (esperado 5)`);
+  if (quedanSinRespaldo !== 0 || !pilotoIntacto || pilotoOk?.tours.length !== 5) {
     console.error("LA VERIFICACIÓN POSTERIOR FALLÓ. Revisar contra el backup.");
     process.exit(1);
   }

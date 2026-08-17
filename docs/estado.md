@@ -53,7 +53,8 @@ con las tres definiciones que pide la decisión de la URL del tour.
 **Lo que queda pendiente y no es una tanda de la secuencia**, en orden de
 gravedad:
 
-1. **El sello de verificación falso.** Bloqueante de lanzamiento, sección propia.
+1. ~~El sello de verificación falso.~~ **CERRADO el 2026-08-16.** Era el único
+   bloqueante de lanzamiento. Sección propia, ahora como registro.
 2. ~~Procesar las fotos que suben las agencias.~~ **RESUELTO el 2026-08-16 y en
    `main`.** Era la condición que imponía el plan Free. Sección propia, ahora
    como registro de lo que se hizo.
@@ -399,7 +400,84 @@ consolidando, no borrando para siempre.
 
 Anotado el 2026-08-15, junto con la decisión de dejarlo vivo por ahora.
 
-## BLOQUEANTE DE LANZAMIENTO: el sello de verificación afirma algo falso
+## El sello de verificación, CERRADO. Era el bloqueante de lanzamiento
+
+> **RESUELTO el 2026-08-16 (`fix/sello-verificacion-falso`).** Aplicado con
+> `scripts/limpiar-sello-verificacion.ts`, con backup previo de `Operator` y
+> `Tour` en `backups/sello-antes-limpieza-20260816.sql` (14 y 49 filas
+> verificadas dentro del dump, no solo su peso).
+>
+> **El resto de la sección queda como el diagnóstico que lo originó.**
+
+### Cómo quedó el catálogo público
+
+Verificado contra el API real de finde.pe, no solo contra la base:
+
+| Dato | Antes | Después |
+|---|---|---|
+| Tours visibles | 49 | **42** |
+| Agencias con el sello visibles | **9** | **1** |
+| Tours que muestran el sello | 44 | **5** |
+| Número MINCETUR expuesto al público | uno inventado y uno real | **solo `201-2025-DIRCETURCAJ`, el real** |
+
+**Las 42 fichas visibles, por agencia:**
+
+| Agencia | Tours | ¿Sello? |
+|---|---|---|
+| **MEGATOURS** | 5 | **SÍ, y es la única. Es real** |
+| Perú Total Tours | 8 | no |
+| Norte Salvaje | 6 | no |
+| Lima Cultural Tours | 6 | no |
+| Colca Adventures | 5 | no |
+| Amazonía Viva, Pachamama Sagrada, Inka Trail Co, Andes Auténticos | 3 cada una | no |
+
+**Lo que se hizo, por caso:**
+
+1. **Ocho agencias del seed a `verified = false`.** Sus 37 tours siguen en el
+   catálogo, ahora sin badge. Son agencias inventadas: no había nada que
+   verificar.
+2. **Los 5 tours de "Descubre el Perú" a `active = false`.** La agencia y la
+   cuenta quedan **intactas y usables para presentaciones**. No se le bajó
+   `verified` porque el sello es justamente lo que se muestra en las demos; lo
+   que no podía era estar publicada. **Sigue con `verified = true` en la base y
+   eso no expone nada**, porque `gateOperatorMincetur` solo entrega el MINCETUR
+   en payloads públicos y ya no tiene ningún tour público.
+3. **Los 2 tours de "Tour Prueba" a `active = false`.** No tenían sello, así que
+   no eran parte del bloqueante del badge, pero sus descripciones dicen
+   `asdasdasd` en el catálogo público y comunican "esto es una demo" con la misma
+   fuerza. **No se borraron**: son los tours sobre los que se hizo todo el QA del
+   motor de inventario y siguen usables desde el panel.
+
+### EL CRITERIO NUNCA ES EL DOMINIO `@finde.pe`
+
+**Es la trampa del caso y por poco se cae en ella.** La instrucción original decía
+"el catálogo público sin tours de cuentas internas", y la forma obvia de
+escribirlo es filtrar por `email LIKE '%@finde.pe'`.
+
+**MEGATOURS usa `megatours@finde.pe`.** Comparte dominio con las cuentas
+internas. Ese filtro **le habría borrado el sello a la única agencia que lo tiene
+ganado y bajado sus 5 tours reales**: el mismo error que la tanda venía a
+arreglar, cometido al arreglarlo.
+
+**Por eso las cuentas se nombran una por una, con su email exacto**, y el script
+tiene una verificación posterior que comprueba que MEGATOURS quedó con
+`verified = true`, su RUC, su MINCETUR y sus 5 tours públicos. Está escrito en el
+encabezado de `scripts/limpiar-sello-verificacion.ts` para que no se repita.
+
+### Las reservas existentes no se rompieron
+
+Verificado en el código antes de aplicar: **ningún camino de lectura de reservas
+filtra por `active`**. "Mis reservas" del viajero, el panel de la agencia y la
+decisión de salidas siguen funcionando; lo que `active = false` corta es la ficha
+pública (404) y crear reservas nuevas (409), que es el objetivo.
+
+**Y ninguna reserva real quedó afectada:** las 13 de la cuenta demo y las 20 de
+"Tour Prueba" son todas de cuentas internas (`test@finde.pe`, `demo@finde.pe`,
+`hola@finde.pe`). **Solicitudes vigentes que quedaran bloqueadas: cero.**
+
+---
+
+### El diagnóstico original (2026-08-15)
 
 **Esto no es deuda de datos ni un ítem de checklist. Es el badge de verificación
 de Finde afirmando algo falso, y sobre ese badge descansa toda la propuesta de
@@ -1546,7 +1624,7 @@ que ahora se sabe **cuál** archivo fue.
 
 - [x] **Procesar las fotos en el navegador antes de subirlas.** ~~CONDICIÓN, no mejora.~~ **HECHO el 2026-08-16** (`62a1d1a`), antes de onboardear ninguna agencia real, que era el punto. Sección propia arriba.
 - [ ] **Reactivar "Confirm email" en Supabase** (desactivado para acelerar el MVP).
-- 🚫 **El sello de verificación falso (8 del seed más "Descubre el Perú") SALIÓ de esta checklist el 2026-08-15.** Subió a **BLOQUEANTE DE LANZAMIENTO** y tiene sección propia más arriba en este documento. No es un ítem que se tilda entre otros: **el switch no se hace sin resolverlo.**
+- [x] **El sello de verificación falso: CERRADO el 2026-08-16.** Fue el único bloqueante de lanzamiento y tiene sección propia más arriba, con el estado final del catálogo. Resultado: **42 tours visibles y MEGATOURS como la única agencia con sello, que es la única que lo tiene de verdad.**
 - [ ] **Borrar los datos de prueba.** Inventario concreto:
   - Tours de `hola@finde.pe` ("Tour Prueba", sin verificar): **dos**, `"prueba"` (2026-07-28) y `"prueba manual"` (2026-08-13). Los dos están activos y visibles en el catálogo público.
   - Las **37 reservas** son de prueba salvo revisión caso por caso. Cuentas que las crearon: `hola@finde.pe`, `test@finde.pe`, `demo@finde.pe`, `megatours@finde.pe` y **`totemhubapp@gmail.com`** (ojo: esta no es `@finde.pe`, el criterio de "cuentas @finde.pe" la deja afuera). **La agencia MEGATOURS no se toca** (ver abajo); lo que se borra son las reservas de prueba hechas desde esa cuenta y las que caen sobre sus tours.
