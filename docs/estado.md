@@ -23,6 +23,9 @@
 - **Jerarquía visual de escasez** en el calendario de reserva y disponibilidad pre-cargada desde el detalle (`0100120`, `4379219`, `db21c0b`).
 - **`/api/me?scope=operator`**: camino liviano que resuelve la identidad de agencia sin la query de bookings ni el vencimiento perezoso (`4e81cb0`).
 - **Los endpoints de IA exigen perfil de agencia** (`6e6fb83`). Tanda 0 del camino al lanzamiento, cerrada post-QA el 2026-08-15.
+- **Vercel Web Analytics** (`8681dee`). Tanda 1, reducida a eso por decisión de José. Costo medido: unos 2,3 kB comprimidos y cero bloqueo del hilo principal.
+- **La landing deja de cargarse en `/demo`** (`d916e65`). Tanda 1B, cerrada post-QA el 2026-08-16. Bytes de `/demo`: **6.528.216 a 232.992, un 96,4% menos**.
+- **Las fotos de destinos de la landing, a 800 px** (`5575328`). Tanda 1C, cerrada post-QA el 2026-08-16. Bytes de la landing: **6.526.560 a 976.569, un 85% menos**.
 
 ## En curso
 
@@ -33,18 +36,34 @@ arrancó cubrió gates de sesión, permisos del backend y RLS; el hallazgo centr
 es que **el backend ya está abierto y la base no necesita nada**: lo que falta es
 frontend, y sobre todo **URLs**, que hoy no existen.
 
-**La tanda 0 está cerrada y en `main`.** Los dos endpoints de IA exigen perfil de
-agencia. Ver abajo.
+**Cerradas y en `main`: las tandas 0, 1, 1B y 1C.** Los endpoints de IA con auth,
+Vercel Analytics, la landing que deja de cargarse en `/demo` y las fotos de la
+landing a 800 px. Cada una tiene su sección más abajo con los números.
 
-**Lo próximo de este frente es la tanda 1, la analítica base, y no está
-arrancada.** No se empieza sin visto bueno explícito.
+**Las dos tandas de rendimiento no estaban planificadas: salieron de medir.** La
+1B apareció al medir el costo de la 1, y la 1C al analizar lo que la 1B destapó.
+**Entre las dos sacaron 11,8 MB de peso**, y de paso dieron vuelta la prioridad
+que el documento tenía anotada: **lo que pesa son imágenes, no JavaScript.**
+
+**Lo próximo de este frente es la tanda 2, el router con `BASE_PATH` y la URL por
+tour, y no está arrancada.** No se empieza sin visto bueno explícito, y arranca
+con las tres definiciones que pide la decisión de la URL del tour.
+
+**Lo que queda pendiente y no es una tanda de la secuencia**, en orden de
+gravedad:
+
+1. **El sello de verificación falso.** Bloqueante de lanzamiento, sección propia.
+2. **Procesar las fotos que suben las agencias.** Condición para que la plataforma
+   funcione con tráfico, con el plan Free confirmado. Sección propia.
 
 **La secuencia hasta el lanzamiento**, en orden y con sus dependencias:
 
 | # | Tanda | Depende de | Reversible |
 |---|---|---|---|
 | 0 | ✅ Endpoints de IA con auth, **en `main`** | nada | sí |
-| 1 | Analítica base: SOLO Vercel Analytics (reducida) | nada | sí |
+| 1 | ✅ Analítica base: SOLO Vercel Analytics (reducida), **en `main`** | nada | sí |
+| 1B | ✅ La landing no se carga en `/demo`, **en `main`** | salió de medir la 1 | sí |
+| 1C | ✅ Fotos de la landing a 800 px, **en `main`** | 1B | sí |
 | 2 | Router con `BASE_PATH` y URL por tour | 1 | sí |
 | 3 | Modal de cuenta en el checkout, navegación abierta | 2 | sí |
 | 4 | Eventos del embudo (`booking_started`, `auth_prompted`, ...) | 3 | sí |
@@ -131,7 +150,16 @@ instante después React la desmontaba. Las imágenes ya habían salido.
 **ESLint lo venía marcando** con `react-hooks/set-state-in-effect` en
 `src/App.jsx:13`, sin que nadie atara el warning a su consecuencia.
 
-### Tanda 1B: los 6,1 MB que se descargaban y nadie veía
+### Tanda 1B, CERRADA: los 6,1 MB que se descargaban y nadie veía
+
+**En `main` desde el 2026-08-16 (`d916e65`), post-QA.** José la validó en
+dev.finde.pe **junto con la 1C**, que es como correspondía: las dos tocan las
+mismas imágenes desde puntas distintas.
+
+> **El QA anterior quedó anulado y se rehízo.** El primer "QA OK" se dio sobre
+> `dev` **sin** esta rama mergeada, así que lo que se había probado era el estado
+> anterior. Se detectó antes de subir nada a `main`. **Vale como regla: un QA sobre
+> `dev` solo cubre lo que está EN `dev`.**
 
 **Sale directo de medir la tanda 1.** Es más importante que todo lo que había
 anotado de rendimiento: **6.130 kB contra los 184 kB del bundle**, que era el
@@ -877,7 +905,9 @@ Pendientes de performance:
 
   **Ojo con la prioridad, que las mediciones del 2026-08-16 dieron vuelta.** Este pendiente figuraba como el número uno de rendimiento y no lo era: las tandas 1B y 1C sacaron **11,8 MB** entre las dos, más de sesenta veces el bundle comprimido entero. **Lo que pesa son imágenes, no JavaScript.** El code splitting entra después de que las fotos estén resueltas en las dos puntas (la landing, ya hecha, y las que suben las agencias, que es la condición del plan Free).
 
-### Tanda 1C, HECHA el 2026-08-16: las imágenes de la landing
+### Tanda 1C, CERRADA: las imágenes de la landing
+
+**En `main` desde el 2026-08-16 (`5575328`), post-QA**, validada junto con la 1B.
 
 **Cero líneas de código. `Landing.jsx` intacto.** Se reemplazaron los archivos de
 `public/destinations/` por versiones a **800 px de ancho máximo**, con el mismo
