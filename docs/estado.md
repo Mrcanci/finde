@@ -769,7 +769,71 @@ Ninguno es un bug: son huecos de producto, y están detallados más abajo en
 
 Pendientes de performance:
 
-- **El bundle pasa los 500 kB y Vite lo avisa en cada build** (661 kB, 180 kB comprimido, en un solo chunk). No es urgente para el piloto, pero sí para el mercado real: Android de gama media sobre 4G peruano, con objetivo de LCP bajo 3 segundos. `src/AppDemo.jsx` son más de 6200 líneas que hoy viajan enteras aunque el usuario solo abra el home. Candidato claro a code splitting por vista, que es como ya está organizado el archivo (el switch de `effectiveView`). Sin fecha ni tanda asignada.
+- **El bundle pasa los 500 kB y Vite lo avisa en cada build** (673 kB, 184 kB comprimido, en un solo chunk). No es urgente para el piloto, pero sí para el mercado real: Android de gama media sobre 4G peruano, con objetivo de LCP bajo 3 segundos. `src/AppDemo.jsx` son más de 6200 líneas que hoy viajan enteras aunque el usuario solo abra el home. Candidato claro a code splitting por vista, que es como ya está organizado el archivo (el switch de `effectiveView`). Sin fecha ni tanda asignada.
+
+  **Ojo con la prioridad, que las mediciones del 2026-08-16 dieron vuelta.** Este pendiente figuraba como el número uno de rendimiento y no lo era: las tandas 1B y 1C sacaron **11,8 MB** entre las dos, más de sesenta veces el bundle comprimido entero. **Lo que pesa son imágenes, no JavaScript.** El code splitting entra después de que las fotos estén resueltas en las dos puntas (la landing, ya hecha, y las que suben las agencias, que es la condición del plan Free).
+
+### Tanda 1C, HECHA el 2026-08-16: las imágenes de la landing
+
+**Cero líneas de código. `Landing.jsx` intacto.** Se reemplazaron los archivos de
+`public/destinations/` por versiones a **800 px de ancho máximo**, con el mismo
+nombre y la misma extensión `.jpg`, así que el JSX no se entera.
+
+| Archivo | Antes | Después | |
+|---|---|---|---|
+| `oxapampa.jpg` | 4.287 kB (5184x3456) | **116 kB** (800x534) | -97,3% |
+| `rajuntay.jpg` | 565 kB (1920x1440) | **76 kB** (800x600) | -86,5% |
+| `paracas.jpg` | 425 kB (1920x1280) | **53 kB** (800x534) | -87,5% |
+| `kuelap.jpg` | 357 kB (1920x1080) | **118 kB** (800x450) | -66,8% |
+| `colca.jpg` | 227 kB (1920x1080) | **93 kB** (800x450) | -58,8% |
+| `chachapoyas.jpg` | 83 kB (540x360) | **68 kB** (540x360) | -18,6% |
+| **Total** | **5.946 kB** | **526 kB** | **-91,1%** |
+
+**Por qué 800 px, medido y no elegido a ojo:** la tarjeta de destino se renderiza
+a **193x129 px CSS en escritorio** (viewport de 1350) y a **179x119 en móvil**. Es
+casi el mismo tamaño en los dos. 800 px cubre hasta **4x de densidad de pantalla**,
+más margen del que existe hoy en el mercado.
+
+**`chachapoyas.jpg` no se redimensionó, solo se recomprimió**: ya medía 540 px, por
+debajo del tope. La regla aplicada fue **nunca agrandar**, porque escalar hacia
+arriba una imagen chica la hace más pesada sin mejorarla (comprobado: llevarla a
+800 la subía de 83 a 108 kB).
+
+**Efecto sobre la landing entera**, que es la página que Google indexa, medido con
+Lighthouse mobile (4G, CPU 4x):
+
+| Métrica | Antes | Después | Delta |
+|---|---|---|---|
+| **Bytes transferidos** | 6.526.560 | **976.569** | **-5.549.991 (-85%)** |
+| LCP | 5.634 a 12.756 ms | **4.289 a 5.186 ms** | |
+| TTI | 5.852 a 13.086 ms | **4.432 a 5.269 ms** | |
+| Score de rendimiento | 72 a 77 | **78 a 84** | |
+
+**El LCP también deja de ser bimodal acá**: de 7.122 ms de dispersión entre
+corridas a 897 ms.
+
+**Qué NO se tocó, y por qué:**
+
+- **Los tres archivos huérfanos** (`arequipa.jpg` 825 kB, `mancora.jpg` 152 kB,
+  `cusco.jpg` 34 kB) no los referencia nadie. **No cuestan ancho de banda porque
+  nunca se descargan**, solo peso de repositorio. Borrarlos es decisión aparte.
+- **Los mockups PNG** (436 kB, de los que solo uno carga al inicio). Se intentó:
+  mejorarlos sin cambiar de formato exige un optimizador de PNG que no está
+  instalado (`pngquant`, `optipng`), y con lo que hay (`ffmpeg`) salían **entre
+  53% y 131% más pesados**. Pasarlos a WebP sí los achicaría, pero **exige tocar
+  `Landing.jsx`**. Queda para cuando haya un motivo para abrir ese archivo.
+- **WebP en los destinos.** Ahorraría unos 66 kB más sobre los 526, y cambia la
+  extensión del `src`, o sea `Landing.jsx`. No justifica el permiso.
+
+**Las cuatro opciones que se evaluaron antes de elegir**, con el ahorro que
+calculó Lighthouse sobre la landing real:
+
+| Opción | Ahorro | Veredicto |
+|---|---|---|
+| Carga diferida bajo el pliegue | **0 kB** | Ya estaba hecha (`loading="lazy"`), el audit `offscreen-images` daba 0 |
+| Recomprimir sin cambiar resolución | **9 kB** | Inútil: el problema no era la calidad |
+| Convertir a WebP sin redimensionar | 1.945 kB | El premio chico |
+| **Servir el tamaño real** | **5.995 kB** | **Es el 90% del problema. Lo que se hizo** |
 
 Textos con fecha de vencimiento (se van a borrar solos, no invertir en ellos):
 
