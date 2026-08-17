@@ -27,6 +27,8 @@
 - **La landing deja de cargarse en `/demo`** (`d916e65`). Tanda 1B, cerrada post-QA el 2026-08-16. Bytes de `/demo`: **6.528.216 a 232.992, un 96,4% menos**.
 - **Las fotos de destinos de la landing, a 800 px** (`5575328`). Tanda 1C, cerrada post-QA el 2026-08-16. Bytes de la landing: **6.526.560 a 976.569, un 85% menos**.
 - **Las fotos que suben las agencias se achican en el navegador** (`62a1d1a`). Cerrada post-QA el 2026-08-16. Era la **condición** que imponía el plan Free de Supabase: una foto real de 4.062 kB sube como **203 kB**.
+- **El sello de verificación deja de afirmar algo falso** (`38823ed`). Cerrado post-QA el 2026-08-16. Era el **bloqueante de lanzamiento**: 42 tours visibles y MEGATOURS como la única agencia con sello.
+- **El router y las URLs por vista** (`1d5bad0`). Tanda 2, cerrada post-QA el 2026-08-16. Cada vista tiene URL, la ficha resuelve por deep link y **el prefijo vive en una sola constante**.
 
 ## En curso
 
@@ -46,9 +48,27 @@ landing a 800 px. Cada una tiene su sección más abajo con los números.
 **Entre las dos sacaron 11,8 MB de peso**, y de paso dieron vuelta la prioridad
 que el documento tenía anotada: **lo que pesa son imágenes, no JavaScript.**
 
-**Lo próximo de este frente es la tanda 2, el router con `BASE_PATH` y la URL por
-tour, y no está arrancada.** No se empieza sin visto bueno explícito, y arranca
-con las tres definiciones que pide la decisión de la URL del tour.
+**La tanda 2, el router, está CERRADA y en `main`.** Las URLs por vista existen,
+la ficha resuelve por deep link, el botón de atrás funciona y el prefijo quedó en
+una sola constante. Ver la sección propia más abajo.
+
+**Con eso, el frente queda partido en dos caminos que ya no dependen uno del
+otro:**
+
+1. **La tanda 3, que es LA SIGUIENTE**: el modal de cuenta en el checkout y la
+   navegación abierta por defecto. Hoy `/demo` pelado sigue mostrando el login;
+   la 2 solo abrió los deep links. Y de la 3 depende la 4, los eventos del embudo.
+2. **La tanda 5, que quedó DESBLOQUEADA**: meta tags por tour con prerender,
+   `robots.txt` y `sitemap.xml`. Necesitaba las URLs y ya las tiene. **Es la que
+   convierte el trabajo de la 2 en tráfico**: sin ella, las fichas tienen
+   dirección pero comparten el mismo título y la misma descripción al
+   compartirse.
+
+**Ninguna de las dos está arrancada** y no se empiezan sin visto bueno explícito.
+
+**Antes de la 5 hay que resolver el bloqueante que ya está cerrado y los datos de
+prueba que no**: el prerender **congela el contenido en HTML indexable**, así que
+lo que esté mal ese día queda en el índice de Google hasta el próximo crawl.
 
 **Lo que queda pendiente y no es una tanda de la secuencia**, en orden de
 gravedad:
@@ -67,10 +87,10 @@ gravedad:
 | 1 | ✅ Analítica base: SOLO Vercel Analytics (reducida), **en `main`** | nada | sí |
 | 1B | ✅ La landing no se carga en `/demo`, **en `main`** | salió de medir la 1 | sí |
 | 1C | ✅ Fotos de la landing a 800 px, **en `main`** | 1B | sí |
-| 2 | Router con `BASE_PATH` y URL por tour | 1 | sí |
-| 3 | Modal de cuenta en el checkout, navegación abierta | 2 | sí |
+| 2 | ✅ Router con `BASE_PATH` y URL por tour, **en `main`** | 1 | sí |
+| 3 | **LA SIGUIENTE.** Modal de cuenta en el checkout, navegación abierta | 2 ✅ | sí |
 | 4 | Eventos del embudo (`booking_started`, `auth_prompted`, ...) | 3 | sí |
-| 5 | Meta tags por tour (prerender en build), `robots.txt`, `sitemap.xml` | 2 | sí |
+| 5 | **DESBLOQUEADA.** Meta tags por tour (prerender en build), `robots.txt`, `sitemap.xml` | 2 ✅ | sí |
 | 6 | Día del switch: `BASE_PATH` a `""` más el rewrite de la raíz | todo | el código sí, el SEO no |
 
 La tanda 2 arranca con las tres definiciones que pide la decisión de la URL del
@@ -1093,6 +1113,88 @@ Pendientes de performance:
 - **El bundle pasa los 500 kB y Vite lo avisa en cada build** (673 kB, 184 kB comprimido, en un solo chunk). No es urgente para el piloto, pero sí para el mercado real: Android de gama media sobre 4G peruano, con objetivo de LCP bajo 3 segundos. `src/AppDemo.jsx` son más de 6200 líneas que hoy viajan enteras aunque el usuario solo abra el home. Candidato claro a code splitting por vista, que es como ya está organizado el archivo (el switch de `effectiveView`). Sin fecha ni tanda asignada.
 
   **Ojo con la prioridad, que las mediciones del 2026-08-16 dieron vuelta.** Este pendiente figuraba como el número uno de rendimiento y no lo era: las tandas 1B y 1C sacaron **11,8 MB** entre las dos, más de sesenta veces el bundle comprimido entero. **Lo que pesa son imágenes, no JavaScript.** **Las dos puntas del problema de imágenes ya están resueltas**: la landing (tanda 1C) y las que suben las agencias (procesamiento en el navegador). Con eso, el code splitting sí pasa a ser el próximo pendiente de rendimiento.
+
+### Tanda 2, CERRADA: el router y las URLs por vista
+
+**En `main` desde el 2026-08-16 (`1d5bad0`), post-QA.** José validó los ocho
+puntos del checklist en dev.finde.pe, incluido el link abierto en incógnito y
+compartido por WhatsApp, que es la prueba que resume la tanda.
+
+**Rama `feat/router-urls`, tag `pre-router`.** Cinco commits, uno por paso.
+
+| # | Qué |
+|---|---|
+| 1 | `src/lib/routes.js`: el mapa de URLs y **el prefijo en una constante** |
+| 2 | `GET /api/tours/:id` acepta el sufijo de 6, **sin gastar un slot de función** |
+| 3 | La vista sale de la URL, `go()` empuja historial y el botón de atrás anda |
+| 4 | La ficha se hidrata por link frío, y aparece la pantalla de 404 |
+| 5 | `rel=canonical`, `noindex` en los 404 y el código de reserva fuera de la analítica |
+
+#### Lo que hace que la tanda sea chica
+
+**`go()` ya era el único punto por donde pasa toda la navegación.** El router se
+enchufa ahí y no en cada botón. El guard de `effectiveView` **no se tocó**: sigue
+siendo la única autoridad sobre qué se ve sin sesión.
+
+#### El deep link sin sesión, y dónde está el límite con la tanda 3
+
+**Un deep link a una vista pública prende el modo invitado**, o el visitante que
+llega de Google rebotaría al muro de login y el router no serviría para su
+propósito.
+
+**El borde que lo separa de la tanda 3: solo cuenta como deep link una ruta que NO
+es la raíz.** Entrar a `/demo` pelado sigue mostrando el login, como siempre.
+Abrir la navegación por defecto es la tanda 3.
+
+#### El 404, que no existía
+
+Hasta ahora **la app no tenía concepto de "no encontrado"**: una ficha sin tour
+devolvía `null` y quedaba un cuadro en blanco. Con URLs eso pasa a ser frecuente,
+porque Google va a tener indexadas fichas de tours que después salen del catálogo.
+**Acaba de pasar con siete** en la limpieza del sello.
+
+Dos textos, según lo que sabemos:
+
+- **"Este tour ya no está disponible"**, cuando la URL era una ficha bien formada
+  que no resolvió.
+- **"No encontramos esta página"**, cuando la URL no corresponde a nada.
+
+**No se distingue entre "no existe" y "está fuera del catálogo", y es a
+propósito:** el API responde 404 en los dos casos desde M-2, y al viajero la
+diferencia no le sirve. Exponerla además filtraría qué tours tiene pausados una
+agencia.
+
+#### Verificado en Chrome, con y sin sesión
+
+| Caso | Resultado |
+|---|---|
+| `/demo/tour/machu-picchu-...-u9npzp` en frío, sin sesión | el tour, **sin muro de login** |
+| `/demo/tour/u9npzp` sin slug | el mismo tour |
+| `/demo/tour/titulo-viejo-...-u9npzp` | corrige la barra al canónico y emite `rel=canonical` |
+| `/demo/tour/trfkuj` (dado de baja) | "Este tour ya no está disponible" más `noindex` |
+| `/demo/cualquier-cosa` | "No encontramos esta página" más `noindex` |
+| `/demo` sin sesión | el login, **sin cambios** |
+| `/demo/perfil` sin sesión | rebota al login |
+| `/mis-reservas/FND-ABC123` | la analítica recibe `/mis-reservas/[code]` |
+
+Más 34 aserciones sobre `routes.js`: tildes, ñ, alfabeto no latino, títulos que
+normalizan a nada, el corte en el último guion, los tres formatos de segmento y
+la ida y vuelta de todas las vistas.
+
+**Nota de método:** las primeras lecturas del navegador mostraban "Cargando el
+tour…" y parecía un bug. **No lo era: es `vercel dev`, que corre cada request en
+proceso nuevo y tarda unos 3 segundos en frío.** Está escrito en `CLAUDE.md` que
+las latencias locales no son representativas. Lo confirmé reproduciendo la
+concurrencia con `curl` antes de tocar nada.
+
+#### Lo que quedó explícitamente afuera
+
+El `document.title` por vista y los meta tags (tanda 5), el modal de cuenta
+(tanda 3), los eventos de embudo (tanda 4) y el code splitting por vista, que el
+router habilita casi gratis pero es otra cosa.
+
+**`vercel.json` no se tocó.** El rewrite `/demo/:path*` ya cubre cualquier
+profundidad; el catch-all de la raíz recién hace falta el día del switch.
 
 ### Tanda 1C, CERRADA: las imágenes de la landing
 

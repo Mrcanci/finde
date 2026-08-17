@@ -26,8 +26,10 @@ renderizar**; lo que resuelve la ruta es **solo el sufijo del id**.
 2. **No necesita manejo de colisiones.** El id desambigua. Dos tours con el mismo
    título conviven sin lógica extra.
 3. **El título puede cambiar y la URL vieja sigue resolviendo**, porque el
-   matcheo ignora la parte del slug. Si el slug recibido difiere del canónico, se
-   redirige con **301** al canónico.
+   matcheo ignora la parte del slug. Si el slug recibido difiere del canónico, la
+   página se autocorrige con **`rel=canonical` más `history.replaceState`**.
+   **Corregido el 2026-08-16: acá decía "301" y era un error de arquitectura,
+   no de redacción.** Ver la sección propia más abajo.
 4. **Gana la palabra clave en la URL**, que importa para búsqueda y sobre todo
    para el link compartido por WhatsApp, donde la URL se lee antes que el preview.
 
@@ -40,17 +42,169 @@ tenga que elegir en el momento.
 1. **Va con el router de la tanda 2**, y se resuelve con la misma constante
    `BASE_PATH` de la decisión de abajo: la ruta es `${BASE_PATH}/tour/...`, nunca
    un literal.
-2. **El 301 al canónico es parte del alcance, no un extra.** Sin él, el mismo
+2. **La canonicalización es parte del alcance, no un extra.** Sin ella, el mismo
    tour queda accesible bajo infinitas URLs y Google reparte la señal entre
-   todas.
-3. **La tanda 2 tiene que definir y documentar tres cosas antes de escribir
-   código**, y las tres son decisiones que después cuestan redirects:
-   - **Cuántos caracteres del CUID** se usan como sufijo.
-   - **Cómo se normaliza el título a slug**: tildes, ñ, espacios, signos,
-     mayúsculas, largo máximo.
-   - **Qué pasa si el slug queda vacío** porque el título es solo símbolos.
+   todas. **El instrumento es `rel=canonical`, no un 301**: ver abajo.
+3. **Las tres definiciones que faltaban quedaron cerradas el 2026-08-16**, con
+   medición sobre los datos reales. Ver la sección de abajo.
 4. **El sufijo se toma del final del CUID, no del principio.** Los CUID comparten
    prefijo entre registros creados cerca en el tiempo; la entropía está al final.
+
+---
+
+### Las tres definiciones, cerradas el 2026-08-16 con datos
+
+Medidas sobre los 42 tours del catálogo real y los 106 ids de `Tour`, `Booking` y
+`Operator`. **Ninguna es una corazonada.**
+
+#### 1. El sufijo son SEIS caracteres
+
+**Lo que decide la elección es que solo los últimos 8 caracteres del CUID son
+aleatorios.** Un CUID v1 son 25 caracteres con esta estructura:
+
+```
+c + timestamp(8) + contador(4) + huella de máquina(4) + aleatorio(8)
+```
+
+Medido, valores distintos de 36 posibles en cada posición contando desde el final:
+
+| Posición | Distintos | Bloque |
+|---|---|---|
+| -1 a -8 | 33 a 35 | **aleatorio** |
+| -9 | 22 | huella de máquina |
+| -10 | 19 | huella de máquina |
+| -11 | 18 | huella de máquina |
+| -12 | **6** | huella de máquina |
+
+**De ahí sale un techo duro: el sufijo NUNCA puede pasar de 8 caracteres.** Del
+noveno en adelante se entra en la huella de la máquina, que es casi constante
+entre registros: se agrega largo a la URL sin agregar seguridad.
+
+Probabilidad de colisión (paradoja del cumpleaños, base36):
+
+| Chars | 42 tours | 500 | 5.000 | Tours hasta el 1% |
+|---|---|---|---|---|
+| 4 | 0,051 % | 7,16 % | 99,94 % | **184** |
+| 5 | 0,0014 % | 0,206 % | 18,67 % | **1.102** |
+| **6** | < 0,0001 % | 0,0057 % | 0,57 % | **6.615** |
+| 8 | < 0,0001 % | < 0,0001 % | 0,0004 % | 238.131 |
+
+**Seis.** Cuatro se rompe a los 184 tours y cinco a los 1.102, dos horizontes
+alcanzables si Finde funciona. Seis aguanta 6.615 y mantiene la URL corta para
+WhatsApp. Ocho no se justifica: dos caracteres más en cada link a cambio de un
+margen que no se va a usar.
+
+**Con red de seguridad, que hace la elección casi irrelevante:** si al resolver
+un sufijo aparece más de un tour, se desempata con el slug; si sigue ambiguo,
+404. Así una colisión **degrada** en vez de **romper**.
+
+#### 2. El tope del slug son 50 caracteres, cortando en el último guion
+
+Normalización: minúsculas, sin tildes, ñ a n, todo lo que no sea `[a-z0-9]` a
+guion, guiones colapsados y sin guiones en los bordes.
+
+Sobre los 42 títulos reales: largo mínimo 6, mediana 37, máximo 51.
+
+| Tope | Se cortan | Veredicto |
+|---|---|---|
+| 40 | **15 de 42** | pierde el destino |
+| **50** | **1 de 42** | el corte es inofensivo |
+| 60 | 0 de 42 | largo de más |
+
+**El argumento que decide no es cuántos se cortan sino QUÉ se corta.** Con tope
+40, en cuatro de los primeros cinco casos lo que se pierde es **el destino**, que
+es justo la palabra por la que alguien busca:
+
+```
+mirador-de-yanahuara-y-centro-de     pierde  arequipa
+caral-civilizacion-mas-antigua-de    pierde  america
+ceremonia-de-ayahuasca-regulada-en   pierde  tarapoto
+valle-sagrado-pisac-ollantaytambo-y  pierde  chinchero
+```
+
+Con tope 50 se corta uno solo y pierde `muelle`, que no cambia nada.
+
+**Cero slugs duplicados entre sí** con cualquier tope, y de todos modos el sufijo
+los desambigua.
+
+#### 3. Slug vacío: respaldo por ciudad, y después el literal `tour`
+
+**El slug vacío es alcanzable desde el formulario real**, no es hipotético: el
+schema solo exige `title` de 3 a 120 caracteres, así que `...`, `###` o `¡¿?!`
+pasan la validación y normalizan a nada.
+
+**Y el caso que importa no es la basura: es un título en alfabeto no latino.**
+`日本ツアー` y `中文标题` también normalizan a vacío, y **el quechua es promesa de
+marca de Finde**: algún día puede haber contenido fuera del alfabeto latino.
+
+Dos niveles de respaldo:
+
+1. Slug vacío → **el slug de la ciudad** (`cusco`, `lima`, `arequipa`). El tour
+   siempre tiene ciudad, y de paso conserva una palabra clave.
+2. La ciudad también vacía → el literal **`tour`**.
+
+Así la URL **nunca queda como un sufijo pelado** y siempre tiene la misma forma.
+
+La regla de parseo que lo sostiene: **tomar todo lo que va después del último
+guion**, y si no hay guion, el segmento entero. Después se valida que sean
+exactamente 6 caracteres de `[a-z0-9]`; si no, 404 sin tocar la base.
+
+---
+
+### Por qué NO hay 301, y qué hay en su lugar
+
+**Corregido el 2026-08-16. La versión original de esta decisión decía "301" y era
+un error de arquitectura.**
+
+**Un 301 es una respuesta HTTP, y en una SPA pura no hay servidor que la emita.**
+Los `redirects` de `vercel.json` son **patrones estáticos**: no pueden conocer el
+slug canónico de un tour, que sale de un dato de la base. Cuando la app arranca,
+ya se sirvió el HTML y el 301 no tiene dónde ocurrir.
+
+**Agravante medido: la tabla `Tour` no tiene columna `updatedAt`, solo
+`createdAt`.** O sea que **hoy no hay forma de saber si un título cambió**, ni de
+medir cuántas veces pasó, ni de guardar historia de slugs. No es que sea difícil:
+el dato no existe.
+
+**Lo que se hace en su lugar, y cuesta cero:**
+
+1. **`rel=canonical`** apuntando a la URL canónica. Es exactamente el instrumento
+   que Google define para consolidar señal entre URLs equivalentes.
+2. **`history.replaceState`** al canónico cuando la app arranca, así la barra se
+   autocorrige sin recargar.
+3. Cuando llegue el prerender (tanda 5), el `rel=canonical` va **en el HTML
+   crudo**, sin depender de que Googlebot ejecute JavaScript.
+
+**Por qué NO se hace el 301 real, aunque se podría.** Un 301 de verdad exige una
+función serverless en `/tour/*`. Eso **cuesta uno de los 12 slots de Vercel
+Hobby**, y el slot que hay para liberar (`generate-quechua`) está **reservado para
+Culqi**, que va a necesitar tres endpoints.
+
+Y se gastaría a cambio de poco:
+
+- **La URL vieja resuelve igual y muestra el tour correcto**, porque el slug no
+  participa de la resolución. No hay link roto que arreglar.
+- **El único daño real que evita el 301 es el contenido duplicado**, y eso es
+  precisamente lo que `rel=canonical` existe para resolver.
+
+Si algún día hay presupuesto de funciones y el contenido duplicado se vuelve un
+problema medido, el 301 se agrega sin cambiar nada de lo anterior.
+
+### Nota de rendimiento, para cuando haga falta
+
+Resolver por sufijo es un `LIKE '%abc123'`, que **no usa índice**. Medido con 49
+tours: **0,065 ms con barrido secuencial contra 0,125 ms del índice por id**, o
+sea que hoy el barrido es más rápido porque la tabla entra en una página.
+
+Crece lineal. Si alguna vez molesta, la salida es un **índice por expresión**:
+
+```sql
+CREATE INDEX ON "Tour" ((right(id, 6)));
+```
+
+**Prisma no sabe expresar índices por expresión**, así que hay que crearlo con SQL
+crudo y documentarlo en `docs/migrations/`. No hace falta ahora y conviene que
+quede escrito antes de que alguien lo descubra con tráfico encima.
 
 ---
 
