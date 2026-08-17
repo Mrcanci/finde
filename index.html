@@ -11,6 +11,30 @@
     <meta name="description" content="Reserva tours con agencias verificadas contra SUNAT y MINCETUR. Paga en soles con Yape o Plin.">
     <meta property="og:title" content="finde. | Tours verificados en todo el Perú">
     <meta property="og:description" content="Reserva tours con agencias verificadas contra SUNAT y MINCETUR. Paga en soles con Yape o Plin.">
+    <!--
+      SE SACA EL DÍA DEL SWITCH, y es una de las dos líneas de ese día (la otra
+      es BASE_PATH a "" en src/lib/routes.js).
+
+      Nada bajo /demo debe indexarse mientras el producto no esté lanzado:
+      adentro hay datos de prueba y 37 de los 42 tours públicos se borran en el
+      lanzamiento. Antes de esta línea el noindex existía SOLO en las 42 fichas
+      prerenderizadas, así que la portada, el buscador y cualquier URL de un
+      tour que no existe se servían sin ninguna instrucción para Google.
+
+      Va acá, en la plantilla, porque esto cubre TODO lo que se sirve desde
+      ella. Y va como etiqueta y no como cabecera X-Robots-Tag a propósito: una
+      cabecera no se ve en "ver código fuente", y lo que no se ve es lo que se
+      olvida el día del switch.
+
+      Las fichas NO quedan con la etiqueta duplicada: inyectar() en
+      scripts/prerender.ts borra las robots de la plantilla antes de poner la
+      suya, que lleva data-prerender="1". Y el día del switch el prerender deja
+      de emitirla solo, porque decide con NOINDEX = BASE_PATH !== "".
+
+      No es robots.txt a propósito: eso bloquea el RASTREO y apagaría la tarjeta
+      de WhatsApp. Ver docs/audits/2026-08-17-noindex-y-urls-huerfanas.md.
+    -->
+    <meta name="robots" content="noindex">
   </head>
   <body>
     <div id="root"></div>

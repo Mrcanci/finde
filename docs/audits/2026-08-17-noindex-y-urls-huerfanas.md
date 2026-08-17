@@ -1,6 +1,8 @@
 # El `noindex` de `/demo` y las URLs de tours que no existen
 
-**Diagnóstico del 2026-08-17, pendiente de ejecución.** Decisión de José tomada:
+**Piezas 1 y 2 APLICADAS el 2026-08-17. Pieza 3 DIFERIDA al día del switch, con decisión tomada y costo aceptado (ver abajo).**
+
+**Diagnóstico del 2026-08-17.** Decisión de José tomada:
 **nada bajo `/demo` debe indexarse hoy**, ni la portada, ni el buscador, ni las
 fichas. El producto no está lanzado y adentro hay datos de prueba.
 
@@ -129,6 +131,35 @@ Vercel. Vite copia `public/` tal cual, así que no cuesta configuración.
 bajo `/demo/tour/`** y la regla hay que actualizarla, o alguien va a agregar una
 vista y le va a dar 404 en producción andando en local.
 
-**Y no es urgente:** mientras el `noindex` general esté puesto, las URLs huérfanas
-no se indexan igual. **Esta pieza recién muerde el día del switch**, que es cuando
-además se borran los 37 tours del seed y sus URLs quedan huérfanas de golpe.
+### DECISIÓN: se difiere al día del switch (2026-08-17)
+
+**No se hace ahora, y no por falta de tiempo: el costo de mantenimiento no se
+justifica todavía.** Con el `noindex` general puesto, las URLs huérfanas no se
+indexan igual, así que la pieza 3 no compra nada hoy.
+
+**Lo que quien la ejecute está aceptando, explícito para que no lo descubra
+después:**
+
+> Hoy **agregar una pantalla nueva no toca `vercel.json`**. Los rewrites de
+> `/demo/*` y `/app/*` mandan todo al `index.html` de la raíz y el switch de
+> vistas de `AppDemo.jsx` decide qué renderizar. Está escrito así en
+> `.claude/rules/frontend.md` y en `.claude/rules/api-y-schema.md`.
+>
+> **Con el rewrite angostado eso deja de ser cierto bajo `/demo/tour/`.** Alguien
+> va a agregar una vista, le va a andar en `npm run dev`, y en producción va a
+> dar 404. **Y va a dar 404 de verdad, no una pantalla en blanco**, así que se va
+> a parecer a un problema de datos y no a uno de configuración, que es la clase
+> de error que más tarda en diagnosticarse.
+>
+> Si se ejecuta, **las dos reglas hay que actualizarlas en el mismo commit**, no
+> después.
+
+**EL DISPARADOR ES CONCRETO, no "algún día":** el día que se borren **los 37
+tours del seed**, sus 37 URLs quedan huérfanas de golpe, y son URLs que
+estuvieron públicas y prerenderizadas, o sea descubribles por Google. Ese borrado
+y el switch son el mismo evento. **Antes de ese día la pieza 3 es opcional;
+después es lo que evita 37 soft 404 servidos con la portada genérica.**
+
+**Y el `noindex` general se saca ese mismo día**, así que **no hay ventana en la
+que una cosa tape a la otra**: o está el `noindex`, o está el 404. Ese es el
+motivo real por el que las tres piezas van juntas y no de a una.
