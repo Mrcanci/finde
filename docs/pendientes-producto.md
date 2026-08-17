@@ -63,6 +63,36 @@ Vercel**: su API responde 403 con las credenciales de esta sesión.
 
   **Ojo con la prioridad, que las mediciones del 2026-08-16 dieron vuelta.** Este pendiente figuraba como el número uno de rendimiento y no lo era: las tandas 1B y 1C sacaron **11,8 MB** entre las dos, más de sesenta veces el bundle comprimido entero. **Lo que pesa son imágenes, no JavaScript.** **Las dos puntas del problema de imágenes ya están resueltas**: la landing (tanda 1C) y las que suben las agencias (procesamiento en el navegador). Con eso, el code splitting sí pasa a ser el próximo pendiente de rendimiento.
 
+- **El botón "Panel de agencia" del perfil tarda 1 o 2 segundos.** Mientras
+  `operatorResolved` es false, `ProfileView` muestra un esqueleto del mismo alto
+  (`AppDemo.jsx:3958`) y recién después aparece la card real.
+
+  **Esto NO es el mismo problema que el interruptor de activar un tour, aunque se
+  vean igual, y la diferencia decide el arreglo:**
+
+  | | De dónde sale el dato | La espera |
+  |---|---|---|
+  | Interruptor de activar | ya está en el cliente, en la tarjeta del panel | **sobra**: se decide local |
+  | Botón "Panel de agencia" | de `/api/me?scope=operator`, un viaje al servidor | **es real**: el cliente todavía no sabe si la cuenta es agencia |
+
+  Por eso no hay una solución que sirva para los dos. **Y el esqueleto actual no
+  es un parche, es lo correcto**: mostrar `isOperator=false` antes de tiempo le
+  dice a una agencia existente "¿Ofreces tours? Activa tu perfil de agencia".
+  Eso ya pasó y está documentado en `.claude/rules/frontend.md`.
+
+  **El único arreglo que quitaría el segundo es recordar la última respuesta**
+  (localStorage) para usarla como valor inicial y revalidar por detrás.
+
+  **Su costo, que es el motivo de no hacerlo de paso:** toca `AuthContext`, que
+  tiene tres guardas de concurrencia que hoy funcionan (`opSeq` latest-wins,
+  `opInFlight` dedupe, `opUserId` dueño del estado). Y el riesgo concreto es
+  **mostrarle a un usuario el estado de otra cuenta**: un valor cacheado que se
+  pinta antes de saber quién es el usuario actual es exactamente el bug que
+  `opUserId` existe para evitar. Un estado falso que parece legítimo es peor que
+  esperar, que es la misma razón por la que se puso el esqueleto.
+
+  **Tanda aparte, con su propia verificación de cambio de cuenta.** Sin fecha.
+
 ## Huecos de producto
 
 - **El formulario de tour se pierde entero, sin aviso, al navegar afuera.** El
