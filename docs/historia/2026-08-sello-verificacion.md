@@ -147,3 +147,24 @@ quedar publicada como agencia verificada.
 **Nada de esto se toca sin decisión explícita de José**, porque son escrituras en
 la base de producción sobre datos que el catálogo público está mostrando ahora
 mismo.
+
+---
+
+## Lo que se escapó: el tour "prueba" (2026-08-17)
+
+**La limpieza del sello no revisó el CONTENIDO de los tours activos, solo a quién
+pertenecían.** Por eso quedó publicado en el catálogo de finde.pe el tour
+`"prueba"` de la cuenta `hola@finde.pe`, con **15 caracteres de descripción**.
+
+Apareció midiendo otra cosa: al auditar qué tours activos no cumplirían la
+metadata obligatoria salieron **7**, y dos no eran los 5 de MEGATOURS que se
+esperaban. Uno era este.
+
+Se pausó (`active: false`) el 2026-08-17 con la aprobación de José, respaldo
+previo en `backups/2026-08-17-antes-pausar-tour-prueba.sql` (1.216.253 bytes).
+Activos 43 a 42, y se verificó que los 5 de MEGATOURS quedaron intactos.
+
+**La lección para la próxima limpieza de catálogo:** el criterio "de quién es"
+no cubre "qué dice". Un tour de una cuenta interna con contenido de relleno viola
+igual la regla de nada falso visible al usuario real, y no lo caza ningún filtro
+por dueño.

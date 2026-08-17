@@ -1,5 +1,5 @@
 {
-  "buildCommand": "vite build",
+  "buildCommand": "npm run build",
   "devCommand": "vite --port $PORT",
   "framework": null,
   "rewrites": [

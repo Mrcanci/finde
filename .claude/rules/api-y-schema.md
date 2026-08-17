@@ -276,4 +276,43 @@ El frontend es una SPA **sin router library**. Esos rewrites hacen que cualquier
 
 - **Agregar una ruta de página no se hace acá.** Se hace en el switch de `src/AppDemo.jsx` (ver `.claude/rules/frontend.md`).
 - Si algún día se agrega un prefijo de URL nuevo, hay que sumar el rewrite o va a dar 404 en producción y funcionar en `npm run dev`.
-- `framework: null` y `buildCommand: "vite build"`: Vercel no autodetecta nada. Cambiar el build se hace en este archivo.
+- `framework: null`: Vercel no autodetecta nada. **El build que corre Vercel es el `buildCommand` de este archivo, no el script `build` de `package.json`.**
+
+### El `buildCommand` delega en `npm run build`, y no es cosmético
+
+```json
+"buildCommand": "npm run build"
+```
+
+**Así el build queda definido en UN solo lugar (`package.json`) y `vercel.json`
+solo delega.** Si acá se escribe la cadena de comandos completa quedan dos
+definiciones del build que pueden separarse sin que nadie se entere, que es
+exactamente lo que pasó.
+
+#### El caso que confirmó la regla: el prerender que nunca corrió
+
+**La regla de arriba ya estaba escrita el 2026-08-16 y aun así se rompió al día
+siguiente.** El paso de prerender (`scripts/prerender.ts`, los meta tags por
+tour) se agregó al script `build` de `package.json`, y se verificó corriendo
+`npm run build` en local: 43 fichas escritas, con su `noindex`. Todo verde.
+
+**Pero `vercel.json` decía `"buildCommand": "vite build"`, así que Vercel nunca
+ejecutó el paso.** El deploy salió con los meta tags genéricos y sin `noindex`,
+y lo encontró José usando el sitio, no la verificación.
+
+La medición que lo cerró, un comando cada una:
+
+| Comando | Fichas generadas | `noindex` |
+|---|---|---|
+| `vite build` (lo que corría Vercel) | **0** | no |
+| `npm run build` (lo que se verificó) | **43** | sí |
+
+**La lección es la diferencia entre medir el punto y medir un borde parecido.**
+Correr `npm run build` en local no prueba nada sobre el deploy: prueba el
+comando que uno eligió correr. El punto exacto era **qué comando ejecuta
+Vercel**, y eso se lee en `vercel.json`, que es este archivo, donde la regla ya
+estaba.
+
+**Al tocar el build:** el cambio va en `package.json`, y se verifica que
+`vercel.json` siga delegando. Si algún día alguien vuelve a poner acá la cadena
+completa, esta sección explica por qué no.
