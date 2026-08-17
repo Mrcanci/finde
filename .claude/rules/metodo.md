@@ -62,15 +62,49 @@ un comando, no de contar la lista (ver la regla 5 de `frontend.md`).
 3. La variable del foco.
 4. La dependencia de P2 con el paso 5.
 5. El límite de 10 segundos de Vercel (era otro).
-6. Un QA que probó una rama sin mergear.
+6. Un QA que probó una rama sin mergear. **Pasó dos veces, ver abajo.**
 
 **La regla que lo hizo posible fue una sola: "reportá el diagnóstico antes de
 arreglar".** Sin ese paso, los seis se habrían implementado y descubierto después,
 que es cuando cuestan un rollback en vez de un mensaje.
 
-**El caso 6 merece su propia frase, porque es el más fácil de repetir: un QA sobre
-`dev` solo cubre lo que está EN `dev`.** Si la rama no está mergeada, lo que se
-probó fue el estado anterior y el QA queda anulado.
+#### UNA TANDA NO ESTÁ LISTA PARA QA HASTA QUE ESTÁ EN `dev`
+
+**`dev.finde.pe` sirve `dev`, no las ramas sueltas.** Pedir el OK para el QA con
+la rama solo pusheada **garantiza que lo que se pruebe sea el estado anterior**.
+
+**Ocurrió DOS veces en la misma sesión, con dos días de diferencia:**
+
+| Tanda | Qué pasó | Cómo se detectó |
+|---|---|---|
+| **1B**, la landing en `/demo` | El QA de José probó `dev` **sin el fix** y salió "todo bien" | **Porque nada había cambiado.** Un QA que pasa sin que exista el cambio no prueba nada |
+| **Procesamiento de fotos** | Igual: la rama pusheada, `dev` sin ella | **José recibió el mensaje viejo de 5 MB**, que era justo lo que la tanda eliminaba |
+
+**El primer caso es el peligroso, y por eso va primero: salió verde.** Un QA que
+falla se investiga; uno que pasa sobre el estado anterior se cierra y se mergea a
+producción. El segundo caso se detectó solo porque el síntoma era visible.
+
+**La regla operativa:**
+
+> **El cierre de una tanda que necesita QA en `dev.finde.pe` incluye el merge a
+> `dev` y la verificación de que `origin/dev` lo contiene. No alcanza con pushear
+> la rama.**
+
+**Y se verifica con `git branch -r --contains`, no con el log:**
+
+```bash
+git fetch origin
+git branch -r --contains <rama>   # tiene que listar origin/dev
+```
+
+**Por qué no con el log:** `git log origin/dev` muestra los commits que uno
+espera ver y es fácil leer ahí lo que se quiere leer, sobre todo si la rama y
+`dev` comparten historia reciente. `--contains` responde la pregunta exacta que
+importa, que no es "qué hay en dev" sino **"¿está mi trabajo en dev?"**.
+
+**Corolario, del mismo error visto desde el otro lado:** un "QA OK" del usuario
+**solo cubre lo que estaba en `dev` cuando lo hizo**. Si en el medio se mergeó
+algo más, ese QA no lo alcanza y hay que rehacerlo.
 
 ### 4. El QA humano encuentra lo que la medición no
 
