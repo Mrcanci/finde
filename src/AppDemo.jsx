@@ -5,7 +5,7 @@ import { useAuth } from "./contexts/AuthContext.jsx";
 import { authFetch } from "./lib/authFetch.js";
 import { supabase } from "./lib/supabase.js";
 import { resizeImageForUpload, ALLOWED_INPUT_TYPES, MAX_UPLOAD_BYTES, OG_MIN_WIDTH, OG_MIN_HEIGHT } from "./lib/image-resize.js";
-import { fromPath, toPath, parseTourSegment, canonicalTourPath, PUBLIC_VIEWS } from "./lib/routes.js";
+import { fromPath, toPath, parseTourSegment, canonicalTourPath } from "./lib/routes.js";
 // La condición de publicar y sus números salen del MISMO módulo que usa el
 // backend. No se copian acá: ver lib/tour-publish.js.
 import { faltaParaPublicar, PITCH_MIN, PITCH_MAX, DESC_MIN } from "../lib/tour-publish.js";
@@ -3451,6 +3451,52 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
   const docIdValid = /^[A-Za-z0-9-]{6,20}$/.test(docId.trim());
   const step2Valid = nameValid && phoneValid && emailValid && docIdValid;
 
+  // El aviso de carrera de cupos va DONDE SE PUEDE DISPARAR EL POST, no en un
+  // paso concreto. Estaba escrito adentro del paso de pago, y ese es el error de
+  // siempre: la guarda quedó atada al camino donde se pensó y no al estado que
+  // protege (ver .claude/rules/api-y-schema.md).
+  //
+  // Concretamente, submitBooking se invoca desde DOS lugares según el flag: el
+  // paso de pago (DEMO_PAYMENT_FLOW en true) y el botón "Confirmar reserva" del
+  // paso 2 (en false). Por el segundo camino el 409 por cupo no tenía dónde
+  // mostrarse, y el fallo es MUDO: submitBooking hace `return` sin lanzar, así
+  // que submitError queda vacío y lo único que se ve es que el botón apaga su
+  // "Procesando reserva…". La pantalla deja de responder sin decir por qué.
+  //
+  // Se define una vez y se renderiza en los dos pasos. Solo aparece si el aviso
+  // sigue aplicando a lo elegido: si el viajero ya cambió la fecha o la cantidad
+  // de personas, deja de aplicar y desaparece solo, sin efecto que lo limpie.
+  const avisoCupos = availError && availError.forDate === date && availError.forGuests === guests ? (
+    <div className="notice">
+      <div className="notice-t">
+        {availError.seatsLeft <= 0
+          ? "Se agotaron los cupos de esa fecha"
+          : "Alguien acaba de tomar cupos"}
+      </div>
+      <div className="notice-d">
+        {availError.seatsLeft <= 0
+          ? "Mientras completabas tus datos se llenó la salida. Tus datos quedan guardados."
+          : `Quedan ${availError.seatsLeft} para el ${formatLongDate(date)}. Tus datos quedan guardados.`}
+      </div>
+      {availError.seatsLeft <= 0 ? (
+        <button type="button" className="notice-b" onClick={() => { setAvailError(null); setDate(""); setStep(1); }}>
+          Elegir otra fecha
+        </button>
+      ) : availError.seatsLeft < guests ? (
+        <button type="button" className="notice-b" onClick={() => { setGuests(availError.seatsLeft); setAvailError(null); }}>
+          Reservar para {availError.seatsLeft} {availError.seatsLeft === 1 ? "persona" : "personas"}
+        </button>
+      ) : (
+        // seatsLeft >= guests: con el paso 1 aplicado esto ya no debería pasar
+        // (el cupo alcanzaba). Queda el reintento en vez de un callejón sin
+        // salida.
+        <button type="button" className="notice-b" onClick={() => { setAvailError(null); submitBooking(); }}>
+          Volver a intentar
+        </button>
+      )}
+    </div>
+  ) : null;
+
   if (step === VOUCHER_STEP) {
     // Construimos el trip equivalente al que terminó en TripsView para que el
     // voucher muestre exactamente la misma información que verá el viajero en el
@@ -3651,6 +3697,11 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
           Al confirmar, coordinarás el pago y los detalles directamente con la agencia por WhatsApp.
         </div>
         )}
+        {/* En el flujo sin pago el POST sale de ESTE paso, así que el aviso de
+            carrera de cupos tiene que existir acá. Con DEMO_PAYMENT_FLOW en true
+            nunca se llena desde este botón y no se ve: no molesta, y el día que
+            el flag se apague la falla deja de ser muda. */}
+        {avisoCupos}
         {submitError && <div className="field-err" style={{ marginBottom: 12 }}>{submitError}</div>}
         {DEMO_PAYMENT_FLOW ? (
           <button className="mbtn" disabled={submitting || !step2Valid} onClick={() => { if (!step2Valid) return; setStep(PAYMENT_STEP); }}>
@@ -3698,37 +3749,9 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
             mismo aviso chico de 12px que "el teléfono es inválido". Dice qué
             pasó y OFRECE LA SALIDA, que es lo que faltaba: hasta ahora el
             viajero leía "solo quedan N" y tenía que deducir solo que había que
-            volver dos pasos y bajar el número. */}
-        {availError && availError.forDate === date && availError.forGuests === guests && (
-          <div className="notice">
-            <div className="notice-t">
-              {availError.seatsLeft <= 0
-                ? "Se agotaron los cupos de esa fecha"
-                : "Alguien acaba de tomar cupos"}
-            </div>
-            <div className="notice-d">
-              {availError.seatsLeft <= 0
-                ? "Mientras completabas tus datos se llenó la salida. Tus datos quedan guardados."
-                : `Quedan ${availError.seatsLeft} para el ${formatLongDate(date)}. Tus datos quedan guardados.`}
-            </div>
-            {availError.seatsLeft <= 0 ? (
-              <button type="button" className="notice-b" onClick={() => { setAvailError(null); setDate(""); setStep(1); }}>
-                Elegir otra fecha
-              </button>
-            ) : availError.seatsLeft < guests ? (
-              <button type="button" className="notice-b" onClick={() => { setGuests(availError.seatsLeft); setAvailError(null); }}>
-                Reservar para {availError.seatsLeft} {availError.seatsLeft === 1 ? "persona" : "personas"}
-              </button>
-            ) : (
-              // seatsLeft >= guests: con el paso 1 aplicado esto ya no debería
-              // pasar (el cupo alcanzaba). Queda el reintento en vez de un
-              // callejón sin salida.
-              <button type="button" className="notice-b" onClick={() => { setAvailError(null); submitBooking(); }}>
-                Volver a intentar
-              </button>
-            )}
-          </div>
-        )}
+            volver dos pasos y bajar el número. Se define arriba (avisoCupos) y
+            se renderiza también en el paso 2, porque el POST sale de los dos. */}
+        {avisoCupos}
         {submitError && <div className="field-err" style={{ marginBottom: 12 }}>{submitError}</div>}
         <button className={`mbtn ${pay === "yape" ? "yp" : ""}`} disabled={submitting} onClick={submitBooking}>
           {submitting
@@ -5806,33 +5829,34 @@ function NotFoundView({ go, deTour }) {
   );
 }
 
-// Vistas públicas: un invitado ("Explorar sin cuenta") puede verlas sin sesión.
-// Todo lo demás (booking, trips, trip-detail, profile, dashboard, new-tour,
-// notifications) es privado y lo rebota el guard de effectiveView al login.
-const GUEST_VIEWS = ["home", "catalog", "detail", "login", "welcome", "not-found"];
+// Las vistas que se ven SIN CUENTA. Desde la tanda 3 esto no es un "modo
+// invitado" que haya que prender: es el estado normal de quien entra a Finde.
+//
+// "booking" está en la lista A PROPÓSITO. El muro de cuenta se movió al
+// checkout: el viajero elige fecha y cupos y ve el total, y recién ahí se le
+// pide la cuenta. Si "booking" no estuviera acá, el guard de effectiveView
+// rebotaría la vista ANTES de que BookingView se monte, así que no habría
+// dónde mostrar ese pedido.
+//
+// Lo que sigue siendo privado y cae al login: trips, trip-detail, profile,
+// dashboard, new-tour y notifications.
+const GUEST_VIEWS = ["home", "catalog", "detail", "booking", "login", "welcome", "not-found"];
 
 // La vista con la que arranca la app, leída de la URL DURANTE el render.
 // Mismo criterio que src/App.jsx: leer la URL no necesita estado ni efecto, es
 // un dato del documento que ya existe cuando React monta.
+//
+// El respaldo sin window es "home" y no "login" desde la tanda 3: la app ya no
+// arranca en el login por defecto.
 function initialRoute() {
-  if (typeof window === "undefined") return { view: "login", params: {} };
+  if (typeof window === "undefined") return { view: "home", params: {} };
   return fromPath(window.location.pathname);
 }
 
-// Un deep link a una vista PÚBLICA prende el modo invitado, o el visitante que
-// llega de Google rebotaría al login y el router no serviría para su propósito.
-//
-// Ojo con el borde, que es lo que mantiene esto separado de la tanda 3: solo
-// cuenta como deep link una ruta que NO es la raíz. Entrar a /demo pelado sigue
-// mostrando el login, como siempre. Abrir la navegación por defecto es la
-// tanda 3, no esta.
-function isPublicDeepLink(route) {
-  if (typeof window === "undefined") return false;
-  const raiz = toPath("home");
-  const aqui = window.location.pathname.replace(/\/+$/, "") || "/";
-  if (aqui === raiz.replace(/\/+$/, "")) return false;
-  return PUBLIC_VIEWS.includes(route.view);
-}
+// Acá vivía isPublicDeepLink, que prendía el modo invitado SOLO para un deep
+// link a una vista pública y dejaba el /demo pelado en el login. Era la mitad
+// que la tanda 2 podía abrir sin abrir la navegación entera. La tanda 3 la
+// abrió, así que la excepción sobra: ya no hay ningún modo que prender.
 
 // ── MAIN ──────────────────────────────────────────────
 export default function AppDemo() {
@@ -5843,9 +5867,6 @@ export default function AppDemo() {
   const [view, setView] = useState(route0.view);
   // Parámetros de la ruta actual (el segmento de la ficha, el código del viaje).
   const [routeParams, setRouteParams] = useState(route0.params);
-  // Modo invitado explícito: sin él, el guard de effectiveView rebotaría al
-  // login cualquier vista sin sesión y "Explorar sin cuenta" no navegaría.
-  const [guest, setGuest] = useState(() => isPublicDeepLink(route0));
   const [tour, setTour] = useState(null);
   // Hidratación de un link frío: el tour que se pide al servidor por su sufijo
   // cuando alguien abre /tour/<slug>-<sufijo> sin haber pasado por el catálogo.
@@ -6374,14 +6395,18 @@ export default function AppDemo() {
       : !resuelto ? "loading"
         : deepFetch.failed ? "missing" : "ready";
   const deepTour = resuelto && !deepFetch.failed ? deepFetch.tour : null;
-  const handleGuest = () => { setGuest(true); go("home"); };
-  // El logout apaga el modo invitado: cerrar sesión vuelve al login normal, no
-  // deja al usuario navegando el catálogo como invitado.
-  const handleLogout = async () => { setGuest(false); await signOut(); };
-  const handleBook = () => {
-    if (!user) { setLoginMsg("Inicia sesión o regístrate para reservar tu tour"); go("login"); }
-    else go("booking", { tour: currentTour });
-  };
+  const handleGuest = () => go("home");
+  // Cerrar sesión deja al usuario navegando como visitante, no contra un muro.
+  // Antes apagaba el modo invitado y lo mandaba al login, que era coherente
+  // cuando el /demo pelado también pedía cuenta. Ya no la pide, así que dejarlo
+  // en el login sería un muro que desaparece con solo recargar.
+  const handleLogout = async () => { await signOut(); go("home"); };
+  // El muro de cuenta YA NO ESTÁ ACÁ. Entrar a reservar es navegación normal: el
+  // viajero elige fecha y cupos y ve el total, y la cuenta se le pide recién en
+  // el checkout. Ese pedido es el modal del paso 3 de la tanda, que todavía no
+  // existe: hasta que exista, un visitante sin cuenta llega hasta el final del
+  // formulario y el POST le responde 401.
+  const handleBook = () => go("booking", { tour: currentTour });
   const handleReview = (tripId, tourId, rating, text) => {
     const newReview = { id: Date.now(), author: USER.name, avatar: USER.avatar, rating, text, date: "Hoy" };
     setReviews(prev => ({ ...prev, [tourId]: [newReview, ...(prev[tourId] || [])] }));
@@ -6788,11 +6813,11 @@ export default function AppDemo() {
   // - sin sesión en una vista protegida (logout o expiración de sesión) →
   //   "login". Guard derivado durante el render (no useEffect/setState): sin
   //   flash ni render extra. En el re-login, LoginView hace go("home").
-  // - sin sesión y sin modo invitado → solo login/welcome.
-  // - sin sesión en modo invitado → además las vistas públicas (GUEST_VIEWS);
-  //   una vista privada (reservar, viajes, perfil...) sigue cayendo al login.
-  // Con sesión, `guest` es irrelevante: la primera rama manda.
-  const allowedWithoutSession = guest ? GUEST_VIEWS : ["login", "welcome"];
+  // - sin sesión → se ven las vistas de GUEST_VIEWS, siempre y sin prender
+  //   ningún modo. Una vista privada (viajes, perfil, panel...) sigue cayendo
+  //   al login. Hasta la tanda 3 esto dependía de un flag `guest` que arrancaba
+  //   apagado, y por eso el /demo pelado caía al login; ese flag ya no existe.
+  const allowedWithoutSession = GUEST_VIEWS;
   // El panel expulsa a "home" SOLO cuando el perfil de operador ya está
   // resuelto y dice que no es operador. Mientras resuelve (operatorResolved
   // false), el render de "dashboard" muestra "Cargando tu panel…" en vez de
