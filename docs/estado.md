@@ -897,16 +897,73 @@ Local, dev.finde.pe y producción usan **la misma base**. Estos son los números
 - Categorías: adventure 19, cultural 16, nature 9, mystic 3, gastronomy 2.
 - `FeaturedSearch`: 32 filas. `SearchLog`: 271 filas.
 
-## PENDIENTE ANTES DEL LANZAMIENTO: las fotos que sube la agencia no se procesan
+## CONDICIÓN PARA QUE LA PLATAFORMA FUNCIONE CON TRÁFICO: procesar las fotos
 
 **Investigado el 2026-08-16, sin implementar.** La foto que sube una agencia se
 guarda **tal cual**, al tamaño que salió del celular.
 
-**Por qué tiene que resolverse ANTES y no después.** En el lanzamiento se borran
-las agencias actuales y entran agencias reales que suben sus propias fotos. **Si
-las primeras suben fotos sin procesar, después hay que reprocesarlas a mano o
+**Esto dejó de ser "conviene hacerlo" y pasó a ser condición para que la
+plataforma funcione con tráfico.** Lo que lo movió de categoría es el plan de
+Supabase, confirmado por José el 2026-08-16: **el proyecto está en FREE**, y el
+plan Free **no cobra excedente: RESTRINGE**. Agotar la cuota no es una factura que
+llega a fin de mes, **es que la plataforma deja de servir**.
+
+**Por qué además tiene que resolverse ANTES y no después.** En el lanzamiento se
+borran las agencias actuales y entran agencias reales que suben sus propias fotos.
+**Si las primeras suben fotos sin procesar, después hay que reprocesarlas a mano o
 pedirles que vuelvan a subir todo**, que es exactamente el pedido que no se le
 hace a una agencia recién onboardeada. Es una ventana que se abre una sola vez.
+
+### El plan Free, y el límite que nadie había mirado
+
+| Recurso | Uso hoy | Tope | Ocupado |
+|---|---|---|---|
+| Storage | 0,027 GB | **1 GB** | 3% |
+| **Egress** | 0,126 GB | **5 GB al mes** | 3% |
+| Database | 0,029 GB | 0,5 GB | 6% |
+
+**Storage Image Transformations figura como "Unavailable in plan".** O sea que
+**Supabase no puede achicar las fotos del lado del servidor**: no hay atajo de
+configuración. **El arreglo en el navegador es el único camino**, no una opción
+entre varias.
+
+**Y el que muerde primero no es el almacenamiento, es el EGRESS.** El
+almacenamiento se llena una vez y se ve venir; el egress **se consume en cada
+visita** y se recarga cada mes. Cada persona que abre el catálogo descarga el peso
+de las portadas, y eso sale de la cuota.
+
+#### Cuántas visitas al home agotan los 5 GB
+
+Contando 1 GB como 1024 MB, y sumando lo que la app consume **aparte** de las
+fotos: la respuesta de `GET /api/tours` (181 kB, que viaja de Supabase a Vercel) y
+las llamadas de Auth, que son de pocos kB.
+
+| Escenario | Por visita al home | **Visitas al mes hasta agotar** |
+|---|---|---|
+| **Hoy** | 3,6 MB | **~1.450** |
+| **Sin procesar, portadas de 4 MB** | 194,6 MB | **~26** |
+| **Con el arreglo, 1600 px** | 7,4 MB | **~692** |
+
+**Veintiséis visitas.** Ese es el número que convierte el pendiente en una
+condición: con fotos sin procesar, **la plataforma deja de servir imágenes antes
+de terminar el primer día de cualquier difusión real**.
+
+**Ojo con el número de hoy, que engaña.** Los 3,6 MB salen de que **38 de las 48
+portadas las sirve Unsplash y no nosotros**: solo 3.429 kB de los 11.333 kB salen
+de nuestro bucket. **El lanzamiento cambia eso de raíz**: al borrar los tours del
+seed y entrar agencias reales, **el 100% de las fotos pasa a salir de nuestro
+bucket**. O sea que el lanzamiento no solo agrega fotos más pesadas, además
+**mueve el 70% del tráfico de imágenes desde Unsplash hacia nuestra cuota**.
+
+**Dos matices honestos sobre estos números**, que no cambian la conclusión:
+
+- **Son el techo, para visitantes nuevos.** El navegador cachea, así que quien
+  vuelve no descarga de nuevo. Pero **el visitante que llega de Google es nuevo
+  por definición**, y ese es justamente el público que persigue todo el plan de
+  SEO: el peor caso es el caso que estamos buscando.
+- Lo que importa es el **orden de magnitud**, no el número exacto: decenas de
+  visitas contra cientos contra miles. Entre "sin procesar" y "con el arreglo" hay
+  un factor de **26 veces**, y eso ninguna caché lo compensa.
 
 ### 1. No hay redimensionado ni compresión en ningún punto de la cadena
 
@@ -1028,12 +1085,12 @@ que ya promedian 320 kB** y no urge tocar. Si algún día hiciera falta, es un
 script de una sola corrida, y **no habría que tocar la base**: re-subir con el
 mismo path conserva la URL (ojo con la caché del CDN).
 
-### 5. El bucket: 26 MB usados, y el techo depende del plan
+### 5. El bucket: 26 MB de 1 GB, y el almacenamiento es el problema MENOR
 
 | Dato | Valor |
 |---|---|
 | Archivos hoy | 44 |
-| Ocupado hoy | **26 MB** |
+| Ocupado hoy | **26 MB de 1 GB** |
 | Promedio por archivo | 600 kB |
 | El más grande | 4.062 kB |
 
@@ -1044,16 +1101,18 @@ Los archivos por tour rondan **4** (MEGATOURS: 28 archivos para 5 tours).
 | Sin procesar, fotos de 4 MB | 16 MB | **~64** |
 | Con el arreglo, 151 kB | 600 kB | **~1.700** |
 
-**Falta un dato que no puedo leer desde acá: en qué plan de Supabase está el
-proyecto.** El tope de almacenamiento del plan gratuito es **1 GB** y el de Pro
-son **100 GB**. Con 1 GB y fotos sin procesar, el bucket se llena con **64
-tours**, que es un número perfectamente alcanzable este año. **José tiene que
-confirmar el plan**, y hasta entonces la cuenta de arriba es la que hay que
-asumir.
+**Plan confirmado el 2026-08-16: FREE.** Así que el tope real es 1 GB, y con fotos
+sin procesar el bucket se llena con **64 tours**: un número perfectamente
+alcanzable este año.
+
+**Pero el almacenamiento es el límite menos urgente de los tres.** Llenar 1 GB
+requiere que las agencias suban 64 tours; agotar el egress requiere **26 visitas**.
+El techo que se toca primero, y por dos órdenes de magnitud, es el de
+transferencia. Ver la sección del egress más arriba.
 
 ## Antes de lanzar a usuarios reales
 
-- [ ] **Procesar las fotos en el navegador antes de subirlas.** Sección propia
+- [ ] **Procesar las fotos en el navegador antes de subirlas. CONDICIÓN, no mejora.** Sección propia
       arriba. Va **antes** de onboardear agencias reales, no después.
 - [ ] **Reactivar "Confirm email" en Supabase** (desactivado para acelerar el MVP).
 - 🚫 **El sello de verificación falso (8 del seed más "Descubre el Perú") SALIÓ de esta checklist el 2026-08-15.** Subió a **BLOQUEANTE DE LANZAMIENTO** y tiene sección propia más arriba en este documento. No es un ítem que se tilda entre otros: **el switch no se hace sin resolverlo.**
