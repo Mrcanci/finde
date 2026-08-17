@@ -173,6 +173,8 @@ export function canonicalTourPath(tour) {
   return toPath("detail", { tour });
 }
 
-// Vistas públicas que un visitante puede abrir por deep link sin sesión.
-// "login" y "welcome" NO están: no son destino de un link compartido.
-export const PUBLIC_VIEWS = ["home", "catalog", "detail", "not-found"];
+// Acá vivía PUBLIC_VIEWS, la lista de vistas que un deep link podía abrir sin
+// sesión. Existía porque la tanda 2 abrió los links compartidos pero no la
+// navegación: había que distinguir "llegué por un link" de "entré a /demo". La
+// tanda 3 abrió la navegación entera, así que esa distinción dejó de existir y
+// la única lista que queda es GUEST_VIEWS, en src/AppDemo.jsx.

@@ -22,18 +22,19 @@ lanzamiento, y **cada tanda tiene que dejar el switch más cerca, no más lejos*
 | 1B | La landing no se carga en `/demo` | salió de medir la 1 | ✅ en `main` |
 | 1C | Fotos de la landing a 800 px | 1B | ✅ en `main` |
 | 2 | Router con `BASE_PATH` y URL por tour | 1 | ✅ en `main` |
-| 3 | Modal de cuenta en el checkout, navegación abierta | 2 ✅ | **la siguiente** |
-| 4 | Eventos del embudo | 3 | esperando |
+| 3 | Modal de cuenta en el checkout, navegación abierta | 2 ✅ | ✅ en `main` |
+| 4 | Eventos del embudo | 3 ✅ | **la siguiente** |
 | 5 | Meta tags por tour, más la metadata obligatoria del formulario | 2 ✅ | ✅ en `main`. `robots.txt` y `sitemap.xml` van con el switch |
 | 5B | Activar un tour exige la metadata mínima, y el panel avisa antes | 5 ✅ | ✅ en `main` |
 | 6 | Día del switch: `BASE_PATH` a `""` más el rewrite de la raíz | todo | el código es reversible, el SEO no |
 
-**Las 5 y 5B cerraron el 2026-08-17 y están en `main`. La 3 es la siguiente y no
-depende de ninguna de las dos.** El detalle de lo cerrado está en
+**La 3 cerró el 2026-08-17 y está en `main`. La 4 es la siguiente y ya no tiene
+nada delante.** El detalle de las tandas 2, 5 y 5B está en
 `docs/historia/2026-08-router-y-urls.md`.
 
-- **La 3** abre la navegación por defecto. Hoy `/demo` pelado **sigue mostrando el
-  login**: la 2 solo abrió los deep links. De la 3 depende la 4.
+- **La 4** son los eventos del embudo, y **recién ahora hay embudo que medir**:
+  hasta la 3, `/demo` pelado pedía cuenta, así que no existía el recorrido de
+  visitante que la 4 viene a contar.
 
 **Lo que queda abierto del frente de SEO, y no se toca antes de tiempo:**
 
@@ -71,6 +72,8 @@ depende de ninguna de las dos.** El detalle de lo cerrado está en
   la pestaña "Ingresos" del dashboard, hoy oculta. Ver `docs/decisiones.md`.
 
 ## Terminado y mergeado
+
+- **Navegación abierta y modal de cuenta (tanda 3, 2026-08-17)**: `/demo` pelado abre el catálogo, no el login. El muro de cuenta se movió al checkout, con **un solo modal** que sirve a los cuatro puntos de entrada (reservar, "Mis reservas", "Perfil" y notificaciones) y dice por qué se pide la cuenta en cada uno. Entrar no desmonta nada: el viajero sigue con su paso, su fecha y sus cupos. Tres cosas más que salieron del mismo viaje: el email del paso 2 se **deriva** de la cuenta y va de solo lectura (antes se prellenaba una vez al montar y el viajero podía ver un correo que el backend descarta), el aviso de carrera de cupos **salió del paso de pago** y se muestra también en el paso 2 (donde el POST sale con el flag apagado, y ahí el 409 fallaba mudo), y entrar por URL a una vista privada muestra el inicio con el modal encima en vez del login, así no se pierde a dónde iba.
 
 - **SEO de las fichas (tandas 5 y 5B, 2026-08-17)**: cada tour tiene su HTML estático con title, description y `og:` propios, generado en cada deploy y con `noindex` mientras el producto viva en `/demo`. La metadata mínima (gancho de 40 a 80, descripción de 300, portada) es obligatoria **por los dos caminos**: al guardar en el formulario y al activar desde el panel, con la condición compartida en `lib/tour-publish.js`. El panel apaga el interruptor de entrada y dice qué falta.
 
@@ -125,7 +128,7 @@ Ninguno.
 ## Antes de lanzar a usuarios reales
 
 - [x] **Procesar las fotos en el navegador antes de subirlas.** ~~CONDICIÓN, no mejora.~~ **HECHO el 2026-08-16** (`62a1d1a`), antes de onboardear ninguna agencia real, que era el punto. Registro en `docs/historia/2026-08-rendimiento-imagenes.md`.
-- [ ] **Reactivar "Confirm email" en Supabase** (desactivado para acelerar el MVP).
+- [ ] **Conectar Resend como SMTP propio en Supabase, y recién después reactivar "Confirm email".** Los dos van juntos y en ese orden: hoy los correos de auth salen por el remitente por defecto, con un tope bajo por hora que sirve para probar y no para operar. Reactivar "Confirm email" solo ya no rompe el checkout en silencio (el modal muestra "revisa tu correo"), pero **lo corta igual**: el viajero tiene que salir al correo y volver con la fecha y los cupos ya elegidos. El razonamiento entero está en `docs/pendientes-producto.md`.
 - [x] **El sello de verificación falso: CERRADO el 2026-08-16.** Fue el único bloqueante de lanzamiento y El registro completo está en `docs/historia/2026-08-sello-verificacion.md`. Resultado: **42 tours visibles y MEGATOURS como la única agencia con sello, que es la única que lo tiene de verdad.**
 - [ ] **Borrar los datos de prueba.** Inventario concreto:
   - Tours de `hola@finde.pe` ("Tour Prueba", sin verificar): **dos**, `"prueba"` (2026-07-28) y `"prueba manual"` (2026-08-13). **Los dos están pausados**: `"prueba manual"` ya lo estaba y `"prueba"` se pausó el 2026-08-17, porque seguía en el catálogo público con 15 caracteres de descripción. Falta borrarlos.
