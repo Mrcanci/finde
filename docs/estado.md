@@ -23,6 +23,9 @@
 - **Jerarquía visual de escasez** en el calendario de reserva y disponibilidad pre-cargada desde el detalle (`0100120`, `4379219`, `db21c0b`).
 - **`/api/me?scope=operator`**: camino liviano que resuelve la identidad de agencia sin la query de bookings ni el vencimiento perezoso (`4e81cb0`).
 - **Los endpoints de IA exigen perfil de agencia** (`6e6fb83`). Tanda 0 del camino al lanzamiento, cerrada post-QA el 2026-08-15.
+- **Vercel Web Analytics** (`8681dee`). Tanda 1, reducida a eso por decisión de José. Costo medido: unos 2,3 kB comprimidos y cero bloqueo del hilo principal.
+- **La landing deja de cargarse en `/demo`** (`d916e65`). Tanda 1B, cerrada post-QA el 2026-08-16. Bytes de `/demo`: **6.528.216 a 232.992, un 96,4% menos**.
+- **Las fotos de destinos de la landing, a 800 px** (`5575328`). Tanda 1C, cerrada post-QA el 2026-08-16. Bytes de la landing: **6.526.560 a 976.569, un 85% menos**.
 
 ## En curso
 
@@ -33,18 +36,34 @@ arrancó cubrió gates de sesión, permisos del backend y RLS; el hallazgo centr
 es que **el backend ya está abierto y la base no necesita nada**: lo que falta es
 frontend, y sobre todo **URLs**, que hoy no existen.
 
-**La tanda 0 está cerrada y en `main`.** Los dos endpoints de IA exigen perfil de
-agencia. Ver abajo.
+**Cerradas y en `main`: las tandas 0, 1, 1B y 1C.** Los endpoints de IA con auth,
+Vercel Analytics, la landing que deja de cargarse en `/demo` y las fotos de la
+landing a 800 px. Cada una tiene su sección más abajo con los números.
 
-**Lo próximo de este frente es la tanda 1, la analítica base, y no está
-arrancada.** No se empieza sin visto bueno explícito.
+**Las dos tandas de rendimiento no estaban planificadas: salieron de medir.** La
+1B apareció al medir el costo de la 1, y la 1C al analizar lo que la 1B destapó.
+**Entre las dos sacaron 11,8 MB de peso**, y de paso dieron vuelta la prioridad
+que el documento tenía anotada: **lo que pesa son imágenes, no JavaScript.**
+
+**Lo próximo de este frente es la tanda 2, el router con `BASE_PATH` y la URL por
+tour, y no está arrancada.** No se empieza sin visto bueno explícito, y arranca
+con las tres definiciones que pide la decisión de la URL del tour.
+
+**Lo que queda pendiente y no es una tanda de la secuencia**, en orden de
+gravedad:
+
+1. **El sello de verificación falso.** Bloqueante de lanzamiento, sección propia.
+2. **Procesar las fotos que suben las agencias.** Condición para que la plataforma
+   funcione con tráfico, con el plan Free confirmado. Sección propia.
 
 **La secuencia hasta el lanzamiento**, en orden y con sus dependencias:
 
 | # | Tanda | Depende de | Reversible |
 |---|---|---|---|
 | 0 | ✅ Endpoints de IA con auth, **en `main`** | nada | sí |
-| 1 | Analítica base: SOLO Vercel Analytics (reducida) | nada | sí |
+| 1 | ✅ Analítica base: SOLO Vercel Analytics (reducida), **en `main`** | nada | sí |
+| 1B | ✅ La landing no se carga en `/demo`, **en `main`** | salió de medir la 1 | sí |
+| 1C | ✅ Fotos de la landing a 800 px, **en `main`** | 1B | sí |
 | 2 | Router con `BASE_PATH` y URL por tour | 1 | sí |
 | 3 | Modal de cuenta en el checkout, navegación abierta | 2 | sí |
 | 4 | Eventos del embudo (`booking_started`, `auth_prompted`, ...) | 3 | sí |
@@ -118,34 +137,147 @@ Hasta entonces, lo medible es cuánto agrega en red: las portadas reales del
 catálogo público pesan **entre 94 kB y 977 kB, con mediana de 276 kB**, y una
 ficha con galería de tres fotos ronda los **800 kB**.
 
-#### Hallazgo grande que salió de medir, y NO se arregla en esta tanda
+#### Hallazgo grande que salió de medir: se arregló en la tanda 1B
 
-**Abrir `/demo` descarga 6,1 MB de imágenes de la landing que el usuario nunca
-ve.** Es el 96% del peso de la carga.
+**Abrir `/demo` descargaba 6,1 MB de imágenes de la landing que el usuario nunca
+ve**, el 96% del peso de la carga. Está **arreglado**, ver la tanda 1B más abajo.
 
-| Qué | Peso |
-|---|---|
-| Imágenes de la landing (7 archivos) | **6.130 kB** |
-| Todo lo demás (bundle, fuentes, documento, CSS, dos fetch) | **244 kB** |
+La causa estaba en `src/App.jsx`: `showDemo` arrancaba en `false` y se corregía
+dentro de un `useEffect`, o sea **después del primer render**. En ese render se
+montaba `<Landing />`, el navegador disparaba la descarga de sus imágenes, y un
+instante después React la desmontaba. Las imágenes ya habían salido.
 
-`oxapampa.jpg` sola pesa **4.288 kB**.
+**ESLint lo venía marcando** con `react-hooks/set-state-in-effect` en
+`src/App.jsx:13`, sin que nadie atara el warning a su consecuencia.
 
-**La causa está en `src/App.jsx` y es de una línea.** `showDemo` arranca en
-`false` y recién se corrige dentro de un `useEffect`, o sea **después del primer
-render**. En ese primer render se monta `<Landing />`, el navegador dispara la
-descarga de sus imágenes, y un instante después React la desmonta y monta
-`<AppDemo />`. Las imágenes ya salieron.
+### Tanda 1B, CERRADA: los 6,1 MB que se descargaban y nadie veía
 
-Solo `src/Landing.jsx` referencia `/destinations` y `/mockups`, así que no hay
-duda de a quién pertenecen. **ESLint ya lo venía marcando** con
-`react-hooks/set-state-in-effect` en `src/App.jsx:13`, sin que nadie atara el
-warning a su consecuencia.
+**En `main` desde el 2026-08-16 (`d916e65`), post-QA.** José la validó en
+dev.finde.pe **junto con la 1C**, que es como correspondía: las dos tocan las
+mismas imágenes desde puntas distintas.
 
-**No se tocó en esta tanda, a propósito**: el alcance era instalar Vercel
-Analytics y nada más. Queda anotado como el candidato número uno de rendimiento,
-**por encima del code splitting del bundle**: son 6,1 MB contra 184 kB. El arreglo
-es calcular `isDemo` durante el render en vez de en un efecto, **y no toca
-`Landing.jsx`**.
+> **El QA anterior quedó anulado y se rehízo.** El primer "QA OK" se dio sobre
+> `dev` **sin** esta rama mergeada, así que lo que se había probado era el estado
+> anterior. Se detectó antes de subir nada a `main`. **Vale como regla: un QA sobre
+> `dev` solo cubre lo que está EN `dev`.**
+
+**Sale directo de medir la tanda 1.** Es más importante que todo lo que había
+anotado de rendimiento: **6.130 kB contra los 184 kB del bundle**, que era el
+pendiente que figuraba.
+
+**El arreglo, en `src/App.jsx`:** la URL se lee **durante el render** en vez de en
+un `useEffect`, así `<Landing />` no se monta nunca cuando la URL es `/demo`. Se
+fueron el `useState` y el `useEffect`; queda una función `isDemoUrl()` y un
+ternario. **`Landing.jsx` no se tocó.**
+
+**El warning de ESLint desapareció**, que era la verificación pedida:
+`react-hooks/set-state-in-effect` ya no aparece y `src/App.jsx` salió entero del
+reporte. De 4 problemas a 3, todos preexistentes.
+
+#### Medición, mismo método que la tanda 1
+
+Lighthouse 12.8.2, preset mobile (1638 Kbps, 150 ms de RTT, CPU 4x más lenta).
+**Seis corridas válidas por lado**, con flags anti-throttling de Chrome que
+eliminaron los `NO_FCP` que ensuciaban las primeras tandas.
+
+| Métrica | Antes | Después | Delta |
+|---|---|---|---|
+| **Bytes transferidos** | 6.528.216 | **232.992** | **-6.295.224 (-96,4%)** |
+| Peticiones | 21 | 13 | -8 |
+| Imágenes de la landing | 7 (6.130 kB) | **0** | todas |
+| LCP | 5.859 a 12.531 ms | **3.510 a 3.615 ms** | estable en 3,6 s |
+| TTI | 6.204 a 12.853 ms | **3.510 a 3.615 ms** | estable en 3,6 s |
+| Score de rendimiento | 70 a 77 | **87 a 89** | +13 |
+| Total Blocking Time | 0 ms | 0 ms | sin cambio |
+
+**El LCP no solo baja: deja de ser bimodal.** Antes saltaba entre ~5,9 s y ~12,5 s
+según cómo cayera la carrera por el ancho de banda con la imagen de 4,3 MB;
+ahora las seis corridas caen dentro de **105 ms entre sí**. Un producto que a
+veces tarda el doble es peor que uno lento y predecible.
+
+El elemento LCP es el mismo en los dos casos: la pantalla de carga con el
+logotipo. O sea que esos 6,1 MB **retrasaban el primer dibujo de la app misma**,
+no solo el de una foto que nadie mira.
+
+### El análisis de las imágenes de la landing, que dio origen a la tanda 1C
+
+> **Esta sección quedó como el diagnóstico. La ejecución está en "Tanda 1C, HECHA
+> el 2026-08-16" más abajo, con los números finales.** Se conserva porque explica
+> cómo se eligió la opción, no solo cuál se eligió.
+
+**El arreglo de la tanda 1B no tocaba este problema.** `finde.pe`, que es lo que
+Google indexa, seguía descargando lo mismo: medido, **6.526.560 bytes y un LCP de
+entre 5,6 y 12,8 segundos**. La tanda 1C lo bajó a **976.569 bytes**.
+
+#### Las nueve imágenes
+
+| Archivo | Peso | Dimensiones | ¿Se usa? |
+|---|---|---|---|
+| `oxapampa.jpg` | **4.287 kB** | 5184x3456 | sí |
+| `arequipa.jpg` | 825 kB | 2560x1674 | **no, huérfana** |
+| `rajuntay.jpg` | 565 kB | 1920x1440 | sí |
+| `paracas.jpg` | 425 kB | 1920x1280 | sí |
+| `kuelap.jpg` | 357 kB | 1920x1080 | sí |
+| `colca.jpg` | 227 kB | 1920x1080 | sí |
+| `mancora.jpg` | 152 kB | 1200x675 | **no, huérfana** |
+| `chachapoyas.jpg` | 83 kB | 540x360 | sí |
+| `cusco.jpg` | 34 kB | 330x220 | **no, huérfana** |
+
+Más tres mockups PNG: 433 kB en total, de los que solo uno carga al inicio.
+
+**Tres archivos no los referencia nadie** (`arequipa`, `cusco`, `mancora`): son
+**1.011 kB muertos en el repo**. Borrarlos no ahorra ni un byte al usuario, porque
+nunca se descargaban, pero limpia el repositorio y no toca `Landing.jsx`.
+
+**El dato que ordena todo:** la tarjeta de destino se renderiza a **179x119 píxeles
+CSS** en móvil. `oxapampa.jpg` mide 5184x3456. Lighthouse calcula que el
+**99,6% de esos 4,3 MB es desperdicio puro**.
+
+#### Las cuatro opciones, con ahorro MEDIDO
+
+Los tres primeros números salen de los audits de Lighthouse sobre la landing real;
+el cuarto, de recomprimir los archivos de verdad con `cwebp` y `ffmpeg`.
+
+| Opción | Ahorro | Veredicto |
+|---|---|---|
+| **Carga diferida** de lo que está bajo el pliegue | **0 kB** | **Ya está hecha.** `loading="lazy"` está puesto en `Landing.jsx:199` y `:462`, y el audit `offscreen-images` da 0. No hay nada que ganar |
+| **Recomprimir** sin cambiar resolución | **9 kB** | **Inútil.** Los JPEG ya están razonablemente comprimidos: el problema no es la calidad, es el tamaño |
+| **Convertir a WebP** sin cambiar resolución | **1.945 kB** | Ayuda, pero es el premio chico |
+| **Servir el tamaño real** (redimensionar) | **5.995 kB** | **Es el 90% del problema.** Gana por lejos |
+
+**Experimento propio, sobre los 6 destinos que sí se usan:**
+
+| Variante | Peso total | Ahorro |
+|---|---|---|
+| Como están hoy | 5.946 kB | |
+| Redimensionadas a 800 px, **siguen siendo JPEG** | **566 kB** | **5.380 kB (90,5%)** |
+| Redimensionadas a 800 px y pasadas a WebP | 460 kB | 5.485 kB (92,2%) |
+| Redimensionadas a 1200 px y pasadas a WebP | 909 kB | 5.037 kB (84,7%) |
+
+#### La recomendación que se ejecutó, y por qué no hizo falta autorización
+
+**El 90,5% del ahorro se conseguía sin tocar una línea de `Landing.jsx`:**
+**reemplazar los archivos en `public/destinations/` por versiones redimensionadas
+a 800 px, con el mismo nombre y la misma extensión `.jpg`**. El JSX sigue
+apuntando a las mismas rutas y no se entera. **Es lo que hizo la tanda 1C.**
+
+WebP suma apenas **106 kB más** sobre eso, y `srcset` por tamaño de pantalla suma
+todavía menos. Las dos **sí exigirían tocar `Landing.jsx`** (cambia la extensión
+del `src`, o hace falta un `<picture>`), y ninguna justifica el permiso por 106 kB.
+**Si algún día se abre `Landing.jsx` por otro motivo, se aprovecha el viaje.**
+
+Las dos verificaciones que se exigieron antes de reemplazar, y cómo se cerraron:
+
+1. **Los 179x119 px eran la medición en móvil.** Se midió también en escritorio
+   antes de fijar los 800 px: **193x129 px CSS** con viewport de 1350, casi
+   idéntico. Con eso, 800 px cubre hasta 4x de densidad de pantalla.
+2. **Reemplazar los archivos cambia lo que se ve.** Se armó una comparación de las
+   seis, antes y después, a 450 px de ancho (más del doble del tamaño real), y se
+   le pasó a José antes de commitear.
+
+**Los mockups son un caso aparte y más chico:** 433 kB que bajan a 256 kB en WebP,
+pero eso sí exige tocar el JSX y solo uno de los tres carga al inicio. No vale el
+permiso hoy.
 
 ### La analítica va primera, pero su fecha límite real es el SWITCH
 
@@ -769,7 +901,73 @@ Ninguno es un bug: son huecos de producto, y están detallados más abajo en
 
 Pendientes de performance:
 
-- **El bundle pasa los 500 kB y Vite lo avisa en cada build** (661 kB, 180 kB comprimido, en un solo chunk). No es urgente para el piloto, pero sí para el mercado real: Android de gama media sobre 4G peruano, con objetivo de LCP bajo 3 segundos. `src/AppDemo.jsx` son más de 6200 líneas que hoy viajan enteras aunque el usuario solo abra el home. Candidato claro a code splitting por vista, que es como ya está organizado el archivo (el switch de `effectiveView`). Sin fecha ni tanda asignada.
+- **El bundle pasa los 500 kB y Vite lo avisa en cada build** (673 kB, 184 kB comprimido, en un solo chunk). No es urgente para el piloto, pero sí para el mercado real: Android de gama media sobre 4G peruano, con objetivo de LCP bajo 3 segundos. `src/AppDemo.jsx` son más de 6200 líneas que hoy viajan enteras aunque el usuario solo abra el home. Candidato claro a code splitting por vista, que es como ya está organizado el archivo (el switch de `effectiveView`). Sin fecha ni tanda asignada.
+
+  **Ojo con la prioridad, que las mediciones del 2026-08-16 dieron vuelta.** Este pendiente figuraba como el número uno de rendimiento y no lo era: las tandas 1B y 1C sacaron **11,8 MB** entre las dos, más de sesenta veces el bundle comprimido entero. **Lo que pesa son imágenes, no JavaScript.** El code splitting entra después de que las fotos estén resueltas en las dos puntas (la landing, ya hecha, y las que suben las agencias, que es la condición del plan Free).
+
+### Tanda 1C, CERRADA: las imágenes de la landing
+
+**En `main` desde el 2026-08-16 (`5575328`), post-QA**, validada junto con la 1B.
+
+**Cero líneas de código. `Landing.jsx` intacto.** Se reemplazaron los archivos de
+`public/destinations/` por versiones a **800 px de ancho máximo**, con el mismo
+nombre y la misma extensión `.jpg`, así que el JSX no se entera.
+
+| Archivo | Antes | Después | |
+|---|---|---|---|
+| `oxapampa.jpg` | 4.287 kB (5184x3456) | **116 kB** (800x534) | -97,3% |
+| `rajuntay.jpg` | 565 kB (1920x1440) | **76 kB** (800x600) | -86,5% |
+| `paracas.jpg` | 425 kB (1920x1280) | **53 kB** (800x534) | -87,5% |
+| `kuelap.jpg` | 357 kB (1920x1080) | **118 kB** (800x450) | -66,8% |
+| `colca.jpg` | 227 kB (1920x1080) | **93 kB** (800x450) | -58,8% |
+| `chachapoyas.jpg` | 83 kB (540x360) | **68 kB** (540x360) | -18,6% |
+| **Total** | **5.946 kB** | **526 kB** | **-91,1%** |
+
+**Por qué 800 px, medido y no elegido a ojo:** la tarjeta de destino se renderiza
+a **193x129 px CSS en escritorio** (viewport de 1350) y a **179x119 en móvil**. Es
+casi el mismo tamaño en los dos. 800 px cubre hasta **4x de densidad de pantalla**,
+más margen del que existe hoy en el mercado.
+
+**`chachapoyas.jpg` no se redimensionó, solo se recomprimió**: ya medía 540 px, por
+debajo del tope. La regla aplicada fue **nunca agrandar**, porque escalar hacia
+arriba una imagen chica la hace más pesada sin mejorarla (comprobado: llevarla a
+800 la subía de 83 a 108 kB).
+
+**Efecto sobre la landing entera**, que es la página que Google indexa, medido con
+Lighthouse mobile (4G, CPU 4x):
+
+| Métrica | Antes | Después | Delta |
+|---|---|---|---|
+| **Bytes transferidos** | 6.526.560 | **976.569** | **-5.549.991 (-85%)** |
+| LCP | 5.634 a 12.756 ms | **4.289 a 5.186 ms** | |
+| TTI | 5.852 a 13.086 ms | **4.432 a 5.269 ms** | |
+| Score de rendimiento | 72 a 77 | **78 a 84** | |
+
+**El LCP también deja de ser bimodal acá**: de 7.122 ms de dispersión entre
+corridas a 897 ms.
+
+**Qué NO se tocó, y por qué:**
+
+- **Los tres archivos huérfanos** (`arequipa.jpg` 825 kB, `mancora.jpg` 152 kB,
+  `cusco.jpg` 34 kB) no los referencia nadie. **No cuestan ancho de banda porque
+  nunca se descargan**, solo peso de repositorio. Borrarlos es decisión aparte.
+- **Los mockups PNG** (436 kB, de los que solo uno carga al inicio). Se intentó:
+  mejorarlos sin cambiar de formato exige un optimizador de PNG que no está
+  instalado (`pngquant`, `optipng`), y con lo que hay (`ffmpeg`) salían **entre
+  53% y 131% más pesados**. Pasarlos a WebP sí los achicaría, pero **exige tocar
+  `Landing.jsx`**. Queda para cuando haya un motivo para abrir ese archivo.
+- **WebP en los destinos.** Ahorraría unos 66 kB más sobre los 526, y cambia la
+  extensión del `src`, o sea `Landing.jsx`. No justifica el permiso.
+
+**Las cuatro opciones que se evaluaron antes de elegir**, con el ahorro que
+calculó Lighthouse sobre la landing real:
+
+| Opción | Ahorro | Veredicto |
+|---|---|---|
+| Carga diferida bajo el pliegue | **0 kB** | Ya estaba hecha (`loading="lazy"`), el audit `offscreen-images` daba 0 |
+| Recomprimir sin cambiar resolución | **9 kB** | Inútil: el problema no era la calidad |
+| Convertir a WebP sin redimensionar | 1.945 kB | El premio chico |
+| **Servir el tamaño real** | **5.995 kB** | **Es el 90% del problema. Lo que se hizo** |
 
 Textos con fecha de vencimiento (se van a borrar solos, no invertir en ellos):
 
@@ -948,12 +1146,37 @@ las llamadas de Auth, que son de pocos kB.
 condición: con fotos sin procesar, **la plataforma deja de servir imágenes antes
 de terminar el primer día de cualquier difusión real**.
 
-**Ojo con el número de hoy, que engaña.** Los 3,6 MB salen de que **38 de las 48
-portadas las sirve Unsplash y no nosotros**: solo 3.429 kB de los 11.333 kB salen
-de nuestro bucket. **El lanzamiento cambia eso de raíz**: al borrar los tours del
-seed y entrar agencias reales, **el 100% de las fotos pasa a salir de nuestro
-bucket**. O sea que el lanzamiento no solo agrega fotos más pesadas, además
-**mueve el 70% del tráfico de imágenes desde Unsplash hacia nuestra cuota**.
+#### El lanzamiento hace DOS cosas a la vez, y los dos efectos se multiplican
+
+**Este es el hallazgo que cambia el cálculo del lanzamiento, y es fácil de pasar
+por alto porque el número de hoy engaña.**
+
+Los 3,6 MB por visita de hoy son bajos por un motivo que **desaparece en el
+lanzamiento**: la mayoría de las fotos **no las servimos nosotros**.
+
+| De dónde sale la portada | Tours | Peso | ¿Cuenta para nuestro egress? |
+|---|---|---|---|
+| Unsplash (tours del seed) | 38 | **7.904 kB** | **No.** Lo paga Unsplash |
+| Nuestro bucket de Supabase | 9 | **3.429 kB** | **Sí** |
+| **Total en pantalla** | 47 | **11.333 kB** | solo el 30% es nuestro |
+
+**Al borrar los tours del seed y entrar agencias reales, el 100% de las fotos pasa
+a salir de nuestro bucket.** Entonces el lanzamiento hace **dos cosas a la vez**:
+
+1. **Agrega fotos más pesadas**, porque las agencias suben lo que sale del celular
+   (hasta 4 MB) en vez de las versiones ya optimizadas que sirve Unsplash.
+2. **Mueve el 70% del tráfico de imágenes desde Unsplash hacia el egress de
+   Supabase**, que hoy no pagábamos.
+
+**Los dos efectos se multiplican, no se suman.** No es que el peso por visita suba
+de 3,6 a 11 MB por cambiar de proveedor, ni que suba de 11 a 194 MB por el tamaño
+de los archivos: es que **el mismo salto ocurre sobre una base que además pasa a
+ser entera nuestra**.
+
+**El cálculo de las 26 visitas ya incluye las dos cosas**, no hace falta
+corregirlo hacia abajo: los 194,6 MB por visita asumen las 49 portadas sin
+procesar **y** todas servidas desde nuestro bucket, que es exactamente el estado
+en que queda el catálogo después del lanzamiento.
 
 **Dos matices honestos sobre estos números**, que no cambian la conclusión:
 
