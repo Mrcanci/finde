@@ -85,6 +85,41 @@ function descripcion(t: { shortPitch: string | null; description: string }): str
   return recortar(partes.join(" "), 155);
 }
 
+// La portada, ajustada a lo que pide una tarjeta grande.
+//
+// Facebook (que es el crawler que usa WhatsApp) documenta: mínimo 200x200, y
+// POR DEBAJO DE 600x315 la tarjeta se muestra chica. Lo recomendado es 1200x630
+// con relación 1.91:1.
+//
+// Medido sobre las 42 portadas del catálogo: 27 vienen de Unsplash con ?w=1200,
+// 5 de nuestro bucket a 1310x983, y **10 de Unsplash con ?w=400**, o sea 400x300:
+// por debajo del umbral, tarjeta chica. Es el 24% del catálogo.
+//
+// Las de Unsplash se arreglan GRATIS: el ancho va en la URL y su CDN hace el
+// recorte. Se reescribe acá, al emitir el tag, y NO en la base: el dato de la
+// agencia no se toca y si mañana esos tours se borran, no quedó nada que limpiar.
+//
+// Las 5 nuestras no tienen CDN que recorte. Quedan como están: con 1310 de ancho
+// la tarjeta sale grande, solo que recortada por la relación 4:3. Generar una
+// variante 1200x630 en build es posible y no vale la pena por cinco imágenes.
+function portadaOg(url: string | null): { url: string; recortada: boolean } {
+  if (!url) return { url: "", recortada: false };
+  try {
+    const u = new URL(url);
+    // Por HOSTNAME, no por regex sobre la URL entera. El primer intento usó
+    // /(^|\.)images\.unsplash\.com\// y no matcheaba NUNCA, porque el host viene
+    // después de "//" y no de un punto ni del inicio. No falló ruidosamente: las
+    // 37 portadas salieron sin reescribir y el conteo lo cazó.
+    if (u.hostname !== "images.unsplash.com") return { url, recortada: false };
+    u.searchParams.set("w", "1200");
+    u.searchParams.set("h", "630");
+    u.searchParams.set("fit", "crop");
+    return { url: u.toString(), recortada: true };
+  } catch {
+    return { url, recortada: false };
+  }
+}
+
 function log(msg: string): void {
   console.log(`[prerender] ${msg}`);
 }
@@ -152,7 +187,8 @@ async function main(): Promise<void> {
     const url = `${ORIGEN}${BASE_PATH}/tour/${seg}`;
     const tit = esc(titulo(t));
     const desc = esc(descripcion(t));
-    const img = t.imageUrl ? esc(t.imageUrl) : "";
+    const og = portadaOg(t.imageUrl);
+    const img = esc(og.url);
     const bloque = [
       `    <title>${tit}</title>`,
       `    <meta name="description" content="${desc}">`,
@@ -164,6 +200,12 @@ async function main(): Promise<void> {
       `    <meta property="og:title" content="${tit}">`,
       `    <meta property="og:description" content="${desc}">`,
       img ? `    <meta property="og:image" content="${img}">` : "",
+      // width/height SOLO cuando nosotros fijamos el recorte. Declararlos en las
+      // del bucket sería mentir: miden 1310x983, no 1200x630, y una dimensión
+      // declarada que no coincide hace que el crawler renderice mal o la ignore.
+      // Sin el tag, el crawler mide la imagen y acierta.
+      og.recortada ? `    <meta property="og:image:width" content="1200">` : "",
+      og.recortada ? `    <meta property="og:image:height" content="630">` : "",
       `    <meta name="twitter:card" content="summary_large_image">`,
       NOINDEX ? `    <meta name="robots" content="noindex" data-prerender="1">` : "",
     ].filter(Boolean).join("\n");
