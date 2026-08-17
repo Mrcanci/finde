@@ -30,6 +30,10 @@ import { fileURLToPath } from "node:url";
 // que la app no genera.
 import { tourSegment, BASE_PATH } from "../src/lib/routes.js";
 
+// El origen absoluto, que los og: y el canonical necesitan sí o sí: una ruta
+// relativa no le sirve a ningún crawler.
+const ORIGEN = process.env.PRERENDER_ORIGIN || "https://finde.pe";
+
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DIST = join(RAIZ, "dist");
 
@@ -43,6 +47,43 @@ const DIST = join(RAIZ, "dist");
 // a comprar. Con noindex el crawler entra, lee los og: y arma la tarjeta, y
 // Google no publica la página.
 const NOINDEX = BASE_PATH !== "";
+
+// Escapa para atributos HTML. Los títulos y descripciones vienen de agencias y
+// pueden traer comillas: sin esto, una comilla parte el atributo y el tag queda
+// roto justo en el contenido que el crawler viene a leer.
+function esc(t: string): string {
+  return (t || "")
+    .replace(/&/g, "&amp;").replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// Recorta a `max` sin partir palabras, y sin dejar puntuación colgando.
+function recortar(t: string, max: number): string {
+  const limpio = (t || "").replace(/\s+/g, " ").trim();
+  if (limpio.length <= max) return limpio;
+  const corte = limpio.slice(0, max);
+  const i = corte.lastIndexOf(" ");
+  return (i > max * 0.6 ? corte.slice(0, i) : corte).replace(/[\s,;:.]+$/, "") + "...";
+}
+
+// El <title>. "<tour> en <ciudad> | Finde" da contexto de destino, que es la
+// palabra por la que alguien busca. Medido sobre los 42 títulos reales: promedio
+// 54 caracteres y 15 pasan de 60, así que los largos caen a la forma corta en vez
+// de recortarse a la mitad de una palabra.
+function titulo(t: { title: string; city: string }): string {
+  const largo = `${t.title} en ${t.city} | Finde`;
+  return largo.length <= 65 ? largo : `${t.title} | Finde`;
+}
+
+// La description. shortPitch es el gancho escrito a mano, pero mide entre 39 y 68
+// caracteres (medido sobre los 37 que lo tienen) y Google usa unos 155: solo con
+// eso quedaría a menos de la mitad. Y CINCO tours no lo tienen, que son
+// justamente los 5 de MEGATOURS, la única agencia real. Por eso se concatena con
+// la descripción, que arranca con los datos concretos.
+function descripcion(t: { shortPitch: string | null; description: string }): string {
+  const partes = [t.shortPitch?.trim(), t.description?.trim()].filter(Boolean);
+  return recortar(partes.join(" "), 155);
+}
 
 function log(msg: string): void {
   console.log(`[prerender] ${msg}`);
@@ -90,7 +131,10 @@ async function main(): Promise<void> {
     db = new PrismaClient();
     tours = await db.tour.findMany({
       where: { active: true },
-      select: { id: true, title: true, city: true },
+      select: {
+        id: true, title: true, city: true, region: true,
+        shortPitch: true, description: true, imageUrl: true,
+      },
       orderBy: { title: "asc" },
     });
   } catch (e) {
@@ -105,7 +149,24 @@ async function main(): Promise<void> {
   let escritos = 0;
   for (const t of tours) {
     const seg = tourSegment(t);
-    const bloque = NOINDEX ? `    <meta name="robots" content="noindex" data-prerender="1">` : "";
+    const url = `${ORIGEN}${BASE_PATH}/tour/${seg}`;
+    const tit = esc(titulo(t));
+    const desc = esc(descripcion(t));
+    const img = t.imageUrl ? esc(t.imageUrl) : "";
+    const bloque = [
+      `    <title>${tit}</title>`,
+      `    <meta name="description" content="${desc}">`,
+      `    <link rel="canonical" href="${url}" data-prerender="1">`,
+      `    <meta property="og:type" content="article">`,
+      `    <meta property="og:site_name" content="Finde">`,
+      `    <meta property="og:locale" content="es_PE">`,
+      `    <meta property="og:url" content="${url}">`,
+      `    <meta property="og:title" content="${tit}">`,
+      `    <meta property="og:description" content="${desc}">`,
+      img ? `    <meta property="og:image" content="${img}">` : "",
+      `    <meta name="twitter:card" content="summary_large_image">`,
+      NOINDEX ? `    <meta name="robots" content="noindex" data-prerender="1">` : "",
+    ].filter(Boolean).join("\n");
     const html = inyectar(plantilla, bloque);
     const dir = join(DIST, `${BASE_PATH}/tour/${seg}`.replace(/^\//, ""));
     mkdirSync(dir, { recursive: true });
