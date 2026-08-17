@@ -92,6 +92,21 @@ async function handlePost(
     return;
   }
 
+  // Portada obligatoria AL CREAR. Sin imageUrl no hay og:image, y sin og:image
+  // el link compartido sale como texto pelado: no hay tarjeta.
+  //
+  // Va solo en el POST y no en parseTourInput, porque en el PUT `photo` ausente
+  // significa "no toques la imagen" y esa semántica es la que permite editar un
+  // tour sin re-subir la foto. Acá no hay nada que preservar: es un tour nuevo.
+  //
+  // Y el formulario NO distingue guardar de publicar (no existe el concepto de
+  // borrador: `active` nace en true y crear un tour lo publica), así que un tour
+  // sin foto sería un tour público sin foto.
+  if (!input.data.imageUrl) {
+    res.status(400).json({ error: "Sube al menos una foto: es la que se ve cuando alguien comparte tu tour." });
+    return;
+  }
+
   let tour: Prisma.TourGetPayload<{ select: typeof DETAIL_SELECT }>;
   try {
     tour = await db.tour.create({
