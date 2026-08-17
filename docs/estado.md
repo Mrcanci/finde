@@ -26,6 +26,7 @@
 - **Vercel Web Analytics** (`8681dee`). Tanda 1, reducida a eso por decisión de José. Costo medido: unos 2,3 kB comprimidos y cero bloqueo del hilo principal.
 - **La landing deja de cargarse en `/demo`** (`d916e65`). Tanda 1B, cerrada post-QA el 2026-08-16. Bytes de `/demo`: **6.528.216 a 232.992, un 96,4% menos**.
 - **Las fotos de destinos de la landing, a 800 px** (`5575328`). Tanda 1C, cerrada post-QA el 2026-08-16. Bytes de la landing: **6.526.560 a 976.569, un 85% menos**.
+- **Las fotos que suben las agencias se achican en el navegador** (`62a1d1a`). Cerrada post-QA el 2026-08-16. Era la **condición** que imponía el plan Free de Supabase: una foto real de 4.062 kB sube como **203 kB**.
 
 ## En curso
 
@@ -53,8 +54,9 @@ con las tres definiciones que pide la decisión de la URL del tour.
 gravedad:
 
 1. **El sello de verificación falso.** Bloqueante de lanzamiento, sección propia.
-2. **Procesar las fotos que suben las agencias.** Condición para que la plataforma
-   funcione con tráfico, con el plan Free confirmado. Sección propia.
+2. ~~Procesar las fotos que suben las agencias.~~ **RESUELTO el 2026-08-16 y en
+   `main`.** Era la condición que imponía el plan Free. Sección propia, ahora
+   como registro de lo que se hizo.
 
 **La secuencia hasta el lanzamiento**, en orden y con sus dependencias:
 
@@ -1012,7 +1014,7 @@ Pendientes de performance:
 
 - **El bundle pasa los 500 kB y Vite lo avisa en cada build** (673 kB, 184 kB comprimido, en un solo chunk). No es urgente para el piloto, pero sí para el mercado real: Android de gama media sobre 4G peruano, con objetivo de LCP bajo 3 segundos. `src/AppDemo.jsx` son más de 6200 líneas que hoy viajan enteras aunque el usuario solo abra el home. Candidato claro a code splitting por vista, que es como ya está organizado el archivo (el switch de `effectiveView`). Sin fecha ni tanda asignada.
 
-  **Ojo con la prioridad, que las mediciones del 2026-08-16 dieron vuelta.** Este pendiente figuraba como el número uno de rendimiento y no lo era: las tandas 1B y 1C sacaron **11,8 MB** entre las dos, más de sesenta veces el bundle comprimido entero. **Lo que pesa son imágenes, no JavaScript.** El code splitting entra después de que las fotos estén resueltas en las dos puntas (la landing, ya hecha, y las que suben las agencias, que es la condición del plan Free).
+  **Ojo con la prioridad, que las mediciones del 2026-08-16 dieron vuelta.** Este pendiente figuraba como el número uno de rendimiento y no lo era: las tandas 1B y 1C sacaron **11,8 MB** entre las dos, más de sesenta veces el bundle comprimido entero. **Lo que pesa son imágenes, no JavaScript.** **Las dos puntas del problema de imágenes ya están resueltas**: la landing (tanda 1C) y las que suben las agencias (procesamiento en el navegador). Con eso, el code splitting sí pasa a ser el próximo pendiente de rendimiento.
 
 ### Tanda 1C, CERRADA: las imágenes de la landing
 
@@ -1204,12 +1206,15 @@ Local, dev.finde.pe y producción usan **la misma base**. Estos son los números
 - Categorías: adventure 19, cultural 16, nature 9, mystic 3, gastronomy 2.
 - `FeaturedSearch`: 32 filas. `SearchLog`: 271 filas.
 
-## CONDICIÓN PARA QUE LA PLATAFORMA FUNCIONE CON TRÁFICO: procesar las fotos
+## Procesar las fotos, RESUELTO. Era la condición para que la plataforma funcione con tráfico
 
-> **IMPLEMENTADO el 2026-08-16 en `feat/procesar-fotos-agencia`, pendiente de
-> QA.** Ver "La implementación" al final de esta sección, con los números
-> medidos en un navegador real. El resto queda como el diagnóstico que la
-> originó.
+> **CERRADO y en `main` desde el 2026-08-16 (`62a1d1a`), post-QA.** José lo validó
+> en dev.finde.pe con **una foto de paisaje sacada con un iPhone, de las que antes
+> se rechazaban**: ahora sube sin decir nada.
+>
+> Ver "La implementación" al final de esta sección, con los números medidos en un
+> navegador real. **El resto queda como el diagnóstico que la originó**, porque
+> explica por qué era una condición y no una mejora.
 
 **Diagnóstico (2026-08-16).** La foto que sube una agencia se guardaba **tal
 cual**, al tamaño que salió del celular.
@@ -1473,6 +1478,11 @@ nada al bucket**: el conteo quedó en 44 archivos y 26 MB, igual que antes.
 | **Foto real del bucket** (la más pesada que subió una cuenta) | 1600x1200 | 4.062 kB a **203 kB, un 95% menos** |
 | **Imagen ya chica** (540x360) | **No se agrandó**, se conserva el original | sin cambio |
 
+**Y el QA lo confirmó con hardware real:** José subió en dev.finde.pe **una foto
+de paisaje sacada con un iPhone, de las que antes se rechazaban por pasar los
+5 MB**, y entró sin decir nada. Es la prueba que la verificación en el banco no
+podía dar: ahí el EXIF era sintético y acá lo escribió una cámara de verdad.
+
 **La regla de "nunca agrandar" se implementó también acá**, igual que en la tanda
 1C: si el resultado pesa más que el original, se sube el original. Es lo que hace
 que una foto ya optimizada no empeore al pasar por el procesamiento.
@@ -1491,6 +1501,29 @@ que una foto ya optimizada no empeore al pasar por el procesamiento.
    guardaría un JPEG con nombre `.png`. Además ahora el `uploadToSignedUrl` manda
    `contentType` explícito: **hay un archivo en el bucket guardado como
    `application/octet-stream`** y esto es lo que evita que vuelva a pasar.
+
+#### Por qué el rechazo aparecía con unas fotos y no con otras
+
+**Lo reportó José en el QA, y explica un fenómeno que hasta ahora parecía
+caprichoso: con la misma cámara, unas fotos se rechazaban y otras no.**
+
+**Las fotos de paisaje de día pesan mucho más que las de interior.** No es la
+cámara ni la resolución: es que **los degradados de cielo y la textura de
+vegetación comprimen mal en JPEG**. El formato guarda bien las zonas planas y las
+transiciones suaves largas; un cielo con degradado sutil y un cerro lleno de
+follaje son justo lo contrario, y el archivo se dispara.
+
+**Esto importa porque el catálogo de Finde es exactamente eso: paisaje de día.**
+El caso que peor comprime es el caso normal del producto, no la excepción. Con el
+límite viejo de 5 MB, la agencia que sacaba la foto del tour al aire libre era la
+que se comía el rechazo, y la que fotografiaba un interior pasaba sin problema.
+
+**El procesamiento lo resuelve igual, y por el orden en que hace las cosas:
+achica ANTES de comprimir.** El costo de un cielo difícil se paga sobre 1600 px
+de ancho, no sobre 4000, así que el archivo final queda en el mismo rango para
+una foto de paisaje que para una de interior. **Es la razón de fondo por la que
+redimensionar gana por lejos sobre recomprimir**, que ya se había medido en la
+tanda 1C sin entender del todo por qué.
 
 #### El límite de 5 MB desapareció del producto
 
@@ -1511,8 +1544,7 @@ que ahora se sabe **cuál** archivo fue.
 
 ## Antes de lanzar a usuarios reales
 
-- [ ] **Procesar las fotos en el navegador antes de subirlas. CONDICIÓN, no mejora.** Sección propia
-      arriba. Va **antes** de onboardear agencias reales, no después.
+- [x] **Procesar las fotos en el navegador antes de subirlas.** ~~CONDICIÓN, no mejora.~~ **HECHO el 2026-08-16** (`62a1d1a`), antes de onboardear ninguna agencia real, que era el punto. Sección propia arriba.
 - [ ] **Reactivar "Confirm email" en Supabase** (desactivado para acelerar el MVP).
 - 🚫 **El sello de verificación falso (8 del seed más "Descubre el Perú") SALIÓ de esta checklist el 2026-08-15.** Subió a **BLOQUEANTE DE LANZAMIENTO** y tiene sección propia más arriba en este documento. No es un ítem que se tilda entre otros: **el switch no se hace sin resolverlo.**
 - [ ] **Borrar los datos de prueba.** Inventario concreto:
