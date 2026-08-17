@@ -159,12 +159,65 @@ corresponda.
 
 ### 3. La documentación creció más que la capacidad de leerla
 
-**`docs/estado.md` pasa las 900 líneas.** Llega un punto en que nadie lo lee
-entero y **la información deja de estar disponible aunque exista**.
+**`docs/estado.md` llegó a 1.767 líneas y se duplicó en dos días.** Se podó el
+2026-08-16 hasta 174. Al medirlo antes de tocarlo, **las secciones que de verdad
+responden "dónde estoy y qué no puedo romper" sumaban 74 líneas sobre 1.767**: el
+resto era narrativa de trabajo ya cerrado.
 
-Conviene revisar si hay que **partirlo o podarlo**. Es el mismo problema que
-resuelven las reglas con alcance: no se lee todo siempre, se carga lo que
-corresponde al archivo que se está tocando.
+De ahí salieron las dos reglas de abajo.
+
+---
+
+## Cómo se escribe la documentación, para no volver a podarla
+
+### Al cerrar una tanda, el detalle va a `docs/historia/` y al estado va UNA FILA
+
+**El motivo no es que el estado quede prolijo. Es mecánico:**
+
+> **Lo único que se carga solo son las reglas con alcance.** `docs/estado.md`,
+> `docs/decisiones.md` y todo lo demás hay que ir a buscarlo, y **un archivo que
+> nadie termina de leer es información que existe pero no está disponible**.
+
+Por eso el destino de cada cosa se decide por **cómo se va a leer**, no por dónde
+se escribió:
+
+| Qué es | Dónde va | Cómo se lee |
+|---|---|---|
+| Una baranda que hay que respetar al tocar código | `.claude/rules/` | **Se carga sola** al abrir un archivo que matchea |
+| El presente: dónde estoy, qué está abierto | `docs/estado.md` | Se lee entero al empezar cada tanda |
+| Por qué se decidió algo | `docs/decisiones.md` | Se consulta al reabrir la decisión |
+| La investigación y la medición de algo ya cerrado | `docs/historia/` | Solo cuando hace falta reconstruir el porqué |
+| Un diagnóstico de un momento | `docs/audits/` | Cuando se ejecuta o se revisa |
+
+**La prueba práctica antes de escribir un párrafo en `estado.md`: si alguien que
+arranca mañana no lo necesita para decidir qué hacer, no va ahí.**
+
+Y el corolario que más ahorra: **una lección transversal NO se queda en
+`estado.md`, se promueve a `.claude/rules/`.** En la línea 1.200 de un documento
+largo solo sirve si alguien lee el archivo entero, que es justo el problema. En la
+regla correcta se carga sola.
+
+### El texto se escribe donde el contenido PERTENECE, no donde está el cursor
+
+**Lección propia, y la poda la destapó midiendo.** En `docs/estado.md` había
+**150 líneas mal archivadas**: las secciones de la tanda 1C y de la tanda 2, que
+son de imágenes y de rutas, estaban **anidadas dentro de "El motor de
+inventario"**. Y 80 líneas del análisis de las imágenes estaban dentro de "En
+curso".
+
+**Cómo pasó:** cada edición se ancló al texto que tenía cerca en el momento de
+escribir, no a la sección que le correspondía. Se buscaba un párrafo conocido, se
+insertaba al lado, y quedaba bajo el encabezado equivocado.
+
+**Es el mismo patrón que "medir el punto exacto, no los bordes", aplicado a la
+documentación.** Ahí el error es comprobar las puntas de una cadena y no el punto
+donde el dato se usa; acá es escribir donde el cursor está y no donde el contenido
+pertenece. Las dos veces el problema es **tomar la referencia más cercana en vez
+de la correcta**.
+
+En la práctica, antes de insertar un bloque nuevo: **mirar bajo qué `##` va a
+quedar**, no solo qué párrafo tiene arriba. Un `grep -n "^## "` sobre el archivo
+cuesta un segundo y evita esto.
 
 ---
 
