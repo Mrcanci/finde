@@ -37,15 +37,15 @@ depende de ninguna de las dos.** El detalle de lo cerrado está en
 
 **Lo que queda abierto del frente de SEO, y no se toca antes de tiempo:**
 
-- **PENDIENTE INMEDIATO: el `noindex` general de `/demo`.** Decidido el
-  2026-08-17 y **todavía sin aplicar**. Hoy el `noindex` está solo en las 42
-  fichas prerenderizadas: la portada, el buscador y cualquier URL huérfana se
-  sirven **sin ninguna instrucción para Google**. Nada bajo `/demo` debe
-  indexarse mientras el producto no esté lanzado. Opciones con su costo en
-  `docs/audits/2026-08-17-noindex-y-urls-huerfanas.md`.
+- **El `noindex` general de `/demo` YA ESTÁ**, desde el 2026-08-17: una etiqueta
+  en `index.html`, la plantilla de la SPA, así que cubre la portada, el buscador
+  y cualquier URL huérfana además de las fichas. **Nada bajo `/demo` se indexa.**
+  Es una de las dos líneas que se tocan el día del switch.
 - **El paso 5 de la tanda 5 tiene TRES piezas, no dos.** Va el día del switch,
   no antes:
-  1. **Sacar el `noindex`.**
+  1. **Sacar el `noindex`**: borrar la etiqueta de `index.html`. Las fichas se
+     arreglan solas al poner `BASE_PATH` en `""`, porque el prerender decide con
+     `NOINDEX = BASE_PATH !== ""`.
   2. **Publicar `robots.txt` y `sitemap.xml`.** Hoy sería invitar a indexar lo
      que el `noindex` bloquea, y listaría las 37 URLs que se borran.
   3. **Resolver las URLs de tours que no existen.** *(Descubierta el 2026-08-17,
