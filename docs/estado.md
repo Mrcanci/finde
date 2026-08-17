@@ -44,7 +44,7 @@ arrancada.** No se empieza sin visto bueno explícito.
 | # | Tanda | Depende de | Reversible |
 |---|---|---|---|
 | 0 | ✅ Endpoints de IA con auth, **en `main`** | nada | sí |
-| 1 | Analítica base (`page_view`, `tour_view`, `search_performed`) | nada | sí |
+| 1 | Analítica base: SOLO Vercel Analytics (reducida) | nada | sí |
 | 2 | Router con `BASE_PATH` y URL por tour | 1 | sí |
 | 3 | Modal de cuenta en el checkout, navegación abierta | 2 | sí |
 | 4 | Eventos del embudo (`booking_started`, `auth_prompted`, ...) | 3 | sí |
@@ -59,6 +59,93 @@ slug, y qué pasa con un slug vacío.
 empieza sin visto bueno explícito. Antes que ella conviene hacer el **barrido de
 padding del Grupo B**, que la Fase 5 acaba de desbloquear y es más chico. Los dos
 quedan detrás del frente de lanzamiento, que tiene fecha y ellos no.
+
+### Tanda 1, REDUCIDA a Vercel Analytics (decisión de José, 2026-08-15)
+
+**La tanda 1 se redujo a instalar Vercel Web Analytics. Nada más.** Decisión de
+José: **la experiencia de usuario va primero y no se suma peso sin certeza de que
+valga la pena.**
+
+**PostHog se pospone, no se descarta.** El motivo no es solo el peso: **hoy no
+mediría nada útil.** Los eventos que lo justifican (dónde se cae la gente en el
+checkout) dependen del modal de cuenta, que es la **tanda 3**. Instalarlo ahora
+sería cargar peso para leer un dashboard vacío.
+
+**Queda como decisión pendiente, a tomar antes del switch**, con la app ya
+terminada y **con la línea base de esta tanda como referencia**. El criterio para
+aceptarlo o rechazarlo se fija en ese momento, con números reales, no ahora.
+
+**Si PostHog no entra, la alternativa es armar los embudos con consultas a la
+base**: más trabajo de nuestro lado, **cero peso en el cliente**. No es un plan B
+degradado, es un intercambio distinto.
+
+**Lo que Vercel Analytics sí da, y alcanza para varias de las métricas:**
+visitantes, páginas vistas y **origen del tráfico**. Ese último es el que **prueba
+que Google y WhatsApp traen gente**, que es exactamente el argumento del canal
+barato. Lo que no da es el embudo interno del checkout.
+
+#### Línea base medida, contra la que se evalúa PostHog después
+
+Medido el 2026-08-15 con Lighthouse 12.8.2, preset **mobile**: 1638 Kbps de
+bajada, 150 ms de RTT y **CPU 4x más lenta** (4G y gama media). Cinco corridas por
+lado sobre `npm run build` servido con `vite preview`; se reportan **medianas de
+las corridas válidas**, porque una de cada cinco falla con `NO_FCP`.
+
+| Métrica | Antes | Después | Delta |
+|---|---|---|---|
+| Bundle JS (gzip) | 183.19 kB | 184.23 kB | **+1.04 kB** |
+| Bytes transferidos | 6.527.044 | 6.528.216 | **+1.172 bytes** |
+| LCP (mediana) | 6.728 ms | 6.916 ms | +188 ms |
+| TTI (mediana) | 7.032 ms | 7.231 ms | +199 ms |
+| Total Blocking Time | 0 ms | 0 ms | **sin cambio** |
+
+**Los deltas de LCP y TTI están DENTRO del ruido de medición y no se pueden
+atribuir al cambio.** Solo del lado "antes", el LCP osciló entre 6.313 y 6.836 ms,
+o sea **523 ms de dispersión entre corridas**: más del doble que el delta. Lo que
+sí es exacto y reproducible es el peso: **+1,04 kB comprimidos y cero tiempo de
+bloqueo del hilo principal.**
+
+A eso hay que sumarle **el script que sirve Vercel en runtime**, que no está en el
+bundle y por eso no aparece arriba: **2.495 bytes, 1.271 comprimidos**, medidos
+contra un despliegue real de Vercel. En local ese pedido da 404 y no pasa nada.
+
+**Total honesto del costo de esta tanda: unos 2,3 kB comprimidos y cero bloqueo.**
+
+**La ficha de tour no se pudo medir por separado, y esa imposibilidad ES el
+hallazgo:** hoy no es una carga de página, es un cambio de `useState`, así que no
+tiene URL y Lighthouse no la puede abrir. Es justo lo que resuelve la tanda 2.
+Hasta entonces, lo medible es cuánto agrega en red: las portadas reales del
+catálogo público pesan **entre 94 kB y 977 kB, con mediana de 276 kB**, y una
+ficha con galería de tres fotos ronda los **800 kB**.
+
+#### Hallazgo grande que salió de medir, y NO se arregla en esta tanda
+
+**Abrir `/demo` descarga 6,1 MB de imágenes de la landing que el usuario nunca
+ve.** Es el 96% del peso de la carga.
+
+| Qué | Peso |
+|---|---|
+| Imágenes de la landing (7 archivos) | **6.130 kB** |
+| Todo lo demás (bundle, fuentes, documento, CSS, dos fetch) | **244 kB** |
+
+`oxapampa.jpg` sola pesa **4.288 kB**.
+
+**La causa está en `src/App.jsx` y es de una línea.** `showDemo` arranca en
+`false` y recién se corrige dentro de un `useEffect`, o sea **después del primer
+render**. En ese primer render se monta `<Landing />`, el navegador dispara la
+descarga de sus imágenes, y un instante después React la desmonta y monta
+`<AppDemo />`. Las imágenes ya salieron.
+
+Solo `src/Landing.jsx` referencia `/destinations` y `/mockups`, así que no hay
+duda de a quién pertenecen. **ESLint ya lo venía marcando** con
+`react-hooks/set-state-in-effect` en `src/App.jsx:13`, sin que nadie atara el
+warning a su consecuencia.
+
+**No se tocó en esta tanda, a propósito**: el alcance era instalar Vercel
+Analytics y nada más. Queda anotado como el candidato número uno de rendimiento,
+**por encima del code splitting del bundle**: son 6,1 MB contra 184 kB. El arreglo
+es calcular `isDemo` durante el render en vez de en un efecto, **y no toca
+`Landing.jsx`**.
 
 ### La analítica va primera, pero su fecha límite real es el SWITCH
 
@@ -87,6 +174,42 @@ verificadas y % fuera del eje Lima-Cusco salen de una consulta a `Booking`,
 `Operator` y `Tour`; las búsquedas ya viven en `SearchLog`. Lo que falta
 instrumentar es **solo el top of funnel**: visitantes, vistas de ficha y reservas
 iniciadas.
+
+#### Qué recolecta Vercel Analytics, y qué dice la Ley 29733
+
+Verificado contra la documentación oficial de Vercel el 2026-08-15, no de memoria.
+
+**No guarda IP ni nada identificable.** Sin cookies de terceros. Al visitante lo
+identifica con un **hash del request entrante**, y **la sesión se descarta a las
+24 horas**. No permite reconstruir la navegación de una persona entre sitios ni
+identificarla.
+
+Los diez datos que guarda por evento: momento, URL, ruta dinámica, referrer,
+query params filtrados, geolocalización (país, región, ciudad), sistema operativo
+y versión, navegador y versión, tipo de dispositivo, y versión del script.
+
+**Conclusión: nada de esto es dato personal bajo la Ley 29733, y puede ir a
+producción.** La geolocalización es a nivel ciudad y viene desagregada de
+cualquier identificador.
+
+**Pero hay un riesgo a futuro, y es nuestro, no de Vercel: la URL se guarda.**
+Hoy no importa porque la app no tiene URLs. **Desde la tanda 2 sí las va a
+tener**, y ahí hay que mirar dos casos antes de que salgan:
+
+- `/mis-reservas/:code` llevaría el código de reserva (`FND-XXXXXX`) a los
+  servidores de Vercel.
+- Cualquier query param que se agregue después.
+
+**El instrumento existe y es la función `beforeSend` del propio paquete**, que
+deja reescribir o descartar la URL antes de enviarla. **Es trabajo de la tanda 2,
+no de esta**, pero se decide ahí y no cuando ya esté publicado.
+
+Un detalle operativo para el QA: la versión 2 del paquete usa **Resilient
+Intake**, que arma la URL del script con una semilla generada en build. En un
+proyecto con `framework: null` como este hay que **confirmar que el pedido del
+script responde 200 y no 404**, porque de eso depende que se registre algo.
+También hay que **activar Web Analytics en el dashboard de Vercel**: sin ese
+interruptor el paquete no reporta nada.
 
 ### Tanda 0, CERRADA: los endpoints de IA exigen agencia
 
@@ -774,8 +897,223 @@ Local, dev.finde.pe y producción usan **la misma base**. Estos son los números
 - Categorías: adventure 19, cultural 16, nature 9, mystic 3, gastronomy 2.
 - `FeaturedSearch`: 32 filas. `SearchLog`: 271 filas.
 
+## CONDICIÓN PARA QUE LA PLATAFORMA FUNCIONE CON TRÁFICO: procesar las fotos
+
+**Investigado el 2026-08-16, sin implementar.** La foto que sube una agencia se
+guarda **tal cual**, al tamaño que salió del celular.
+
+**Esto dejó de ser "conviene hacerlo" y pasó a ser condición para que la
+plataforma funcione con tráfico.** Lo que lo movió de categoría es el plan de
+Supabase, confirmado por José el 2026-08-16: **el proyecto está en FREE**, y el
+plan Free **no cobra excedente: RESTRINGE**. Agotar la cuota no es una factura que
+llega a fin de mes, **es que la plataforma deja de servir**.
+
+**Por qué además tiene que resolverse ANTES y no después.** En el lanzamiento se
+borran las agencias actuales y entran agencias reales que suben sus propias fotos.
+**Si las primeras suben fotos sin procesar, después hay que reprocesarlas a mano o
+pedirles que vuelvan a subir todo**, que es exactamente el pedido que no se le
+hace a una agencia recién onboardeada. Es una ventana que se abre una sola vez.
+
+### El plan Free, y el límite que nadie había mirado
+
+| Recurso | Uso hoy | Tope | Ocupado |
+|---|---|---|---|
+| Storage | 0,027 GB | **1 GB** | 3% |
+| **Egress** | 0,126 GB | **5 GB al mes** | 3% |
+| Database | 0,029 GB | 0,5 GB | 6% |
+
+**Storage Image Transformations figura como "Unavailable in plan".** O sea que
+**Supabase no puede achicar las fotos del lado del servidor**: no hay atajo de
+configuración. **El arreglo en el navegador es el único camino**, no una opción
+entre varias.
+
+**Y el que muerde primero no es el almacenamiento, es el EGRESS.** El
+almacenamiento se llena una vez y se ve venir; el egress **se consume en cada
+visita** y se recarga cada mes. Cada persona que abre el catálogo descarga el peso
+de las portadas, y eso sale de la cuota.
+
+#### Cuántas visitas al home agotan los 5 GB
+
+Contando 1 GB como 1024 MB, y sumando lo que la app consume **aparte** de las
+fotos: la respuesta de `GET /api/tours` (181 kB, que viaja de Supabase a Vercel) y
+las llamadas de Auth, que son de pocos kB.
+
+| Escenario | Por visita al home | **Visitas al mes hasta agotar** |
+|---|---|---|
+| **Hoy** | 3,6 MB | **~1.450** |
+| **Sin procesar, portadas de 4 MB** | 194,6 MB | **~26** |
+| **Con el arreglo, 1600 px** | 7,4 MB | **~692** |
+
+**Veintiséis visitas.** Ese es el número que convierte el pendiente en una
+condición: con fotos sin procesar, **la plataforma deja de servir imágenes antes
+de terminar el primer día de cualquier difusión real**.
+
+**Ojo con el número de hoy, que engaña.** Los 3,6 MB salen de que **38 de las 48
+portadas las sirve Unsplash y no nosotros**: solo 3.429 kB de los 11.333 kB salen
+de nuestro bucket. **El lanzamiento cambia eso de raíz**: al borrar los tours del
+seed y entrar agencias reales, **el 100% de las fotos pasa a salir de nuestro
+bucket**. O sea que el lanzamiento no solo agrega fotos más pesadas, además
+**mueve el 70% del tráfico de imágenes desde Unsplash hacia nuestra cuota**.
+
+**Dos matices honestos sobre estos números**, que no cambian la conclusión:
+
+- **Son el techo, para visitantes nuevos.** El navegador cachea, así que quien
+  vuelve no descarga de nuevo. Pero **el visitante que llega de Google es nuevo
+  por definición**, y ese es justamente el público que persigue todo el plan de
+  SEO: el peor caso es el caso que estamos buscando.
+- Lo que importa es el **orden de magnitud**, no el número exacto: decenas de
+  visitas contra cientos contra miles. Entre "sin procesar" y "con el arreglo" hay
+  un factor de **26 veces**, y eso ninguna caché lo compensa.
+
+### 1. No hay redimensionado ni compresión en ningún punto de la cadena
+
+Verificado en los cuatro eslabones, no deducido:
+
+| Eslabón | Qué hace con la imagen |
+|---|---|
+| `uploadOnePhoto` (`src/AppDemo.jsx`) | Pide la URL firmada y sube **el `File` original**, sin tocarlo |
+| `POST /api/uploads/tour-image` | Solo firma. **El archivo nunca pasa por la función**, va directo del navegador a Storage |
+| Bucket `tour-images` | Valida tamaño y MIME. **No transforma** |
+| `lib/tour-input.ts` | Solo comprueba que la URL sea `http(s)`. **No mira la imagen** |
+
+La lectura era correcta: **no hay procesamiento en ninguna parte.**
+
+### 2. Qué pasa con una foto de 8 MB: falla claro, pero el mensaje no sirve
+
+**No se rompe.** El cliente valida **antes** de subir (`MAX_PHOTO_BYTES`, 5 MiB,
+el mismo número exacto que el `file_size_limit` del bucket) y muestra "Una imagen
+supera los 5MB. Elige versiones más livianas."
+
+Tres problemas reales igual:
+
+1. **El mensaje no dice qué hacer.** A una agencia que sacó la foto con el celular,
+   "elige versiones más livianas" no le dice nada accionable, y **la app no ofrece
+   ninguna forma de achicarla**.
+2. **Aborta el lote entero.** Valida todas las fotos antes de subir ninguna (a
+   propósito, para no subir a medias), así que **una foto pesada entre cinco tira
+   las cinco**. Y no dice cuál era la pesada.
+3. **Va a pasar seguido.** Una foto de 12 MP pesa entre 3 y 6 MB; una de 48 MP,
+   entre 8 y 15. **El archivo más grande que ya está en el bucket son 4.062 kB**
+   (4608x3456), o sea que pasó raspando.
+
+Anomalía menor anotada al medir: hay **un archivo en el bucket con mimetype
+`application/octet-stream`**, que la lista blanca no debería permitir. Uno de 44,
+16 kB. Sin investigar.
+
+### 3. El impacto, medido y proyectado
+
+**Hoy** las 47 portadas del catálogo público pesan **11.333 kB**, con promedio de
+241 kB. La pantalla de inicio renderiza **los 49 tours** en la grilla "Explora
+tours", así que las pide todas.
+
+| Escenario | Peso de las portadas | Sobre 4G (1638 kbps) |
+|---|---|---|
+| Hoy | 11,3 MB | ~63 segundos |
+| **49 tours con portadas sin procesar de 4 MB** | **194 MB** | **~18 minutos** |
+| 49 tours con el arreglo (1600 px) | **7,2 MB** | ~40 segundos |
+
+**Son 17 veces lo de hoy**, y lo de hoy ya es malo. Con el arreglo queda **por
+debajo** del estado actual, porque el promedio de 241 kB baja a 151.
+
+Agravante: las portadas del catálogo se pintan con **`background-image` de CSS**,
+no con `<img>`. **`loading="lazy"` no aplica a los fondos CSS**, así que no hay
+forma de diferirlas sin cambiar el marcado.
+
+**Lo que ya se puede observar en el bucket, que es evidencia y no hipótesis:**
+
+| Agencia | Archivos | Total | Promedio | El más grande |
+|---|---|---|---|---|
+| MEGATOURS (real) | 28 | 8.952 kB | 320 kB | 981 kB |
+| Descubre el Perú (demo) | 14 | 17 MB | 1,2 MB | **4.062 kB** |
+
+**Matiz honesto: la única agencia real que subió fotos lo hizo en un rango
+razonable** (320 kB de promedio, probablemente sacadas de su propia web). Los
+archivos de 4 MB salieron de la cuenta de demo. El riesgo es real y está
+evidenciado, pero todavía no lo causó una agencia de verdad.
+
+### 4. El arreglo: redimensionar en el NAVEGADOR antes de subir
+
+La agencia elige su archivo de 6 MB, el navegador sube uno de ~150 kB y **no nota
+nada**.
+
+**Cómo.** `createImageBitmap(file)` para decodificar, un `<canvas>` para escalar,
+y `canvas.toBlob(cb, "image/jpeg", 0.82)` para reencodear. **Todo nativo del
+navegador: cero dependencias nuevas y cero peso en el bundle.** Va en un archivo
+nuevo (`src/lib/image-resize.js`) que `uploadOnePhoto` llama antes de subir. Entre
+40 y 60 líneas en total. **Es una tanda chica.**
+
+**Ancho máximo: 1600 px.** Justificado por dónde se muestran las fotos: el hero de
+la ficha en escritorio ocupa la mitad de una grilla de 1440, o sea ~720 px CSS,
+que a 2x son 1440; en móvil son ~390 px CSS, que a 3x son 1170. **1600 cubre los
+dos con margen**, y para las tarjetas del catálogo (360 px como mucho) sobra.
+
+**Calidad: 0.82 en JPEG.** Medido sobre la foto real de 4.062 kB del bucket:
+
+| Ancho | JPEG | WebP |
+|---|---|---|
+| 1200 px | 101 kB | 62 kB |
+| **1600 px** | **151 kB** | 97 kB |
+| 2000 px | 211 kB | 131 kB |
+
+**De 4.062 kB a 151 kB: un 96,3% menos.**
+
+**WebP: todavía no, y el motivo es concreto.** El bucket declara
+`allowed_mime_types = {image/jpeg, image/png}`, así que **un WebP lo rechaza**.
+Habría que cambiar la config del bucket, el `bodySchema` y el
+`CONTENT_TYPE_TO_EXT` de `api/uploads/tour-image.ts`. Ahorra 54 kB más por foto
+sobre el JPEG, y no desbloquea nada. **Se puede hacer después, aparte.**
+
+**Efecto secundario que vale tanto como el ahorro: el límite de 5 MB deja de
+importar.** Si el navegador achica antes de subir, la agencia puede elegir un
+archivo de 12 MB sin enterarse de que existe un tope. El mensaje "elige versiones
+más livianas" desaparece del producto.
+
+**Tres trampas que hay que dejar escritas antes de implementarlo:**
+
+1. **Orientación EXIF.** Sin `{ imageOrientation: "from-image" }` en
+   `createImageBitmap`, las fotos verticales de celular **salen rotadas**. Es el
+   error clásico de este arreglo.
+2. **PNG con transparencia.** Pasarlo a JPEG le pone fondo negro. Para fotos de
+   tours no importa, pero conviene pintar fondo blanco antes de dibujar.
+3. **Hace falta un tope de entrada igual**, generoso (25 MB), para no colgar el
+   navegador decodificando un archivo enorme. Reemplaza al de 5 MB, no se suma.
+
+**Las fotos ya subidas: casi no hay nada que reprocesar.** De los 44 archivos, los
+14 de "Descubre el Perú" (17 MB, donde están los de 4 MB) y el de "Tour Prueba" se
+van con las cuentas que se borran en el lanzamiento. Quedan **las 28 de MEGATOURS,
+que ya promedian 320 kB** y no urge tocar. Si algún día hiciera falta, es un
+script de una sola corrida, y **no habría que tocar la base**: re-subir con el
+mismo path conserva la URL (ojo con la caché del CDN).
+
+### 5. El bucket: 26 MB de 1 GB, y el almacenamiento es el problema MENOR
+
+| Dato | Valor |
+|---|---|
+| Archivos hoy | 44 |
+| Ocupado hoy | **26 MB de 1 GB** |
+| Promedio por archivo | 600 kB |
+| El más grande | 4.062 kB |
+
+Los archivos por tour rondan **4** (MEGATOURS: 28 archivos para 5 tours).
+
+| Escenario | Por tour | Tours que entran en 1 GB |
+|---|---|---|
+| Sin procesar, fotos de 4 MB | 16 MB | **~64** |
+| Con el arreglo, 151 kB | 600 kB | **~1.700** |
+
+**Plan confirmado el 2026-08-16: FREE.** Así que el tope real es 1 GB, y con fotos
+sin procesar el bucket se llena con **64 tours**: un número perfectamente
+alcanzable este año.
+
+**Pero el almacenamiento es el límite menos urgente de los tres.** Llenar 1 GB
+requiere que las agencias suban 64 tours; agotar el egress requiere **26 visitas**.
+El techo que se toca primero, y por dos órdenes de magnitud, es el de
+transferencia. Ver la sección del egress más arriba.
+
 ## Antes de lanzar a usuarios reales
 
+- [ ] **Procesar las fotos en el navegador antes de subirlas. CONDICIÓN, no mejora.** Sección propia
+      arriba. Va **antes** de onboardear agencias reales, no después.
 - [ ] **Reactivar "Confirm email" en Supabase** (desactivado para acelerar el MVP).
 - 🚫 **El sello de verificación falso (8 del seed más "Descubre el Perú") SALIÓ de esta checklist el 2026-08-15.** Subió a **BLOQUEANTE DE LANZAMIENTO** y tiene sección propia más arriba en este documento. No es un ítem que se tilda entre otros: **el switch no se hace sin resolverlo.**
 - [ ] **Borrar los datos de prueba.** Inventario concreto:
