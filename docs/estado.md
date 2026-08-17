@@ -27,6 +27,8 @@
 - **La landing deja de cargarse en `/demo`** (`d916e65`). Tanda 1B, cerrada post-QA el 2026-08-16. Bytes de `/demo`: **6.528.216 a 232.992, un 96,4% menos**.
 - **Las fotos de destinos de la landing, a 800 px** (`5575328`). Tanda 1C, cerrada post-QA el 2026-08-16. Bytes de la landing: **6.526.560 a 976.569, un 85% menos**.
 - **Las fotos que suben las agencias se achican en el navegador** (`62a1d1a`). Cerrada post-QA el 2026-08-16. Era la **condición** que imponía el plan Free de Supabase: una foto real de 4.062 kB sube como **203 kB**.
+- **El sello de verificación deja de afirmar algo falso** (`38823ed`). Cerrado post-QA el 2026-08-16. Era el **bloqueante de lanzamiento**: 42 tours visibles y MEGATOURS como la única agencia con sello.
+- **El router y las URLs por vista** (`1d5bad0`). Tanda 2, cerrada post-QA el 2026-08-16. Cada vista tiene URL, la ficha resuelve por deep link y **el prefijo vive en una sola constante**.
 
 ## En curso
 
@@ -46,12 +48,27 @@ landing a 800 px. Cada una tiene su sección más abajo con los números.
 **Entre las dos sacaron 11,8 MB de peso**, y de paso dieron vuelta la prioridad
 que el documento tenía anotada: **lo que pesa son imágenes, no JavaScript.**
 
-**La tanda 2, el router, está EN QA** (`feat/router-urls`). Las URLs por vista
-existen, la ficha resuelve por deep link, el botón de atrás funciona y el prefijo
-quedó en una sola constante. Ver la sección propia más abajo.
+**La tanda 2, el router, está CERRADA y en `main`.** Las URLs por vista existen,
+la ficha resuelve por deep link, el botón de atrás funciona y el prefijo quedó en
+una sola constante. Ver la sección propia más abajo.
 
-**Lo próximo después de eso es la tanda 3**, el modal de cuenta en el checkout y
-la navegación abierta por defecto. No está arrancada.
+**Con eso, el frente queda partido en dos caminos que ya no dependen uno del
+otro:**
+
+1. **La tanda 3, que es LA SIGUIENTE**: el modal de cuenta en el checkout y la
+   navegación abierta por defecto. Hoy `/demo` pelado sigue mostrando el login;
+   la 2 solo abrió los deep links. Y de la 3 depende la 4, los eventos del embudo.
+2. **La tanda 5, que quedó DESBLOQUEADA**: meta tags por tour con prerender,
+   `robots.txt` y `sitemap.xml`. Necesitaba las URLs y ya las tiene. **Es la que
+   convierte el trabajo de la 2 en tráfico**: sin ella, las fichas tienen
+   dirección pero comparten el mismo título y la misma descripción al
+   compartirse.
+
+**Ninguna de las dos está arrancada** y no se empiezan sin visto bueno explícito.
+
+**Antes de la 5 hay que resolver el bloqueante que ya está cerrado y los datos de
+prueba que no**: el prerender **congela el contenido en HTML indexable**, así que
+lo que esté mal ese día queda en el índice de Google hasta el próximo crawl.
 
 **Lo que queda pendiente y no es una tanda de la secuencia**, en orden de
 gravedad:
@@ -70,10 +87,10 @@ gravedad:
 | 1 | ✅ Analítica base: SOLO Vercel Analytics (reducida), **en `main`** | nada | sí |
 | 1B | ✅ La landing no se carga en `/demo`, **en `main`** | salió de medir la 1 | sí |
 | 1C | ✅ Fotos de la landing a 800 px, **en `main`** | 1B | sí |
-| 2 | 🔨 Router con `BASE_PATH` y URL por tour, **en QA** | 1 | sí |
-| 3 | Modal de cuenta en el checkout, navegación abierta | 2 | sí |
+| 2 | ✅ Router con `BASE_PATH` y URL por tour, **en `main`** | 1 | sí |
+| 3 | **LA SIGUIENTE.** Modal de cuenta en el checkout, navegación abierta | 2 ✅ | sí |
 | 4 | Eventos del embudo (`booking_started`, `auth_prompted`, ...) | 3 | sí |
-| 5 | Meta tags por tour (prerender en build), `robots.txt`, `sitemap.xml` | 2 | sí |
+| 5 | **DESBLOQUEADA.** Meta tags por tour (prerender en build), `robots.txt`, `sitemap.xml` | 2 ✅ | sí |
 | 6 | Día del switch: `BASE_PATH` a `""` más el rewrite de la raíz | todo | el código sí, el SEO no |
 
 La tanda 2 arranca con las tres definiciones que pide la decisión de la URL del
@@ -1097,7 +1114,11 @@ Pendientes de performance:
 
   **Ojo con la prioridad, que las mediciones del 2026-08-16 dieron vuelta.** Este pendiente figuraba como el número uno de rendimiento y no lo era: las tandas 1B y 1C sacaron **11,8 MB** entre las dos, más de sesenta veces el bundle comprimido entero. **Lo que pesa son imágenes, no JavaScript.** **Las dos puntas del problema de imágenes ya están resueltas**: la landing (tanda 1C) y las que suben las agencias (procesamiento en el navegador). Con eso, el code splitting sí pasa a ser el próximo pendiente de rendimiento.
 
-### Tanda 2, EN QA: el router y las URLs por vista
+### Tanda 2, CERRADA: el router y las URLs por vista
+
+**En `main` desde el 2026-08-16 (`1d5bad0`), post-QA.** José validó los ocho
+puntos del checklist en dev.finde.pe, incluido el link abierto en incógnito y
+compartido por WhatsApp, que es la prueba que resume la tanda.
 
 **Rama `feat/router-urls`, tag `pre-router`.** Cinco commits, uno por paso.
 
