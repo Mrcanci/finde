@@ -32,6 +32,7 @@ promovió a `.claude/rules/`, y `docs/estado.md` volvió a ser un estado.
 | `2026-08-sello-verificacion.md` | El bloqueante de lanzamiento: nueve agencias con el sello sin tenerlo ganado |
 | `2026-08-tipografia.md` | Las fases 0 a 5 del plan tipográfico y el cierre de las cuatro canillas de em-dashes |
 | `2026-08-analitica-y-endpoints-ia.md` | Vercel Analytics, su costo medido, y los endpoints de IA que pasaron a exigir agencia |
+| `2026-08-navegacion-y-cuenta.md` | La tanda 3: el muro de cuenta movido al checkout. **Tres mediciones que no se repiten solas**: RLS apagado y sin grants (o sea que el gate es la API, no la base), la config real de Supabase Auth, y por qué el conteo crudo de "acá" contra "aquí" apunta al revés |
 
 ## La regla que evita volver a esto
 
