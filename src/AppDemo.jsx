@@ -5626,6 +5626,41 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
   );
 }
 
+// Pantalla de "no encontrado". Hasta ahora la app no tenía concepto de 404: una
+// ficha sin tour devolvía null y quedaba un cuadro en blanco. Con URLs esto pasa
+// a ser un caso real y frecuente, porque Google va a tener indexadas URLs de
+// tours que después salen del catálogo (acaba de pasar con siete).
+//
+// Dos textos, según lo que sabemos:
+//   · deTour: la URL era una ficha bien formada que no resolvió. Puede ser que
+//     el tour no exista o que esté fuera del catálogo. NO se distingue, y es a
+//     propósito: el API responde 404 en los dos casos desde M-2, y al viajero la
+//     diferencia no le sirve de nada.
+//   · si no, la URL directamente no corresponde a ninguna pantalla.
+function NotFoundView({ go, deTour }) {
+  return (
+    <div className="pg fu" style={{ minHeight: "60vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "48px 24px" }}>
+      <div style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--cr)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+        <Compass size={26} strokeWidth={1.5} style={{ color: "var(--f)" }} />
+      </div>
+      <div style={{ fontFamily: "'DM Serif Display',Georgia,serif", fontSize: 24, color: "var(--ch)", marginBottom: 8 }}>
+        {deTour ? "Este tour ya no está disponible" : "No encontramos esta página"}
+      </div>
+      <div style={{ fontSize: 14, color: "var(--gy)", maxWidth: 420, marginBottom: 24 }}>
+        {deTour
+          ? "Puede que la agencia lo haya dado de baja o que el enlace esté vencido. Hay muchos otros tours para ver."
+          : "El enlace puede estar incompleto o haber cambiado. Empieza por el catálogo."}
+      </div>
+      <button className="mbtn" style={{ maxWidth: 280, marginTop: 0 }} onClick={() => go("catalog")}>
+        Ver todos los tours
+      </button>
+      <button className="rv-cancel" style={{ maxWidth: 280, marginTop: 8, width: "100%" }} onClick={() => go("home")}>
+        Ir al inicio
+      </button>
+    </div>
+  );
+}
+
 // Vistas públicas: un invitado ("Explorar sin cuenta") puede verlas sin sesión.
 // Todo lo demás (booking, trips, trip-detail, profile, dashboard, new-tour,
 // notifications) es privado y lo rebota el guard de effectiveView al login.
@@ -5667,6 +5702,14 @@ export default function AppDemo() {
   // login cualquier vista sin sesión y "Explorar sin cuenta" no navegaría.
   const [guest, setGuest] = useState(() => isPublicDeepLink(route0));
   const [tour, setTour] = useState(null);
+  // Hidratación de un link frío: el tour que se pide al servidor por su sufijo
+  // cuando alguien abre /tour/<slug>-<sufijo> sin haber pasado por el catálogo.
+  //
+  // Se guarda el RESULTADO junto al sufijo que lo pidió, y el estado visible se
+  // deriva de comparar los dos. Así "cargando" no es un setState más (que además
+  // dispara renders en cascada y lo marca ESLint): es simplemente que todavía no
+  // llegó la respuesta de ESTE sufijo.
+  const [deepFetch, setDeepFetch] = useState({ suffix: null, tour: null, failed: false });
   const [nav, setNav] = useState("explore");
   const [cat, setCat] = useState("all");
   // IDs de notificaciones ya vistas (persisten en localStorage). El read de cada
@@ -6137,6 +6180,53 @@ export default function AppDemo() {
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
+
+  // Hidratación de un link frío a una ficha o a una reserva.
+  //
+  // Es el único trabajo de verdad del router: hasta ahora la ficha SIEMPRE salía
+  // del array del catálogo, porque no había forma de llegar sin pasar por él.
+  // Con URLs, alguien abre /tour/<slug>-<sufijo> en una pestaña nueva y ese
+  // array todavía está vacío. Se pide el tour por su sufijo, que es exactamente
+  // lo que GET /api/tours/:id aprendió a resolver.
+  //
+  // No se espera al catálogo aunque esté cargando: son dos pedidos en paralelo y
+  // el que gana pinta la ficha. En 4G eso es casi un segundo de diferencia.
+  const deepSeg = routeParams.seg;
+  const necesitaTour = (view === "detail" || view === "booking") && !tour;
+  const segParsed = necesitaTour ? parseTourSegment(deepSeg) : null;
+  const deepSuffix = segParsed ? segParsed.suffix : null;
+  const deepSlug = segParsed ? segParsed.slug : "";
+  useEffect(() => {
+    if (!deepSuffix) return;
+    let cancel = false;
+    const run = async () => {
+      try {
+        const q = deepSlug ? `?slug=${encodeURIComponent(deepSlug)}` : "";
+        const r = await fetch(`/api/tours/${deepSuffix}${q}`);
+        if (cancel) return;
+        // 404 cubre los dos casos, y es a propósito: el tour no existe, o existe
+        // pero está fuera del catálogo. El API no los distingue (active:false
+        // responde 404 desde M-2) y al viajero no le sirve la diferencia.
+        if (!r.ok) { setDeepFetch({ suffix: deepSuffix, tour: null, failed: true }); return; }
+        const data = await r.json();
+        if (cancel) return;
+        setDeepFetch({ suffix: deepSuffix, tour: ensureAvailabilityFields(mapTourFromApi(data.tour)), failed: false });
+      } catch {
+        if (!cancel) setDeepFetch({ suffix: deepSuffix, tour: null, failed: true });
+      }
+    };
+    run();
+    return () => { cancel = true; };
+  }, [deepSuffix, deepSlug]);
+
+  // El estado visible, derivado. "loading" es "la respuesta de este sufijo
+  // todavía no llegó", no un estado que alguien tenga que setear.
+  const resuelto = deepFetch.suffix && deepFetch.suffix === deepSuffix;
+  const deepState = !necesitaTour ? "idle"
+    : !segParsed ? "missing"
+      : !resuelto ? "loading"
+        : deepFetch.failed ? "missing" : "ready";
+  const deepTour = resuelto && !deepFetch.failed ? deepFetch.tour : null;
   const handleGuest = () => { setGuest(true); go("home"); };
   // El logout apaga el modo invitado: cerrar sesión vuelve al login normal, no
   // deja al usuario navegando el catálogo como invitado.
@@ -6570,7 +6660,7 @@ export default function AppDemo() {
     if (tour) return tours.find(t => t.id === tour.id) || tour;
     const seg = parseTourSegment(routeParams.seg);
     if (!seg) return null;
-    return tours.find(t => t.id.endsWith(seg.suffix)) || null;
+    return tours.find(t => t.id.endsWith(seg.suffix)) || deepTour;
   })();
   // M2.3: el catálogo se filtra en el BACKEND (GET /api/tours solo devuelve
   // active:true). Ya no hay filtro local por el flag de opTours (que solo servía
@@ -6597,10 +6687,19 @@ export default function AppDemo() {
         {showHeader && <TopNav onHome={() => go("home")} onDash={() => go(view === "dashboard" ? "home" : "dashboard")} notifs={notifs} unread={unread} onNotifSelect={handleNotifSelect} onMarkAll={() => markNotifsSeen(notifs.map((n) => n.id))} view={view} isOperator={isOperator} operatorResolved={operatorResolved} navActive={nav} onNavClick={navGo} />}
         {effectiveView === "login" && <LoginView go={go} loginMsg={loginMsg} onGuest={handleGuest} />}
         {effectiveView === "welcome" && <WelcomeView go={go} />}
+        {effectiveView === "not-found" && <NotFoundView go={go} />}
         {effectiveView === "home" && <HomeView go={go} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} selectedCity={selectedCity} setSelectedCity={pickCity} geoSource={geoSource} />}
         {effectiveView === "catalog" && <CatalogView go={go} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} />}
-        {effectiveView === "detail" && <DetailView tour={currentTour} go={go} onBook={handleBook} reviews={reviews} />}
-        {effectiveView === "booking" && <BookingView tour={currentTour} go={go} onLocalBookingSuccess={handleAddLocalTrip} />}
+        {effectiveView === "detail" && (currentTour
+          ? <DetailView tour={currentTour} go={go} onBook={handleBook} reviews={reviews} />
+          : deepState === "missing"
+            ? <NotFoundView go={go} deTour />
+            : <div className="fu" style={{ minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--gy)", fontSize: 14, fontWeight: 600 }}>Cargando el tour…</div>)}
+        {effectiveView === "booking" && (currentTour
+          ? <BookingView tour={currentTour} go={go} onLocalBookingSuccess={handleAddLocalTrip} />
+          : deepState === "missing"
+            ? <NotFoundView go={go} deTour />
+            : <div className="fu" style={{ minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--gy)", fontSize: 14, fontWeight: 600 }}>Cargando el tour…</div>)}
         {effectiveView === "notifications" && <NotifsView notifs={notifs} onSelect={handleNotifSelect} onMarkAll={() => markNotifsSeen(notifs.map((n) => n.id))} />}
         {effectiveView === "trips" && <TripsView go={go} onSelectTrip={setCurrentTrip} trips={trips} />}
         {effectiveView === "trip-detail" && <TripDetailView trip={currentTrip} go={go} onReview={handleReview} />}
