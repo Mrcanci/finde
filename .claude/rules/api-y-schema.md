@@ -202,9 +202,23 @@ cinco pasos y el otro es un botón.
    diferencia entre tapar el síntoma y cerrar la regla. Para `active` son dos:
    el POST que crea y el PATCH que activa (el PUT no lo toca).
 3. **La condición vive en UN lugar, con sus números.** `faltaParaPublicar` y las
-   constantes `PITCH_MIN`, `PITCH_MAX` y `DESC_MIN` están en `lib/tour-input.ts`
-   junto al schema del formulario, y los dos caminos las usan. Si cada handler
-   escribe su propio `40`, se separan.
+   constantes `PITCH_MIN`, `PITCH_MAX` y `DESC_MIN` están en
+   **`lib/tour-publish.js`**, que **no tiene ninguna dependencia** justamente
+   para que lo puedan importar los dos lados: el backend y el navegador.
+
+   **Ese archivo sin imports no es un detalle de estilo.** La condición nació en
+   `lib/tour-input.ts`, que importa zod, Prisma y Voyage, así que el frontend no
+   podía usarla sin arrastrar todo eso al bundle, y la única salida aparente era
+   copiarla. Sacar la parte pura a su propio archivo fue lo que permitió
+   compartirla de verdad. **Si alguna vez le agregás un import a
+   `tour-publish.js`, rompés esa propiedad y volvés a forzar la copia.**
+
+   Vive en `lib/` y no en `src/` a propósito: así la función serverless hace un
+   import normal de la carpeta de al lado y el que cruza carpetas es Vite.
+   Verificado con `vercel build` el 2026-08-17: el archivo viaja dentro del
+   bundle desplegado (`api/tours/[id].func/lib/tour-publish.js`). **Un import que
+   compila pero no se despliega rompe en producción y no en la prueba**, así que
+   ese es el chequeo que vale, no `tsc`.
 4. **El mensaje dice QUÉ falta y DÓNDE se arregla**, nombrando el campo como lo
    llama la interfaz y el paso del formulario. "No se pudo" obliga a adivinar.
 

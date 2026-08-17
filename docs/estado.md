@@ -25,7 +25,7 @@ lanzamiento, y **cada tanda tiene que dejar el switch más cerca, no más lejos*
 | 3 | Modal de cuenta en el checkout, navegación abierta | 2 ✅ | **la siguiente** |
 | 4 | Eventos del embudo | 3 | esperando |
 | 5 | Meta tags por tour, más la metadata obligatoria del formulario | 2 ✅ | ✅ en `main`. `robots.txt` y `sitemap.xml` van con el switch |
-| 5B | Activar un tour exige la metadata mínima | 5 ✅ | 🔨 **en QA** |
+| 5B | Activar un tour exige la metadata mínima, y el panel avisa antes | 5 ✅ | 🔨 **en QA** |
 | 6 | Día del switch: `BASE_PATH` a `""` más el rewrite de la raíz | todo | el código es reversible, el SEO no |
 
 **La 5 cerró el 2026-08-17. La 3 sigue sin arrancar** y las dos ya no dependen
@@ -46,11 +46,16 @@ una de la otra.
   `sitemap.xml`: eso va **el día del switch**, no antes. Publicar un sitemap hoy
   sería invitar a indexar lo que el `noindex` bloquea, y listaría las 37 URLs que
   se borran en el lanzamiento.
-- **La 5B está EN QA** (`fix/activar-exige-metadata`). Cierra el agujero que
-  encontró José: el formulario exigía la metadata pero **"activar" no pasa por el
-  formulario**, así que desde el panel se podía devolver al catálogo un tour sin
-  gancho. La condición vive ahora en `lib/tour-input.ts` con los números que usa
-  el formulario, y el PATCH la llama cuando el cuerpo pide `active:true`.
+- **La 5B está EN QA.** Cierra el agujero que encontró José: el formulario
+  exigía la metadata pero **"activar" no pasa por el formulario**, así que desde
+  el panel se podía devolver al catálogo un tour sin gancho. Defensa en dos
+  capas: el PATCH lo bloquea (es la guarda real) y **el panel apaga el
+  interruptor de entrada**, con el motivo visible en la tarjeta.
+
+  **La condición vive en `lib/tour-publish.js`, sin dependencias, y la importan
+  los dos lados.** Esa es la parte que hay que no romper: si alguien le agrega un
+  import, el frontend deja de poder usarla y vuelve la copia. Ver
+  `.claude/rules/api-y-schema.md`.
 
 **El prerender ya corre en CADA deploy, así que los datos sucios se congelan en
 HTML indexable** y quedan en el índice de Google hasta el próximo crawl. Hoy lo
