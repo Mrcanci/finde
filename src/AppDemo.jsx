@@ -5193,8 +5193,13 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
               que el problema. El título de la página ya suma la ciudad
               ("Namora en Cajamarca | Finde"), así que esto solo sugiere. */}
           {(form.title || "").trim().length >= 3 && (form.title || "").trim().length < 15 && (
+            // El ejemplo NO se arma con el título real de la agencia ni con un
+            // lugar concreto. La versión anterior interpolaba su título y le
+            // pegaba "bosque de piedras cerca de Cajamarca": alguien la copió tal
+            // cual como título de verdad y quedó una URL huérfana en producción.
+            // Un ejemplo que se lee como un dato invita a usarlo de dato.
             <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 6 }}>
-              Un nombre más descriptivo se encuentra mejor en Google. Puedes sumarle qué se hace o dónde queda, por ejemplo "{(form.title || "").trim()}: bosque de piedras cerca de Cajamarca".
+              Un nombre más descriptivo se encuentra mejor en Google. Súmale qué se hace o dónde queda: el lugar, la actividad y la ciudad.
             </div>
           )}
         </div>
