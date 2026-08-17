@@ -24,7 +24,7 @@ lanzamiento, y **cada tanda tiene que dejar el switch más cerca, no más lejos*
 | 2 | Router con `BASE_PATH` y URL por tour | 1 | ✅ en `main` |
 | 3 | Modal de cuenta en el checkout, navegación abierta | 2 ✅ | **la siguiente** |
 | 4 | Eventos del embudo | 3 | esperando |
-| 5 | Meta tags por tour (pasos 1 a 4) | 2 ✅ | 🔨 **en QA**. `robots.txt` y `sitemap.xml` van con el switch |
+| 5 | Meta tags por tour, más la metadata obligatoria del formulario | 2 ✅ | 🔨 **en QA**. `robots.txt` y `sitemap.xml` van con el switch |
 | 6 | Día del switch: `BASE_PATH` a `""` más el rewrite de la raíz | todo | el código es reversible, el SEO no |
 
 **Las tandas 3 y 5 ya no dependen una de la otra** y ninguna está arrancada.
@@ -35,6 +35,13 @@ lanzamiento, y **cada tanda tiene que dejar el switch más cerca, no más lejos*
   ficha tiene ahora su HTML estático con title, description y og: propios, más
   `noindex` mientras el producto viva en `/demo`. **Cuesta cero funciones
   serverless y no toca `vercel.json`.**
+  **Va junto con la metadata obligatoria del formulario**: `shortPitch` de 40 a 80
+  y descripción de 300 pasan a ser requeridos, la portada también, y hay avisos
+  para la foto chica y el título corto. El motivo está medido: **ninguno de los 5
+  tours que cargó una agencia real tenía `shortPitch`, y los 37 del seed sí**,
+  porque el campo no existía en el formulario. Detalle en
+  `docs/historia/2026-08-router-y-urls.md`.
+
   **Falta el paso 5**, que es sacar el `noindex` y publicar `robots.txt` y
   `sitemap.xml`: eso va **el día del switch**, no antes. Publicar un sitemap hoy
   sería invitar a indexar lo que el `noindex` bloquea, y listaría las 37 URLs que
