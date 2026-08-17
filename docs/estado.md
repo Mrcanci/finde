@@ -897,8 +897,164 @@ Local, dev.finde.pe y producción usan **la misma base**. Estos son los números
 - Categorías: adventure 19, cultural 16, nature 9, mystic 3, gastronomy 2.
 - `FeaturedSearch`: 32 filas. `SearchLog`: 271 filas.
 
+## PENDIENTE ANTES DEL LANZAMIENTO: las fotos que sube la agencia no se procesan
+
+**Investigado el 2026-08-16, sin implementar.** La foto que sube una agencia se
+guarda **tal cual**, al tamaño que salió del celular.
+
+**Por qué tiene que resolverse ANTES y no después.** En el lanzamiento se borran
+las agencias actuales y entran agencias reales que suben sus propias fotos. **Si
+las primeras suben fotos sin procesar, después hay que reprocesarlas a mano o
+pedirles que vuelvan a subir todo**, que es exactamente el pedido que no se le
+hace a una agencia recién onboardeada. Es una ventana que se abre una sola vez.
+
+### 1. No hay redimensionado ni compresión en ningún punto de la cadena
+
+Verificado en los cuatro eslabones, no deducido:
+
+| Eslabón | Qué hace con la imagen |
+|---|---|
+| `uploadOnePhoto` (`src/AppDemo.jsx`) | Pide la URL firmada y sube **el `File` original**, sin tocarlo |
+| `POST /api/uploads/tour-image` | Solo firma. **El archivo nunca pasa por la función**, va directo del navegador a Storage |
+| Bucket `tour-images` | Valida tamaño y MIME. **No transforma** |
+| `lib/tour-input.ts` | Solo comprueba que la URL sea `http(s)`. **No mira la imagen** |
+
+La lectura era correcta: **no hay procesamiento en ninguna parte.**
+
+### 2. Qué pasa con una foto de 8 MB: falla claro, pero el mensaje no sirve
+
+**No se rompe.** El cliente valida **antes** de subir (`MAX_PHOTO_BYTES`, 5 MiB,
+el mismo número exacto que el `file_size_limit` del bucket) y muestra "Una imagen
+supera los 5MB. Elige versiones más livianas."
+
+Tres problemas reales igual:
+
+1. **El mensaje no dice qué hacer.** A una agencia que sacó la foto con el celular,
+   "elige versiones más livianas" no le dice nada accionable, y **la app no ofrece
+   ninguna forma de achicarla**.
+2. **Aborta el lote entero.** Valida todas las fotos antes de subir ninguna (a
+   propósito, para no subir a medias), así que **una foto pesada entre cinco tira
+   las cinco**. Y no dice cuál era la pesada.
+3. **Va a pasar seguido.** Una foto de 12 MP pesa entre 3 y 6 MB; una de 48 MP,
+   entre 8 y 15. **El archivo más grande que ya está en el bucket son 4.062 kB**
+   (4608x3456), o sea que pasó raspando.
+
+Anomalía menor anotada al medir: hay **un archivo en el bucket con mimetype
+`application/octet-stream`**, que la lista blanca no debería permitir. Uno de 44,
+16 kB. Sin investigar.
+
+### 3. El impacto, medido y proyectado
+
+**Hoy** las 47 portadas del catálogo público pesan **11.333 kB**, con promedio de
+241 kB. La pantalla de inicio renderiza **los 49 tours** en la grilla "Explora
+tours", así que las pide todas.
+
+| Escenario | Peso de las portadas | Sobre 4G (1638 kbps) |
+|---|---|---|
+| Hoy | 11,3 MB | ~63 segundos |
+| **49 tours con portadas sin procesar de 4 MB** | **194 MB** | **~18 minutos** |
+| 49 tours con el arreglo (1600 px) | **7,2 MB** | ~40 segundos |
+
+**Son 17 veces lo de hoy**, y lo de hoy ya es malo. Con el arreglo queda **por
+debajo** del estado actual, porque el promedio de 241 kB baja a 151.
+
+Agravante: las portadas del catálogo se pintan con **`background-image` de CSS**,
+no con `<img>`. **`loading="lazy"` no aplica a los fondos CSS**, así que no hay
+forma de diferirlas sin cambiar el marcado.
+
+**Lo que ya se puede observar en el bucket, que es evidencia y no hipótesis:**
+
+| Agencia | Archivos | Total | Promedio | El más grande |
+|---|---|---|---|---|
+| MEGATOURS (real) | 28 | 8.952 kB | 320 kB | 981 kB |
+| Descubre el Perú (demo) | 14 | 17 MB | 1,2 MB | **4.062 kB** |
+
+**Matiz honesto: la única agencia real que subió fotos lo hizo en un rango
+razonable** (320 kB de promedio, probablemente sacadas de su propia web). Los
+archivos de 4 MB salieron de la cuenta de demo. El riesgo es real y está
+evidenciado, pero todavía no lo causó una agencia de verdad.
+
+### 4. El arreglo: redimensionar en el NAVEGADOR antes de subir
+
+La agencia elige su archivo de 6 MB, el navegador sube uno de ~150 kB y **no nota
+nada**.
+
+**Cómo.** `createImageBitmap(file)` para decodificar, un `<canvas>` para escalar,
+y `canvas.toBlob(cb, "image/jpeg", 0.82)` para reencodear. **Todo nativo del
+navegador: cero dependencias nuevas y cero peso en el bundle.** Va en un archivo
+nuevo (`src/lib/image-resize.js`) que `uploadOnePhoto` llama antes de subir. Entre
+40 y 60 líneas en total. **Es una tanda chica.**
+
+**Ancho máximo: 1600 px.** Justificado por dónde se muestran las fotos: el hero de
+la ficha en escritorio ocupa la mitad de una grilla de 1440, o sea ~720 px CSS,
+que a 2x son 1440; en móvil son ~390 px CSS, que a 3x son 1170. **1600 cubre los
+dos con margen**, y para las tarjetas del catálogo (360 px como mucho) sobra.
+
+**Calidad: 0.82 en JPEG.** Medido sobre la foto real de 4.062 kB del bucket:
+
+| Ancho | JPEG | WebP |
+|---|---|---|
+| 1200 px | 101 kB | 62 kB |
+| **1600 px** | **151 kB** | 97 kB |
+| 2000 px | 211 kB | 131 kB |
+
+**De 4.062 kB a 151 kB: un 96,3% menos.**
+
+**WebP: todavía no, y el motivo es concreto.** El bucket declara
+`allowed_mime_types = {image/jpeg, image/png}`, así que **un WebP lo rechaza**.
+Habría que cambiar la config del bucket, el `bodySchema` y el
+`CONTENT_TYPE_TO_EXT` de `api/uploads/tour-image.ts`. Ahorra 54 kB más por foto
+sobre el JPEG, y no desbloquea nada. **Se puede hacer después, aparte.**
+
+**Efecto secundario que vale tanto como el ahorro: el límite de 5 MB deja de
+importar.** Si el navegador achica antes de subir, la agencia puede elegir un
+archivo de 12 MB sin enterarse de que existe un tope. El mensaje "elige versiones
+más livianas" desaparece del producto.
+
+**Tres trampas que hay que dejar escritas antes de implementarlo:**
+
+1. **Orientación EXIF.** Sin `{ imageOrientation: "from-image" }` en
+   `createImageBitmap`, las fotos verticales de celular **salen rotadas**. Es el
+   error clásico de este arreglo.
+2. **PNG con transparencia.** Pasarlo a JPEG le pone fondo negro. Para fotos de
+   tours no importa, pero conviene pintar fondo blanco antes de dibujar.
+3. **Hace falta un tope de entrada igual**, generoso (25 MB), para no colgar el
+   navegador decodificando un archivo enorme. Reemplaza al de 5 MB, no se suma.
+
+**Las fotos ya subidas: casi no hay nada que reprocesar.** De los 44 archivos, los
+14 de "Descubre el Perú" (17 MB, donde están los de 4 MB) y el de "Tour Prueba" se
+van con las cuentas que se borran en el lanzamiento. Quedan **las 28 de MEGATOURS,
+que ya promedian 320 kB** y no urge tocar. Si algún día hiciera falta, es un
+script de una sola corrida, y **no habría que tocar la base**: re-subir con el
+mismo path conserva la URL (ojo con la caché del CDN).
+
+### 5. El bucket: 26 MB usados, y el techo depende del plan
+
+| Dato | Valor |
+|---|---|
+| Archivos hoy | 44 |
+| Ocupado hoy | **26 MB** |
+| Promedio por archivo | 600 kB |
+| El más grande | 4.062 kB |
+
+Los archivos por tour rondan **4** (MEGATOURS: 28 archivos para 5 tours).
+
+| Escenario | Por tour | Tours que entran en 1 GB |
+|---|---|---|
+| Sin procesar, fotos de 4 MB | 16 MB | **~64** |
+| Con el arreglo, 151 kB | 600 kB | **~1.700** |
+
+**Falta un dato que no puedo leer desde acá: en qué plan de Supabase está el
+proyecto.** El tope de almacenamiento del plan gratuito es **1 GB** y el de Pro
+son **100 GB**. Con 1 GB y fotos sin procesar, el bucket se llena con **64
+tours**, que es un número perfectamente alcanzable este año. **José tiene que
+confirmar el plan**, y hasta entonces la cuenta de arriba es la que hay que
+asumir.
+
 ## Antes de lanzar a usuarios reales
 
+- [ ] **Procesar las fotos en el navegador antes de subirlas.** Sección propia
+      arriba. Va **antes** de onboardear agencias reales, no después.
 - [ ] **Reactivar "Confirm email" en Supabase** (desactivado para acelerar el MVP).
 - 🚫 **El sello de verificación falso (8 del seed más "Descubre el Perú") SALIÓ de esta checklist el 2026-08-15.** Subió a **BLOQUEANTE DE LANZAMIENTO** y tiene sección propia más arriba en este documento. No es un ítem que se tilda entre otros: **el switch no se hace sin resolverlo.**
 - [ ] **Borrar los datos de prueba.** Inventario concreto:
