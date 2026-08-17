@@ -5,6 +5,7 @@ import { useAuth } from "./contexts/AuthContext.jsx";
 import { authFetch } from "./lib/authFetch.js";
 import { supabase } from "./lib/supabase.js";
 import { resizeImageForUpload, ALLOWED_INPUT_TYPES, MAX_UPLOAD_BYTES } from "./lib/image-resize.js";
+import { fromPath, toPath, parseTourSegment, PUBLIC_VIEWS } from "./lib/routes.js";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // FINDE v3 — AI-Native Marketplace
@@ -2371,7 +2372,7 @@ function CitySelector({ selectedCity, onPick }) {
   );
 }
 
-function HomeView({ go, pick, cat, setCat, tours, toursLoading, selectedCity, setSelectedCity, geoSource }) {
+function HomeView({ go, cat, setCat, tours, toursLoading, selectedCity, setSelectedCity, geoSource }) {
   const [cityExpanded, setCityExpanded] = useState(false);
   const filt = cat === "all" ? tours : tours.filter((t) => t.category === cat);
   // Destacados: los 4 más recientes (createdAt desc). Antes ordenaba por rating,
@@ -2405,7 +2406,7 @@ function HomeView({ go, pick, cat, setCat, tours, toursLoading, selectedCity, se
         </div>
         <div className="cats fd2">{CATS.map((c) => <button key={c.id} className={`chip ${cat === c.id ? "on" : ""}`} onClick={() => setCat(c.id)}><c.ic size={16} strokeWidth={1.5} /> {c.n}</button>)}</div>
         <div className="sh fd2"><div className="st">Recién publicados</div><button className="sl" onClick={() => go("catalog")}>Ver todos <ArrowRight size={12} strokeWidth={1.5} style={{verticalAlign:"middle"}} /></button></div>
-        <div className="tscr fd3">{toursLoading ? Array.from({ length: 4 }).map((_, i) => <TCardSkeleton key={i} />) : feat.map((t) => <TCard key={t.id} t={t} onClick={() => { pick(t); go("detail"); }} />)}</div>
+        <div className="tscr fd3">{toursLoading ? Array.from({ length: 4 }).map((_, i) => <TCardSkeleton key={i} />) : feat.map((t) => <TCard key={t.id} t={t} onClick={() => { go("detail", { tour: t }); }} />)}</div>
         <div className="sh city-sh" style={{ marginTop: 8 }}>
           <div className="st">
             Tours en {selectedCity}
@@ -2429,7 +2430,7 @@ function HomeView({ go, pick, cat, setCat, tours, toursLoading, selectedCity, se
         ) : allCityTours.length > 0 ? (
           <div className={`tscr city-tscr${cityExpanded ? " expanded" : ""}`}>
             {allCityTours.map((t) => (
-              <TCard key={t.id} t={t} onClick={() => { pick(t); go("detail"); }} />
+              <TCard key={t.id} t={t} onClick={() => { go("detail", { tour: t }); }} />
             ))}
           </div>
         ) : (
@@ -2443,13 +2444,13 @@ function HomeView({ go, pick, cat, setCat, tours, toursLoading, selectedCity, se
           </div>
         )}
         <div className="sh" style={{ marginTop: 8 }}><div className="st">Explora tours</div></div>
-        <div className="tg">{toursLoading ? Array.from({ length: 8 }).map((_, i) => <GCardSkeleton key={i} />) : filt.map((t) => <GCard key={t.id} t={t} onClick={() => { pick(t); go("detail"); }} />)}</div>
+        <div className="tg">{toursLoading ? Array.from({ length: 8 }).map((_, i) => <GCardSkeleton key={i} />) : filt.map((t) => <GCard key={t.id} t={t} onClick={() => { go("detail", { tour: t }); }} />)}</div>
       </div>
     </div>
   );
 }
 
-function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
+function CatalogView({ go, cat, setCat, tours, toursLoading }) {
   const [q, setQ] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const [localResults, setLocalResults] = useState([]);
@@ -2635,7 +2636,7 @@ function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
               {isPopular && hasResults && <div className="ai-suggest-h">Búsquedas populares</div>}
               {!isPopular && geminiLoading && <div className="sr-ai-hint"><Sparkles size={12} strokeWidth={1.5} /> Buscando…</div>}
               {hasResults ? localResults.map(t => (
-                <div key={t.id} className="sr-item" onMouseDown={(e) => { e.preventDefault(); pick(t); go("detail"); }}>
+                <div key={t.id} className="sr-item" onMouseDown={(e) => { e.preventDefault(); go("detail", { tour: t }); }}>
                   <div className="sr-thumb" style={imgBg(t.image)} />
                   <div className="sr-info"><div className="sr-name">{t.title}</div><div className="sr-loc">{t.location}</div></div>
                   <div className="sr-meta"><div className="sr-price">S/ {t.price}</div><div className="sr-rating">{t.reviews > 0 ? (<>{Array.from({length: Math.round(t.rating)}, (_,i) => <Star key={i} size={10} strokeWidth={1.5} fill="currentColor" />)} {t.rating}</>) : "Nuevo"}</div></div>
@@ -2719,7 +2720,7 @@ function CatalogView({ go, pick, cat, setCat, tours, toursLoading }) {
         ) : (
           <>
             {!(aiResult || geminiIds) && <div style={{ paddingBottom: 12, fontSize: 13, color: "var(--gy)" }}>{filt.length} tours disponibles</div>}
-            <div className="tg">{filt.map((t) => <GCard key={t.id} t={t} onClick={() => { pick(t); go("detail"); }} />)}</div>
+            <div className="tg">{filt.map((t) => <GCard key={t.id} t={t} onClick={() => { go("detail", { tour: t }); }} />)}</div>
           </>
         ))}
       </div>
@@ -2777,7 +2778,7 @@ function DetHeroGallery({ images }) {
   );
 }
 
-function DetailView({ tour, go, pick, onBook, reviews }) {
+function DetailView({ tour, go, onBook, reviews }) {
   const [lang, setLang] = useState("es");
   const [langOpen, setLangOpen] = useState(false);
   const [showAllRevs, setShowAllRevs] = useState(false);
@@ -3514,7 +3515,7 @@ function BookingView({ tour, go, onLocalBookingSuccess }) {
 
   return (
     <div className="bkf fu">
-      <button className="bk-btn" onClick={() => step === 1 ? go("detail") : setStep(step - 1)} style={{ position: "relative", marginBottom: 16 }} aria-label={step === 1 ? "Volver al tour" : "Paso anterior"} type="button"><ArrowLeft size={20} strokeWidth={1.5} /></button>
+      <button className="bk-btn" onClick={() => step === 1 ? go("detail", { tour }) : setStep(step - 1)} style={{ position: "relative", marginBottom: 16 }} aria-label={step === 1 ? "Volver al tour" : "Paso anterior"} type="button"><ArrowLeft size={20} strokeWidth={1.5} /></button>
       {/* 3 etapas: Fecha/Viajeros → Datos → Reserva lista (la final es step 3,
           que se renderiza arriba; aquí solo se ven las etapas 1 y 2). */}
       <div className="bkf-st"><div className={`bkf-s ${step >= 1 ? "on" : ""}`} /><div className={`bkf-s ${step >= 2 ? "on" : ""}`} /><div className={`bkf-s ${step >= 3 ? "on" : ""}`} />{DEMO_PAYMENT_FLOW && <div className={`bkf-s ${step >= 4 ? "on" : ""}`} />}</div>
@@ -3776,7 +3777,7 @@ function TripsView({ go, onSelectTrip, trips }) {
       <div className="tp-tabs">{[{ id: "all", l: "Todos" }, { id: "upcoming", l: "Próximos" }, { id: "completed", l: "Completados" }].map((x) => <button key={x.id} className={`tp-tab ${f === x.id ? "on" : ""}`} onClick={() => setF(x.id)}>{x.l}</button>)}</div>
       {list.map((trip) => (
         <div key={trip.id}>
-          <div className="tp-card" onClick={() => { onSelectTrip(trip); go("trip-detail"); }}>
+          <div className="tp-card" onClick={() => { onSelectTrip(trip); go("trip-detail", { code: trip.code }); }}>
             <div className="tp-img" style={imgBg(trip.tour.image)} />
             <div className="tp-info"><div className="tp-name">{trip.tour.title}</div><div className="tp-det">{trip.date} · {trip.guests} pers</div><div className="tp-code">{trip.code}</div>
               <div className="tp-foot"><div className="tp-price">S/ {trip.total}</div>{(() => {
@@ -5628,15 +5629,43 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
 // Vistas públicas: un invitado ("Explorar sin cuenta") puede verlas sin sesión.
 // Todo lo demás (booking, trips, trip-detail, profile, dashboard, new-tour,
 // notifications) es privado y lo rebota el guard de effectiveView al login.
-const GUEST_VIEWS = ["home", "catalog", "detail", "login", "welcome"];
+const GUEST_VIEWS = ["home", "catalog", "detail", "login", "welcome", "not-found"];
+
+// La vista con la que arranca la app, leída de la URL DURANTE el render.
+// Mismo criterio que src/App.jsx: leer la URL no necesita estado ni efecto, es
+// un dato del documento que ya existe cuando React monta.
+function initialRoute() {
+  if (typeof window === "undefined") return { view: "login", params: {} };
+  return fromPath(window.location.pathname);
+}
+
+// Un deep link a una vista PÚBLICA prende el modo invitado, o el visitante que
+// llega de Google rebotaría al login y el router no serviría para su propósito.
+//
+// Ojo con el borde, que es lo que mantiene esto separado de la tanda 3: solo
+// cuenta como deep link una ruta que NO es la raíz. Entrar a /demo pelado sigue
+// mostrando el login, como siempre. Abrir la navegación por defecto es la
+// tanda 3, no esta.
+function isPublicDeepLink(route) {
+  if (typeof window === "undefined") return false;
+  const raiz = toPath("home");
+  const aqui = window.location.pathname.replace(/\/+$/, "") || "/";
+  if (aqui === raiz.replace(/\/+$/, "")) return false;
+  return PUBLIC_VIEWS.includes(route.view);
+}
 
 // ── MAIN ──────────────────────────────────────────────
 export default function AppDemo() {
   const { user, loading, isOperator, operatorResolved, signOut } = useAuth();
-  const [view, setView] = useState("login");
+  // Ruta inicial: de la URL, no de un default fijo. Un link compartido tiene que
+  // abrir donde apunta.
+  const [route0] = useState(initialRoute);
+  const [view, setView] = useState(route0.view);
+  // Parámetros de la ruta actual (el segmento de la ficha, el código del viaje).
+  const [routeParams, setRouteParams] = useState(route0.params);
   // Modo invitado explícito: sin él, el guard de effectiveView rebotaría al
   // login cualquier vista sin sesión y "Explorar sin cuenta" no navegaría.
-  const [guest, setGuest] = useState(false);
+  const [guest, setGuest] = useState(() => isPublicDeepLink(route0));
   const [tour, setTour] = useState(null);
   const [nav, setNav] = useState("explore");
   const [cat, setCat] = useState("all");
@@ -6069,21 +6098,52 @@ export default function AppDemo() {
     if (typeof window !== "undefined") window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, [view]);
 
-  const go = (v) => {
+  // go() ya era el único punto por donde pasa toda la navegación de la app, así
+  // que el router se enchufa acá y NO en cada botón. Esa centralización es lo
+  // que hace que esta tanda sea chica.
+  //
+  // params: { tour } para la ficha y la reserva, { code } para el detalle de un
+  // viaje. Se guardan en estado porque el render los necesita antes de que
+  // llegue el dato del servidor.
+  const go = (v, params = {}) => {
     if (v !== "login") setLoginMsg("");
+    if (params.tour) setTour(params.tour);
     setView(v);
+    setRouteParams(params);
+    if (typeof window !== "undefined") {
+      const url = toPath(v, params);
+      // replace y no push cuando la URL no cambia: evita apilar entradas
+      // idénticas y que el botón de atrás no haga nada visible.
+      if (url !== window.location.pathname) window.history.pushState({ view: v }, "", url);
+    }
     if (v === "home") setNav("explore");
     if (v === "catalog") setNav("search");
     if (v === "trips") setNav("trips");
     if (v === "profile") setNav("profile");
   };
+
+  // El botón de atrás del navegador. Sin esto saca al usuario de la app entera,
+  // que es lo que pasa hoy: cambiar de vista no dejaba entrada en el historial.
+  useEffect(() => {
+    const onPop = () => {
+      const r = fromPath(window.location.pathname);
+      setView(r.view);
+      setRouteParams(r.params);
+      if (r.view === "home") setNav("explore");
+      else if (r.view === "catalog") setNav("search");
+      else if (r.view === "trips") setNav("trips");
+      else if (r.view === "profile") setNav("profile");
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
   const handleGuest = () => { setGuest(true); go("home"); };
   // El logout apaga el modo invitado: cerrar sesión vuelve al login normal, no
   // deja al usuario navegando el catálogo como invitado.
   const handleLogout = async () => { setGuest(false); await signOut(); };
   const handleBook = () => {
     if (!user) { setLoginMsg("Inicia sesión o regístrate para reservar tu tour"); go("login"); }
-    else go("booking");
+    else go("booking", { tour: currentTour });
   };
   const handleReview = (tripId, tourId, rating, text) => {
     const newReview = { id: Date.now(), author: USER.name, avatar: USER.avatar, rating, text, date: "Hoy" };
@@ -6503,7 +6563,15 @@ export default function AppDemo() {
   const showNav = isAuth && !["booking", "detail", "new-tour", "trip-detail"].includes(effectiveView);
   const showHeader = isAuth && !["booking", "new-tour"].includes(effectiveView);
   const showFooter = isAuth && !["booking", "detail", "new-tour", "dashboard", "trip-detail"].includes(effectiveView);
-  const currentTour = tour ? tours.find(t => t.id === tour.id) || tour : null;
+  // La ficha sale del estado si el usuario llegó navegando, y del SUFIJO DE LA
+  // URL si llegó por un link. Sin lo segundo, abrir /tour/algo-abc123 en una
+  // pestaña nueva mostraba una pantalla vacía.
+  const currentTour = (() => {
+    if (tour) return tours.find(t => t.id === tour.id) || tour;
+    const seg = parseTourSegment(routeParams.seg);
+    if (!seg) return null;
+    return tours.find(t => t.id.endsWith(seg.suffix)) || null;
+  })();
   // M2.3: el catálogo se filtra en el BACKEND (GET /api/tours solo devuelve
   // active:true). Ya no hay filtro local por el flag de opTours (que solo servía
   // para el propio operador y no para otros usuarios). `tours` ya viene filtrado;
@@ -6529,9 +6597,9 @@ export default function AppDemo() {
         {showHeader && <TopNav onHome={() => go("home")} onDash={() => go(view === "dashboard" ? "home" : "dashboard")} notifs={notifs} unread={unread} onNotifSelect={handleNotifSelect} onMarkAll={() => markNotifsSeen(notifs.map((n) => n.id))} view={view} isOperator={isOperator} operatorResolved={operatorResolved} navActive={nav} onNavClick={navGo} />}
         {effectiveView === "login" && <LoginView go={go} loginMsg={loginMsg} onGuest={handleGuest} />}
         {effectiveView === "welcome" && <WelcomeView go={go} />}
-        {effectiveView === "home" && <HomeView go={go} pick={setTour} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} selectedCity={selectedCity} setSelectedCity={pickCity} geoSource={geoSource} />}
-        {effectiveView === "catalog" && <CatalogView go={go} pick={setTour} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} />}
-        {effectiveView === "detail" && <DetailView tour={currentTour} go={go} pick={setTour} onBook={handleBook} reviews={reviews} />}
+        {effectiveView === "home" && <HomeView go={go} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} selectedCity={selectedCity} setSelectedCity={pickCity} geoSource={geoSource} />}
+        {effectiveView === "catalog" && <CatalogView go={go} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} />}
+        {effectiveView === "detail" && <DetailView tour={currentTour} go={go} onBook={handleBook} reviews={reviews} />}
         {effectiveView === "booking" && <BookingView tour={currentTour} go={go} onLocalBookingSuccess={handleAddLocalTrip} />}
         {effectiveView === "notifications" && <NotifsView notifs={notifs} onSelect={handleNotifSelect} onMarkAll={() => markNotifsSeen(notifs.map((n) => n.id))} />}
         {effectiveView === "trips" && <TripsView go={go} onSelectTrip={setCurrentTrip} trips={trips} />}
