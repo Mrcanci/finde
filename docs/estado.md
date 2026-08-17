@@ -171,11 +171,15 @@ El elemento LCP es el mismo en los dos casos: la pantalla de carga con el
 logotipo. O sea que esos 6,1 MB **retrasaban el primer dibujo de la app misma**,
 no solo el de una foto que nadie mira.
 
-### Punto 3, ANÁLISIS SIN TOCAR NADA: las imágenes de la landing
+### El análisis de las imágenes de la landing, que dio origen a la tanda 1C
 
-**El arreglo de la tanda 1B no toca este problema.** `finde.pe`, que es lo que
-Google indexa hoy, sigue descargando lo mismo: medido, **6.526.560 bytes y un LCP
-de entre 5,6 y 12,8 segundos**.
+> **Esta sección quedó como el diagnóstico. La ejecución está en "Tanda 1C, HECHA
+> el 2026-08-16" más abajo, con los números finales.** Se conserva porque explica
+> cómo se eligió la opción, no solo cuál se eligió.
+
+**El arreglo de la tanda 1B no tocaba este problema.** `finde.pe`, que es lo que
+Google indexa, seguía descargando lo mismo: medido, **6.526.560 bytes y un LCP de
+entre 5,6 y 12,8 segundos**. La tanda 1C lo bajó a **976.569 bytes**.
 
 #### Las nueve imágenes
 
@@ -222,26 +226,26 @@ el cuarto, de recomprimir los archivos de verdad con `cwebp` y `ffmpeg`.
 | Redimensionadas a 800 px y pasadas a WebP | 460 kB | 5.485 kB (92,2%) |
 | Redimensionadas a 1200 px y pasadas a WebP | 909 kB | 5.037 kB (84,7%) |
 
-#### La recomendación, y por qué NO hace falta autorización todavía
+#### La recomendación que se ejecutó, y por qué no hizo falta autorización
 
-**El 90,5% del ahorro se consigue sin tocar una línea de `Landing.jsx`:** basta
+**El 90,5% del ahorro se conseguía sin tocar una línea de `Landing.jsx`:**
 **reemplazar los archivos en `public/destinations/` por versiones redimensionadas
 a 800 px, con el mismo nombre y la misma extensión `.jpg`**. El JSX sigue
-apuntando a las mismas rutas y no se entera.
+apuntando a las mismas rutas y no se entera. **Es lo que hizo la tanda 1C.**
 
 WebP suma apenas **106 kB más** sobre eso, y `srcset` por tamaño de pantalla suma
 todavía menos. Las dos **sí exigirían tocar `Landing.jsx`** (cambia la extensión
 del `src`, o hace falta un `<picture>`), y ninguna justifica el permiso por 106 kB.
 **Si algún día se abre `Landing.jsx` por otro motivo, se aprovecha el viaje.**
 
-Dos cosas a verificar antes de reemplazar los archivos, y no son trámite:
+Las dos verificaciones que se exigieron antes de reemplazar, y cómo se cerraron:
 
-1. **Los 179x119 px son la medición en móvil.** Hay que medir el ancho real de la
-   tarjeta en escritorio antes de fijar los 800 px, para no dejar las fotos
-   borrosas en pantallas grandes.
-2. **Reemplazar los archivos cambia lo que se ve.** Es una decisión de diseño, no
-   solo de peso, así que las nuevas se miran al lado de las viejas antes de
-   commitear.
+1. **Los 179x119 px eran la medición en móvil.** Se midió también en escritorio
+   antes de fijar los 800 px: **193x129 px CSS** con viewport de 1350, casi
+   idéntico. Con eso, 800 px cubre hasta 4x de densidad de pantalla.
+2. **Reemplazar los archivos cambia lo que se ve.** Se armó una comparación de las
+   seis, antes y después, a 450 px de ancho (más del doble del tamaño real), y se
+   le pasó a José antes de commitear.
 
 **Los mockups son un caso aparte y más chico:** 433 kB que bajan a 256 kB en WebP,
 pero eso sí exige tocar el JSX y solo uno de los tres carga al inicio. No vale el
@@ -871,7 +875,69 @@ Pendientes de performance:
 
 - **El bundle pasa los 500 kB y Vite lo avisa en cada build** (673 kB, 184 kB comprimido, en un solo chunk). No es urgente para el piloto, pero sí para el mercado real: Android de gama media sobre 4G peruano, con objetivo de LCP bajo 3 segundos. `src/AppDemo.jsx` son más de 6200 líneas que hoy viajan enteras aunque el usuario solo abra el home. Candidato claro a code splitting por vista, que es como ya está organizado el archivo (el switch de `effectiveView`). Sin fecha ni tanda asignada.
 
-  **Ojo con la prioridad, que la medición del 2026-08-16 dio vuelta.** Este pendiente estaba anotado como el número uno de rendimiento y no lo es: la tanda 1B sacó **6.130 kB** de una carga de `/demo`, más de treinta veces el bundle comprimido entero. Y lo que queda por delante siguen siendo **imágenes, no JavaScript**: la landing arrastra otros 5.995 kB recortables (ver el punto 3 de la tanda 1B). El code splitting entra después de eso.
+  **Ojo con la prioridad, que las mediciones del 2026-08-16 dieron vuelta.** Este pendiente figuraba como el número uno de rendimiento y no lo era: las tandas 1B y 1C sacaron **11,8 MB** entre las dos, más de sesenta veces el bundle comprimido entero. **Lo que pesa son imágenes, no JavaScript.** El code splitting entra después de que las fotos estén resueltas en las dos puntas (la landing, ya hecha, y las que suben las agencias, que es la condición del plan Free).
+
+### Tanda 1C, HECHA el 2026-08-16: las imágenes de la landing
+
+**Cero líneas de código. `Landing.jsx` intacto.** Se reemplazaron los archivos de
+`public/destinations/` por versiones a **800 px de ancho máximo**, con el mismo
+nombre y la misma extensión `.jpg`, así que el JSX no se entera.
+
+| Archivo | Antes | Después | |
+|---|---|---|---|
+| `oxapampa.jpg` | 4.287 kB (5184x3456) | **116 kB** (800x534) | -97,3% |
+| `rajuntay.jpg` | 565 kB (1920x1440) | **76 kB** (800x600) | -86,5% |
+| `paracas.jpg` | 425 kB (1920x1280) | **53 kB** (800x534) | -87,5% |
+| `kuelap.jpg` | 357 kB (1920x1080) | **118 kB** (800x450) | -66,8% |
+| `colca.jpg` | 227 kB (1920x1080) | **93 kB** (800x450) | -58,8% |
+| `chachapoyas.jpg` | 83 kB (540x360) | **68 kB** (540x360) | -18,6% |
+| **Total** | **5.946 kB** | **526 kB** | **-91,1%** |
+
+**Por qué 800 px, medido y no elegido a ojo:** la tarjeta de destino se renderiza
+a **193x129 px CSS en escritorio** (viewport de 1350) y a **179x119 en móvil**. Es
+casi el mismo tamaño en los dos. 800 px cubre hasta **4x de densidad de pantalla**,
+más margen del que existe hoy en el mercado.
+
+**`chachapoyas.jpg` no se redimensionó, solo se recomprimió**: ya medía 540 px, por
+debajo del tope. La regla aplicada fue **nunca agrandar**, porque escalar hacia
+arriba una imagen chica la hace más pesada sin mejorarla (comprobado: llevarla a
+800 la subía de 83 a 108 kB).
+
+**Efecto sobre la landing entera**, que es la página que Google indexa, medido con
+Lighthouse mobile (4G, CPU 4x):
+
+| Métrica | Antes | Después | Delta |
+|---|---|---|---|
+| **Bytes transferidos** | 6.526.560 | **976.569** | **-5.549.991 (-85%)** |
+| LCP | 5.634 a 12.756 ms | **4.289 a 5.186 ms** | |
+| TTI | 5.852 a 13.086 ms | **4.432 a 5.269 ms** | |
+| Score de rendimiento | 72 a 77 | **78 a 84** | |
+
+**El LCP también deja de ser bimodal acá**: de 7.122 ms de dispersión entre
+corridas a 897 ms.
+
+**Qué NO se tocó, y por qué:**
+
+- **Los tres archivos huérfanos** (`arequipa.jpg` 825 kB, `mancora.jpg` 152 kB,
+  `cusco.jpg` 34 kB) no los referencia nadie. **No cuestan ancho de banda porque
+  nunca se descargan**, solo peso de repositorio. Borrarlos es decisión aparte.
+- **Los mockups PNG** (436 kB, de los que solo uno carga al inicio). Se intentó:
+  mejorarlos sin cambiar de formato exige un optimizador de PNG que no está
+  instalado (`pngquant`, `optipng`), y con lo que hay (`ffmpeg`) salían **entre
+  53% y 131% más pesados**. Pasarlos a WebP sí los achicaría, pero **exige tocar
+  `Landing.jsx`**. Queda para cuando haya un motivo para abrir ese archivo.
+- **WebP en los destinos.** Ahorraría unos 66 kB más sobre los 526, y cambia la
+  extensión del `src`, o sea `Landing.jsx`. No justifica el permiso.
+
+**Las cuatro opciones que se evaluaron antes de elegir**, con el ahorro que
+calculó Lighthouse sobre la landing real:
+
+| Opción | Ahorro | Veredicto |
+|---|---|---|
+| Carga diferida bajo el pliegue | **0 kB** | Ya estaba hecha (`loading="lazy"`), el audit `offscreen-images` daba 0 |
+| Recomprimir sin cambiar resolución | **9 kB** | Inútil: el problema no era la calidad |
+| Convertir a WebP sin redimensionar | 1.945 kB | El premio chico |
+| **Servir el tamaño real** | **5.995 kB** | **Es el 90% del problema. Lo que se hizo** |
 
 Textos con fecha de vencimiento (se van a borrar solos, no invertir en ellos):
 
@@ -1050,12 +1116,37 @@ las llamadas de Auth, que son de pocos kB.
 condición: con fotos sin procesar, **la plataforma deja de servir imágenes antes
 de terminar el primer día de cualquier difusión real**.
 
-**Ojo con el número de hoy, que engaña.** Los 3,6 MB salen de que **38 de las 48
-portadas las sirve Unsplash y no nosotros**: solo 3.429 kB de los 11.333 kB salen
-de nuestro bucket. **El lanzamiento cambia eso de raíz**: al borrar los tours del
-seed y entrar agencias reales, **el 100% de las fotos pasa a salir de nuestro
-bucket**. O sea que el lanzamiento no solo agrega fotos más pesadas, además
-**mueve el 70% del tráfico de imágenes desde Unsplash hacia nuestra cuota**.
+#### El lanzamiento hace DOS cosas a la vez, y los dos efectos se multiplican
+
+**Este es el hallazgo que cambia el cálculo del lanzamiento, y es fácil de pasar
+por alto porque el número de hoy engaña.**
+
+Los 3,6 MB por visita de hoy son bajos por un motivo que **desaparece en el
+lanzamiento**: la mayoría de las fotos **no las servimos nosotros**.
+
+| De dónde sale la portada | Tours | Peso | ¿Cuenta para nuestro egress? |
+|---|---|---|---|
+| Unsplash (tours del seed) | 38 | **7.904 kB** | **No.** Lo paga Unsplash |
+| Nuestro bucket de Supabase | 9 | **3.429 kB** | **Sí** |
+| **Total en pantalla** | 47 | **11.333 kB** | solo el 30% es nuestro |
+
+**Al borrar los tours del seed y entrar agencias reales, el 100% de las fotos pasa
+a salir de nuestro bucket.** Entonces el lanzamiento hace **dos cosas a la vez**:
+
+1. **Agrega fotos más pesadas**, porque las agencias suben lo que sale del celular
+   (hasta 4 MB) en vez de las versiones ya optimizadas que sirve Unsplash.
+2. **Mueve el 70% del tráfico de imágenes desde Unsplash hacia el egress de
+   Supabase**, que hoy no pagábamos.
+
+**Los dos efectos se multiplican, no se suman.** No es que el peso por visita suba
+de 3,6 a 11 MB por cambiar de proveedor, ni que suba de 11 a 194 MB por el tamaño
+de los archivos: es que **el mismo salto ocurre sobre una base que además pasa a
+ser entera nuestra**.
+
+**El cálculo de las 26 visitas ya incluye las dos cosas**, no hace falta
+corregirlo hacia abajo: los 194,6 MB por visita asumen las 49 portadas sin
+procesar **y** todas servidas desde nuestro bucket, que es exactamente el estado
+en que queda el catálogo después del lanzamiento.
 
 **Dos matices honestos sobre estos números**, que no cambian la conclusión:
 
