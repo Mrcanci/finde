@@ -69,15 +69,19 @@ está en `docs/historia/2026-08-router-y-urls.md`.
 
 ### Fuera del frente de lanzamiento
 
-- **Fase 6 del plan tipográfico**, la escala en tokens. **Tiene un requisito
-  previo**: la elección tipográfica de la auditoría de identidad visual
-  (`docs/audits/2026-08-16-identidad-visual.md`). Cada tipografía tiene su propia
-  altura de x, así que cambiar la fuente después obliga a recalcular la escala.
+- **Fase 6 del plan tipográfico**, la escala en tokens. **DESBLOQUEADA el
+  2026-08-18**: la elección tipográfica ya se decidió (ver `docs/decisiones.md`).
+  **Dos filas de la escala aprobada cambian y los números están escritos ahí**:
+  `--fs-d1` pasa de 30/44 a **26/39** y `--fs-d2` de 26/32 a **23/28**, y las dos
+  dejan de ser DM Serif. **La tabla de la Fase 6 en `docs/plans/` quedó superada
+  en esas dos filas**; el número bueno es el de la decisión.
 - **Barrido de padding del Grupo B**, más chico y ya desbloqueado.
 - **Integración de Culqi** como feature de lanzamiento. Al integrarla se reactiva
   la pestaña "Ingresos" del dashboard, hoy oculta. Ver `docs/decisiones.md`.
 
 ## Terminado y mergeado
+
+- **El producto sale del serif (2026-08-18)**: Plus Jakarta Sans 700 en los 19 títulos que eran DM Serif, con el tamaño corregido por altura de x (factor 0,884, porque Jakarta rinde 13% más alto y 11% más ancho al mismo px). **El logo se queda en DM Serif y es la única excepción**, en sus tres apariciones. Dos commits separados a propósito, familias y tamaños, para poder revertir uno sin el otro. **El camino de vuelta a la opción descartada son dos reglas** y está escrito en `docs/decisiones.md`. Falta el recorte del import a `text=finde.`, que va **el día del switch** porque hoy la hoja de fuentes la comparte la landing: son 16 kB y es la cuarta pieza de esa checklist.
 
 - **Navegación abierta y modal de cuenta (tanda 3, 2026-08-17)**: `/demo` pelado abre el catálogo, no el login. El muro de cuenta se movió al checkout, con **un solo modal** que sirve a los cuatro puntos de entrada (reservar, "Mis reservas", "Perfil" y notificaciones) y dice por qué se pide la cuenta en cada uno. Entrar no desmonta nada: el viajero sigue con su paso, su fecha y sus cupos. Tres cosas más que salieron del mismo viaje: el email del paso 2 se **deriva** de la cuenta y va de solo lectura (antes se prellenaba una vez al montar y el viajero podía ver un correo que el backend descarta), el aviso de carrera de cupos **salió del paso de pago** y se muestra también en el paso 2 (donde el POST sale con el flag apagado, y ahí el 409 fallaba mudo), y entrar por URL a una vista privada muestra el inicio con el modal encima en vez del login, así no se pierde a dónde iba.
 

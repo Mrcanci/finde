@@ -20,7 +20,7 @@ La verificación contra SUNAT y MINCETUR **existe y está vigente, pero la hace 
 Lo que sí importa al escribir: cuando el copy dice "validamos el RUC en SUNAT", eso describe **el proceso**, no una integración. No lo cites como comportamiento del código.
 
 Estado actual del trabajo: leer `docs/estado.md` antes de empezar cualquier tanda.
-**Son 232 líneas al 2026-08-17 y se lee entero.** Venía de una poda de 1.767 a
+**Son 236 líneas al 2026-08-18 y se lee entero.** Venía de una poda de 1.767 a
 174; si pasa de **250**, hay que podarlo otra vez (ver `.claude/rules/metodo.md`,
 "Cómo se escribe la documentación"). **Ese número sale de `wc -l`, no a ojo**, y
 se actualiza acá cuando se actualiza el estado.
