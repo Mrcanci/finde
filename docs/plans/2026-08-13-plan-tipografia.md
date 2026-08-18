@@ -1002,10 +1002,16 @@ La fase grande. Deuda pura, riesgo alto, ninguna urgencia.
 
 ### La escala, aprobada
 
+> **⚠️ CORREGIDA EL 2026-08-18, y las dos primeras filas cambiaron dos veces.**
+> Los valores de abajo son los vigentes. **No repongas los viejos**: el porqué
+> de cada corrección está en la sección que sigue a esta tabla, y el detalle
+> completo en `docs/decisiones.md` (entradas del 2026-08-18) y en
+> `docs/audits/2026-08-18-identidad-tipografica.md`.
+
 | Token | Mobile | Desktop | Fuente / peso | Line-height |
 |---|---|---|---|---|
-| `--fs-d1` | 30 | 44 | DM Serif 400 | 1.15 |
-| `--fs-d2` | 26 | 32 | DM Serif 400 | 1.2 |
+| `--fs-d1` | **26** | **39** | **Jakarta 700** | 1.15 |
+| `--fs-d2` | **20** | **22** | **Jakarta 700** | 1.2 |
 | `--fs-h1` | 20 | 22 | Jakarta 700 | 1.3 |
 | `--fs-h2` | 17 | 18 | Jakarta 700 | 1.35 |
 | `--fs-h3` | 15 | 15 | Jakarta 700 | 1.35 |
@@ -1018,8 +1024,62 @@ La fase grande. Deuda pura, riesgo alto, ninguna urgencia.
 
 - **Piso absoluto de 12px, sin excepciones.** Elimina las 56 declaraciones del CSS y las 64 inline que hoy están por debajo.
 - **Pesos: 400 cuerpo, 500 metadatos, 600 etiquetas y UI, 700 títulos. El 800 se elimina por completo** (20 declaraciones). A 16px, Jakarta 800 se empasta y 700 alcanza.
-- **DM Serif Display solo en `--fs-d1` y `--fs-d2`, o sea nunca por debajo de 26px.** Esto responde la pregunta que el plan dejaba abierta: **11 de los 20 usos actuales de serif bajan a Jakarta 700.**
+- **~~DM Serif Display solo en `--fs-d1` y `--fs-d2`~~. YA NO HAY SERIF EN LA ESCALA.** Los 20 usos de serif pasaron a Jakarta 700 el 2026-08-18, no 11: el único DM Serif que queda en el producto es el logo, que no tiene token porque no es texto de interfaz. Ver la decisión del 2026-08-18.
 - **Versalitas: sobreviven solo en `--fs-label` y solo en badges de estado** (`.tp-st`, `.dsh-bk-s`, `.st-*`), donde ayudan al escaneo. Se eliminan de `.tc-loc`, `.gc-loc`, `.det-st`, `.ai-sum-h`, `.pf-stat-l`, `.dsh-s-l`, `.login-hero-stat-l`, `.sal-sec-t` y `.site-footer-col-t`. El tracking pasa a **un solo valor relativo, `.03em`**, en lugar de los seis valores absolutos de hoy.
+
+### Por qué `--fs-d1` y `--fs-d2` cambiaron dos veces, con las dos mediciones
+
+**Van las dos correcciones en orden, porque la segunda no se entiende sin la
+primera y porque las dos se hicieron midiendo, no opinando.**
+
+#### Corrección 1: cambió la fuente, así que cambia el número
+
+DM Serif salió del producto (decisión del 2026-08-18). **Dos fuentes al mismo
+tamaño en px no se ven del mismo tamaño**: medido a 100px en el navegador, Plus
+Jakarta Sans 700 tiene 54,4 de altura de x contra 48,1 de DM Serif, o sea 13%
+más, y es 11% más ancha. El factor de corrección es **48,1 / 54,4 = 0,884**, y
+así `--fs-d1` pasó de 30/44 a **26/39** y `--fs-d2` de 26/32 a 23/28.
+
+#### Corrección 2: `--fs-d2` baja otra vez, a 20/22, y el motivo es la jerarquía
+
+**Los 23/28 de la corrección 1 eran fieles a la fuente nueva y aun así estaban
+mal**, y eso solo se vio comparando contra los referentes. Medido el 2026-08-18
+en Airbnb, Booking y GetYourGuide, la relación entre el **título de sección** y
+el **título de tarjeta**:
+
+| Sitio | 412px | 1440px |
+|---|---|---|
+| Airbnb | 18 / 13 = 1,38 | 20 / 13 = 1,54 |
+| Booking | 20 / 16 = 1,25 | 24 / 16 = 1,50 |
+| GetYourGuide | 24 / 18 = 1,33 | 24 / 18 = 1,33 |
+
+**La banda va de 1,25 a 1,54.** Con `--fs-d2` en 23/28 y `.gc-t` en los 15px que
+esta misma fase planea, Finde daría **1,53 en móvil y 1,87 en escritorio**: más
+afuera de lo que está hoy. **Aplicar la escala como estaba escrita habría
+empeorado exactamente lo que la Fase 6 existe para arreglar.**
+
+Con `--fs-d2` en **20/22** y `.gc-t` en 15px, da **1,33 y 1,47**, pegado a
+GetYourGuide y a Booking.
+
+#### Y el hallazgo que da vuelta el diagnóstico: el problema NO es el título de sección
+
+**Esto es lo que hay que leer antes de tocar un número.** José reportó que los
+títulos de sección se veían grandes, y **notó algo real, pero la causa es la
+contraria**: medido en móvil, el título de sección de Finde son 19px contra 18
+de Airbnb y 20 de Booking, o sea que **está en el promedio de la categoría**. El
+que está fuera de rango es el **título de tarjeta**: 13px, contra 16 de Booking
+y 18 de GetYourGuide.
+
+**La corrección obvia habría sido bajar el título de sección, y habría empeorado
+la jerarquía**: la distancia entre los dos se achica achicando el de arriba o
+agrandando el de abajo, y en este caso el que estaba mal era el de abajo. Por eso
+`--fs-d2` baja **poco** (de 23 a 20 en móvil, de 28 a 22 en escritorio) y el
+movimiento importante es `.gc-t` subiendo a 15px.
+
+**Lección de método, que vale más que estos números: una queja sobre un elemento
+no dice cuál elemento está mal.** Lo dice la relación entre los dos, y eso hay
+que medirlo contra algo externo. Sin los tres referentes, este cambio se hacía al
+revés.
 
 ### ⚠️ Advertencia: la escala se aplica por rol, no por valor
 
@@ -1036,6 +1096,13 @@ Un buscar y reemplazar de `13px` por `var(--fs-cap)` es la forma más rápida de
 No son opcionales ni quedan a criterio del momento. Van sí o sí con la fase.
 
 **1. `.gc-t` va a 15px (`--fs-h3`), no a 16px, y necesita `-webkit-line-clamp: 2`.**
+
+> **Actualizado el 2026-08-18: esta mitigación dejó de ser solo una mitigación.**
+> Subir `.gc-t` de 13 a 15px es **la mitad importante del arreglo de jerarquía**
+> que se explicó más arriba: es lo que acerca la relación con el título de
+> sección a la de los referentes. Si se aplica `--fs-d2` en 20/22 pero `.gc-t`
+> se queda en 13, la relación queda en 1,54 móvil y no mejora nada.
+
 
 A 390px la celda de `.tg` deja ~155px útiles. A 15px con peso 700 entran ~19 caracteres por línea, o sea 38 en dos líneas. Los títulos de 40 caracteres o más se van a tres líneas y la grilla pierde la altura pareja, que es el **riesgo #3 de la auditoría**. Con el clamp deja de ser riesgo.
 

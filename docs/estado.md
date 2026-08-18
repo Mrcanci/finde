@@ -69,15 +69,29 @@ está en `docs/historia/2026-08-router-y-urls.md`.
 
 ### Fuera del frente de lanzamiento
 
-- **Fase 6 del plan tipográfico**, la escala en tokens. **Tiene un requisito
-  previo**: la elección tipográfica de la auditoría de identidad visual
-  (`docs/audits/2026-08-16-identidad-visual.md`). Cada tipografía tiene su propia
-  altura de x, así que cambiar la fuente después obliga a recalcular la escala.
+- **Fase 6 del plan tipográfico, la escala en tokens. ES LA SIGUIENTE, y ya no
+  tiene nada delante.** Estuvo bloqueada por la elección tipográfica, que se
+  decidió y se aplicó el 2026-08-18.
+
+  **Los números ya están corregidos en el plan**, así que se ejecuta contra
+  `docs/plans/2026-08-13-plan-tipografia.md` sin traducir nada: `--fs-d1` quedó
+  en **26/39** y `--fs-d2` en **20/22**, las dos en Jakarta 700. La tabla lleva
+  arriba el aviso de no reponer los valores viejos, y el porqué de las dos
+  correcciones al lado.
+
+  **Lo que hay que leer antes de tocar un número está en esa misma sección**: el
+  título de sección de Finde no era grande, el que estaba chico era el de
+  tarjeta. Por eso `--fs-d2` baja poco y el movimiento importante es `.gc-t`
+  subiendo a 15px. **Las dos van juntas o no van.**
 - **Barrido de padding del Grupo B**, más chico y ya desbloqueado.
 - **Integración de Culqi** como feature de lanzamiento. Al integrarla se reactiva
   la pestaña "Ingresos" del dashboard, hoy oculta. Ver `docs/decisiones.md`.
 
 ## Terminado y mergeado
+
+- **El texto de las tarjetas de tour va a la izquierda (2026-08-18)**: como en Airbnb, Booking y GetYourGuide, medidos. **Fueron cinco declaraciones y no una**, y ese es el detalle que importa: `text-align` alcanza para el título y la ciudad, pero las filas de metadatos y de precio son flex y se centran con `justify-content`, que `text-align` no toca. Cambiar solo una habría dejado el título a la izquierda y el rating centrado debajo. Queda un comentario en el CSS para que nadie las simplifique. **La lista de 128 selectores de la Fase 0 no aplica**: esa mide el centrado global, y esto alcanza a dos subárboles.
+
+- **El producto sale del serif (2026-08-18)**: Plus Jakarta Sans 700 en los 19 títulos que eran DM Serif, con el tamaño corregido por altura de x (factor 0,884, porque Jakarta rinde 13% más alto y 11% más ancho al mismo px). **El logo se queda en DM Serif y es la única excepción**, en sus tres apariciones. Dos commits separados a propósito, familias y tamaños, para poder revertir uno sin el otro. **El camino de vuelta a la opción descartada son dos reglas** y está escrito en `docs/decisiones.md`. Falta el recorte del import a `text=finde.`, que va **el día del switch** porque hoy la hoja de fuentes la comparte la landing: son 16 kB y es la cuarta pieza de esa checklist.
 
 - **Navegación abierta y modal de cuenta (tanda 3, 2026-08-17)**: `/demo` pelado abre el catálogo, no el login. El muro de cuenta se movió al checkout, con **un solo modal** que sirve a los cuatro puntos de entrada (reservar, "Mis reservas", "Perfil" y notificaciones) y dice por qué se pide la cuenta en cada uno. Entrar no desmonta nada: el viajero sigue con su paso, su fecha y sus cupos. Tres cosas más que salieron del mismo viaje: el email del paso 2 se **deriva** de la cuenta y va de solo lectura (antes se prellenaba una vez al montar y el viajero podía ver un correo que el backend descarta), el aviso de carrera de cupos **salió del paso de pago** y se muestra también en el paso 2 (donde el POST sale con el flag apagado, y ahí el 409 fallaba mudo), y entrar por URL a una vista privada muestra el inicio con el modal encima en vez del login, así no se pierde a dónde iba.
 
@@ -122,6 +136,7 @@ Acá va solo la lista, para que se vean desde el estado.
 | **El bundle pasa los 500 kB** (673 kB, 184 comprimido, un solo chunk) | Candidato a code splitting por vista. **Dejó de ser el pendiente número uno de rendimiento**: las tandas 1B y 1C sacaron 11,8 MB, sesenta veces el bundle entero. Lo que pesa son imágenes, no JavaScript |
 | **`Tour.region` está sucio, y cerrar el formulario vence ANTES que el switch** | Lima está partida en tres grafías, y **"% de demanda fuera del eje Lima-Cusco" es métrica de Creatividad Empresarial 2027**. Hoy zafa de casualidad: los 31 tours sin coma están en Cusco, Arequipa y Lima, donde ciudad y departamento se llaman igual. **Con Huaraz, Cocachimba o Los Órganos la región queda mal desde el primer tour**, así que **el disparador es el onboarding de la próxima agencia**. **El arreglo está decidido el 2026-08-18 y sin implementar**: selector de departamento contra los 25, ciudad aparte y `enum` de zod en el backend. Ver `docs/decisiones.md` |
 | **`SearchLog` guarda el texto completo de 272 búsquedas** | El criterio de loguear solo el largo aplica a los logs de consola, **no a esa tabla**. Alguien puede buscar algo que lo identifique. Truncar, anonimizar o dejar: decidir antes del lanzamiento |
+| **El catálogo en escritorio usa 1000px de 1440** | Es lo que limita las columnas a cuatro, **no la caja de las tarjetas**, que fue la sospecha original y quedó descartada con medición. Pregunta de producto: más opciones por pantalla o tarjetas más grandes |
 | **La foto mensual de la analítica necesita disparador** | La ventana de Hobby es de **un mes**: lo que no se copia se pierde para siempre. La propuesta es un renglón fechado en este archivo, que se lee al empezar cada tanda |
 
 **Auditoría de identidad visual, pendiente.** José, mirando el home, dijo que los

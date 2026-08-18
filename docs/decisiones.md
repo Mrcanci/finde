@@ -6,6 +6,237 @@
 
 ---
 
+## 2026-08-18 - La caja de las tarjetas se queda, y la premisa que la cuestionaba era falsa
+
+**Qué se decidió.** **No se saca la caja blanca de las tarjetas de tour** (`.tc`
+del carrusel y `.gc` de la grilla). Se difiere sin fecha.
+
+**De dónde salía la pregunta.** Airbnb, Booking y GetYourGuide no usan caja: foto
+con esquinas redondeadas y texto suelto sobre el fondo. **Eso es correcto y está
+verificado.** El argumento para copiarlos era que la caja le costaba columnas a
+Finde: cuatro tarjetas por fila donde ellos meten seis.
+
+**Ese argumento es falso, y por eso se anota la decisión.** Medido a 1440 el
+2026-08-18:
+
+| Sitio | Tarjetas por fila | Ancho de tarjeta |
+|---|---|---|
+| Airbnb | 8 | 180px |
+| **GetYourGuide** | **4** | 284px |
+| **Finde** | **4** | 232px |
+
+**GetYourGuide muestra las mismas cuatro que Finde.** Airbnb muestra ocho porque
+usa los 1440px completos con tarjetas angostas, mientras la grilla de Finde vive
+en un contenedor de **1000px**. **Lo que limita las columnas es el ancho del
+contenedor, no la caja: sacarla libera 2px por tarjeta**, los dos bordes de 1px.
+
+**Y a cambio de esos 2px hay que reponer cuatro cosas que la caja sostiene:**
+
+1. **El redondeo de la foto.** `.tc-img` y `.gc-img` tienen `border-radius: 0`:
+   las esquinas salen del `overflow:hidden` de la caja. Sin caja, foto cuadrada.
+2. **Todo el hover.** Hoy la caja sube, cambia de sombra y de color de borde. Sin
+   caja hay que inventar otra señal, y **eso es trabajo de interacción, que es el
+   más caro de los cuatro**.
+3. **El padding del texto** (14px en el carrusel, 10px en la grilla), que hay que
+   rehacer para que el texto quede al ras de la foto.
+4. **El contraste de la fila de metadatos.** Ese gris pasa de 4,76 sobre blanco a
+   **4,55** sobre el fondo de la página: sigue cumpliendo AA, pero por 0,05, o sea
+   que el margen desaparece y habría que subirlo a `--gy-strong`.
+
+**Lo que NO es un motivo para conservarla, para no defenderla con un argumento
+malo:** la separación visual. El blanco de la tarjeta contra el `#FAFAF7` de la
+página es un 2% de luminancia, así que **la caja casi no se ve hoy**.
+
+**Consecuencia.** Si alguien reabre esto, que no sea con el argumento de las
+columnas. **La pregunta de las columnas es otra, es más barata y quedó anotada
+aparte** en `docs/pendientes-producto.md`: el contenedor de 1000px.
+
+---
+
+## 2026-08-18 - Los títulos de sección bajan a 20/22, y el que estaba mal era el de la tarjeta
+
+**Qué se decidió.** En la Fase 6, **`--fs-d2` va a 20 en móvil y 22 en
+escritorio** (no 23/28), **junto con subir el título de tarjeta `.gc-t` a 15px**,
+que esa misma fase ya tenía planeado. **Las dos cosas van juntas o no van.**
+
+**Qué se descartó.** Bajar solo el título de sección, que era la lectura obvia
+del síntoma.
+
+**Por qué, y este es el punto que hay que recordar.** José reportó que los
+títulos de sección se veían grandes. **Notó algo real, pero la causa es la
+contraria.** Medido contra los tres referentes el 2026-08-18:
+
+| Sitio | 412px | 1440px |
+|---|---|---|
+| Airbnb | 18 / 13 = 1,38 | 20 / 13 = 1,54 |
+| Booking | 20 / 16 = 1,25 | 24 / 16 = 1,50 |
+| GetYourGuide | 24 / 18 = 1,33 | 24 / 18 = 1,33 |
+| Finde, grilla | 19 / 13 = **1,46** | 23 / 14 = **1,64** |
+
+**En móvil el título de sección de Finde está en el promedio de la categoría**:
+19px contra 18 de Airbnb y 20 de Booking. **El que está fuera de rango es el
+título de tarjeta: 13px, contra 16 y 18.** Lo que se percibe como "el título de
+sección grande" es la distancia entre los dos.
+
+**Bajar el título de sección, que era la corrección obvia, habría empeorado la
+jerarquía**: habría achicado todo en vez de arreglar la relación.
+
+Con `--fs-d2` en 20/22 y `.gc-t` en 15px la relación queda en **1,33 y 1,47**,
+adentro de la banda de 1,25 a 1,54 de los tres referentes.
+
+**Consecuencias.**
+
+1. **La tabla de la Fase 6 en `docs/plans/` ya está corregida**, con el porqué al
+   lado, porque tal como estaba escrita (23/28 con la tarjeta en 15) daba **1,87
+   en escritorio**, más afuera que hoy. Aplicarla sin corregir habría empeorado
+   justo lo que esa fase existe para arreglar.
+2. **Nada de esto está aplicado todavía**: va con la Fase 6.
+3. **Lección de método:** una queja sobre un elemento no dice cuál elemento está
+   mal. Lo dice la relación entre los dos, y para medirla hace falta una
+   referencia externa. Sin los tres referentes, este cambio se hacía al revés.
+
+---
+
+## 2026-08-18 - El producto va sin serif: Plus Jakarta Sans en todo, salvo el logo
+
+**Qué se decidió.** **Plus Jakarta Sans en toda la interfaz del producto, con
+títulos en 700. Cero serif, con una sola excepción: el logo, que se queda en DM
+Serif Display.** Es la variante "b" de la investigación del 2026-08-18.
+
+**Qué se descartó, y por qué cada una:**
+
+- **Seguir como estaba** (DM Serif en el hero, en el título del tour y en **cada**
+  título de sección). Es la combinación por defecto de las plantillas generadas
+  por IA, que es justamente el diagnóstico del punto 1 de
+  `docs/audits/2026-08-16-identidad-visual.md`.
+- **Inter en todo.** No compra nada: Jakarta ya es un sans humanista de la misma
+  familia que Cereal de Airbnb y es más distintiva que Inter. Encima pesa 20,7 kB
+  más y obliga a revisar las nueve filas de la escala.
+- **Serif solo en el hero y el título del tour** (la variante "d"). **Era la
+  recomendada por el análisis** y se descartó a conciencia: ver el camino de
+  vuelta al final de esta entrada.
+- **Fraunces.** Sigue siendo serif en los mismos lugares, o sea que no toca el
+  diagnóstico, y cuesta +49,8 kB (+113%).
+- **Instrument Serif ni se probó.** Está reemplazando a DM Serif como la fuente
+  por defecto de las plantillas de IA: mudarse ahí es el mismo problema un año
+  más tarde.
+
+### El criterio que la elige es la categoría, NO el costo
+
+**Esto es lo importante de esta entrada y por eso va antes que los números.**
+
+Ningún marketplace de viajes grande usa serif display en la interfaz: Airbnb
+(Cereal), Booking (Avenir Next más Roboto), GetYourGuide, y Stripe, Linear y
+GitHub con Inter. **Varios tienen logotipo en una fuente distinta a la de su
+producto**, o sea que "el logo como excepción" no es una concesión: es lo que
+hace la categoría.
+
+El motivo de fondo es estructural: en un marketplace **las fotos ponen la
+personalidad y la tipografía se corre a un lado**. Serif de títulos más sans de
+cuerpo es una convención **editorial**, de Medium y The New Yorker, y sirve para
+lectura larga. Finde es un catálogo donde la gente escanea, compara y reserva.
+
+**El costo NO decidió, y no podía: dejó de separar a las opciones en las dos
+direcciones.** b) ahorra 16 kB sobre una página de 233 kB, un 7%, y ese ahorro
+además sale gratis el día del switch (más abajo). Para dimensionarlo: las tandas
+1B y 1C sacaron 11,8 MB, así que esto es el 0,14% de aquello.
+
+### Dos argumentos de costo que se usaron y quedan RETIRADOS
+
+Van escritos para que nadie los reviva en la próxima discusión.
+
+1. **"El serif ya está pago por el logo, no usarlo sería desperdiciarlo."
+   FALSO.** Con el logo como único uso, el import se recorta a los seis glifos de
+   "finde." con el parámetro `text=` de Google Fonts y el archivo pasa de
+   **17,4 kB a 1,5 kB** (medido). No se desperdicia: se deja de pagar.
+2. **"La variante d no obliga a recalcular la escala y eso la hace más barata."
+   Cierto pero irrelevante.** Son **2 filas de una tabla de 9**, y la Fase 6 va a
+   tocar las doce pantallas de todos modos. Recalcular dos números es una hora,
+   no una tanda.
+
+### Lo que hay que recalcular en la Fase 6: dos filas, con los números
+
+Medido a 100px en el navegador, con cada cara cargada y verificada:
+
+| Fuente | Altura de x | Altura de mayúscula | Ancho de la misma frase |
+|---|---|---|---|
+| DM Serif Display 400 | 48,1 | 66,0 | referencia |
+| **Plus Jakarta Sans 700** | **54,4 (+13%)** | 74,5 (+13%) | **+11%** |
+
+**Al mismo tamaño en px, Jakarta se ve más grande.** El factor de corrección es
+**48,1 / 54,4 = 0,884**, o sea que los display bajan entre 11% y 13%:
+
+| Token | Antes (DM Serif 400) | Después (Jakarta 700) |
+|---|---|---|
+| `--fs-d1` | 30 mobile / 44 desktop | **26 / 39** |
+| `--fs-d2` | 26 mobile / 32 desktop | **23 / 28** |
+
+Comprobado sobre los elementos reales antes de decidir: el hero pasa de 28 a
+25px en 412 y de 48 a 42px en 1440; los títulos de sección de 22 a 19 y de 26 a
+23; el título del tour de 26 a 23 y de 38 a 34.
+
+**Las otras siete filas de la escala no se tocan.** Ya eran Jakarta.
+
+**Ojo con el ancho, que es el que rompe layouts y no el alto:** Jakarta 700 es
+11% más ancha, y eso ya está anotado como el riesgo de `.gc-t` en la grilla de
+390px, con su mitigación obligatoria (`-webkit-line-clamp: 2`).
+
+### El recorte del import va el DÍA DEL SWITCH, no antes
+
+**Los 16 kB no se cobran ahora, y el motivo no es pereza: es que la hoja de
+fuentes es una sola y hoy la comparte la landing.** `index.html` sirve a las dos
+pantallas, y `src/Landing.jsx` usa DM Serif en el logo, el hero, los `h1` a `h4`,
+los títulos de sección y una itálica. Recortar el import hoy le saca la
+tipografía a finde.pe.
+
+**Y el problema tiene fecha de vencimiento**: `src/App.jsx` decide con
+`BASE_PATH`, y el día que esa constante pase a `""` **la raíz ya es el producto y
+la landing deja de ser alcanzable**. O sea que ese día el recorte sale gratis.
+
+> **Va a la checklist del switch, que pasa a tener cuatro piezas:** cambiar el
+> `<link>` de `index.html` por `family=DM+Serif+Display&text=finde.`
+
+**Lo medido sobre la alternativa, para no reabrirla:**
+
+- **Cargar la hoja del serif desde `App.jsx` solo cuando se monta la landing:**
+  funciona y **no cuesta 1 o 2 segundos como se dijo primero**. En una SPA la
+  fuente no se pide al parsear el HTML sino **cuando React pinta el texto**
+  (medido: la hoja llega a los 274 ms y el archivo recién a los 9,1 s). El costo
+  real es **262 ms más** y la ventana con la fuente de respaldo en pantalla pasa
+  de 374 ms a 584 ms. Es poco, pero es trabajo con vencimiento de semanas.
+- **Dos `<link>` de la misma familia en el mismo `head`, el completo y el
+  recortado, dejando que `unicode-range` decida cuál baja cada pantalla:
+  PROBADO Y NO FUNCIONA.** Chrome baja **los dos** archivos (1.560 B más
+  17.844 B) aunque la pantalla solo diga "finde.". Queda escrito para que nadie
+  lo vuelva a intentar.
+
+### El camino de vuelta, explícito
+
+**El análisis recomendaba la variante d, y el argumento en contra de b sigue en
+pie: el logo queda huérfano.** En b es la única pieza serif del producto y nada
+le hace eco; en d el hero y el título del tour se lo hacían. Se miró con recorte
+y aumento antes de decidir: **el logo aguanta** (es chico, está aislado, y el
+punto terracota lo marca como marca), pero pasa de ser parte de un sistema a ser
+una firma.
+
+**Si al ver b aplicada no convence, se vuelve a d sacando dos reglas**, y esto es
+literal:
+
+> Devolver `font-family:'DM Serif Display',Georgia,serif` a **`.hero-t`** y a
+> **`.det-tl`**, y devolverles su tamaño anterior. Nada más. Los otros 17
+> selectores se quedan en Jakarta, que es la parte que ninguna de las dos
+> variantes discute.
+
+No hace falta revertir la tanda ni tocar la escala: `d1` y `d2` vuelven a sus
+valores de DM Serif, que quedaron escritos en la tabla de arriba.
+
+**Material para juzgarlo:** las capturas de las cinco variantes, en inicio y
+ficha de tour, a 412 y 1440, más la comparación de b antes y después de corregir
+el tamaño. Método y costos medidos en
+`docs/audits/2026-08-18-identidad-tipografica.md`.
+
+---
+
 ## 2026-08-18 - La región del tour se elige de una lista de 25, y la valida el backend
 
 **Qué se decidió.** Cerrar la entrada de `Tour.region` con **tres piezas que van
