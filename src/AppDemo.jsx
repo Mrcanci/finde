@@ -1102,7 +1102,7 @@ html{scrollbar-gutter:stable}
 .login-hero-stat-v{font-size:18px;font-weight:800;color:white}
 .login-hero-stat-l{font-size:10px;color:rgba(255,255,255,.75);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
 .login-body{flex:1;padding:28px 24px;display:flex;flex-direction:column}
-.login-title{font-family:'DM Serif Display',Georgia,serif;font-size:24px;margin-bottom:4px}
+.login-title{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:24px;margin-bottom:4px}
 .login-sub{font-size:13px;color:var(--gy);margin-bottom:24px}
 .login-btn{width:100%;padding:16px;border-radius:14px;background:var(--f);color:white;font-weight:700;font-size:15px;border:none;cursor:pointer;font-family:inherit;transition:.2s;margin-bottom:12px}
 .login-btn:hover{background:var(--m)}
@@ -1126,7 +1126,7 @@ html{scrollbar-gutter:stable}
 .acc-close{position:absolute;top:14px;right:14px;background:transparent;border:0;padding:6px;cursor:pointer;color:var(--gy);display:flex;align-items:center;border-radius:8px;transition:.2s}
 .acc-close:hover{background:var(--cr);color:var(--ch)}
 .acc-modal-h{margin-bottom:20px;padding-right:28px}
-.acc-t{font-family:'DM Serif Display',Georgia,serif;font-size:24px;color:var(--f);margin-bottom:8px;line-height:1.2;letter-spacing:0}
+.acc-t{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:24px;color:var(--f);margin-bottom:8px;line-height:1.2;letter-spacing:0}
 .acc-d{font-size:14px;color:var(--gy-strong);line-height:1.5}
 .acc-calma{display:flex;align-items:center;gap:8px;margin-top:14px;padding:10px 12px;background:var(--cr);border-radius:10px;font-size:12px;color:var(--f);font-weight:600;line-height:1.4}
 .acc-calma svg{flex-shrink:0}
@@ -1154,7 +1154,7 @@ html{scrollbar-gutter:stable}
 /* Welcome screen */
 .welcome{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center}
 .welcome-check{width:72px;height:72px;border-radius:50%;background:var(--f);color:white;display:flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:20px;animation:pulse .6s ease}
-.welcome-title{font-family:'DM Serif Display',Georgia,serif;font-size:26px;margin-bottom:8px}
+.welcome-title{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:26px;margin-bottom:8px}
 .welcome-sub{font-size:14px;color:var(--gy);margin-bottom:32px;line-height:1.6;max-width:280px}
 .welcome-features{display:flex;flex-direction:column;gap:12px;width:100%;margin-bottom:32px}
 .welcome-feat{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--cr);border-radius:12px;text-align:left}
@@ -1165,6 +1165,13 @@ html{scrollbar-gutter:stable}
 .tn{position:sticky;top:0;z-index:50;background:rgba(250,250,247,.85);backdrop-filter:blur(20px);box-shadow:0 1px 0 transparent;transition:box-shadow .15s}
 .tn.scrolled{box-shadow:0 1px 0 rgba(0,0,0,.06)}
 .tn-inner{display:flex;align-items:center;justify-content:space-between;padding:12px 20px}
+/* EL LOGO ES LA UNICA PIEZA SERIF DEL PRODUCTO, y es a proposito.
+   Decision del 2026-08-18 (docs/decisiones.md): el producto va en Plus
+   Jakarta Sans porque ningun marketplace de viajes grande usa serif display
+   en la interfaz, y varios tienen logotipo en otra fuente que su producto.
+   Un wordmark es un dibujo de una palabra, no texto: no se unifica con el
+   resto. Las otras dos apariciones de DM Serif son el mismo logo en otro
+   lado (.login-hero-logo y la pantalla de carga). No agregar mas. */
 .logo{font-family:'DM Serif Display',Georgia,serif;font-size:28px;color:var(--f);cursor:pointer;letter-spacing:-.5px}
 .logo span{color:var(--tr)}
 .logo-ai{font-size:9px;font-weight:700;color:var(--f);background:rgba(14,165,233,.1);padding:2px 6px;border-radius:4px;margin-left:6px;vertical-align:super;letter-spacing:.5px}
@@ -1184,7 +1191,7 @@ html{scrollbar-gutter:stable}
 .hero-tex{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.45) 0%,rgba(0,0,0,.65) 100%)}
 .hero-c{position:relative;z-index:2;padding:28px 24px;display:flex;flex-direction:column;justify-content:space-between;height:100%}
 .hero-tag{display:inline-flex;align-items:center;gap:6px;background:rgba(0,0,0,.45);backdrop-filter:blur(10px);padding:6px 14px;border-radius:100px;font-size:11px;font-weight:600;color:#fff;width:fit-content;letter-spacing:.5px}
-.hero-t{font-family:'DM Serif Display',Georgia,serif;font-size:28px;line-height:1.15;color:white;max-width:280px}
+.hero-t{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:28px;line-height:1.15;color:white;max-width:280px}
 .hero-sub{font-size:13px;color:#fff;margin-top:4px}
 
 /* ── AI Search ── */
@@ -1248,7 +1255,7 @@ html{scrollbar-gutter:stable}
 .chip.on{background:var(--f);color:white;border-color:var(--f)}
 
 .sh{display:flex;justify-content:space-between;align-items:baseline;padding:0 20px;margin-bottom:14px}
-.st{font-family:'DM Serif Display',Georgia,serif;font-size:22px}
+.st{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:22px}
 .sl{font-size:13px;font-weight:600;color:var(--tr-text);cursor:pointer;border:none;background:none;font-family:inherit;min-height:44px}
 
 /* ── Sección "Tours en [ciudad]" con selector ── */
@@ -1266,7 +1273,7 @@ html{scrollbar-gutter:stable}
 .city-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:90;animation:fadeUp .2s ease-out}
 .city-sheet{position:fixed;left:0;right:0;bottom:0;background:white;border-radius:20px 20px 0 0;padding:8px 0 24px;z-index:91;max-height:60vh;overflow-y:auto;animation:slideUp .25s ease-out;box-shadow:0 -8px 32px rgba(0,0,0,.15)}
 .city-sheet-grip{width:40px;height:4px;background:var(--sd);border-radius:2px;margin:10px auto 14px}
-.city-sheet-title{font-family:'DM Serif Display',Georgia,serif;font-size:18px;padding:0 20px 10px;color:var(--ch)}
+.city-sheet-title{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:18px;padding:0 20px 10px;color:var(--ch)}
 .city-sheet-opt{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;cursor:pointer;border:none;background:none;width:100%;font-family:inherit;font-size:14px;font-weight:600;color:var(--ch);text-align:left;transition:background .15s}
 .city-sheet-opt:hover{background:var(--cr)}
 .city-sheet-opt.on{color:var(--tr-text)}
@@ -1278,12 +1285,12 @@ html{scrollbar-gutter:stable}
 .notif-sheet{position:fixed;left:0;right:0;bottom:0;background:white;border-radius:20px 20px 0 0;padding:8px 0 24px;z-index:91;max-height:70vh;display:flex;flex-direction:column;animation:slideUp .25s ease-out;box-shadow:0 -8px 32px rgba(0,0,0,.15)}
 .notif-sheet-grip{width:40px;height:4px;background:var(--sd);border-radius:2px;margin:10px auto 14px;flex:none}
 .notif-sheet-h{display:flex;justify-content:space-between;align-items:center;padding:0 20px 12px;flex:none}
-.notif-sheet-title{font-family:'DM Serif Display',Georgia,serif;font-size:18px;color:var(--ch)}
+.notif-sheet-title{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:18px;color:var(--ch)}
 .notif-sheet-mark{font-size:12px;font-weight:600;color:var(--tr-text);background:none;border:none;cursor:pointer;font-family:inherit}
 .notif-sheet-list{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;text-align:left}
 .city-empty{margin:0 16px 24px;padding:32px 20px;background:var(--cr);border-radius:20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}
 .city-empty-ic{width:48px;height:48px;border-radius:50%;background:rgba(199,97,58,.12);color:var(--tr);display:flex;align-items:center;justify-content:center;margin-bottom:4px}
-.city-empty-tl{font-family:'DM Serif Display',Georgia,serif;font-size:18px;color:var(--ch);max-width:260px}
+.city-empty-tl{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:18px;color:var(--ch);max-width:260px}
 .city-empty-sub{font-size:13px;color:var(--gy-strong);max-width:300px}
 .city-empty-btn{margin-top:8px;padding:10px 18px;border-radius:999px;border:none;background:var(--f);color:white;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;transition:.2s}
 .city-empty-btn:hover{background:var(--m);box-shadow:0 4px 12px rgba(27,58,45,.18)}
@@ -1339,7 +1346,7 @@ html{scrollbar-gutter:stable}
 .bk-btn{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.9);border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;z-index:2;position:relative;backdrop-filter:blur(10px);color:var(--ch)}
 .det-nfo{position:relative;z-index:2}
 .det-bdg{display:inline-block;padding:4px 12px;border-radius:100px;font-size:10px;font-weight:700;background:rgba(255,255,255,.95);color:var(--ch);margin-bottom:8px}
-.det-tl{font-family:'DM Serif Display',Georgia,serif;font-size:26px;color:white;line-height:1.2}
+.det-tl{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:26px;color:white;line-height:1.2}
 /* Título del panel derecho — solo desktop. En mobile el título vive sobre la
    imagen del hero (.det-tl). En desktop el hero es sticky y 100vh, así que el
    título overlaid queda fuera del viewport. Mostramos un H1 en la columna de
@@ -1373,7 +1380,7 @@ html{scrollbar-gutter:stable}
 .bkf-st{display:flex;gap:6px;margin-bottom:24px}
 .bkf-s{flex:1;height:4px;border-radius:2px;background:var(--sd);transition:.3s}
 .bkf-s.on{background:var(--f)}
-.bkf-t{font-family:'DM Serif Display',Georgia,serif;font-size:24px;margin-bottom:4px}
+.bkf-t{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:24px;margin-bottom:4px}
 .bkf-sub{font-size:13px;color:var(--gy);margin-bottom:24px}
 /* Ancho fijo para que paso 1 → 2 → 3 no descuadre. Antes había min-height:820px
    pero en mobile generaba hueco vacío gigante en pasos cortos — preferimos
@@ -1414,7 +1421,7 @@ html{scrollbar-gutter:stable}
 /* Success */
 .suc{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;padding:40px 24px;text-align:center}
 .suc-chk{width:72px;height:72px;border-radius:50%;background:var(--f);color:white;display:flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:20px;animation:pulse .6s ease}
-.suc-t{font-family:'DM Serif Display',Georgia,serif;font-size:26px;margin-bottom:8px}
+.suc-t{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:26px;margin-bottom:8px}
 .suc-sub{font-size:14px;color:var(--gy-strong);margin-bottom:24px;line-height:1.6}
 .suc-card{width:100%;background:var(--cr);border-radius:16px;padding:16px;margin-bottom:20px;text-align:left}
 .suc-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.06);font-size:14px}
@@ -1473,7 +1480,7 @@ html{scrollbar-gutter:stable}
    solo una clase, asi que perdia y heredaba --text-h. En modo oscuro eso lo
    volvia casi blanco sobre el fondo claro del demo. No le bajes la especificidad
    hasta que se limpie ese bloque de index.css. */
-.tdet-page .tdet-h{font-family:'DM Serif Display',Georgia,serif;font-size:24px;color:var(--ch);margin-bottom:14px}
+.tdet-page .tdet-h{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:24px;color:var(--ch);margin-bottom:14px}
 .tdet-actions{display:flex;flex-direction:column;gap:8px;margin-top:4px}
 .tdet-act-prim{padding:13px 16px;border-radius:14px;background:var(--ch);color:white;font-weight:700;font-size:14px;border:none;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;transition:.2s}
 .tdet-act-prim:hover{background:#000}
@@ -1512,7 +1519,7 @@ html{scrollbar-gutter:stable}
    bloque .app-demo de index.css (plantilla de Vite) y en modo oscuro del sistema
    queda casi blanco sobre el fondo claro del demo. Los otros h2 se salvan porque
    ya declaraban color. No lo saques hasta que ese bloque de index.css se limpie. */
-.npage-h h2{font-family:'DM Serif Display',Georgia,serif;font-size:24px;color:var(--ch)}
+.npage-h h2{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:24px;color:var(--ch)}
 .npage-h button{font-size:12px;font-weight:600;color:var(--tr-text);background:none;border:none;cursor:pointer;font-family:inherit}
 .ni-item{display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-bottom:1px solid rgba(0,0,0,.04);cursor:pointer;transition:.15s;position:relative}
 .ni-item:hover{background:var(--cr)}
@@ -1527,7 +1534,7 @@ html{scrollbar-gutter:stable}
 
 /* ── Trips ── */
 .tp-page{padding:20px 16px 120px}
-.tp-h{margin-bottom:20px}.tp-h h2{font-family:'DM Serif Display',Georgia,serif;font-size:28px;color:var(--ch)}.tp-h p{font-size:14px;color:var(--gy);margin-top:4px}
+.tp-h{margin-bottom:20px}.tp-h h2{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:28px;color:var(--ch)}.tp-h p{font-size:14px;color:var(--gy);margin-top:4px}
 .tp-tabs{display:flex;gap:6px;margin-bottom:16px}
 .tp-tab{padding:10px 16px;border-radius:100px;font-size:13px;font-weight:600;border:1.5px solid var(--sd);background:white;color:var(--gy);cursor:pointer;font-family:inherit;transition:.2s;min-height:44px}
 .tp-tab.on{background:var(--f);color:white;border-color:var(--f)}
@@ -1546,10 +1553,10 @@ html{scrollbar-gutter:stable}
 
 /* ── Reviews ── */
 .rev-sec{margin-top:24px;padding-top:24px;border-top:1px solid rgba(0,0,0,.06)}
-.rev-hdr{font-family:'DM Serif Display',Georgia,serif;font-size:20px;margin-bottom:16px}
+.rev-hdr{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:20px;margin-bottom:16px}
 .rev-summary{display:flex;gap:20px;align-items:center;margin-bottom:20px;padding:16px;background:var(--cr);border-radius:14px}
 .rev-big{text-align:center;min-width:72px}
-.rev-big-n{font-family:'DM Serif Display',Georgia,serif;font-size:36px;color:var(--f);line-height:1}
+.rev-big-n{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:36px;color:var(--f);line-height:1}
 .rev-big-stars{color:var(--gd);font-size:12px;margin:4px 0 2px}
 .rev-big-cnt{font-size:11px;color:var(--gy-strong)}
 .rev-bars{flex:1;display:flex;flex-direction:column;gap:4px}
@@ -1587,12 +1594,12 @@ html{scrollbar-gutter:stable}
 .pf-page{padding-bottom:120px;overflow-x:hidden}
 .pf-hdr{padding:24px 20px;text-align:center;border-bottom:1px solid rgba(0,0,0,.06);margin-bottom:20px}
 .pf-av{width:72px;height:72px;border-radius:50%;background:var(--f);color:white;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;margin:0 auto 12px}
-.pf-name{font-family:'DM Serif Display',Georgia,serif;font-size:22px;margin-bottom:2px}
+.pf-name{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:22px;margin-bottom:2px}
 .pf-since{font-size:12px;color:var(--gy);margin-bottom:16px}
 .pf-stats{display:flex;gap:20px;justify-content:center}
 .pf-stat{text-align:center}.pf-stat-v{font-size:20px;font-weight:800;color:var(--f)}.pf-stat-l{font-size:10px;color:var(--gy-strong);text-transform:uppercase;letter-spacing:.5px}
 .pf-sec{padding:0 20px;margin-bottom:20px}
-.pf-sec-t{font-family:'DM Serif Display',Georgia,serif;font-size:18px;margin-bottom:12px}
+.pf-sec-t{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:18px;margin-bottom:12px}
 .pf-field{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid rgba(0,0,0,.04)}
 .pf-field:last-child{border-bottom:none}.pf-field-l{font-size:12px;color:var(--gy);font-weight:600;text-transform:uppercase;letter-spacing:.5px}.pf-field-v{font-size:14px;font-weight:600}
 .pf-mi{display:flex;align-items:center;gap:14px;padding:16px 20px;border-bottom:1px solid rgba(0,0,0,.04);cursor:pointer;transition:.15s}
@@ -1623,7 +1630,7 @@ html{scrollbar-gutter:stable}
 /* ═══ DASHBOARD ═══ */
 .dsh{padding-bottom:100px}
 .dsh-h{padding:20px;background:linear-gradient(135deg,var(--f) 0%,#1a4a35 100%);color:white}
-.dsh-gr{font-size:14px;opacity:.8}.dsh-nm{font-family:'DM Serif Display',Georgia,serif;font-size:24px;margin:4px 0 6px}
+.dsh-gr{font-size:14px;opacity:.8}.dsh-nm{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:24px;margin:4px 0 6px}
 .dsh-sts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .dsh-s{background:rgba(255,255,255,.12);border-radius:14px;padding:12px;text-align:center}
 .dsh-s-v{font-size:22px;font-weight:800}.dsh-s-l{font-size:10px;opacity:.7;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
@@ -4798,7 +4805,7 @@ function DashView({ go, opTours, opDepartures, depsLoading, depsError, onReloadD
           <div style={{ display: "flex", alignItems: "center", gap: 13, marginBottom: 18, paddingBottom: 18, borderBottom: "1px solid var(--sd)" }}>
             <div className="dsh-bk-av" style={{ width: 52, height: 52, fontSize: 18, background: "var(--m)" }}>{initials(operator?.name)}</div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: "'DM Serif Display',Georgia,serif", fontSize: 20, color: "var(--ch)", lineHeight: 1.15 }}>{operator?.name || "Mi negocio"}</div>
+              <div style={{ fontFamily: "'Plus Jakarta Sans',system-ui,sans-serif", fontSize: 20, color: "var(--ch)", fontWeight: 700, lineHeight: 1.15 }}>{operator?.name || "Mi negocio"}</div>
               <div style={{ fontSize: 12.5, color: "var(--gy)", marginTop: 3, display: "flex", alignItems: "center", gap: 4 }}><MapPin size={12} strokeWidth={1.5} /> {operator?.city || "Ciudad no registrada"}</div>
             </div>
           </div>
@@ -6017,7 +6024,7 @@ function NotFoundView({ go, deTour }) {
       <div style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--cr)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
         <Compass size={26} strokeWidth={1.5} style={{ color: "var(--f)" }} />
       </div>
-      <div style={{ fontFamily: "'DM Serif Display',Georgia,serif", fontSize: 24, color: "var(--ch)", marginBottom: 8 }}>
+      <div style={{ fontFamily: "'Plus Jakarta Sans',system-ui,sans-serif", fontSize: 24, color: "var(--ch)", fontWeight: 700, marginBottom: 8 }}>
         {deTour ? "Este tour ya no está disponible" : "No encontramos esta página"}
       </div>
       <div style={{ fontSize: 14, color: "var(--gy)", maxWidth: 420, marginBottom: 24 }}>
