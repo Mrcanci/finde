@@ -119,8 +119,63 @@ No son bugs: no hay nada roto.
   limpiar los datos sin tocar el formulario es trabajo que se deshace solo.
 
   **Sin decidir**, y son dos cosas separadas: normalizar lo que ya está, y
-  cerrar la entrada (lista de los 24 departamentos en el formulario, o
-  normalización al guardar). Lo segundo es lo que evita repetir lo primero.
+  cerrar la entrada. Lo segundo es lo que evita repetir lo primero, **y es lo
+  urgente de los dos.**
+
+  ### El disparador NO es el switch: es el onboarding de la primera agencia
+
+  **Y esto le cambia la fecha al pendiente, así que va con su propio
+  encabezado.** La razón por la que hoy la región está casi limpia no es que el
+  sistema funcione: es que **los 31 tours donde la región cayó a la ciudad están
+  en Cusco, Arequipa y Lima, donde la ciudad y el departamento se llaman igual.**
+  Es una casualidad geográfica, no una validación.
+
+  **Las agencias reales cargan tours en otros lados.** Cocachimba, Chachapoyas,
+  Los Órganos, Huaraz, Paracas, Máncora: **ninguno de esos nombres coincide con
+  su región.** El primer tour que cargue una agencia en cualquiera de esos
+  lugares, sin escribir la coma, deja la región mal desde el día uno.
+
+  | Lo que la agencia escribe | Región que queda hoy | La de verdad |
+  |---|---|---|
+  | `Cusco` | Cusco | Cusco (zafa) |
+  | `Huaraz` | **Huaraz** | Áncash |
+  | `Cocachimba` | **Cocachimba** | Amazonas |
+  | `Los Órganos` | **Los Órganos** | Piura |
+
+  **Consecuencia práctica: la ventana se cierra con el onboarding de la próxima
+  agencia, no con el switch.** Cerrar la entrada después significa además tener
+  que corregirle los datos a una agencia real, que es otra conversación y otro
+  riesgo. Antes de onboardear la siguiente, esto tendría que estar resuelto.
+
+  ### Cómo se cierra la entrada: tres opciones y lo que cuesta cada una
+
+  **Nada de esto está implementado. Es la decisión, escrita antes de que haga
+  falta.**
+
+  | Opción | Qué cuesta | Qué garantiza |
+  |---|---|---|
+  | **A. Selector de departamento** (lista cerrada de 25) más el campo de ciudad aparte | Una constante con los 25 nombres, un `<select>` en el paso 1 de `NewTourView`, y **el backend deja de partir por la coma**: recibe ciudad y región por separado (toca el schema de `parseTourInput`). Hay que revisar la precarga al editar, que hoy arma `"Ciudad, Región"` | **Cierra el problema de raíz.** Escribir una región inválida deja de ser posible |
+  | **B. Autocompletado sobre la misma lista, dejando pasar texto libre** | Más trabajo de interfaz que el selector (input, filtrado, estado, teclado) | **Nada.** Sugiere, no obliga. Con una lista de 25 el autocompletado no compra ni siquiera comodidad |
+  | **C. Separar ciudad y región en dos campos, los dos libres** | Lo más barato: dos inputs y sacar la regla de la coma | **A medias.** Mata la causa mecánica (`"lima lima"` no vuelve), pero `"lima"` contra `"Lima"` sí, porque la región sigue siendo texto libre |
+
+  **La recomendada es la A, y conviene ver que A ya contiene a C**: poner un
+  selector obliga a separar los dos campos, así que no son alternativas
+  acumulables. **La B se descarta**: paga más interfaz y garantiza menos.
+
+  **Y hay una cuarta pieza que no es alternativa sino complemento, y la pide la
+  regla de la casa** (`.claude/rules/api-y-schema.md`, "la guarda va en el estado
+  que se protege, no en el camino que la descubrió"): **la validación de la
+  región va en el backend, no solo en el formulario.** Un `enum` de zod contra
+  los 25 nombres en `parseTourInput` cubre el POST y el PUT de una vez, y deja el
+  selector como comodidad y no como única defensa. Si la guarda vive solo en el
+  `<select>`, cualquier otro camino al API la esquiva.
+
+  **Dos detalles que van a aparecer al hacerlo**, anotados para que no sorprendan:
+  las tildes de la lista tienen que estar bien de entrada (Áncash, Apurímac,
+  Huánuco, Junín, San Martín), y **son 25 y no 24**: los 24 departamentos más la
+  Provincia Constitucional del Callao. Y con la validación puesta, **los 2 tours
+  sucios de hoy van a fallar la próxima vez que alguien los edite**, que es la
+  forma barata de que se limpien solos.
 
 - **`SearchLog` guarda el texto completo de las búsquedas: 272 filas desde el
   2026-04-28, y no hay decisión sobre qué se hace con ellas.**
