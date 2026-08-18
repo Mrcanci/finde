@@ -1304,16 +1304,24 @@ html{scrollbar-gutter:stable}
 .tc-bdg{position:absolute;top:10px;left:10px;padding:4px 10px;border-radius:100px;font-size:10px;font-weight:700;background:rgba(255,255,255,.95);color:var(--ch);backdrop-filter:blur(10px)}
 .tc-bdg.anti{background:var(--f);color:white}
 .tc-ver{position:absolute;bottom:10px;left:10px;padding:3px 8px;border-radius:100px;font-size:9px;font-weight:700;background:rgba(45,90,61,.9);color:white;display:inline-flex;align-items:center;gap:3px}
-.tc-b{padding:14px;text-align:center}
+/* TEXTO DE LA TARJETA A LA IZQUIERDA. Son CINCO declaraciones y no una, y
+   conviene saber por que antes de "simplificarlo": text-align alcanza para
+   .tc-b y .gc, pero las filas de metadatos y de precio son flex y se centran
+   con justify-content, que text-align NO toca. Cambiar solo el text-align
+   deja el titulo a la izquierda y el rating centrado debajo, que se ve peor
+   que el centrado de antes. Las cinco: .gc, .tc-b, .tc-m, .gc-m y .tc-ft.
+   Medido contra Airbnb, Booking y GetYourGuide el 2026-08-18: los tres
+   alinean a la izquierda. Ver docs/audits/2026-08-16-identidad-visual.md. */
+.tc-b{padding:14px;text-align:left}
 .tc-loc{font-size:11px;color:var(--gy-strong);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
 .tc-tl{font-size:15px;font-weight:700;margin-bottom:6px;line-height:1.3}
-.tc-m{display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:var(--gy);margin-bottom:10px}
+.tc-m{display:flex;align-items:center;justify-content:flex-start;gap:6px;font-size:12px;color:var(--gy);margin-bottom:10px}
 .tc-m .rt{color:var(--gd);font-weight:700}
-.tc-ft{display:flex;justify-content:center;align-items:center}
+.tc-ft{display:flex;justify-content:flex-start;align-items:center}
 .tc-pr{font-size:16px;font-weight:800;color:var(--f)}.tc-pr span{font-size:11px;font-weight:400;color:var(--gy-strong)}
 
 .tg{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 16px 120px}
-.gc{border-radius:16px;overflow:hidden;background:white;border:1px solid rgba(0,0,0,.06);cursor:pointer;transition:.2s}
+.gc{border-radius:16px;overflow:hidden;background:white;border:1px solid rgba(0,0,0,.06);cursor:pointer;transition:.2s;text-align:left}
 .gc:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.08)}
 .gc-img{height:120px;position:relative}
 .gc-ver{position:absolute;bottom:8px;left:8px;padding:3px 8px;border-radius:100px;font-size:9px;font-weight:700;background:rgba(45,90,61,.9);color:white;display:inline-flex;align-items:center;gap:3px}
@@ -1321,7 +1329,7 @@ html{scrollbar-gutter:stable}
 .gc-loc{font-size:10px;color:var(--gy-strong);font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px}
 .gc-t{font-size:13px;font-weight:700;margin-bottom:6px;line-height:1.3}
 .gc-p{font-size:14px;font-weight:800;color:var(--f)}.gc-p span{font-size:10px;font-weight:400;color:var(--gy-strong)}
-.gc-m{display:flex;align-items:center;justify-content:center;gap:5px;font-size:11px;color:var(--gy-strong);margin-bottom:6px;flex-wrap:wrap}
+.gc-m{display:flex;align-items:center;justify-content:flex-start;gap:5px;font-size:11px;color:var(--gy-strong);margin-bottom:6px;flex-wrap:wrap}
 .gc-m .rt{color:var(--gd);font-weight:700;display:inline-flex;align-items:center;gap:2px}
 
 /* ── Detail ── */
