@@ -466,7 +466,7 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
               {lowN >= 1 && lowN <= 3 ? (
                 <span style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", lineHeight: 1.05 }}>
                   <span>{d}</span>
-                  <span data-low-label style={{ fontSize: 8, fontWeight: 700, whiteSpace: "nowrap" }}>{lowN === 1 ? "Último cupo" : `${lowN} cupos`}</span>
+                  <span data-low-label style={{ fontSize: 8.5, fontWeight: 700, whiteSpace: "nowrap" }}>{lowN === 1 ? "1 cupo" : `${lowN} cupos`}</span>
                 </span>
               ) : (
                 d

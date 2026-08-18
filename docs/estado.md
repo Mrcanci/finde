@@ -74,11 +74,23 @@ está en `docs/historia/2026-08-router-y-urls.md`.
   final porque ahí está el 70% de la deuda inline) · **versalitas y tracking**,
   donde los badges que las conservan son `.tp-st` y `.dsh-bk-s` y no `.st-*` ·
   **el número de rating separado de la estrella**, que es cambio de JSX · y **el
-  calendario, solo lo que el piso obliga**, con la etiqueta de escasez ya
-  decidida en la **opción b**: punto de color en la celda más leyenda debajo,
-  porque a 8px ya no entra (son unos 50px de texto en una celda de 42) y a 12
-  entraría menos. **La primera decisión de la fase** es si `--fs-h1` (18/20) y
-  `--fs-h2` (17/18) se sostienen a 1px de distancia en móvil.
+  calendario, solo lo que el piso obliga**. **La primera decisión de la fase** es
+  si `--fs-h1` (18/20) y `--fs-h2` (17/18) se sostienen a 1px de distancia en
+  móvil.
+
+  **La etiqueta de escasez ya se resolvió, y NO como decía esta lista.** Se
+  adelantó el 2026-08-18 porque el texto se desbordaba de la celda. Se descartó
+  el punto de color (medido: sobre la celda elegida, que es terracota sólido, no
+  se ve) y se descartó sacar el texto de la celda (se construyó y se revirtió).
+  Quedó el camino barato: **el texto se acortó a "1 cupo" y subió de 8 a 8,5px.**
+  Ver `docs/decisiones.md`.
+
+  **Y de ahí sale un dato duro para el barrido del piso de 12px: esta etiqueta no
+  va a poder cumplirlo.** "3 cupos" a 12px mide 45,92px y en la celda de un
+  móvil de 360 hay 36. El techo real es 9px, y 8,5 es el que aguanta también la
+  fuente de respaldo. **Es la primera excepción medida al piso**, y hay que
+  decidir si se documenta como excepción o si el piso obliga a sacar el texto de
+  la celda, que es justo lo que se revirtió.
 
   **Dos cosas vistas de paso en la 6A y sin tocar**, para la pantalla que las
   cubra: **`.app h2{font-weight:400}` quedó muerto** desde la tanda sin serif,
