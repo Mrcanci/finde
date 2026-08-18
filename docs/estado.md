@@ -23,18 +23,24 @@ lanzamiento, y **cada tanda tiene que dejar el switch más cerca, no más lejos*
 | 1C | Fotos de la landing a 800 px | 1B | ✅ en `main` |
 | 2 | Router con `BASE_PATH` y URL por tour | 1 | ✅ en `main` |
 | 3 | Modal de cuenta en el checkout, navegación abierta | 2 ✅ | ✅ en `main` |
-| 4 | Eventos del embudo | 3 ✅ | **la siguiente** |
+| 4 | Eventos del embudo | 3 ✅ | ✅ **investigada el 2026-08-17: no se instrumenta nada.** Ver abajo |
 | 5 | Meta tags por tour, más la metadata obligatoria del formulario | 2 ✅ | ✅ en `main`. `robots.txt` y `sitemap.xml` van con el switch |
 | 5B | Activar un tour exige la metadata mínima, y el panel avisa antes | 5 ✅ | ✅ en `main` |
 | 6 | Día del switch: `BASE_PATH` a `""` más el rewrite de la raíz | todo | el código es reversible, el SEO no |
 
-**La 3 cerró el 2026-08-17 y está en `main`. La 4 es la siguiente y ya no tiene
-nada delante.** El detalle de las tandas 2, 5 y 5B está en
-`docs/historia/2026-08-router-y-urls.md`.
+**La 3 cerró el 2026-08-17 y está en `main`.** El detalle de las tandas 2, 5 y 5B
+está en `docs/historia/2026-08-router-y-urls.md`.
 
-- **La 4** son los eventos del embudo, y **recién ahora hay embudo que medir**:
-  hasta la 3, `/demo` pelado pedía cuenta, así que no existía el recorrido de
-  visitante que la 4 viene a contar.
+- **La 4 se investigó y la conclusión es que no se instrumenta nada todavía.**
+  Reporte completo en `docs/audits/2026-08-17-eventos-del-embudo.md`. Lo que hay
+  que saber sin abrirlo: **el router de la tanda 2 ya dejó medidos 3 de los 4
+  pasos del embudo sin costo** (Vercel cuenta la navegación de la SPA por URL, y
+  eso se verificó contra los datos reales), la confirmación sale de la base, y el
+  único tramo ciego es el checkout por dentro. **Instrumentarlo hoy no compra
+  nada porque no hay tráfico**: en 30 días producción tuvo 15 páginas vistas,
+  todas del QA propio. El instrumento elegido para el día del switch es **darle
+  URL a cada paso del checkout**, que cuesta cero bytes y además arregla el bug
+  de abajo.
 
 **Lo que queda abierto del frente de SEO, y no se toca antes de tiempo:**
 
@@ -114,6 +120,9 @@ Acá va solo la lista, para que se vean desde el estado.
 | **El cierre operativo no se evalúa en `CUPO_FIJO`** | Subordinado a la decisión del 2026-08-15: no se toca hasta que una agencia lo pida |
 | **El `<h1>` del título del tour en escritorio** | Marcado existente que computa `display:none`. Es trabajo del rediseño de la ficha, no algo para borrar |
 | **El bundle pasa los 500 kB** (673 kB, 184 comprimido, un solo chunk) | Candidato a code splitting por vista. **Dejó de ser el pendiente número uno de rendimiento**: las tandas 1B y 1C sacaron 11,8 MB, sesenta veces el bundle entero. Lo que pesa son imágenes, no JavaScript |
+| **`Tour.region` está sucio y el formulario lo puede volver a ensuciar** | Lima está partida en tres grafías (`"Lima"`, `"lima"`, `"lima lima"`), y **"% de demanda fuera del eje Lima-Cusco" es métrica de Creatividad Empresarial 2027**. La Ubicación es texto libre, así que limpiar sin cerrar la entrada es trabajo que se deshace |
+| **`SearchLog` guarda el texto completo de 272 búsquedas** | El criterio de loguear solo el largo aplica a los logs de consola, **no a esa tabla**. Alguien puede buscar algo que lo identifique. Truncar, anonimizar o dejar: decidir antes del lanzamiento |
+| **La foto mensual de la analítica necesita disparador** | La ventana de Hobby es de **un mes**: lo que no se copia se pierde para siempre. La propuesta es un renglón fechado en este archivo, que se lee al empezar cada tanda |
 
 **Auditoría de identidad visual, pendiente.** José, mirando el home, dijo que los
 títulos de sección le parecen "hechos por IA", y al conversarlo quedó claro que es
@@ -125,7 +134,12 @@ contenido que pesan más que cualquier decisión de diseño. Detalle completo en
 
 ## Bugs abiertos
 
-Ninguno.
+- **El botón de atrás rompe el checkout entero** (encontrado el 2026-08-17). Los
+  cuatro pasos comparten una sola URL, así que volver atrás en el paso de pago no
+  retrocede un paso: **saca al viajero del checkout y le tira el formulario**, con
+  la fecha, los cupos y sus datos. En móvil el gesto de volver es constante. **Lo
+  arregla el mismo cambio que mide el embudo** (URL por paso). Razonamiento
+  entero en `docs/pendientes-producto.md`.
 
 ## Antes de lanzar a usuarios reales
 
