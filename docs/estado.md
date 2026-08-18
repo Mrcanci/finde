@@ -66,17 +66,43 @@ está en `docs/historia/2026-08-router-y-urls.md`.
 
 ### Fuera del frente de lanzamiento
 
-- **Fase 6 del plan tipográfico, la escala en tokens. ES LA SIGUIENTE, y ya no
-  tiene nada delante.** Se ejecuta contra
-  `docs/plans/2026-08-13-plan-tipografia.md`, que ya tiene los números
-  corregidos y el aviso de no reponer los viejos. **`--fs-d2` en 20/22 y `.gc-t`
-  en 15px van juntas o no van**: el porqué está en `docs/decisiones.md`
-  (2026-08-18).
+- **Fase 6B del plan tipográfico, lo que queda de la escala.** La 6A cerró el
+  2026-08-18. Son cuatro piezas, con el detalle en
+  `docs/plans/2026-08-13-plan-tipografia.md`: el **barrido del piso de 12px
+  pantalla por pantalla** (56 declaraciones del CSS y 43 inline por debajo del
+  piso, más las 98 que la primera pasada dejó sin rol; seis commits, el panel al
+  final porque ahí está el 70% de la deuda inline) · **versalitas y tracking**,
+  donde los badges que las conservan son `.tp-st` y `.dsh-bk-s` y no `.st-*` ·
+  **el número de rating separado de la estrella**, que es cambio de JSX · y **el
+  calendario, solo lo que el piso obliga**, con la etiqueta de escasez ya
+  decidida en la **opción b**: punto de color en la celda más leyenda debajo,
+  porque a 8px ya no entra (son unos 50px de texto en una celda de 42) y a 12
+  entraría menos. **La primera decisión de la fase** es si `--fs-h1` (18/20) y
+  `--fs-h2` (17/18) se sostienen a 1px de distancia en móvil.
+
+  **Dos cosas vistas de paso en la 6A y sin tocar**, para la pantalla que las
+  cubra: **`.app h2{font-weight:400}` quedó muerto** desde la tanda sin serif,
+  porque los tres `h2` del demo ya declaran su propio 700 y esa regla existía
+  para preservar el render de DM Serif, que solo traía el peso 400 · y
+  **`.sr-name` es el único título de fila que trunca**, con `ellipsis` de una
+  línea, mientras el resto no trunca y `.gc-t` ahora clampea a dos: **tres
+  tratamientos distintos para el mismo problema**.
 - **Barrido de padding del Grupo B**, más chico y ya desbloqueado.
 - **Integración de Culqi** como feature de lanzamiento. Al integrarla se reactiva
   la pestaña "Ingresos" del dashboard, hoy oculta. Ver `docs/decisiones.md`.
 
 ## Terminado y mergeado
+
+- **La escala tipográfica en tokens, Fase 6A (2026-08-18)**: los nueve tokens
+  declarados y consumidos por los display. Lo que se pidió era la relación entre
+  el título de sección y el de tarjeta, y pasó de **1,46 a 1,33 en móvil y de
+  1,64 a 1,47 en escritorio**, adentro de la banda de 1,25 a 1,54 de Airbnb,
+  Booking y GetYourGuide. Las dos mitades iban juntas: `--fs-d2` a 20/22 y
+  `.gc-t` a 15px con clamp de dos líneas. **Tres cosas quedaron fuera de la
+  escala a propósito, y está escrito por qué en el CSS**: el logo (única pieza
+  serif, y los números están calibrados por la altura de x de Jakarta),
+  `.det-tl` (el token se midió mirando el inicio, y a la ficha le sacaba 12px en
+  escritorio) y `.pf-name` (es `--fs-h1`, y eso se decide en 6B).
 
 - **El texto de las tarjetas de tour va a la izquierda (2026-08-18)**: como en Airbnb, Booking y GetYourGuide, medidos. **Fueron cinco declaraciones y no una**: las filas de metadatos y de precio son flex y se centran con `justify-content`, que `text-align` no toca. Queda un comentario en el CSS para que nadie las simplifique.
 
@@ -93,13 +119,8 @@ está en `docs/historia/2026-08-router-y-urls.md`.
 - **M2 Tours de la agencia**: CRUD real, upload de imágenes a Supabase Storage por signed URL (el navegador sube directo a Storage y esquiva el límite de ~4.5MB de Vercel).
 - **Búsqueda en dos fases**: la fase 2 genera el reasoning sobre los ids ya elegidos, con los datos firmados de la fase 1 (`lib/search-sig.ts`, HMAC). `SEARCH_PHASE_SECRET` cargada en Development, Preview y Production.
 - **Inventario y salidas**: modelo `Departure`, enums `SalesMode` / `BookingStatus` / `DepartureStatus`, motor en `lib/inventory.ts` con materialización perezosa y toma de cupo atómica, panel de salidas con confirmación en lote.
-- **Cierre de venta en las dos puntas** para tours `SOLICITUD`.
-- **Emails transaccionales**: Resend. `RESEND_API_KEY` ya está cargada en **los tres entornos** (Development, Preview, Production). Ver la advertencia de QA en `CLAUDE.md`.
-- **Rechazo puntual de una solicitud** desde el panel, además del lote (`f499fda`, `60d8b8f`).
-- **Documento del viajero** (`Booking.userDocument`) guardado en la reserva y visible en el panel de la agencia dueña (`98e92d0`, migración `2026-08-12-booking-user-document.md`).
-- **Datos del pasajero agrupados** en el detalle de reserva del panel (`7d0333b`).
-- **Modo de venta visible al viajero** al reservar (`d561bb2`).
-- **Jerarquía visual de escasez** en el calendario de reserva y disponibilidad pre-cargada desde el detalle (`0100120`, `4379219`, `db21c0b`).
+- **Emails transaccionales**: Resend. `RESEND_API_KEY` ya está cargada en **los tres entornos**. Ver la advertencia de QA en `CLAUDE.md`.
+- **Seis tandas chicas del flujo de reserva, todas en `main`**: cierre de venta en las dos puntas para `SOLICITUD`, rechazo puntual además del lote, documento del viajero en el panel de su agencia, datos del pasajero agrupados, modo de venta visible al reservar, y la jerarquía visual de escasez del calendario. **Las barandas de todas viven en `.claude/rules/reservas.md`**, que se carga sola.
 - **`/api/me?scope=operator`**: camino liviano que resuelve la identidad de agencia sin la query de bookings ni el vencimiento perezoso (`4e81cb0`).
 - **Las tandas 0, 1, 1B, 1C y 2, más el sello de verificación y el procesamiento de fotos**: todas en `main` y ya listadas en la tabla de arriba. Su medición completa (los 11,8 MB de las tandas de imágenes, el costo de la analítica, el router y el sello) vive en `docs/historia/`.
 
@@ -207,16 +228,7 @@ Emprende Turismo TEC 2026 ya terminó. Queda el material y sirve de base para la
 
 ## Dónde está el resto
 
-Este archivo es **el presente**. Lo demás vive en su lugar, y esa separación es a
-propósito: **lo único que se carga solo son las reglas con alcance**, todo lo
-demás hay que ir a buscarlo, y un archivo que nadie termina de leer es
-información que existe pero no está disponible.
-
-| Dónde | Qué |
-|---|---|
-| `docs/historia/` | **Lo que ya se hizo**, con su investigación y su medición. Índice en su `README.md` |
-| `docs/decisiones.md` | **Por qué se decidió cada cosa.** Solo se agrega, nunca se borra |
-| `docs/audits/` | **Diagnósticos de un momento**, con o sin ejecución posterior |
-| `docs/pendientes-producto.md` | **El razonamiento entero** de los pendientes de arriba |
-| `docs/migrations/` | Historial de cambios de schema con su razón |
-| `.claude/rules/` | **Las barandas.** Se cargan solas al tocar los archivos que cubren |
+Este archivo es **el presente**. El mapa de dónde vive cada cosa
+(`docs/historia/`, `docs/decisiones.md`, `docs/audits/`, `docs/migrations/`,
+`.claude/rules/`) está en `CLAUDE.md`, que se carga solo en cada sesión, así que
+acá no se repite.
