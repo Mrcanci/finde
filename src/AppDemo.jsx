@@ -980,6 +980,36 @@ const CSS = `
 html{scrollbar-gutter:stable}
 .app{--f:#1B3A2D;--m:#2D5A3D;--sg:#6B8F71;--sd:#E8DDD3;--cr:#F5F0EA;--wh:#FAFAF7;--tr:#C7613A;--tr-text:#A84E2C;--trl:#E8845A;--gd:#D4A843;--gd-text:#7A5C10;--ch:#2C2C2A;--gy:#737370;--gy-strong:#5A5A57;--lg:#959591;--yp:#6B2FA0;--pl:#00B4D8;--ai:#0EA5E9;--focus:rgba(45,90,61,.35)}
 .app *{margin:0;padding:0;box-sizing:border-box}
+
+/* ── Fase 6A, paso 1: la escala en tokens ──
+   Los nueve tamanos de la escala aprobada, declarados y SIN UN SOLO
+   CONSUMIDOR. Este paso no mueve un pixel A PROPOSITO: los tokens se empiezan
+   a consumir en el paso 2 (los titulos de seccion y de tarjeta), siguen en el
+   paso 3 (el resto de los display) y se terminan en la Fase 6B.
+
+   AL ASIGNARLOS SE CLASIFICA POR ROL, NO POR VALOR. 13px no es un rol, es un
+   accidente: sus 73 declaraciones (48 aca mas 25 inline) sirven a cuatro
+   funciones distintas. Un buscar y reemplazar de 13px por var(--fs-cap) deja
+   una escala nueva con la misma jerarquia plana de antes.
+
+   Y hay dos familias que NO toman token de texto: los controles nativos (44,
+   los que declaran font-family:inherit) y los font-size que miden un glifo y
+   no una palabra (19, como .pf-av o .lang-dd-btn .arr).
+
+   FUERA DE LA ESCALA, decidido el 2026-08-18 y no por olvido:
+   - .logo, la unica pieza serif que queda en el producto. Los numeros de esta
+     escala estan calibrados por la altura de x de Jakarta (factor 0,884) y a
+     DM Serif no le aplican.
+   - .det-tl, el titulo del tour. --fs-d2 se midio mirando el titulo de
+     SECCION del inicio contra el de tarjeta; aplicarselo al titulo del tour
+     le sacaba 12px en escritorio, un 35%, en la pantalla que mas trafico va a
+     tener, y eso no lo midio nadie. Es el unico del grupo con escalon propio
+     de escritorio ademas de .st, y esa es la senal.
+
+   Ver docs/plans/2026-08-13-plan-tipografia.md, Fase 6A. */
+.app{--fs-d1:26px;--fs-d2:20px;--fs-h1:18px;--fs-h2:17px;--fs-h3:15px;--fs-body:16px;--fs-sm:14px;--fs-cap:13px;--fs-label:12px}
+@media(min-width:640px){.app{--fs-d1:32px}}
+@media(min-width:1024px){.app{--fs-d1:39px;--fs-d2:22px;--fs-h1:20px;--fs-h2:18px}}
 /* Cifras tabulares: mismo ancho por digito. Evita que un contador salte de
    posicion al cambiar de valor y alinea los montos en columna. */
 .gcnt,.dsh-s-v,.pf-stat-v,.login-hero-stat-v,.rev-big-n,.rev-big-cnt,.earn-bl,.sr-price,.tc-pr,.tc-pr span,.gc-p,.gc-p span,.bb-p,.bb-p span,.sum-r,.sum-t,.voucher-pay-row,.voucher-pay-row.total,.tp-price,.dsh-bk-a,.earn-tot,.sr-rating,.tc-m .rt,.gc-m .rt{font-variant-numeric:tabular-nums}
