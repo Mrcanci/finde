@@ -32,15 +32,12 @@ lanzamiento, y **cada tanda tiene que dejar el switch más cerca, no más lejos*
 está en `docs/historia/2026-08-router-y-urls.md`.
 
 - **La 4 se investigó y la conclusión es que no se instrumenta nada todavía.**
-  Reporte completo en `docs/audits/2026-08-17-eventos-del-embudo.md`. Lo que hay
-  que saber sin abrirlo: **el router de la tanda 2 ya dejó medidos 3 de los 4
-  pasos del embudo sin costo** (Vercel cuenta la navegación de la SPA por URL, y
-  eso se verificó contra los datos reales), la confirmación sale de la base, y el
-  único tramo ciego es el checkout por dentro. **Instrumentarlo hoy no compra
-  nada porque no hay tráfico**: en 30 días producción tuvo 15 páginas vistas,
-  todas del QA propio. El instrumento elegido para el día del switch es **darle
-  URL a cada paso del checkout**, que cuesta cero bytes y además arregla el bug
-  de abajo.
+  El router de la tanda 2 ya dejó medidos 3 de los 4 pasos del embudo sin costo,
+  y **instrumentar el cuarto hoy no compra nada porque no hay tráfico** (15
+  páginas vistas en 30 días, todas del QA propio). El instrumento elegido para el
+  día del switch es **darle URL a cada paso del checkout**, que cuesta cero bytes
+  y además arregla el bug de abajo. Reporte en
+  `docs/audits/2026-08-17-eventos-del-embudo.md`.
 
 **Lo que queda abierto del frente de SEO, y no se toca antes de tiempo:**
 
@@ -70,34 +67,26 @@ está en `docs/historia/2026-08-router-y-urls.md`.
 ### Fuera del frente de lanzamiento
 
 - **Fase 6 del plan tipográfico, la escala en tokens. ES LA SIGUIENTE, y ya no
-  tiene nada delante.** Estuvo bloqueada por la elección tipográfica, que se
-  decidió y se aplicó el 2026-08-18.
-
-  **Los números ya están corregidos en el plan**, así que se ejecuta contra
-  `docs/plans/2026-08-13-plan-tipografia.md` sin traducir nada: `--fs-d1` quedó
-  en **26/39** y `--fs-d2` en **20/22**, las dos en Jakarta 700. La tabla lleva
-  arriba el aviso de no reponer los valores viejos, y el porqué de las dos
-  correcciones al lado.
-
-  **Lo que hay que leer antes de tocar un número está en esa misma sección**: el
-  título de sección de Finde no era grande, el que estaba chico era el de
-  tarjeta. Por eso `--fs-d2` baja poco y el movimiento importante es `.gc-t`
-  subiendo a 15px. **Las dos van juntas o no van.**
+  tiene nada delante.** Se ejecuta contra
+  `docs/plans/2026-08-13-plan-tipografia.md`, que ya tiene los números
+  corregidos y el aviso de no reponer los viejos. **`--fs-d2` en 20/22 y `.gc-t`
+  en 15px van juntas o no van**: el porqué está en `docs/decisiones.md`
+  (2026-08-18).
 - **Barrido de padding del Grupo B**, más chico y ya desbloqueado.
 - **Integración de Culqi** como feature de lanzamiento. Al integrarla se reactiva
   la pestaña "Ingresos" del dashboard, hoy oculta. Ver `docs/decisiones.md`.
 
 ## Terminado y mergeado
 
-- **El texto de las tarjetas de tour va a la izquierda (2026-08-18)**: como en Airbnb, Booking y GetYourGuide, medidos. **Fueron cinco declaraciones y no una**, y ese es el detalle que importa: `text-align` alcanza para el título y la ciudad, pero las filas de metadatos y de precio son flex y se centran con `justify-content`, que `text-align` no toca. Cambiar solo una habría dejado el título a la izquierda y el rating centrado debajo. Queda un comentario en el CSS para que nadie las simplifique. **La lista de 128 selectores de la Fase 0 no aplica**: esa mide el centrado global, y esto alcanza a dos subárboles.
+- **El texto de las tarjetas de tour va a la izquierda (2026-08-18)**: como en Airbnb, Booking y GetYourGuide, medidos. **Fueron cinco declaraciones y no una**: las filas de metadatos y de precio son flex y se centran con `justify-content`, que `text-align` no toca. Queda un comentario en el CSS para que nadie las simplifique.
 
-- **El producto sale del serif (2026-08-18)**: Plus Jakarta Sans 700 en los 19 títulos que eran DM Serif, con el tamaño corregido por altura de x (factor 0,884, porque Jakarta rinde 13% más alto y 11% más ancho al mismo px). **El logo se queda en DM Serif y es la única excepción**, en sus tres apariciones. Dos commits separados a propósito, familias y tamaños, para poder revertir uno sin el otro. **El camino de vuelta a la opción descartada son dos reglas** y está escrito en `docs/decisiones.md`. Falta el recorte del import a `text=finde.`, que va **el día del switch** porque hoy la hoja de fuentes la comparte la landing: son 16 kB y es la cuarta pieza de esa checklist.
+- **El producto sale del serif (2026-08-18)**: Plus Jakarta Sans 700 en los 19 títulos que eran DM Serif, con el tamaño corregido por altura de x (factor 0,884). **El logo se queda en DM Serif y es la única excepción.** El camino de vuelta y el detalle, en `docs/decisiones.md`. Falta el recorte del import a `text=finde.`, que va **el día del switch** porque hoy la hoja de fuentes la comparte la landing: son 16 kB y es la cuarta pieza de esa checklist.
 
-- **Navegación abierta y modal de cuenta (tanda 3, 2026-08-17)**: `/demo` pelado abre el catálogo, no el login. El muro de cuenta se movió al checkout, con **un solo modal** que sirve a los cuatro puntos de entrada (reservar, "Mis reservas", "Perfil" y notificaciones) y dice por qué se pide la cuenta en cada uno. Entrar no desmonta nada: el viajero sigue con su paso, su fecha y sus cupos. Tres cosas más que salieron del mismo viaje: el email del paso 2 se **deriva** de la cuenta y va de solo lectura (antes se prellenaba una vez al montar y el viajero podía ver un correo que el backend descarta), el aviso de carrera de cupos **salió del paso de pago** y se muestra también en el paso 2 (donde el POST sale con el flag apagado, y ahí el 409 fallaba mudo), y entrar por URL a una vista privada muestra el inicio con el modal encima en vez del login, así no se pierde a dónde iba.
+- **Navegación abierta y modal de cuenta (tanda 3, 2026-08-17)**: `/demo` pelado abre el catálogo, no el login, y el muro de cuenta se movió al checkout con **un solo modal** que sirve a los cuatro puntos de entrada. Entrar no desmonta nada. Detalle en `docs/historia/2026-08-navegacion-y-cuenta.md`.
 
-- **El copy de viajero deja de hablar de "salidas" (`de73b14`, 2026-08-17)**: el tooltip de un día no elegible en el calendario y el aviso de carrera de cupos usaban "salida", que es la fila de `Departure` que ve la agencia en su panel, no el vocabulario del viajero. Es la misma regla que `.claude/rules/reservas.md` ya aplicaba a los mensajes del motor: **a cada lado se le habla en el vocabulario de SU interfaz.** Los dos textos viven en ramas que hoy no se pueden ejercitar (ningún tour limita días, y el 409 exigiría crear reservas reales), así que se verificaron por lectura y no en pantalla; está anotado en el mensaje del commit.
+- **El copy de viajero deja de hablar de "salidas" (`de73b14`, 2026-08-17)**: "salida" es la fila de `Departure` que ve la agencia, no el vocabulario del viajero. La regla ya vive en `.claude/rules/reservas.md`.
 
-- **SEO de las fichas (tandas 5 y 5B, 2026-08-17)**: cada tour tiene su HTML estático con title, description y `og:` propios, generado en cada deploy y con `noindex` mientras el producto viva en `/demo`. La metadata mínima (gancho de 40 a 80, descripción de 300, portada) es obligatoria **por los dos caminos**: al guardar en el formulario y al activar desde el panel, con la condición compartida en `lib/tour-publish.js`. El panel apaga el interruptor de entrada y dice qué falta.
+- **SEO de las fichas (tandas 5 y 5B, 2026-08-17)**: cada tour tiene su HTML estático con title, description y `og:` propios, con `noindex` mientras el producto viva en `/demo`. La metadata mínima es obligatoria **por los dos caminos**, con la condición compartida en `lib/tour-publish.js`. Detalle en `docs/historia/2026-08-router-y-urls.md`.
 
 - **tours-db-i18n**: tours migrados de array hardcoded a DB, con embeddings Voyage, 6 categorías sincronizadas con el enum, skeleton loading y dropdown AI_SUGGESTIONS.
 - **M1 Auth**: Supabase Auth email + password, sesión persistente en localStorage, `isOperator` derivado de la DB.
@@ -112,13 +101,7 @@ está en `docs/historia/2026-08-router-y-urls.md`.
 - **Modo de venta visible al viajero** al reservar (`d561bb2`).
 - **Jerarquía visual de escasez** en el calendario de reserva y disponibilidad pre-cargada desde el detalle (`0100120`, `4379219`, `db21c0b`).
 - **`/api/me?scope=operator`**: camino liviano que resuelve la identidad de agencia sin la query de bookings ni el vencimiento perezoso (`4e81cb0`).
-- **Los endpoints de IA exigen perfil de agencia** (`6e6fb83`). Tanda 0 del camino al lanzamiento, cerrada post-QA el 2026-08-15.
-- **Vercel Web Analytics** (`8681dee`). Tanda 1, reducida a eso por decisión de José. Costo medido: unos 2,3 kB comprimidos y cero bloqueo del hilo principal.
-- **La landing deja de cargarse en `/demo`** (`d916e65`). Tanda 1B, cerrada post-QA el 2026-08-16. Bytes de `/demo`: **6.528.216 a 232.992, un 96,4% menos**.
-- **Las fotos de destinos de la landing, a 800 px** (`5575328`). Tanda 1C, cerrada post-QA el 2026-08-16. Bytes de la landing: **6.526.560 a 976.569, un 85% menos**.
-- **Las fotos que suben las agencias se achican en el navegador** (`62a1d1a`). Cerrada post-QA el 2026-08-16. Era la **condición** que imponía el plan Free de Supabase: una foto real de 4.062 kB sube como **203 kB**.
-- **El sello de verificación deja de afirmar algo falso** (`38823ed`). Cerrado post-QA el 2026-08-16. Era el **bloqueante de lanzamiento**: 42 tours visibles y MEGATOURS como la única agencia con sello.
-- **El router y las URLs por vista** (`1d5bad0`). Tanda 2, cerrada post-QA el 2026-08-16. Cada vista tiene URL, la ficha resuelve por deep link y **el prefijo vive en una sola constante**.
+- **Las tandas 0, 1, 1B, 1C y 2, más el sello de verificación y el procesamiento de fotos**: todas en `main` y ya listadas en la tabla de arriba. Su medición completa (los 11,8 MB de las tandas de imágenes, el costo de la analítica, el router y el sello) vive en `docs/historia/`.
 
 ## Pendientes abiertos
 
@@ -194,16 +177,11 @@ Quedan los 5 de MEGATOURS.
 
 ### Las fotos huérfanas tienen número, y el número es para que se vea si crece
 
-**36 de los 49 archivos del bucket están referenciados por algún tour. Los otros
-13 no los referencia nadie**, y ningún camino de limpieza los toca: el borrado de
-fotos solo ocurre al borrar un tour. El pendiente está explicado en
-`docs/pendientes-producto.md`; lo que faltaba acá era el número.
-
-**Entre el 2026-08-16 y el 2026-08-17 el bucket pasó de 44 archivos y 26 MB a 49
-y 36,8 MB, sin que se creara ningún tour nuevo.** Eso es exactamente lo que el
-pendiente decía que iba a pasar. **Al actualizar este inventario, recontar las
-dos cifras** (archivos del bucket y archivos referenciados): la distancia entre
-las dos es la deuda, y es la única forma de saber si crece.
+**36 de los 49 archivos del bucket los referencia algún tour. Los otros 13 no los
+referencia nadie**, y ningún camino de limpieza los toca. Entre el 2026-08-16 y el
+2026-08-17 el bucket pasó de 44 archivos a 49 **sin que se creara ningún tour
+nuevo**. **Al actualizar este inventario, recontar las dos cifras**: la distancia
+entre ellas es la deuda, y es la única forma de saber si crece.
 
 ## Estado de los datos: real vs mock
 
@@ -221,14 +199,11 @@ Casi todo lo que antes era mock ya se eliminó. Lo que queda:
 
 ## Material de postulaciones
 
-Emprende Turismo TEC 2026 ya terminó, pero el material quedó y sirve de base para la próxima postulación:
-
-- `docs/pitch-demoday-eturismo-tec-2026.md`: guion palabra por palabra de 7 beats, estructura y contenido del deck, y un banco de cerca de 18 preguntas de Q&A.
-- `docs/finde-onepager.html`: leave-behind de una página en la marca. Para exportarlo: abrir en el navegador → Cmd+P → PDF, con la opción de gráficos de fondo activada.
+Emprende Turismo TEC 2026 ya terminó. Queda el material y sirve de base para la próxima: `docs/pitch-demoday-eturismo-tec-2026.md` (guion, deck y Q&A) y `docs/finde-onepager.html` (leave-behind, se exporta con Cmd+P a PDF con gráficos de fondo).
 
 **Equipo:** Jose Cancino (CEO, ex-LATAM Airlines) y Franco Romaní (CTO, 8 años de ingeniería).
 
-**Ojo con los números:** los dos archivos citan 40 tours y 13 agencias, heredado del PRD. Está desactualizado e inflado. Los números salen de este documento, no del PRD. Ver la entrada del 2026-08-13 en `docs/decisiones.md`.
+**Ojo con los números:** los dos archivos citan 40 tours y 13 agencias, heredado del PRD. Está inflado. Los números salen de este documento.
 
 ## Dónde está el resto
 
