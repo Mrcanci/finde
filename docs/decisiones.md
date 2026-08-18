@@ -6,6 +6,67 @@
 
 ---
 
+## 2026-08-18 - La región del tour se elige de una lista de 25, y la valida el backend
+
+**Qué se decidió.** Cerrar la entrada de `Tour.region` con **tres piezas que van
+juntas**:
+
+1. **Un selector de departamento** en el formulario de tour, contra la lista
+   cerrada de los **25**.
+2. **La ciudad en un campo aparte**, así el backend deja de derivar la región
+   partiendo un texto libre por la coma.
+3. **La validación en el backend**, con un `enum` de zod contra esos 25 nombres
+   dentro de `parseTourInput` (`lib/tour-input.ts`).
+
+**Qué se descartó.**
+
+- **Autocompletado sobre la misma lista, dejando pasar texto libre.** Paga más
+  interfaz que un selector (input, filtrado, estado, teclado) y **no garantiza
+  nada, porque sugiere sin obligar**. Con una lista de 25 el autocompletado no
+  compra ni siquiera comodidad.
+- **Separar ciudad y región en dos campos libres, sin lista.** No es una opción
+  aparte: ver el primer motivo de abajo.
+
+**Por qué esta, y son dos motivos:**
+
+1. **El selector ya contiene a los dos campos separados, así que no son opciones
+   que se sumen.** Poner una lista cerrada obliga a separar ciudad de región: no
+   se puede elegir de una lista y a la vez seguir mandando `"Ciudad, Región"` en
+   un solo texto. Elegir "los dos campos" como alternativa era elegir la mitad de
+   esto.
+2. **El selector solo protege el camino que pasa por el selector.** Es comodidad,
+   no defensa: cualquier otro camino al API la esquiva. **La validación del
+   backend es la que la vuelve real**, y cubre el POST y el PUT de una vez. Es la
+   regla de `.claude/rules/api-y-schema.md`: la guarda va en el estado que se
+   protege, no en el camino que la descubrió.
+
+**Por qué se decide antes de implementar.** El disparador de este trabajo **no es
+el switch, es el onboarding de la próxima agencia**, y ese día puede llegar sin
+aviso. El razonamiento completo, con los números medidos el 2026-08-17, está en
+`docs/pendientes-producto.md`. Resumido: hoy la región está casi limpia por
+casualidad geográfica (los tours sin coma están en Cusco, Arequipa y Lima, donde
+la ciudad y el departamento se llaman igual), y con Huaraz, Cocachimba o Los
+Órganos queda mal desde el primer tour.
+
+**Consecuencias.**
+
+1. **No hace falta migración, y esto es un hallazgo, no una suposición.** Con la
+   validación puesta, **los 2 tours con la grafía sucia de hoy (`"lima"` y
+   `"lima lima"`, los dos pausados) van a fallar la próxima vez que alguien los
+   edite**, y quien los edite tendrá que elegir la región de la lista. Se limpian
+   solos por el camino normal del producto.
+2. **Son 25 y no 24**: los 24 departamentos más la **Provincia Constitucional del
+   Callao**.
+3. **Las tildes tienen que entrar bien de entrada**, porque una lista cerrada mal
+   escrita convierte el error en permanente: **Áncash, Apurímac, Huánuco, Junín,
+   San Martín**.
+4. **Al implementarlo hay que revisar la precarga al editar**, que hoy arma
+   `"Ciudad, Región"` en un solo campo para el formulario.
+5. **Sin fecha ni tanda asignada, y no se implementa todavía.** Lo que esta
+   entrada cierra es la discusión, no el trabajo.
+
+---
+
 ## 2026-08-15 - La URL del tour es slug más sufijo del id
 
 **Qué se decidió.** La ruta pública de un tour es

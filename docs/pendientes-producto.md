@@ -4,9 +4,14 @@
 > `docs/estado.md` el 2026-08-16 al podarlo: ahí quedó la lista corta con el
 > puntero a este archivo.
 >
-> **Ninguno de estos es un bug.** Son huecos de producto y riesgos conocidos, con
-> la decisión pendiente escrita al lado. Lo que está roto va en "Bugs abiertos"
-> de `docs/estado.md`.
+> **Casi ninguno de estos es un bug.** Son huecos de producto y riesgos
+> conocidos, con la decisión pendiente escrita al lado. Lo que está roto va en
+> "Bugs abiertos" de `docs/estado.md`.
+>
+> **La excepción, y es una sola: el botón de atrás en el checkout.** Está listado
+> en "Bugs abiertos" de `docs/estado.md`, como corresponde, y **el razonamiento
+> entero vive acá** porque es el mismo archivo donde está el arreglo que lo cubre
+> (la URL por paso). Partirlo en dos era garantizar que se leyera medio.
 
 ## Pendiente de lanzamiento: el SMTP de los correos de auth
 
@@ -48,9 +53,152 @@ corte**: el viajero igual tiene que salir al correo y volver.
 > el alta de "entras y sigues reservando" a "entras, sales al correo y vuelves".
 > Por eso va después del SMTP propio, no antes.
 
+## BUG DE UX: el botón de atrás rompe el checkout entero
+
+**Encontrado el 2026-08-17, investigando la tanda 4. No es un hueco de analítica:
+es una pantalla rota, y está en la que la tanda 3 acaba de estabilizar.**
+
+**Qué pasa.** Los cuatro pasos del checkout viven en `BookingView` con el paso en
+un `useState`, y **los cuatro comparten una sola URL**, `/demo/reservar/<tour>`.
+La app deja una entrada de historial al entrar al checkout y ninguna más. Así
+que el botón de atrás en el paso de pago no retrocede al paso anterior: **sale
+del checkout completo** (el `popstate` de `AppDemo` lee la URL previa y monta la
+ficha), y el formulario se pierde, con la fecha, los cupos y los datos ya
+escritos.
+
+**Por qué importa más de lo que suena.**
+
+- **En móvil el gesto de volver es constante**, y ahí no es un botón que se
+  aprieta por error: es el deslizamiento con el que la gente navega.
+- **Cae justo donde el viajero ya invirtió trabajo.** Alguien que eligió fecha,
+  puso sus cupos, creó la cuenta y llenó sus datos vuelve un paso y no le queda
+  nada. Es la peor posición posible del embudo para perder a alguien.
+- **Es de la misma familia que el formulario de tour que se pierde al navegar
+  afuera** (más abajo en este archivo), pero **este es peor**: aquel le pasa a
+  una agencia que puede volver a cargar, este le pasa a un viajero en el momento
+  de comprar.
+
+**El arreglo, y acá está lo bueno: es el mismo instrumento de medición.** Darle
+URL propia a cada paso (`/cuenta`, `/datos`, `/pago`, `/listo`) hace que atrás
+retroceda de a un paso, y **de paso destapa el único tramo del embudo que hoy no
+se puede medir**. Un solo trabajo que cierra las dos cosas. El detalle del
+instrumento, con su costo (cero bytes al cliente) y su riesgo (toca el checkout),
+está en `docs/audits/2026-08-17-eventos-del-embudo.md`.
+
+**Cuándo.** El audit recomienda hacerlo con el switch, porque antes no hay
+tráfico que medir. **Este bug es un argumento para adelantarlo**: el viajero que
+pierde el formulario no espera al lanzamiento, y MEGATOURS ya tiene sus cinco
+tours públicos. Sin decidir.
+
 ## Riesgos de producto
 
 No son bugs: no hay nada roto.
+
+- **`Tour.region` está sucio, y el formulario lo puede volver a ensuciar. Se
+  calcula mal una métrica que hay que presentar.**
+
+  **La consecuencia primero:** "% de demanda fuera del eje Lima-Cusco" es una de
+  las métricas que pide Creatividad Empresarial 2027, y **hoy sale mal**, porque
+  Lima está partida en tres regiones distintas que no se suman entre sí.
+
+  **Medido el 2026-08-17 sobre los 49 tours:** 14 grafías de región y **una sola
+  familia sucia**, la de Lima: `"Lima"` (10 tours), `"lima"` (1) y `"lima lima"`
+  (1). **Los dos tours con la grafía mala están pausados**, así que en el
+  catálogo no se ve. **Del lado de las reservas pesa mucho más: 20 de las 43 caen
+  en esas dos grafías** (18 en `"lima lima"`, 2 en `"lima"`) contra 1 en
+  `"Lima"`. O sea que el informe de demanda parte Lima en tres y ninguna de las
+  tres dice la verdad.
+
+  **La causa no es un dato viejo: es el formulario, y sigue abierto.** El campo
+  Ubicación es **texto libre** (`Ej: Huaraz, Áncash`), y `parseTourInput`
+  (`lib/tour-input.ts`) parte por la coma: antes de la coma la ciudad, después la
+  región. **Si no hay coma, la región cae a la ciudad.** Hoy funciona de
+  casualidad en 31 de los 49 tours porque la ciudad y el departamento se llaman
+  igual (Cusco, Arequipa, Lima). Con "Huaraz" a secas la región queda `"Huaraz"`,
+  que no es una región. **Cada agencia nueva puede volver a ensuciarlo**, así que
+  limpiar los datos sin tocar el formulario es trabajo que se deshace solo.
+
+  **Eran dos cosas separadas, normalizar lo que ya está y cerrar la entrada, y
+  hoy quedó una sola.** Cerrar la entrada es lo urgente, y **está decidido desde
+  el 2026-08-18** (ver abajo y `docs/decisiones.md`). Normalizar lo viejo **dejó
+  de ser un pendiente aparte**: con la validación puesta, los dos tours sucios se
+  arreglan solos la próxima vez que alguien los edite.
+
+  ### El disparador NO es el switch: es el onboarding de la primera agencia
+
+  **Y esto le cambia la fecha al pendiente, así que va con su propio
+  encabezado.** La razón por la que hoy la región está casi limpia no es que el
+  sistema funcione: es que **los 31 tours donde la región cayó a la ciudad están
+  en Cusco, Arequipa y Lima, donde la ciudad y el departamento se llaman igual.**
+  Es una casualidad geográfica, no una validación.
+
+  **Las agencias reales cargan tours en otros lados.** Cocachimba, Chachapoyas,
+  Los Órganos, Huaraz, Paracas, Máncora: **ninguno de esos nombres coincide con
+  su región.** El primer tour que cargue una agencia en cualquiera de esos
+  lugares, sin escribir la coma, deja la región mal desde el día uno.
+
+  | Lo que la agencia escribe | Región que queda hoy | La de verdad |
+  |---|---|---|
+  | `Cusco` | Cusco | Cusco (zafa) |
+  | `Huaraz` | **Huaraz** | Áncash |
+  | `Cocachimba` | **Cocachimba** | Amazonas |
+  | `Los Órganos` | **Los Órganos** | Piura |
+
+  **Consecuencia práctica: la ventana se cierra con el onboarding de la próxima
+  agencia, no con el switch.** Cerrar la entrada después significa además tener
+  que corregirle los datos a una agencia real, que es otra conversación y otro
+  riesgo. Antes de onboardear la siguiente, esto tendría que estar resuelto.
+
+  ### Cómo se cierra la entrada: DECIDIDO el 2026-08-18, sin implementar
+
+  **La discusión está cerrada, el trabajo no.** La entrada completa, con lo que
+  se descartó y por qué, vive en `docs/decisiones.md`. Lo que hay que saber acá:
+
+  **Se cierra con tres piezas que van juntas**: un **selector de departamento**
+  contra la lista de los **25**, la **ciudad en un campo aparte** (así el backend
+  deja de partir un texto libre por la coma), y **la validación en el backend**,
+  con un `enum` de zod en `parseTourInput`.
+
+  Los dos motivos que eligieron esa forma, porque son los que hay que recordar si
+  alguien la reabre:
+
+  - **El selector ya obliga a separar los campos**, así que "dos campos libres"
+    no era una alternativa que se sumara: era la mitad de esto.
+  - **El selector solo protege al que pasa por el selector.** Es comodidad, no
+    defensa. **La validación del backend es la que la vuelve real**, y cubre POST
+    y PUT de una vez. Es la regla de `.claude/rules/api-y-schema.md`: la guarda
+    va en el estado que se protege, no en el camino que la descubrió.
+
+  **Y no hace falta migración.** Con la validación puesta, **los 2 tours sucios
+  de hoy fallan la próxima vez que alguien los edite** y quien los edite tiene
+  que elegir la región de la lista: se limpian solos por el camino normal del
+  producto.
+
+  **Dos detalles que van a aparecer al implementarlo**: **son 25 y no 24** (los
+  24 departamentos más la Provincia Constitucional del Callao), y **las tildes
+  tienen que entrar bien de entrada**, porque una lista cerrada mal escrita
+  vuelve el error permanente: Áncash, Apurímac, Huánuco, Junín, San Martín.
+
+- **`SearchLog` guarda el texto completo de las búsquedas: 272 filas desde el
+  2026-04-28, y no hay decisión sobre qué se hace con ellas.**
+
+  **La distinción que hay que tener clara, porque es fácil afirmar de más:** el
+  criterio de la Ley 29733 que sí está aplicado (loguear `qlen`, el largo, y
+  nunca el texto) vive en los **logs de consola** de `api/search.ts`. **La tabla
+  `SearchLog` es otra cosa, y es anterior a ese criterio**: la columna `query`
+  guarda la consulta entera. Escribir "Finde nunca guarda el texto de las
+  búsquedas" sería falso.
+
+  **Por qué es un riesgo y no un incidente.** En la fila no hay correo, ni
+  nombre, ni id de usuario: es texto y fecha. **Pero el texto lo escribe una
+  persona en un campo libre**, y alguien puede buscar algo que lo identifique.
+  Además no hay política de borrado: se acumula sin techo.
+
+  **Decisión abierta, antes del lanzamiento**, y las tres opciones son baratas:
+  truncar la consulta a los primeros N caracteres, guardar solo el largo y los
+  resultados (que es lo que la tabla se usa para analizar), o dejarla como está y
+  documentarlo. Lo que no puede pasar es llegar al lanzamiento sin haberlo
+  mirado, con la tabla creciendo con búsquedas de gente real.
 
 - **Las traducciones al quechua las escribe un modelo y nadie del equipo las valida.**
 
@@ -96,6 +244,51 @@ forma de agotar la cuota de deploys de la cuenta.
 `prisma generate` 1,6 s, `vite build` 0,8 s y el prerender **3,0 s**, de los
 cuales 1,5 son la consulta de los 42 tours. **No pude medir los tiempos reales de
 Vercel**: su API responde 403 con las credenciales de esta sesión.
+
+## La foto mensual de la analítica necesita un disparador
+
+**Anotado el 2026-08-17 al cerrar la tanda 4. No implementado.**
+
+**El problema tiene fecha de vencimiento y por eso está acá:** la ventana de
+reporte de Vercel Web Analytics en el plan Hobby es de **un mes**. Lo que pasó
+hace 40 días **no se puede consultar**, ni pagando después. Y las métricas de
+embudo que Finde tiene que mostrar en 2027 no se reconstruyen: o se copiaron a
+tiempo, o no existen.
+
+**La foto en sí no cuesta nada** (un comando, JSON, cero código, cero bytes en el
+cliente):
+
+```bash
+npx vercel metrics vercel.analytics_pageview.count \
+  --group-by request_path --filter "environment eq 'production'" \
+  --since 30d --granularity 1d --format json
+```
+
+**Lo que falta no es el comando, es el disparador.** Una tarea manual que hay que
+acordarse cada mes no se hace. Lo evaluado:
+
+| Dónde anclarla | Veredicto |
+|---|---|
+| Un cron de Vercel | **Descartado.** Cuesta una función serverless y hay 12 de 12 |
+| El build | **No sirve.** El build no puede escribir en el repo |
+| Recordatorio de calendario | Sirve de respaldo, pero depende de que la persona esté disponible |
+| **Un renglón fechado en `docs/estado.md`** | **La propuesta.** No inventa un hábito: usa el que ya existe |
+
+**La propuesta concreta.** Un renglón en `docs/estado.md` con la fecha de la
+última foto, y las fotos guardadas en `docs/metricas/YYYY-MM.json`. **El
+disparador es que `docs/estado.md` se lee entero al empezar cada tanda**, que es
+regla de la casa y hoy se cumple: el que arranca ve la fecha vencida y corre el
+comando en treinta segundos. La checklist del switch la arranca, el renglón la
+sostiene.
+
+**El límite honesto, escrito para que no sorprenda:** esto funciona mientras haya
+tandas seguidas. Si después del lanzamiento pasa un mes sin abrir el repo, la
+foto se pierde igual, y ahí el respaldo tiene que ser el recordatorio de
+calendario.
+
+**Antes del switch no hace falta**, y el motivo está medido en
+`docs/audits/2026-08-17-eventos-del-embudo.md`: hoy la foto retrataría nuestro
+propio QA.
 
 ## Pendientes de rendimiento
 
