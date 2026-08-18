@@ -980,6 +980,36 @@ const CSS = `
 html{scrollbar-gutter:stable}
 .app{--f:#1B3A2D;--m:#2D5A3D;--sg:#6B8F71;--sd:#E8DDD3;--cr:#F5F0EA;--wh:#FAFAF7;--tr:#C7613A;--tr-text:#A84E2C;--trl:#E8845A;--gd:#D4A843;--gd-text:#7A5C10;--ch:#2C2C2A;--gy:#737370;--gy-strong:#5A5A57;--lg:#959591;--yp:#6B2FA0;--pl:#00B4D8;--ai:#0EA5E9;--focus:rgba(45,90,61,.35)}
 .app *{margin:0;padding:0;box-sizing:border-box}
+
+/* ── Fase 6A, paso 1: la escala en tokens ──
+   Los nueve tamanos de la escala aprobada, declarados y SIN UN SOLO
+   CONSUMIDOR. Este paso no mueve un pixel A PROPOSITO: los tokens se empiezan
+   a consumir en el paso 2 (los titulos de seccion y de tarjeta), siguen en el
+   paso 3 (el resto de los display) y se terminan en la Fase 6B.
+
+   AL ASIGNARLOS SE CLASIFICA POR ROL, NO POR VALOR. 13px no es un rol, es un
+   accidente: sus 73 declaraciones (48 aca mas 25 inline) sirven a cuatro
+   funciones distintas. Un buscar y reemplazar de 13px por var(--fs-cap) deja
+   una escala nueva con la misma jerarquia plana de antes.
+
+   Y hay dos familias que NO toman token de texto: los controles nativos (44,
+   los que declaran font-family:inherit) y los font-size que miden un glifo y
+   no una palabra (19, como .pf-av o .lang-dd-btn .arr).
+
+   FUERA DE LA ESCALA, decidido el 2026-08-18 y no por olvido:
+   - .logo, la unica pieza serif que queda en el producto. Los numeros de esta
+     escala estan calibrados por la altura de x de Jakarta (factor 0,884) y a
+     DM Serif no le aplican.
+   - .det-tl, el titulo del tour. --fs-d2 se midio mirando el titulo de
+     SECCION del inicio contra el de tarjeta; aplicarselo al titulo del tour
+     le sacaba 12px en escritorio, un 35%, en la pantalla que mas trafico va a
+     tener, y eso no lo midio nadie. Es el unico del grupo con escalon propio
+     de escritorio ademas de .st, y esa es la senal.
+
+   Ver docs/plans/2026-08-13-plan-tipografia.md, Fase 6A. */
+.app{--fs-d1:26px;--fs-d2:20px;--fs-h1:18px;--fs-h2:17px;--fs-h3:15px;--fs-body:16px;--fs-sm:14px;--fs-cap:13px;--fs-label:12px}
+@media(min-width:640px){.app{--fs-d1:32px}}
+@media(min-width:1024px){.app{--fs-d1:39px;--fs-d2:22px;--fs-h1:20px;--fs-h2:18px}}
 /* Cifras tabulares: mismo ancho por digito. Evita que un contador salte de
    posicion al cambiar de valor y alinea los montos en columna. */
 .gcnt,.dsh-s-v,.pf-stat-v,.login-hero-stat-v,.rev-big-n,.rev-big-cnt,.earn-bl,.sr-price,.tc-pr,.tc-pr span,.gc-p,.gc-p span,.bb-p,.bb-p span,.sum-r,.sum-t,.voucher-pay-row,.voucher-pay-row.total,.tp-price,.dsh-bk-a,.earn-tot,.sr-rating,.tc-m .rt,.gc-m .rt{font-variant-numeric:tabular-nums}
@@ -1255,7 +1285,9 @@ html{scrollbar-gutter:stable}
 .chip.on{background:var(--f);color:white;border-color:var(--f)}
 
 .sh{display:flex;justify-content:space-between;align-items:baseline;padding:0 20px;margin-bottom:14px}
-.st{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:19px}
+/* Titulo de seccion. El tamano lo manda --fs-d2, que incluye el escalon de
+   escritorio: por eso ya no hay una regla de .st en el media query de 1024. */
+.st{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:var(--fs-d2)}
 .sl{font-size:13px;font-weight:600;color:var(--tr-text);cursor:pointer;border:none;background:none;font-family:inherit;min-height:44px}
 
 /* ── Sección "Tours en [ciudad]" con selector ── */
@@ -1314,7 +1346,10 @@ html{scrollbar-gutter:stable}
    alinean a la izquierda. Ver docs/audits/2026-08-16-identidad-visual.md. */
 .tc-b{padding:14px;text-align:left}
 .tc-loc{font-size:11px;color:var(--gy-strong);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
-.tc-tl{font-size:15px;font-weight:700;margin-bottom:6px;line-height:1.3}
+/* Titulo de tarjeta del carrusel. Mismo rol que .gc-t, mismo token. El valor
+   no cambia (ya estaba en 15px): se migra para que los dos titulos de tarjeta
+   sigan al mismo token y no queden uno con token y otro a mano. */
+.tc-tl{font-size:var(--fs-h3);font-weight:700;margin-bottom:6px;line-height:1.3}
 .tc-m{display:flex;align-items:center;justify-content:flex-start;gap:6px;font-size:12px;color:var(--gy);margin-bottom:10px}
 .tc-m .rt{color:var(--gd);font-weight:700}
 .tc-ft{display:flex;justify-content:flex-start;align-items:center}
@@ -1327,7 +1362,21 @@ html{scrollbar-gutter:stable}
 .gc-ver{position:absolute;bottom:8px;left:8px;padding:3px 8px;border-radius:100px;font-size:9px;font-weight:700;background:rgba(45,90,61,.9);color:white;display:inline-flex;align-items:center;gap:3px}
 .gc-b{padding:10px}
 .gc-loc{font-size:10px;color:var(--gy-strong);font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px}
-.gc-t{font-size:13px;font-weight:700;margin-bottom:6px;line-height:1.3}
+/* Titulo de tarjeta de la grilla. Sube de 13 a 15 (--fs-h3), y esa subida NO
+   es cosmetica: es la mitad importante del arreglo de jerarquia. Medido contra
+   Airbnb, Booking y GetYourGuide, la relacion entre el titulo de seccion y el
+   de tarjeta tiene que caer entre 1,25 y 1,54; con .st en 20/22 y esto en 13
+   quedaba en 1,54 movil y no mejoraba nada.
+
+   El clamp va PEGADO a la subida y no es opcional. A 390px la celda deja
+   143,5px utiles (medido: la barra de scroll se come 15px), o sea 16
+   caracteres por linea a 15px. Con una mediana de titulo de 38 caracteres, 28
+   de los 42 tours del catalogo pasan de dos lineas y la grilla pierde la
+   altura pareja, que es el riesgo #3 de la auditoria.
+
+   El tamano de escritorio lo manda el token, asi que ya no hay regla de .gc-t
+   en el media query de 1024. */
+.gc-t{font-size:var(--fs-h3);font-weight:700;margin-bottom:6px;line-height:1.3;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .gc-p{font-size:14px;font-weight:800;color:var(--f)}.gc-p span{font-size:10px;font-weight:400;color:var(--gy-strong)}
 .gc-m{display:flex;align-items:center;justify-content:flex-start;gap:5px;font-size:11px;color:var(--gy-strong);margin-bottom:6px;flex-wrap:wrap}
 .gc-m .rt{color:var(--gd);font-weight:700;display:inline-flex;align-items:center;gap:2px}
@@ -1858,13 +1907,13 @@ html{scrollbar-gutter:stable}
   .tscr{grid-template-columns:repeat(4,1fr);gap:20px;padding:0 0 40px}
 
   .sh{margin-bottom:24px}
-  .st{font-size:23px}
+  /* .st y .gc-t ya no declaran tamano aca: lo manda el token, que tiene su
+     propio escalon de escritorio. Ver la Fase 6A, paso 2. */
   .city-near{font-size:14px}
 
   .tg{grid-template-columns:repeat(3,1fr);gap:24px;padding:0 0 48px}
   .gc:hover{transform:translateY(-5px);box-shadow:0 16px 40px rgba(0,0,0,.1)}
   .gc-img{height:200px}
-  .gc-t{font-size:14px}
 
   .ai-result{max-width:680px;margin:0 auto 20px}
 
