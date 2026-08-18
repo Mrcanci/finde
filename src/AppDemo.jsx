@@ -315,6 +315,21 @@ async function fetchMonthAvailability(tourId, y, m) {
   return p;
 }
 
+// ── Escasez de cupos: UNA definicion para la celda y para la leyenda ──
+// El umbral y la forma corta viven aca porque los consumen DOS lugares: la
+// celda del calendario, que pinta el tinte terracota, y la leyenda de abajo,
+// que nombra las fechas. Copiada en los dos, un cambio de umbral deja a uno de
+// los dos mintiendo, y el que miente es siempre el que nadie volvio a mirar.
+const LOW_SEATS_MAX = 3;
+const isLowSeats = (n) => n >= 1 && n <= LOW_SEATS_MAX;
+// "ultimo cupo" / "3 cupos", en minuscula: se usa dentro de una frase (la
+// leyenda) y dentro del aria-label, nunca como titulo suelto.
+const lowSeatsText = (n) => (n === 1 ? "último cupo" : `${n} cupos`);
+// Hasta tres fechas se nombran una por una. De cuatro para arriba la lista deja
+// de entrar legible en la tarjeta y pasa a la forma corta; el tinte de las
+// celdas sigue ubicandolas igual.
+const LOW_LEGEND_MAX = 3;
+
 function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excludedDates = [], addedDates = [], onToggleException, minDate, minDateNote, fullDates, lowDates, lowBase, onMonthChange }) {
   const todayStr = todayISO();
   const [todayY, todayM] = todayStr.split("-").map(Number);
@@ -354,6 +369,98 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
     display: "flex", alignItems: "center", justifyContent: "center",
     padding: 0, fontFamily: "inherit",
   });
+  // EL MES SE RECORRE UNA SOLA VEZ, y de esa pasada salen las dos cosas: las
+  // celdas y la leyenda. La escasez de cada fecha se decide en este unico lugar,
+  // asi la leyenda no puede nombrar una fecha que la grilla no pinto, ni al
+  // reves. Antes no hacia falta porque el aviso vivia dentro de la celda.
+  const monthName = MONTH_LABELS[view.m - 1].toLowerCase();
+  const dayInfos = cells.map((d, i) => {
+    if (d === null) return { key: i, empty: true };
+    const iso = `${view.y}-${String(view.m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const isPast = iso < todayStr;
+    // Piso de anticipación: solo en booking (mode="select"). Los días
+    // anteriores a minDate quedan no seleccionables aunque el operador
+    // opere ese día. No aplica al wizard del operador (mode="edit").
+    const belowMin = mode === "select" && minDate ? iso < minDate : false;
+    const code = dayCodeFromISO(iso);
+    const inPattern = days.includes(code);
+    const inExcluded = excludedDates.includes(iso);
+    const inAdded = addedDates.includes(iso);
+    const isSelected = selectedDate === iso;
+    let state;
+    if (isPast) state = "disabled";
+    else if (inAdded) state = "added";
+    else if (inExcluded) state = inPattern ? "excluded" : "disabled";
+    else if (inPattern) state = "pattern";
+    else state = "neutral";
+    let bg = "transparent", color = "var(--ch)", textDecoration = "none";
+    let cursor = "pointer", opacity = 1, isClickable = true;
+    let border = "1.5px solid transparent";
+    // Cupos bajos (1-3) de la fecha: el número exacto o, para fechas sin
+    // salida materializada, el cupo total del tour si ya es <= 3.
+    const lowRaw = mode === "select" && lowDates
+      ? (lowDates[iso] != null
+          ? lowDates[iso]
+          : (lowBase != null && !(fullDates && fullDates.has(iso)) ? lowBase : undefined))
+      : undefined;
+    if (mode === "select") {
+      // Fecha sin cupo (CUPO_FIJO): mismo tratamiento visual que un día
+      // no operativo, con su propio tooltip "Sin cupos".
+      const isFull = !!(fullDates && fullDates.has(iso));
+      const available = !belowMin && !isFull && (state === "added" || state === "pattern");
+      const escasa = isLowSeats(lowRaw);
+      if (isSelected && escasa) {
+        // Selección + escasez superpuestas: terracota SÓLIDO con texto
+        // blanco. Conserva la semántica de "elegida" (celda llena de
+        // color) y la alarma de cupo en un solo tratamiento.
+        bg = "var(--tr)"; color = "white"; border = "1.5px solid var(--tr)";
+      }
+      else if (isSelected) { bg = "var(--f)"; color = "white"; border = "1.5px solid var(--f)"; }
+      else if (available && escasa) {
+        // Escasez DESTACADA: compite de igual a igual con la celda
+        // seleccionada (tinte más saturado + borde terracota propio +
+        // número en el acento, semibold). Nunca el gris de lo
+        // secundario/deshabilitado.
+        bg = "rgba(199,97,58,.18)"; color = "var(--tr)"; border = "1.5px solid var(--tr)";
+      }
+      else if (available) { bg = "var(--cr)"; color = "var(--f)"; }
+      else { color = "var(--lg)"; opacity = 0.5; cursor = "not-allowed"; isClickable = false; }
+    } else {
+      if (state === "disabled") { color = "var(--lg)"; opacity = 0.45; cursor = "not-allowed"; isClickable = false; }
+      else if (state === "added") { bg = "var(--f)"; color = "white"; }
+      else if (state === "excluded") { bg = "rgba(199,97,58,.15)"; color = "var(--tr)"; textDecoration = "line-through"; }
+      else if (state === "pattern") { bg = "var(--cr)"; color = "var(--f)"; }
+      else { color = "var(--gy)"; }
+    }
+    const titleAttr = (mode === "select" && !isClickable && !isPast)
+      ? (fullDates && fullDates.has(iso) && !belowMin && (state === "added" || state === "pattern")
+          ? "Sin cupos"
+          : belowMin
+          ? (minDateNote || `Requiere al menos ${MIN_BOOKING_LEAD_DAYS} día${MIN_BOOKING_LEAD_DAYS > 1 ? "s" : ""} de anticipación`)
+          // "Salidas" es la fila de Departure que ve la agencia en su
+          // panel. Al viajero se le habla de que el tour sale o no sale,
+          // que es lo que ya dice la línea de abajo del calendario
+          // ("Este tour solo sale los sábados y domingos").
+          : "Este tour no sale este día")
+      : undefined;
+    // La escasez solo cuenta en fechas elegibles: una fecha que el viajero no
+    // puede elegir no tiene por qué avisarle cuántos cupos le quedan.
+    const lowN = isClickable ? lowRaw : undefined;
+    return { key: i, empty: false, d, iso, state, bg, color, textDecoration, cursor, opacity, isClickable, border, titleAttr, lowN, escaso: isLowSeats(lowN) };
+  });
+  // Las fechas que la grilla pintó como escasas, en el orden del mes. Salen de
+  // la misma pasada de arriba, no de un segundo recorrido con la condición
+  // copiada.
+  const lowDays = dayInfos.filter(x => !x.empty && x.escaso);
+  let lowLegend = null;
+  if (lowDays.length > 0 && lowDays.length <= LOW_LEGEND_MAX) {
+    const items = lowDays.map(x => `${x.d} (${lowSeatsText(x.lowN)})`);
+    lowLegend = `Pocos cupos: ${items.length > 1
+      ? `${items.slice(0, -1).join(", ")} y ${items[items.length - 1]}`
+      : items[0]}`;
+  } else if (lowDays.length > LOW_LEGEND_MAX) {
+    lowLegend = `Pocos cupos en ${lowDays.length} fechas de ${monthName}`;
+  }
   return (
     <div style={{ background: "white", border: "1px solid var(--sd)", borderRadius: 14, padding: 14 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
@@ -373,108 +480,71 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
         ))}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
-        {cells.map((d, i) => {
-          if (d === null) return <div key={i} style={{ minHeight: 36 }} />;
-          const iso = `${view.y}-${String(view.m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-          const isPast = iso < todayStr;
-          // Piso de anticipación: solo en booking (mode="select"). Los días
-          // anteriores a minDate quedan no seleccionables aunque el operador
-          // opere ese día. No aplica al wizard del operador (mode="edit").
-          const belowMin = mode === "select" && minDate ? iso < minDate : false;
-          const code = dayCodeFromISO(iso);
-          const inPattern = days.includes(code);
-          const inExcluded = excludedDates.includes(iso);
-          const inAdded = addedDates.includes(iso);
-          const isSelected = selectedDate === iso;
-          let state;
-          if (isPast) state = "disabled";
-          else if (inAdded) state = "added";
-          else if (inExcluded) state = inPattern ? "excluded" : "disabled";
-          else if (inPattern) state = "pattern";
-          else state = "neutral";
-          let bg = "transparent", color = "var(--ch)", textDecoration = "none";
-          let cursor = "pointer", opacity = 1, isClickable = true;
-          let border = "1.5px solid transparent";
-          // Cupos bajos (1-3) de la fecha: el número exacto o, para fechas sin
-          // salida materializada, el cupo total del tour si ya es <= 3.
-          const lowRaw = mode === "select" && lowDates
-            ? (lowDates[iso] != null
-                ? lowDates[iso]
-                : (lowBase != null && !(fullDates && fullDates.has(iso)) ? lowBase : undefined))
-            : undefined;
-          if (mode === "select") {
-            // Fecha sin cupo (CUPO_FIJO): mismo tratamiento visual que un día
-            // no operativo, con su propio tooltip "Sin cupos".
-            const isFull = !!(fullDates && fullDates.has(iso));
-            const available = !belowMin && !isFull && (state === "added" || state === "pattern");
-            const escasa = lowRaw >= 1 && lowRaw <= 3;
-            if (isSelected && escasa) {
-              // Selección + escasez superpuestas: terracota SÓLIDO con texto
-              // blanco. Conserva la semántica de "elegida" (celda llena de
-              // color) y la alarma de cupo en un solo tratamiento.
-              bg = "var(--tr)"; color = "white"; border = "1.5px solid var(--tr)";
-            }
-            else if (isSelected) { bg = "var(--f)"; color = "white"; border = "1.5px solid var(--f)"; }
-            else if (available && escasa) {
-              // Escasez DESTACADA: compite de igual a igual con la celda
-              // seleccionada (tinte más saturado + borde terracota propio +
-              // número en el acento, semibold). Nunca el gris de lo
-              // secundario/deshabilitado.
-              bg = "rgba(199,97,58,.18)"; color = "var(--tr)"; border = "1.5px solid var(--tr)";
-            }
-            else if (available) { bg = "var(--cr)"; color = "var(--f)"; }
-            else { color = "var(--lg)"; opacity = 0.5; cursor = "not-allowed"; isClickable = false; }
-          } else {
-            if (state === "disabled") { color = "var(--lg)"; opacity = 0.45; cursor = "not-allowed"; isClickable = false; }
-            else if (state === "added") { bg = "var(--f)"; color = "white"; }
-            else if (state === "excluded") { bg = "rgba(199,97,58,.15)"; color = "var(--tr)"; textDecoration = "line-through"; }
-            else if (state === "pattern") { bg = "var(--cr)"; color = "var(--f)"; }
-            else { color = "var(--gy)"; }
-          }
-          const titleAttr = (mode === "select" && !isClickable && !isPast)
-            ? (fullDates && fullDates.has(iso) && !belowMin && (state === "added" || state === "pattern")
-                ? "Sin cupos"
-                : belowMin
-                ? (minDateNote || `Requiere al menos ${MIN_BOOKING_LEAD_DAYS} día${MIN_BOOKING_LEAD_DAYS > 1 ? "s" : ""} de anticipación`)
-                // "Salidas" es la fila de Departure que ve la agencia en su
-                // panel. Al viajero se le habla de que el tour sale o no sale,
-                // que es lo que ya dice la línea de abajo del calendario
-                // ("Este tour solo sale los sábados y domingos").
-                : "Este tour no sale este día")
-            : undefined;
-          // El aviso solo se pinta en fechas elegibles; la celda no cambia de
-          // tamaño (minHeight/aspectRatio fijos, la fila no crece).
-          const lowN = isClickable ? lowRaw : undefined;
+        {dayInfos.map((x) => {
+          if (x.empty) return <div key={x.key} style={{ minHeight: 36 }} />;
+          // EL aria-label NO ES OPCIONAL, Y ESTA ES LA RAZÓN.
+          // Hasta el 2026-08-18 el texto "Último cupo" vivía DENTRO del botón,
+          // así que el lector de pantalla ya leía "23 Último cupo" sin que
+          // nadie hubiera escrito un label: lo cargaba el contenido. Al sacar
+          // ese texto de la celda, el botón vuelve a leerse "23" pelado y la
+          // escasez desaparece para quien no la ve.
+          // Es una regresión que NO se nota mirando la pantalla, porque en la
+          // pantalla la información sigue estando (el tinte y la leyenda). Por
+          // eso el label va acá y no es negociable: es el único lugar donde ese
+          // dato sobrevive para el lector de pantalla.
           return (
             <button
-              key={i}
+              key={x.key}
               type="button"
-              disabled={!isClickable}
-              title={titleAttr}
+              disabled={!x.isClickable}
+              title={x.titleAttr}
+              aria-label={x.escaso ? `${x.d} de ${monthName}, ${lowSeatsText(x.lowN)}` : undefined}
               onClick={() => {
-                if (!isClickable) return;
-                if (mode === "select") onSelect && onSelect(iso);
-                else onToggleException && onToggleException(iso, state);
+                if (!x.isClickable) return;
+                if (mode === "select") onSelect && onSelect(x.iso);
+                else onToggleException && onToggleException(x.iso, x.state);
               }}
               style={{
-                minHeight: 44, minWidth: 0, width: "100%", aspectRatio: "1", borderRadius: 8, border,
-                background: bg, color, fontSize: 13, fontWeight: 600,
-                cursor, fontFamily: "inherit", textDecoration, opacity,
+                minHeight: 44, minWidth: 0, width: "100%", aspectRatio: "1", borderRadius: 8, border: x.border,
+                background: x.bg, color: x.color, fontSize: 13, fontWeight: 600,
+                cursor: x.cursor, fontFamily: "inherit", textDecoration: x.textDecoration, opacity: x.opacity,
                 transition: "background .15s", padding: 0,
               }}
             >
-              {lowN >= 1 && lowN <= 3 ? (
-                <span style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", lineHeight: 1.05 }}>
-                  <span>{d}</span>
-                  <span data-low-label style={{ fontSize: 8, fontWeight: 700, whiteSpace: "nowrap" }}>{lowN === 1 ? "Último cupo" : `${lowN} cupos`}</span>
-                </span>
-              ) : (
-                d
-              )}
+              {/* LA CELDA ESCASA NO LLEVA PUNTO DE COLOR, Y NO ES UN OLVIDO.
+                  Medido en pantalla el 2026-08-18, a 390 y 412 (celda de 42,3
+                  y 45,4px), contra la variante con punto:
+
+                  1. La celda escasa YA lleva tres señales propias: el tinte
+                     terracota al 18%, el borde terracota de 1,5px y el número
+                     en terracota. El punto sería la cuarta sobre la misma
+                     celda, y satura en vez de aportar.
+                  2. Y desaparece justo donde serviría. Con la fecha escasa ya
+                     ELEGIDA, la celda se llena de terracota SÓLIDO, y un punto
+                     terracota sobre terracota sólido no se ve. Sostenerlo
+                     obliga a invertirlo a blanco: una regla condicional de
+                     color para sostener un elemento que en el estado normal ya
+                     era redundante.
+
+                  O sea que falla en el estado donde más importaría, que es
+                  cuando el viajero YA eligió la fecha con un cupo.
+
+                  El dato no se perdió al sacar el texto: lo cargan la leyenda
+                  de abajo, que nombra las fechas, y el aria-label del botón. */}
+              {x.d}
             </button>
           );
         })}
       </div>
+      {/* La leyenda va DENTRO de la tarjeta del calendario, no debajo: es la
+          que carga el dato que se sacó de las celdas, y separada de la tarjeta
+          se leería como un comentario suelto del formulario en vez de como
+          parte del calendario. */}
+      {lowLegend && (
+        <div style={{ marginTop: 12, fontSize: 12, fontWeight: 600, color: "var(--tr-text)", lineHeight: 1.35 }}>
+          {lowLegend}
+        </div>
+      )}
     </div>
   );
 }
