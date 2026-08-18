@@ -1063,7 +1063,10 @@ html{scrollbar-gutter:stable}
 /* Logotipo. Una sola declaracion cubre los tres tamanos, porque .tn .logo y
    .site-footer-brand .logo son el mismo elemento con otro font-size. */
 .logo,.login-hero-logo{line-height:1.1}
-/* Titulo de pagina, de seccion y de formulario (26 y 24px) = --fs-d2 */
+/* Titulo de pagina, de seccion y de formulario = --fs-d2, hoy 20/22.
+   El tamano que decia este comentario (26 y 24px) quedo viejo dos veces: por
+   el cambio de fuente del 2026-08-18 y por la correccion de --fs-d2 a 20/22.
+   Los seis ya consumen el token (Fase 6A, pasos 2 y 3). */
 .welcome-title,.suc-t,.st,.login-title,.bkf-t,.dsh-nm{line-height:1.2}
 /* Numero o dato destacado: una sola linea, o linea mas etiqueta, cuyo alto lo
    absorbe un contenedor con padding propio. La caja de linea no le aporta
@@ -1071,9 +1074,13 @@ html{scrollbar-gutter:stable}
    boton o con su etiqueta. Apretado hace que el alto lo mande el padding, que
    esta declarado, en vez de la base, que se hereda. */
 .bb-p,.sum-t,.dsh-s-v,.pf-stat-v,.gcnt,.login-hero-stat-v{line-height:1.2}
-/* Encabezado de 22 y 20px = --fs-h1 */
+/* Encabezado menor = --fs-h1, hoy 18/20. Estos dos TODAVIA no consumen el
+   token: .pf-name esta en 19px y .rev-hdr en 18. Se migran en la Fase 6B,
+   junto con la decision de si --fs-h1 (18/20) y --fs-h2 (17/18) se sostienen
+   a 1px de distancia en movil. */
 .pf-name,.rev-hdr{line-height:1.3}
-/* Encabezado de 18px = --fs-h2 */
+/* Encabezado chico = --fs-h2, hoy 17/18. Tampoco consumen el token todavia:
+   los cuatro primeros estan en 16px y .ai-cc-h span en 18. Fase 6B. */
 .city-sheet-title,.notif-sheet-title,.city-empty-tl,.pf-sec-t,.ai-cc-h span{line-height:1.35}
 
 /* Focus accesible — solo navegación con teclado */
@@ -1132,7 +1139,7 @@ html{scrollbar-gutter:stable}
 .login-hero-stat-v{font-size:18px;font-weight:800;color:white}
 .login-hero-stat-l{font-size:10px;color:rgba(255,255,255,.75);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
 .login-body{flex:1;padding:28px 24px;display:flex;flex-direction:column}
-.login-title{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:21px;margin-bottom:4px}
+.login-title{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:var(--fs-d2);margin-bottom:4px}
 .login-sub{font-size:13px;color:var(--gy);margin-bottom:24px}
 .login-btn{width:100%;padding:16px;border-radius:14px;background:var(--f);color:white;font-weight:700;font-size:15px;border:none;cursor:pointer;font-family:inherit;transition:.2s;margin-bottom:12px}
 .login-btn:hover{background:var(--m)}
@@ -1156,7 +1163,7 @@ html{scrollbar-gutter:stable}
 .acc-close{position:absolute;top:14px;right:14px;background:transparent;border:0;padding:6px;cursor:pointer;color:var(--gy);display:flex;align-items:center;border-radius:8px;transition:.2s}
 .acc-close:hover{background:var(--cr);color:var(--ch)}
 .acc-modal-h{margin-bottom:20px;padding-right:28px}
-.acc-t{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:21px;color:var(--f);margin-bottom:8px;line-height:1.2;letter-spacing:0}
+.acc-t{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:var(--fs-d2);color:var(--f);margin-bottom:8px;line-height:1.2;letter-spacing:0}
 .acc-d{font-size:14px;color:var(--gy-strong);line-height:1.5}
 .acc-calma{display:flex;align-items:center;gap:8px;margin-top:14px;padding:10px 12px;background:var(--cr);border-radius:10px;font-size:12px;color:var(--f);font-weight:600;line-height:1.4}
 .acc-calma svg{flex-shrink:0}
@@ -1184,7 +1191,7 @@ html{scrollbar-gutter:stable}
 /* Welcome screen */
 .welcome{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center}
 .welcome-check{width:72px;height:72px;border-radius:50%;background:var(--f);color:white;display:flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:20px;animation:pulse .6s ease}
-.welcome-title{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:23px;margin-bottom:8px}
+.welcome-title{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:var(--fs-d2);margin-bottom:8px}
 .welcome-sub{font-size:14px;color:var(--gy);margin-bottom:32px;line-height:1.6;max-width:280px}
 .welcome-features{display:flex;flex-direction:column;gap:12px;width:100%;margin-bottom:32px}
 .welcome-feat{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--cr);border-radius:12px;text-align:left}
@@ -1202,6 +1209,11 @@ html{scrollbar-gutter:stable}
    Un wordmark es un dibujo de una palabra, no texto: no se unifica con el
    resto. Las otras dos apariciones de DM Serif son el mismo logo en otro
    lado (.login-hero-logo y la pantalla de carga). No agregar mas. */
+/* El logo NO toma token, y no es un olvido: es la unica pieza serif que queda
+   en el producto, y los numeros de la escala estan calibrados por la altura de
+   x de Jakarta (factor 0,884), que a DM Serif no le aplica. Con --fs-d2 en
+   20/22 bajaria de 28 a 20. Sus tamanos son 28 aca, 26 en la barra a partir de
+   1024 y 24 en el pie. Ver la Fase 6A del plan tipografico. */
 .logo{font-family:'DM Serif Display',Georgia,serif;font-size:28px;color:var(--f);cursor:pointer;letter-spacing:-.5px}
 .logo span{color:var(--tr)}
 .logo-ai{font-size:9px;font-weight:700;color:var(--f);background:rgba(14,165,233,.1);padding:2px 6px;border-radius:4px;margin-left:6px;vertical-align:super;letter-spacing:.5px}
@@ -1221,7 +1233,10 @@ html{scrollbar-gutter:stable}
 .hero-tex{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.45) 0%,rgba(0,0,0,.65) 100%)}
 .hero-c{position:relative;z-index:2;padding:28px 24px;display:flex;flex-direction:column;justify-content:space-between;height:100%}
 .hero-tag{display:inline-flex;align-items:center;gap:6px;background:rgba(0,0,0,.45);backdrop-filter:blur(10px);padding:6px 14px;border-radius:100px;font-size:11px;font-weight:600;color:#fff;width:fit-content;letter-spacing:.5px}
-.hero-t{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:25px;line-height:1.15;color:white;max-width:280px}
+/* Display de portada. --fs-d1 trae los TRES escalones (26 / 32 a 640 / 39 a
+   1024), asi que los media queries de abajo ya no declaran font-size, solo el
+   max-width y el centrado, que son de layout y no de escala. */
+.hero-t{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:var(--fs-d1);line-height:1.15;color:white;max-width:280px}
 .hero-sub{font-size:13px;color:#fff;margin-top:4px}
 
 /* ── AI Search ── */
@@ -1286,7 +1301,12 @@ html{scrollbar-gutter:stable}
 
 .sh{display:flex;justify-content:space-between;align-items:baseline;padding:0 20px;margin-bottom:14px}
 /* Titulo de seccion. El tamano lo manda --fs-d2, que incluye el escalon de
-   escritorio: por eso ya no hay una regla de .st en el media query de 1024. */
+   escritorio: por eso ya no hay una regla de .st en el media query de 1024.
+
+   OJO, y esto vale para las otras nueve cabeceras que tambien tomaron --fs-d2:
+   el numero 20/22 se midio mirando ESTE selector contra el titulo de tarjeta
+   del inicio. .det-tl, el titulo del tour, quedo AFUERA del token a proposito,
+   porque nadie midio esa pantalla. Ver la Fase 6A del plan. */
 .st{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:var(--fs-d2)}
 .sl{font-size:13px;font-weight:600;color:var(--tr-text);cursor:pointer;border:none;background:none;font-family:inherit;min-height:44px}
 
@@ -1437,7 +1457,7 @@ html{scrollbar-gutter:stable}
 .bkf-st{display:flex;gap:6px;margin-bottom:24px}
 .bkf-s{flex:1;height:4px;border-radius:2px;background:var(--sd);transition:.3s}
 .bkf-s.on{background:var(--f)}
-.bkf-t{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:21px;margin-bottom:4px}
+.bkf-t{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:var(--fs-d2);margin-bottom:4px}
 .bkf-sub{font-size:13px;color:var(--gy);margin-bottom:24px}
 /* Ancho fijo para que paso 1 → 2 → 3 no descuadre. Antes había min-height:820px
    pero en mobile generaba hueco vacío gigante en pasos cortos — preferimos
@@ -1478,7 +1498,7 @@ html{scrollbar-gutter:stable}
 /* Success */
 .suc{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;padding:40px 24px;text-align:center}
 .suc-chk{width:72px;height:72px;border-radius:50%;background:var(--f);color:white;display:flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:20px;animation:pulse .6s ease}
-.suc-t{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:23px;margin-bottom:8px}
+.suc-t{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:var(--fs-d2);margin-bottom:8px}
 .suc-sub{font-size:14px;color:var(--gy-strong);margin-bottom:24px;line-height:1.6}
 .suc-card{width:100%;background:var(--cr);border-radius:16px;padding:16px;margin-bottom:20px;text-align:left}
 .suc-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.06);font-size:14px}
@@ -1537,7 +1557,7 @@ html{scrollbar-gutter:stable}
    solo una clase, asi que perdia y heredaba --text-h. En modo oscuro eso lo
    volvia casi blanco sobre el fondo claro del demo. No le bajes la especificidad
    hasta que se limpie ese bloque de index.css. */
-.tdet-page .tdet-h{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:21px;color:var(--ch);margin-bottom:14px}
+.tdet-page .tdet-h{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:var(--fs-d2);color:var(--ch);margin-bottom:14px}
 .tdet-actions{display:flex;flex-direction:column;gap:8px;margin-top:4px}
 .tdet-act-prim{padding:13px 16px;border-radius:14px;background:var(--ch);color:white;font-weight:700;font-size:14px;border:none;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;transition:.2s}
 .tdet-act-prim:hover{background:#000}
@@ -1576,7 +1596,7 @@ html{scrollbar-gutter:stable}
    bloque .app-demo de index.css (plantilla de Vite) y en modo oscuro del sistema
    queda casi blanco sobre el fondo claro del demo. Los otros h2 se salvan porque
    ya declaraban color. No lo saques hasta que ese bloque de index.css se limpie. */
-.npage-h h2{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:21px;color:var(--ch)}
+.npage-h h2{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:var(--fs-d2);color:var(--ch)}
 .npage-h button{font-size:12px;font-weight:600;color:var(--tr-text);background:none;border:none;cursor:pointer;font-family:inherit}
 .ni-item{display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-bottom:1px solid rgba(0,0,0,.04);cursor:pointer;transition:.15s;position:relative}
 .ni-item:hover{background:var(--cr)}
@@ -1591,7 +1611,7 @@ html{scrollbar-gutter:stable}
 
 /* ── Trips ── */
 .tp-page{padding:20px 16px 120px}
-.tp-h{margin-bottom:20px}.tp-h h2{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:25px;color:var(--ch)}.tp-h p{font-size:14px;color:var(--gy);margin-top:4px}
+.tp-h{margin-bottom:20px}.tp-h h2{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:var(--fs-d2);color:var(--ch)}.tp-h p{font-size:14px;color:var(--gy);margin-top:4px}
 .tp-tabs{display:flex;gap:6px;margin-bottom:16px}
 .tp-tab{padding:10px 16px;border-radius:100px;font-size:13px;font-weight:600;border:1.5px solid var(--sd);background:white;color:var(--gy);cursor:pointer;font-family:inherit;transition:.2s;min-height:44px}
 .tp-tab.on{background:var(--f);color:white;border-color:var(--f)}
@@ -1687,7 +1707,7 @@ html{scrollbar-gutter:stable}
 /* ═══ DASHBOARD ═══ */
 .dsh{padding-bottom:100px}
 .dsh-h{padding:20px;background:linear-gradient(135deg,var(--f) 0%,#1a4a35 100%);color:white}
-.dsh-gr{font-size:14px;opacity:.8}.dsh-nm{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:21px;margin:4px 0 6px}
+.dsh-gr{font-size:14px;opacity:.8}.dsh-nm{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-weight:700;font-size:var(--fs-d2);margin:4px 0 6px}
 .dsh-sts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .dsh-s{background:rgba(255,255,255,.12);border-radius:14px;padding:12px;text-align:center}
 .dsh-s-v{font-size:22px;font-weight:800}.dsh-s-l{font-size:10px;opacity:.7;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
@@ -1815,7 +1835,7 @@ html{scrollbar-gutter:stable}
   .welcome{max-width:480px;margin:0 auto}
 
   .hero{height:300px;margin:0;border-radius:0}
-  .hero-t{font-size:32px;max-width:500px}
+  .hero-t{max-width:500px}
   .hero-c{padding:32px 32px}
 
   .tn-inner{padding:12px 32px}
@@ -1890,7 +1910,7 @@ html{scrollbar-gutter:stable}
   .hero-c{padding:60px 48px;justify-content:center;align-items:center;
           text-align:center;gap:20px;flex-direction:column}
   .hero-tag{margin:0 auto}
-  .hero-t{font-size:42px;max-width:700px;text-align:center}
+  .hero-t{max-width:700px;text-align:center}
   .hero-sub{text-align:center;font-size:16px}
 
   .home-pg{margin-top:-40px;position:relative;z-index:10}
