@@ -1424,18 +1424,63 @@ notó.
 #### Paso 3 · El resto de los display
 
 - **Qué toca:** `--fs-d1` en `.hero-t` (25 a 26, 32 se queda, 42 a 39), el logo
-  fuera de escala, y las cabeceras de página y de formulario: `.login-title`,
-  `.bkf-t`, `.npage-h h2`, `.tp-h h2`, `.dsh-nm`, `.tdet-h`, `.welcome-title`,
-  `.suc-t`, `.pf-name`. Se migran al token los interlineados que la Fase 5 dejó
-  agrupados por rol y se corrigen sus comentarios.
+  fuera de escala, y **nueve** cabeceras de página y de formulario:
+  `.login-title`, `.acc-t`, `.bkf-t`, `.npage-h h2`, `.tp-h h2`, `.dsh-nm`,
+  `.tdet-h`, `.welcome-title` y `.suc-t`. Se corrigen los comentarios de la
+  Fase 5 que citan los tamaños de antes del cambio de fuente.
+- **`.pf-name` NO entra, y este plan lo listaba mal.** Es `--fs-h1` según la
+  clasificación de la Fase 5, no `--fs-d2`, y **los consumidores de `h1` se
+  deciden en 6B**, junto con la pregunta de si `--fs-h1` (18/20) y `--fs-h2`
+  (17/18) se sostienen a 1px en móvil. Asignarlo acá obligaría a tocarlo dos
+  veces.
 - **Qué puede romperse:** el hero, que tiene `max-width:280px` y puede cortar en
   otro lado · el logotipo del login, que vive en un `flex:0 0 280px` con
-  `overflow:hidden` y del que la Fase 5 midió 60,2px de holgura · **`.tp-h h2`,
-  que es la baja más grande del grupo**, 25 a 20 en móvil.
+  `overflow:hidden` · **`.tp-h h2`, que es la baja más grande del grupo**, 25 a
+  20 en móvil.
 - **Cómo se verifica:** login, welcome, éxito de reserva, notificaciones, mis
-  reservas, perfil y panel, a 390 y 1440. Y el chequeo de alcance contra el tag
-  `pre-fase6a`, propiedad por propiedad, con el script de
+  reservas, perfil y panel, a 390 y 1440. Y el chequeo de alcance contra el
+  commit anterior, propiedad por propiedad, con el script de
   `.claude/rules/frontend.md`.
+
+##### Paso 3 EJECUTADO el 2026-08-18
+
+**El barrido de `getComputedStyle` sobre todos los elementos dice que el cambio
+es quirúrgico**, comparando contra `dev` con el paso 2 ya desplegado:
+
+| Vista | Elementos | Cambian |
+|---|---|---|
+| inicio, 390 y 1440 | 785 | **1**, `.hero-t` |
+| login, 390 y 1440 | 56 | **1**, `.login-title` |
+| catálogo, 390 | 628 | **0** |
+| **ficha de tour, 1440** | 160 | **0** |
+
+**Los dos riesgos anotados se cerraron midiendo, y ninguno era real:**
+
+- **El hero no re-corta.** A 390 pasa de 25 a 26px y sigue en **dos líneas, con
+  el mismo corte** ("Descubre el Perú que / no conoces"), dentro de su
+  `max-width:280px`. A 1440 pasa de 42 a 39 y sigue en **una línea**, ocupando
+  631px de los 700 disponibles.
+- **El logotipo del login no se recorta, y no podía.** Medido antes y después:
+  contenido 280px en una caja de 280px, holgura 0 y `scrollHeight === clientHeight`
+  en los dos anchos. **`paso 3 no toca nada dentro de `.login-hero`**:
+  `.login-hero-logo` es parte del logo, que salió de la escala, y `.login-title`
+  vive en la columna del formulario.
+
+**Cero cambios en la ficha de tour es la confirmación de la decisión de
+`.det-tl`**: se midió en 23 móvil y 34 escritorio, iguales antes y después.
+
+**Cinco de las nueve cabeceras viven en vistas privadas** (`.tp-h h2`,
+`.npage-h h2`, `.tdet-h`, `.dsh-nm`, `.welcome-title`, `.suc-t`), y entrar con
+cuenta desde automatización no se hace. **Ahí se midió la CASCADA, no la
+pantalla**: se monta una sonda dentro de `.app` y se lee el valor computado. Las
+nueve dan **20 en móvil y 22 en escritorio**. La apariencia va al QA, en
+particular `.tp-h h2`, que baja de 25 a 20.
+
+**Trampa del método, y quedó documentada porque casi pasa por buena:** la primera
+sonda midió `.tdet-h` **fuera** de `.tdet-page` y devolvió 24 y 27px. No era la
+regla: era el `1.5em` por defecto del navegador para un `<h2>`, resuelto contra
+el root de 16 y de 18. **Una sonda que no reproduce el ancestro del selector no
+mide el selector.** Con el ancestro puesto da 20 y 22.
 
 ---
 
