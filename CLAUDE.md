@@ -151,19 +151,20 @@ npm run db:studio        # GUI de la DB
 npm run db:seed          # sembrar datos
 ```
 
-### No existe `npm run db:migrate`, y es a propósito
+### No existe `npm run db:migrate` ni `db:migrate:deploy`, y es a propósito
 
-Hasta el 2026-08-17 `package.json` tenía un script `db:migrate` que corría
-**`prisma migrate dev`**, el comando que este archivo y `.claude/rules/api-y-schema.md`
-prohíben en mayúsculas porque **causa drift con las extensiones de Supabase**.
+Hasta el 2026-08-17 `package.json` tenía **dos** scripts de migraciones de Prisma:
+`db:migrate` (que corría **`prisma migrate dev`**, el comando que este archivo y
+`.claude/rules/api-y-schema.md` prohíben en mayúsculas porque **causa drift con
+las extensiones de Supabase**) y `db:migrate:deploy`.
 
-**Nunca se usó** (no existe `prisma/migrations/` y la base no tiene drift), pero
-estaba a un `npm run db:migrate` de distancia, y el nombre es justo el que uno
-tipea por costumbre viniendo de otro proyecto Prisma. **Una prohibición escrita
-en un documento no protege contra un atajo cargado en `package.json`.**
+**Ninguno se usó nunca** (no existe `prisma/migrations/` y la base no tiene
+drift), pero estaban a un `npm run` de distancia, con los nombres exactos que uno
+tipea por costumbre viniendo de otro proyecto Prisma. **Una prohibición escrita en
+un documento no protege contra un atajo cargado en `package.json`.**
 
-Hoy ese script se llama **`db:migrate:PROHIBIDO-usar-db-push`** y no corre Prisma:
-imprime el motivo y sale con error. El nombre largo es el punto, no un descuido.
+Hoy los dos se llaman **`...:PROHIBIDO-usar-db-push`** y no corren Prisma:
+imprimen el motivo y salen con error. El nombre largo es el punto, no un descuido.
 **El cambio de schema va por `prisma db push`**, con el procedimiento completo
 (backup, push, generate, documentar) en `.claude/rules/api-y-schema.md`.
 
@@ -222,6 +223,35 @@ Dos consecuencias prácticas:
 - **Un rango de líneas en un comando de shell está bien** (`sed -n '100,120p'`
   para mirar algo en el momento). Lo que no va es un número de línea **escrito en
   un documento**, que es lo que se lee meses después.
+
+#### La regla es para documentos VIVOS. Los históricos se congelan
+
+**Excepción, y no es una concesión: es la misma idea aplicada bien.** La regla
+existe porque un documento vivo **afirma cosas sobre el código de hoy**, así que
+una referencia corrida lo vuelve mentiroso. Un documento histórico no afirma nada
+sobre hoy: **registra cómo estaba el archivo ese día**, y ahí el número de línea
+es parte del registro.
+
+| Se mantienen al día, y acá NO van números de línea | Se congelan, y acá los números SE QUEDAN |
+|---|---|
+| `CLAUDE.md` | `docs/audits/` (auditorías, fechadas) |
+| `docs/estado.md` | `docs/plans/` (planes cerrados) |
+| `docs/decisiones.md` | `docs/historia/` (tandas terminadas) |
+| `docs/pendientes-producto.md` | Los mensajes de commit |
+| `.claude/rules/` | |
+
+**Corregirle los números a una auditoría del 13 de agosto no la mejora: la
+falsifica**, porque pasa a describir un archivo que esa auditoría nunca miró. Si
+un dato de un documento histórico sigue importando hoy, **no se edita el
+histórico: se lleva al documento vivo que corresponda**, con nombres y con la
+fecha de la medición nueva. Es la misma regla de `.claude/rules/metodo.md`: el
+texto va donde el contenido pertenece.
+
+**Duda razonable, y cómo se resuelve:** `docs/decisiones.md` solo se agrega y
+nunca se borra, así que parece histórico. **No lo es.** Su encabezado ya lo dice:
+las decisiones no se tocan, pero **sus consecuencias se corrigen cuando el código
+las contradice**. Una consecuencia es una afirmación sobre el presente, así que
+va con nombres, no con líneas.
 
 **La fuente de verdad vive en el repo, no en la memoria automática de Claude.** El estado es `docs/estado.md` y las decisiones son `docs/decisiones.md`; la memoria automática es un apunte de un momento dado y envejece sin avisar. Si algo vale la pena recordar entre sesiones, va al repo, no a la memoria (auditoría del 2026-08-13: se borraron las seis notas que había, todas desactualizadas o duplicadas).
 
