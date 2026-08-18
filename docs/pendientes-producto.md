@@ -328,6 +328,30 @@ propio QA.
 
 ## Huecos de producto
 
+- **PREGUNTA ABIERTA: el catálogo en escritorio usa 1000px de 1440, y eso es lo
+  que limita las columnas.** *(Anotada el 2026-08-18, sin resolver.)*
+
+  Medido a 1440: la grilla `.tg` vive en un contenedor de **1000px** con cuatro
+  tarjetas de 232px. Airbnb muestra **ocho** por fila porque usa el ancho
+  completo de la ventana con tarjetas de 180px. GetYourGuide muestra **cuatro**,
+  igual que Finde, con tarjetas de 284px.
+
+  **Esto salió al descartar otra cosa, y conviene no confundirlas.** La pregunta
+  original era si sacar la caja blanca de las tarjetas daba más columnas: **no,
+  libera 2px** (ver la decisión del 2026-08-18 en `docs/decisiones.md`). Lo que
+  decide cuántas entran es este contenedor.
+
+  **Por qué es más barata que aquella:** es un `max-width`, no toca el diseño de
+  la tarjeta, no toca el hover ni el contraste, y se revierte cambiando un
+  número. **Lo que hay que decidir no es técnico sino de producto:** si el
+  catálogo en escritorio quiere mostrar más opciones por pantalla (Airbnb) o
+  tarjetas más grandes con mejores fotos (GetYourGuide). **Las dos son
+  defendibles y por eso no se resuelve acá.**
+
+  Al resolverlo, medir antes: el ancho del contenedor también gobierna el resto
+  de las vistas, no solo el catálogo.
+
+
 - **El autocompletado de Chrome deja el botón de entrar en gris.** Chrome
   rellena el correo y la contraseña, se ven escritos en pantalla, y el botón
   sigue deshabilitado hasta que el usuario toca una tecla en alguno de los dos

@@ -6,6 +6,97 @@
 
 ---
 
+## 2026-08-18 - La caja de las tarjetas se queda, y la premisa que la cuestionaba era falsa
+
+**Qué se decidió.** **No se saca la caja blanca de las tarjetas de tour** (`.tc`
+del carrusel y `.gc` de la grilla). Se difiere sin fecha.
+
+**De dónde salía la pregunta.** Airbnb, Booking y GetYourGuide no usan caja: foto
+con esquinas redondeadas y texto suelto sobre el fondo. **Eso es correcto y está
+verificado.** El argumento para copiarlos era que la caja le costaba columnas a
+Finde: cuatro tarjetas por fila donde ellos meten seis.
+
+**Ese argumento es falso, y por eso se anota la decisión.** Medido a 1440 el
+2026-08-18:
+
+| Sitio | Tarjetas por fila | Ancho de tarjeta |
+|---|---|---|
+| Airbnb | 8 | 180px |
+| **GetYourGuide** | **4** | 284px |
+| **Finde** | **4** | 232px |
+
+**GetYourGuide muestra las mismas cuatro que Finde.** Airbnb muestra ocho porque
+usa los 1440px completos con tarjetas angostas, mientras la grilla de Finde vive
+en un contenedor de **1000px**. **Lo que limita las columnas es el ancho del
+contenedor, no la caja: sacarla libera 2px por tarjeta**, los dos bordes de 1px.
+
+**Y a cambio de esos 2px hay que reponer cuatro cosas que la caja sostiene:**
+
+1. **El redondeo de la foto.** `.tc-img` y `.gc-img` tienen `border-radius: 0`:
+   las esquinas salen del `overflow:hidden` de la caja. Sin caja, foto cuadrada.
+2. **Todo el hover.** Hoy la caja sube, cambia de sombra y de color de borde. Sin
+   caja hay que inventar otra señal, y **eso es trabajo de interacción, que es el
+   más caro de los cuatro**.
+3. **El padding del texto** (14px en el carrusel, 10px en la grilla), que hay que
+   rehacer para que el texto quede al ras de la foto.
+4. **El contraste de la fila de metadatos.** Ese gris pasa de 4,76 sobre blanco a
+   **4,55** sobre el fondo de la página: sigue cumpliendo AA, pero por 0,05, o sea
+   que el margen desaparece y habría que subirlo a `--gy-strong`.
+
+**Lo que NO es un motivo para conservarla, para no defenderla con un argumento
+malo:** la separación visual. El blanco de la tarjeta contra el `#FAFAF7` de la
+página es un 2% de luminancia, así que **la caja casi no se ve hoy**.
+
+**Consecuencia.** Si alguien reabre esto, que no sea con el argumento de las
+columnas. **La pregunta de las columnas es otra, es más barata y quedó anotada
+aparte** en `docs/pendientes-producto.md`: el contenedor de 1000px.
+
+---
+
+## 2026-08-18 - Los títulos de sección bajan a 20/22, y el que estaba mal era el de la tarjeta
+
+**Qué se decidió.** En la Fase 6, **`--fs-d2` va a 20 en móvil y 22 en
+escritorio** (no 23/28), **junto con subir el título de tarjeta `.gc-t` a 15px**,
+que esa misma fase ya tenía planeado. **Las dos cosas van juntas o no van.**
+
+**Qué se descartó.** Bajar solo el título de sección, que era la lectura obvia
+del síntoma.
+
+**Por qué, y este es el punto que hay que recordar.** José reportó que los
+títulos de sección se veían grandes. **Notó algo real, pero la causa es la
+contraria.** Medido contra los tres referentes el 2026-08-18:
+
+| Sitio | 412px | 1440px |
+|---|---|---|
+| Airbnb | 18 / 13 = 1,38 | 20 / 13 = 1,54 |
+| Booking | 20 / 16 = 1,25 | 24 / 16 = 1,50 |
+| GetYourGuide | 24 / 18 = 1,33 | 24 / 18 = 1,33 |
+| Finde, grilla | 19 / 13 = **1,46** | 23 / 14 = **1,64** |
+
+**En móvil el título de sección de Finde está en el promedio de la categoría**:
+19px contra 18 de Airbnb y 20 de Booking. **El que está fuera de rango es el
+título de tarjeta: 13px, contra 16 y 18.** Lo que se percibe como "el título de
+sección grande" es la distancia entre los dos.
+
+**Bajar el título de sección, que era la corrección obvia, habría empeorado la
+jerarquía**: habría achicado todo en vez de arreglar la relación.
+
+Con `--fs-d2` en 20/22 y `.gc-t` en 15px la relación queda en **1,33 y 1,47**,
+adentro de la banda de 1,25 a 1,54 de los tres referentes.
+
+**Consecuencias.**
+
+1. **La tabla de la Fase 6 en `docs/plans/` ya está corregida**, con el porqué al
+   lado, porque tal como estaba escrita (23/28 con la tarjeta en 15) daba **1,87
+   en escritorio**, más afuera que hoy. Aplicarla sin corregir habría empeorado
+   justo lo que esa fase existe para arreglar.
+2. **Nada de esto está aplicado todavía**: va con la Fase 6.
+3. **Lección de método:** una queja sobre un elemento no dice cuál elemento está
+   mal. Lo dice la relación entre los dos, y para medirla hace falta una
+   referencia externa. Sin los tres referentes, este cambio se hacía al revés.
+
+---
+
 ## 2026-08-18 - El producto va sin serif: Plus Jakarta Sans en todo, salvo el logo
 
 **Qué se decidió.** **Plus Jakarta Sans en toda la interfaz del producto, con
