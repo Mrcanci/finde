@@ -1,5 +1,26 @@
 # Roadmap MVP — Finde
 
+> ## ⚠️ DOCUMENTO HISTÓRICO. No es el plan vigente.
+>
+> **Escrito el 2026-05-22. Marcado como histórico el 2026-08-17**, en la auditoría
+> de coherencia de la documentación.
+>
+> Sirve para entender **por qué el MVP se construyó como se construyó**, con las
+> fases M1 a M6 y sus razones. **No sirve para decidir qué hacer ahora.** El
+> presente vive en `docs/estado.md` y las decisiones vigentes en
+> `docs/decisiones.md`; cuando este documento y alguno de esos dos digan cosas
+> distintas, **manda el otro**.
+>
+> **Lo que quedó superado, y hay que saberlo antes de leer:**
+>
+> | Sección de acá | Qué la superó |
+> |---|---|
+> | **"Pagos: WhatsApp directo (pasarela postergada)"**, que condiciona Culqi a tener RUC activo, agencias que pidan cobrar y volumen | **La decisión del 2026-08-13 en `docs/decisiones.md`: "Culqi pasa a ser feature de lanzamiento"**, o sea desde el inicio y no como hito posterior. El motivo es el opuesto al de acá: sin pasarela hay partes del producto que quedan ocultas o a medias, y eso choca con la regla de no mostrar nada falso ni incompleto |
+> | **"Comisión: Modelo C (sin comisión en piloto)"** | Sigue siendo cierto para el piloto, pero el número final es el de la decisión de 2026-07: **comisión única del 20%**, que se define al integrar la pasarela. El "~5-8%" que aparece más abajo es el costo del gateway, no la comisión de Finde |
+> | Los conteos de catálogo (40 tours, agencias) | `docs/estado.md`, sección "Inventario real de la base". El PRD y los docs de pitch heredaron cifras infladas: ver la entrada del 2026-08-13 en `docs/decisiones.md` |
+> | La mención a **`OTPView`** y al login falso en M1 | M1 cerró con Supabase Auth real. `OTPView` fue eliminada. Ver `.claude/rules/frontend.md` |
+> | Las **RLS** como ventaja a usar | Medido en la tanda 3 (2026-08-17): RLS está **apagado** y sin grants. El gate es la API, no la base. Ver `docs/historia/2026-08-navegacion-y-cuenta.md` |
+
 - **Fecha:** 2026-05-22
 - **Rama base:** `main` @ commit `c1da37a`
 - **Estado previo:** proyecto `tours-db-i18n` completado (tours migrados a DB, 40 tours con embedding Voyage, búsqueda IA funcional).
@@ -31,6 +52,13 @@ Usamos **Supabase Auth** porque ya tenemos Supabase para la DB (Postgres + pgvec
 - **Ventaja secundaria:** las RLS (Row Level Security) de Postgres permiten escribir reglas tipo "un operador solo ve sus propios Bookings" directamente en la DB, sin tener que duplicar la lógica en cada endpoint.
 
 ### Pagos: WhatsApp directo (pasarela postergada)
+
+> **SUPERADA el 2026-08-13.** La decisión vigente es **"Culqi pasa a ser feature
+> de lanzamiento"** (`docs/decisiones.md`): se integra desde el inicio, no como
+> hito posterior, y se descartó explícitamente coordinar pagos por WhatsApp
+> durante el piloto. Los tres condicionantes que esta sección pone abajo (RUC
+> activo, agencias que pidan cobrar, volumen) **ya no son el criterio**. Lo que
+> sigue queda como registro de por qué se postergó en mayo.
 
 El MVP **no procesa pagos**. La reserva genera un código (`FINDE-XXXX`) y un mensaje pre-armado de WhatsApp que el viajero envía al teléfono real del operador; el pago se coordina por fuera (Yape/Plin/efectivo/lo que el operador prefiera).
 
