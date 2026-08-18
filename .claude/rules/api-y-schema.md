@@ -32,17 +32,20 @@ npm run db:generate
 | `VOYAGE_API_KEY` | Embeddings 1024-dim | Vercel: Dev, Preview, Prod |
 | `SEARCH_PHASE_SECRET` | HMAC entre fase 1 y fase 2 de búsqueda | Vercel: Dev, Preview, Prod |
 | `RESEND_API_KEY` | Correos transaccionales | Vercel: Dev, Preview, Prod |
-| `VITE_SUPABASE_URL` | Cliente del navegador **y** admin del backend | Vercel: Preview, Prod. En local sale de `.env.local` |
+| `SUPABASE_URL` | **La que lee el backend** (`lib/supabase-admin.ts`) | Vercel: Preview, Prod. En local sale de `.env.local` |
+| `VITE_SUPABASE_URL` | Cliente del navegador, y **respaldo** del backend si falta la de arriba | Vercel: Preview, Prod. En local sale de `.env.local` |
 | `VITE_SUPABASE_ANON_KEY` | Cliente del navegador | Vercel: Preview, Prod. En local sale de `.env.local` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Solo backend (`lib/supabase-admin.ts`): valida tokens y firma uploads. **Nunca al cliente** | Vercel: Preview, Prod. En local sale de `.env.local` |
 
-Las cuatro primeras vienen del entorno **Development de Vercel** y **pisan** lo que haya en `.env.local` al correr `vercel dev`. Las tres de Supabase no están en Development, así que esas sí salen de `.env.local` vía `dotenv-cli`. Por eso el wrapper sigue siendo necesario:
+Las cuatro primeras vienen del entorno **Development de Vercel** y **pisan** lo que haya en `.env.local` al correr `vercel dev`. Las de Supabase no están en Development, así que esas sí salen de `.env.local` vía `dotenv-cli`. Por eso el wrapper sigue siendo necesario:
 
 ```bash
 npx dotenv-cli -e .env.local -- vercel dev
 ```
 
-El backend lee `VITE_SUPABASE_URL` con prefijo `VITE_`. Es intencional hoy; revisar al normalizar para producción.
+**La normalización del prefijo `VITE_` en el backend ya está hecha.** `lib/supabase-admin.ts` resuelve `process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL`, o sea que **prefiere la variable sin prefijo** y solo cae a la del cliente como respaldo. Las dos están cargadas en Preview y Production. *(Hasta el 2026-08-17 esta sección decía "el backend lee `VITE_SUPABASE_URL`... revisar al normalizar para producción", y eso mandaba a hacer un trabajo ya hecho.)*
+
+**Lo que sí sigue valiendo: una variable con prefijo `VITE_` la ve el navegador.** Vite inyecta en el bundle todo lo que empiece así. Por eso `SUPABASE_SERVICE_ROLE_KEY` **no lleva prefijo y nunca puede llevarlo**, y por eso al agregar una variable nueva de backend la pregunta es si alguna vez tiene que llegar al cliente. Si la respuesta es no, va sin `VITE_`.
 
 ## Transacciones: hay un techo de ~20 operaciones secuenciales
 
@@ -224,7 +227,7 @@ cinco pasos y el otro es un botón.
 
 ## `gateOperatorMincetur`
 
-`lib/tour-select.ts:126`. Regla de compliance, no de presentación:
+La función `gateOperatorMincetur` de `lib/tour-select.ts`. Regla de compliance, no de presentación:
 
 - El número de MINCETUR de la agencia se expone al público **solo si `Operator.verified` es true**. Si no, se fuerza a `null` antes de responder.
 - En el dashboard de la agencia se muestra siempre, sin importar `verified`: es su propio dato.
@@ -308,7 +311,7 @@ Al agregar un campo de este tipo: agregar, no reemplazar; mapear el nombre públ
 1. **Fase 1** (`api/search.ts`): Voyage + pgvector eligen los candidatos y devuelven ids validados, ya firmados. Cache en `FeaturedSearch` para queries normalizadas (`lib/search-cache.ts`). Filtra `active: true` en sus tres queries.
 2. **Fase 2** (`api/search-reasoning.ts`): genera el reasoning **sobre los ids ya elegidos**, con los datos firmados de la fase 1. La firma es HMAC con `SEARCH_PHASE_SECRET` (`lib/search-sig.ts`), para que la fase 2 no pueda ser inducida a razonar sobre tours que la fase 1 no eligió.
 
-**Regla anti-invención** (`api/search-reasoning.ts:65`, literal en el prompt): "Usa solo datos que estén en la información de los tours. No afirmes distancias, tiempos de viaje, cercanías entre ciudades ni características que no figuren ahí." También tiene prohibida la raya (`—`) en la línea 63. Si tocás ese prompt, las dos reglas se quedan.
+**Regla anti-invención**, literal dentro de `SYSTEM_REASONING` en `api/search-reasoning.ts`: "Usa solo datos que estén en la información de los tours. No afirmes distancias, tiempos de viaje, cercanías entre ciudades ni características que no figuren ahí." Ese mismo bloque de REGLAS DEL TEXTO prohíbe la raya (`—`) dos viñetas antes. Si tocás ese prompt, las dos reglas se quedan.
 
 ## Configuración de despliegue: `vercel.json`
 

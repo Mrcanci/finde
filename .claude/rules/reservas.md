@@ -26,7 +26,7 @@ paths:
 
 El contador de cupos se actualiza **solo con SQL crudo**, nunca con helpers de Prisma:
 
-- **Materialización de la salida**: `INSERT ... ON CONFLICT ("tourId", "date") DO NOTHING` (`lib/inventory.ts:95`). El `upsert` de Prisma **no es atómico** bajo concurrencia: hace SELECT y después INSERT, y dos requests simultáneos se pisan. Lo cazó la prueba de concurrencia y lo arregló el commit `2f23182`.
+- **Materialización de la salida**: `INSERT ... ON CONFLICT ("tourId", "date") DO NOTHING`, en `materializeDeparture` (`lib/inventory.ts`). El `upsert` de Prisma **no es atómico** bajo concurrencia: hace SELECT y después INSERT, y dos requests simultáneos se pisan. Lo cazó la prueba de concurrencia y lo arregló el commit `2f23182`.
 - **Toma de cupo**: update condicional atómico contra el cupo efectivo, vía `$executeRaw`, porque la condición compara dos columnas y eso no entra en un `updateMany.where`.
 
 Verificación manual: 10 requests paralelos contra 3 cupos deben dar exactamente 3 confirmadas y 7 rechazadas. **No hay suite de tests en el repo**, así que si tocás esta lógica hay que repetirla a mano. Repetida el 2026-08-15 sobre una salida **CONFIRMADA**, al cambiar la condición de estado: 3 y 7, con `seatsTaken` final 3.
@@ -132,7 +132,7 @@ de la agencia.
 
 ### Contrato por adición
 
-`Booking.status` (String legacy) y `Booking.statusNew` (enum) **conviven**. Toda escritura nueva mantiene los dos coherentes vía `LEGACY_STATUS` (`lib/inventory.ts:35`):
+`Booking.status` (String legacy) y `Booking.statusNew` (enum) **conviven**. Toda escritura nueva mantiene los dos coherentes vía el mapa `LEGACY_STATUS` de `lib/inventory.ts`:
 
 | `statusNew` | `status` legacy |
 |---|---|
