@@ -69,17 +69,27 @@ está en `docs/historia/2026-08-router-y-urls.md`.
 
 ### Fuera del frente de lanzamiento
 
-- **Fase 6 del plan tipográfico**, la escala en tokens. **DESBLOQUEADA el
-  2026-08-18**: la elección tipográfica ya se decidió (ver `docs/decisiones.md`).
-  **Dos filas de la escala aprobada cambian y los números están escritos ahí**:
-  `--fs-d1` pasa de 30/44 a **26/39** y `--fs-d2` de 26/32 a **23/28**, y las dos
-  dejan de ser DM Serif. **La tabla de la Fase 6 en `docs/plans/` quedó superada
-  en esas dos filas**; el número bueno es el de la decisión.
+- **Fase 6 del plan tipográfico, la escala en tokens. ES LA SIGUIENTE, y ya no
+  tiene nada delante.** Estuvo bloqueada por la elección tipográfica, que se
+  decidió y se aplicó el 2026-08-18.
+
+  **Los números ya están corregidos en el plan**, así que se ejecuta contra
+  `docs/plans/2026-08-13-plan-tipografia.md` sin traducir nada: `--fs-d1` quedó
+  en **26/39** y `--fs-d2` en **20/22**, las dos en Jakarta 700. La tabla lleva
+  arriba el aviso de no reponer los valores viejos, y el porqué de las dos
+  correcciones al lado.
+
+  **Lo que hay que leer antes de tocar un número está en esa misma sección**: el
+  título de sección de Finde no era grande, el que estaba chico era el de
+  tarjeta. Por eso `--fs-d2` baja poco y el movimiento importante es `.gc-t`
+  subiendo a 15px. **Las dos van juntas o no van.**
 - **Barrido de padding del Grupo B**, más chico y ya desbloqueado.
 - **Integración de Culqi** como feature de lanzamiento. Al integrarla se reactiva
   la pestaña "Ingresos" del dashboard, hoy oculta. Ver `docs/decisiones.md`.
 
 ## Terminado y mergeado
+
+- **El texto de las tarjetas de tour va a la izquierda (2026-08-18)**: como en Airbnb, Booking y GetYourGuide, medidos. **Fueron cinco declaraciones y no una**, y ese es el detalle que importa: `text-align` alcanza para el título y la ciudad, pero las filas de metadatos y de precio son flex y se centran con `justify-content`, que `text-align` no toca. Cambiar solo una habría dejado el título a la izquierda y el rating centrado debajo. Queda un comentario en el CSS para que nadie las simplifique. **La lista de 128 selectores de la Fase 0 no aplica**: esa mide el centrado global, y esto alcanza a dos subárboles.
 
 - **El producto sale del serif (2026-08-18)**: Plus Jakarta Sans 700 en los 19 títulos que eran DM Serif, con el tamaño corregido por altura de x (factor 0,884, porque Jakarta rinde 13% más alto y 11% más ancho al mismo px). **El logo se queda en DM Serif y es la única excepción**, en sus tres apariciones. Dos commits separados a propósito, familias y tamaños, para poder revertir uno sin el otro. **El camino de vuelta a la opción descartada son dos reglas** y está escrito en `docs/decisiones.md`. Falta el recorte del import a `text=finde.`, que va **el día del switch** porque hoy la hoja de fuentes la comparte la landing: son 16 kB y es la cuarta pieza de esa checklist.
 
