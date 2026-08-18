@@ -73,15 +73,12 @@ está en `docs/historia/2026-08-router-y-urls.md`.
   piso, más las 98 que la primera pasada dejó sin rol; seis commits, el panel al
   final porque ahí está el 70% de la deuda inline) · **versalitas y tracking**,
   donde los badges que las conservan son `.tp-st` y `.dsh-bk-s` y no `.st-*` ·
-  **el número de rating separado de la estrella**, que es cambio de JSX. **La
-  primera decisión de la fase** es si `--fs-h1` (18/20) y `--fs-h2` (17/18) se
-  sostienen a 1px de distancia en móvil.
-
-  **La etiqueta de escasez del calendario ya salió de la 6B**: se adelantó y se
-  mergeó el 2026-08-18, porque el texto de 8px se desbordaba de la celda en la
-  pantalla de reservar. Quedó **sin punto de color**, contra lo que esta misma
-  lista decía antes: el punto se midió en pantalla y sobre la celda elegida, que
-  es terracota sólido, no se ve. Ver `docs/decisiones.md`.
+  **el número de rating separado de la estrella**, que es cambio de JSX · y **el
+  calendario, solo lo que el piso obliga**, con la etiqueta de escasez ya
+  decidida en la **opción b**: punto de color en la celda más leyenda debajo,
+  porque a 8px ya no entra (son unos 50px de texto en una celda de 42) y a 12
+  entraría menos. **La primera decisión de la fase** es si `--fs-h1` (18/20) y
+  `--fs-h2` (17/18) se sostienen a 1px de distancia en móvil.
 
   **Dos cosas vistas de paso en la 6A y sin tocar**, para la pantalla que las
   cubra: **`.app h2{font-weight:400}` quedó muerto** desde la tanda sin serif,
