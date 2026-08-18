@@ -1,7 +1,9 @@
 # Plan tipográfico del demo
 
 **Fecha:** 13 ago 2026 · **Rama de origen:** `dev` · **Fuente:** `docs/audits/2026-08-13-typography-audit.md`
-**Estado al 2026-08-15:** Fases 0 a 3 en `main` (`af7c0b1`). Fase 4 en `main` (`6f3bbed`). **Fase 5 COMPLETA y en `main`** (`86a4ea3`), post-QA. **La siguiente es la Fase 6**, y antes que ella conviene hacer el barrido de padding del Grupo B, que la Fase 5 desbloqueó.
+**Estado al 2026-08-15:** Fases 0 a 3 en `main` (`af7c0b1`). Fase 4 en `main` (`6f3bbed`). **Fase 5 COMPLETA y en `main`** (`86a4ea3`), post-QA.
+
+**Estado al 2026-08-18:** la elección tipográfica se decidió y se aplicó (el producto sale del serif), y con eso **la Fase 6 quedó desbloqueada y se partió en dos**. **La siguiente es la 6A**: los tokens y la jerarquía entre el título de sección y el de tarjeta. La 6B es el barrido del piso de 12px, las versalitas y el calendario. El barrido de padding del Grupo B sigue pendiente y es independiente de las dos.
 
 Este plan reordena los hallazgos de la auditoría tipográfica y **corrige seis errores de análisis que se le encontraron al verificarla**. La auditoría se trata como hipótesis, no como verdad. Cuando este plan y la auditoría se contradicen, manda este plan.
 
@@ -989,16 +991,60 @@ inline, no por su cuenta.
 
 ---
 
-## Fase 6 · La escala en tokens ← LA SIGUIENTE
+## Fase 6 · La escala en tokens, PARTIDA EN DOS
 
-La fase grande. Deuda pura, riesgo alto, ninguna urgencia.
+> **Partida el 2026-08-18, y no es una decisión de prolijidad.** Los pasos 0 a 3
+> responden lo que José reportó (la relación entre el título de sección y el de
+> tarjeta) y se validan enteros en dos pantallas. El barrido del piso de 12px es
+> otro trabajo: más grande, más disperso y sin urgencia. **Juntos, un QA malo del
+> barrido bloquea el arreglo de jerarquía, que es lo único que alguien pidió.**
 
-- **Hallazgos:** §1a, §1b, §1c, §2, §4a, §4b, §5, §10b
-- **Archivos:** `src/AppDemo.jsx`, la constante CSS entera
-- **Qué se hace:** aplicar la escala aprobada de abajo
-- **Qué puede romperse:** el §10b de la auditoría es su mejor sección y se verificó en lo esencial. Los puntos frágiles son el contador de personas con 60px fijos, el precio de la barra de reserva que no envuelve y comparte fila con el botón "Reservar", la grilla de dos columnas a 390px donde cada celda mide ~175px, y los tabs del panel que en desktop pasan a columna de 220px fijos
-- **Cómo se hace:** partir en sub-pasos **por pantalla, no por propiedad**. Un commit por pantalla se puede revertir; un commit de 242 reemplazos no
-- **Cómo se valida:** recorrido completo por las doce vistas del demo en 390px, 768px y 1440px
+| | Qué | Alcance |
+|---|---|---|
+| **6A ← LA SIGUIENTE** | pasos 0 a 3: declarar los tokens, la pareja de jerarquía y los display | `--fs-d1`, `--fs-d2`, `--fs-h3` en `.gc-t`, el logo. Home, catálogo, ficha, login y las cabeceras de página |
+| **6B** | el piso de 12px pantalla por pantalla, los pesos, las versalitas, el tracking y el calendario | las doce vistas |
+
+### Fase 6A · Los tokens y la jerarquía
+
+- **Hallazgos:** §1a, §1b, §2, §4a, §10b
+- **Archivos:** `src/AppDemo.jsx`, la constante CSS
+- **Qué se hace:** declarar los nueve tokens, aplicar `--fs-d2` y `--fs-h3` juntos (la pareja de jerarquía) y después el resto de los display
+- **Qué puede romperse:** la altura pareja de la grilla a 390px, que es el riesgo #3 de la auditoría y lo que obliga al clamp · el hero, que tiene `max-width:280px` y puede cortar en otro lado · el logotipo del login, que vive en un `flex:0 0 280px` con `overflow:hidden`
+- **Cómo se hace:** un commit por paso, y los pasos 2 y 3 se validan por separado
+- **Cómo se valida:** home y catálogo a 390, 412 y 1440 para el paso 2; login, welcome, éxito de reserva, notificaciones, mis reservas y panel para el paso 3
+
+### Estado medido al arrancar, 2026-08-18
+
+**Los números del plan viejo estaban corridos.** Recontados con script sobre el
+archivo de hoy, después de las tandas de identidad:
+
+| | Decía el plan | Es |
+|---|---|---|
+| `font-size` en la constante CSS | 242 | **250** |
+| `fontSize` inline en el JSX | 106 | **115** |
+| Declaraciones a 13px | 47 | **48 en CSS más 25 inline** |
+| Por debajo de 12px, CSS | 56 | **56** |
+| Por debajo de 12px, inline | 64 | **43** |
+| Peso 800 a eliminar | 20 | **16** |
+| Versalitas | 9 más 3 badges | **17** |
+| `letter-spacing` | 23 | **25** |
+
+**De las 250 del CSS, 63 no son texto:** 44 son controles nativos (declaran
+`font-family:inherit`, el marcador que este mismo plan documenta en la Fase 2) y
+**19 son íconos o glifos**, donde `font-size` mide un dibujo y no una palabra
+(`.pf-av`, `.bn-i .ni`, `.lang-dd-btn .arr` a 8px). **Quedan 187 de texto real.**
+
+**Y los 115 inline están concentrados en dos pantallas:** NewTourView 45 y
+DashView 35, o sea **80, el 70%**, con 37 de las 43 que están por debajo del
+piso. Eso es dato para la Fase 7, no para esta: reordena aquella fase de "barrido
+parejo" a "dos pantallas".
+
+**Dos cosas del plan que ya no son ciertas y se corrigen acá:**
+
+- **Los badges `.st-*` NO declaran versalitas hoy.** La regla de abajo dice que
+  sobreviven ahí; los que las tienen son `.tp-st` y `.dsh-bk-s`.
+- **La celda del calendario ya no mide 36px.** La Fase 2 la subió a
+  `minHeight:44`.
 
 ### La escala, aprobada
 
@@ -1008,17 +1054,33 @@ La fase grande. Deuda pura, riesgo alto, ninguna urgencia.
 > completo en `docs/decisiones.md` (entradas del 2026-08-18) y en
 > `docs/audits/2026-08-18-identidad-tipografica.md`.
 
-| Token | Mobile | Desktop | Fuente / peso | Line-height |
-|---|---|---|---|---|
-| `--fs-d1` | **26** | **39** | **Jakarta 700** | 1.15 |
-| `--fs-d2` | **20** | **22** | **Jakarta 700** | 1.2 |
-| `--fs-h1` | 20 | 22 | Jakarta 700 | 1.3 |
-| `--fs-h2` | 17 | 18 | Jakarta 700 | 1.35 |
-| `--fs-h3` | 15 | 15 | Jakarta 700 | 1.35 |
-| `--fs-body` | 16 | 16 | Jakarta 400 | 1.6 |
-| `--fs-sm` | 14 | 14 | Jakarta 500 | 1.5 |
-| `--fs-cap` | 13 | 13 | Jakarta 500 | 1.4 |
-| `--fs-label` | 12 | 12 | Jakarta 600 | 1.3 |
+| Token | Mobile | 640 | Desktop | Fuente / peso | Line-height | Calibrado mirando |
+|---|---|---|---|---|---|---|
+| `--fs-d1` | **26** | **32** | **39** | **Jakarta 700** | 1.15 | el hero del inicio |
+| `--fs-d2` | **20** | | **22** | **Jakarta 700** | 1.2 | **el título de SECCIÓN del inicio, contra el de tarjeta** |
+| `--fs-h1` | **18** | | **20** | Jakarta 700 | 1.3 | nada todavía, ver 6B |
+| `--fs-h2` | 17 | | 18 | Jakarta 700 | 1.35 | nada todavía, ver 6B |
+| `--fs-h3` | 15 | | 15 | Jakarta 700 | 1.35 | el título de tarjeta, contra el de sección |
+| `--fs-body` | 16 | | 16 | Jakarta 400 | 1.6 | |
+| `--fs-sm` | 14 | | 14 | Jakarta 500 | 1.5 | |
+| `--fs-cap` | 13 | | 13 | Jakarta 500 | 1.4 | |
+| `--fs-label` | 12 | | 12 | Jakarta 600 | 1.3 | |
+
+**La columna "calibrado mirando" es la guarda, y va acá a propósito.** Ver
+"El token se calibró en una pantalla y se aplica en tres", abajo.
+
+**Fuera de la escala, decidido el 2026-08-18:**
+
+| | Queda en | Por qué |
+|---|---|---|
+| **`.logo`** | **28 / 26 en `.tn` / 24 en el pie, y 42 en el login** | Es la única pieza serif del producto. Un token calibrado por la altura de x de Jakarta no le aplica, y con `--fs-d2` en 20/22 bajaría de 28 a 20. Su `line-height:1.1` ya está puesto desde la Fase 5 |
+| **`.det-tl`**, el título del tour | **23 / 34** | Ver abajo. **Es el único del grupo de `--fs-d2` con escalón propio de escritorio**, y ese es el dato que lo delata |
+
+**`--fs-h1` a 18/20 y `--fs-h2` a 17/18 quedan a 1px en móvil.** No se resuelve en
+6A porque **ningún elemento los consume hasta 6B**: queda anotado como la primera
+decisión de esa fase, con los elementos reales en la mano (`--fs-h1` hoy son
+`.pf-name` 19 y `.rev-hdr` 18; `--fs-h2` son `.pf-sec-t` y las tres cabeceras de
+hoja a 16, más `.ai-cc-h span` a 18).
 
 **Reglas que van con la escala:**
 
@@ -1081,15 +1143,103 @@ no dice cuál elemento está mal.** Lo dice la relación entre los dos, y eso ha
 que medirlo contra algo externo. Sin los tres referentes, este cambio se hacía al
 revés.
 
+### El token se calibró mirando UNA pantalla y se aplica en TRES
+
+**Hallazgo del 2026-08-18, y es el que más cambia la fase.**
+
+`--fs-d2` vale 20/22 porque se midió **la relación entre el título de sección del
+inicio y el título de tarjeta** contra Airbnb, Booking y GetYourGuide. Esa
+medición es correcta y no se toca. **El problema es dónde termina aplicándose el
+número.**
+
+El grupo de `--fs-d2` no son solo los títulos de sección. Son doce selectores, y
+entre ellos está **`.det-tl`, el nombre del tour sobre la foto de la ficha, que
+hoy mide 23 en móvil y 34 en escritorio**. Aplicarle el token le saca **12px en
+escritorio, un 35%**, en la pantalla que más tráfico va a tener, **y eso no lo
+midió nadie**: los referentes se compararon en el inicio.
+
+**Decidido: `.det-tl` se queda como display propio, fuera de `--fs-d2`.**
+
+#### El criterio que lo separa del resto, para no decidir por intuición
+
+Del grupo de doce, **solo dos tienen escalón propio de escritorio**: `.st`, que es
+el que se midió, y `.det-tl`, que no. **Que alguien le haya escrito una regla de
+escritorio propia es la señal de que su tamaño es una decisión y no una herencia**,
+y un token calibrado en otra pantalla la borra sin dejar rastro.
+
+Los otros diez no tienen escalón propio, y ahí el token es exactamente lo que hace
+falta.
+
+**`.tp-h h2` se revisó con este criterio y NO es el mismo caso.** Es "Mis
+reservas", cabecera de página, el rol que `--fs-d2` nombra. Lo que tiene es una
+inconsistencia con las otras cinco cabeceras de página, que están a 21 mientras
+esta está a 25, **y unificarlas es justamente para lo que existe el token**. Aun
+así es la baja más grande del grupo (25 a 20 en móvil, un 20%), así que **se
+verifica en pantalla en el paso 3, no se da por buena**.
+
+#### La lección, y por qué la guarda va en la tabla
+
+**Un número medido en una pantalla y convertido en token se aplica en todas, y el
+que lo aplica seis meses después no tiene forma de saber dónde se midió.**
+
+Es el mismo patrón que ya costó tres veces en este proyecto: **la guarda escrita
+en el camino donde se descubrió el problema, en vez de en el estado que protege.**
+Un `db:migrate` prohibido en un documento pero cargado en `package.json`. Un campo
+verificado en las dos puntas de la cadena y perdido en el medio. Una auditoría que
+se corrige en el documento donde se leyó y no donde se ejecuta.
+
+Por eso la guarda **no** es este párrafo: es la **columna "calibrado mirando" de
+la tabla de la escala**, que es lo único que alguien va a tener abierto en el
+momento de asignar un token a un selector.
+
 ### ⚠️ Advertencia: la escala se aplica por rol, no por valor
 
 **"Reemplazar los 23 tamaños sueltos" NO significa un mapeo mecánico px → token.**
 
-`13px` no es un rol, es un accidente. Sus 47 declaraciones sirven a **tres funciones distintas**: texto de lectura, metadatos secundarios y etiquetas de control. Un mapeo mecánico las colapsa en una sola y **destruye exactamente la jerarquía que el rediseño existe para crear**.
+`13px` no es un rol, es un accidente. Recontadas el 2026-08-18 son **73
+declaraciones, 48 en el CSS y 25 inline**, y sirven a **cuatro funciones
+distintas**: texto de lectura (`.rev-text`, `.det-inc`), metadato
+(`.voucher-row`), etiqueta de control (`.chip`, `.sl`, `.tp-tab`) y título de fila
+(`.sr-name`, `.gc-t`). Un mapeo mecánico las colapsa en una sola y **destruye
+exactamente la jerarquía que el rediseño existe para crear**.
 
 **CADA DECLARACIÓN SE CLASIFICA POR ROL, NO POR VALOR.**
 
 Un buscar y reemplazar de `13px` por `var(--fs-cap)` es la forma más rápida de terminar con una escala nueva y la misma jerarquía plana de antes.
+
+**Primera pasada por rol sobre las 187 declaraciones de texto del CSS**, hecha con
+script el 2026-08-18. Sirve para dimensionar, no para ejecutar:
+
+| Rol | Declaraciones |
+|---|---|
+| `d1` display | 3 |
+| logo, fuera de escala | 4 |
+| `d2` título | 14 |
+| número o precio | 20 |
+| `h2` encabezado chico | 9 |
+| `h3` título de tarjeta o de fila | 20 |
+| versalita | 17 |
+| root | 2 |
+| **sin resolver: hay que verlas en pantalla** | **98** |
+
+**Las 98 son el trabajo de 6B y ningún script las va a cerrar**, que es
+exactamente lo que dice esta advertencia. Se reparten en 58 de banda etiqueta, 26
+de banda 13, 11 de banda 14-15 y 3 de 16 para arriba.
+
+**Y salen dos roles que la escala no nombra:**
+
+1. **Precio o número destacado.** Hoy aparece a 20, 16, 15, 14, 13 y 12px según
+   el contexto, y en los seis casos es el mismo rol. Decidir en 6B si es un token
+   o si se resuelve por contexto.
+2. **Ícono o glifo.** Son 19 declaraciones donde `font-size` mide un dibujo.
+   **No toman token de texto ni les aplica el piso de 12px.** La Fase 5 ya
+   encontró este caso con `.ai-sb-ic`.
+
+**Lo que NO hay que rehacer: la clasificación por rol de los display ya existe en
+el código.** La Fase 5 paso 2 agrupó 22 selectores por rol y dejó escrito a qué
+token corresponde cada grupo de interlineado. **Se migra al token, no se
+recalcula.** Ojo que esos comentarios citan los tamaños de antes del cambio de
+fuente (26/24, 22/20, 18) y hay que corregirlos en el mismo viaje.
 
 ### Mitigaciones obligatorias
 
@@ -1104,26 +1254,59 @@ No son opcionales ni quedan a criterio del momento. Van sí o sí con la fase.
 > se queda en 13, la relación queda en 1,54 móvil y no mejora nada.
 
 
-A 390px la celda de `.tg` deja ~155px útiles. A 15px con peso 700 entran ~19 caracteres por línea, o sea 38 en dos líneas. Los títulos de 40 caracteres o más se van a tres líneas y la grilla pierde la altura pareja, que es el **riesgo #3 de la auditoría**. Con el clamp deja de ser riesgo.
+**RE-MEDIDO el 2026-08-18, con la Fase 4 ya aplicada.** El número viejo era ~155px
+útiles y estaba calculado sobre el ancho con el `border-inline` puesto:
 
-**⚠️ Ese ~155px hay que RE-MEDIRLO después de la Fase 4, no antes.** El `border-inline` del bloque `.app-demo` también aplica a 390px, donde el ancho lo manda `max-width:100%`: con los dos bordes de 1px el contenido mide **388px**, y sin ellos mide **390px**. O sea que cada celda de `.tg` pasa de ~155px a ~156px cuando la Fase 4 borre el bloque.
+| | Cuenta |
+|---|---|
+| Viewport | 390px |
+| `.tg` tiene `padding:0 16px` y `gap:12px`, dos columnas | celda de **173px** |
+| `.gc` tiene borde de 1px y `.gc-b` tiene `padding:10px` | **~151px útiles** |
 
-No cambia la conclusión (el clamp sigue haciendo falta), pero **el número de partida cambia**, y toda la cuenta de caracteres por línea de esta mitigación está hecha sobre 155. Se recalcula con la Fase 4 ya aplicada.
+**Es cálculo sobre el CSS, no medición.** Falta confirmarlo en el navegador, y hay
+un motivo concreto: `html{scrollbar-gutter:stable}` puede reservar ~15px según el
+entorno, y eso mueve la cuenta entera. **Es el paso 0 de la Fase 6A.**
 
-**DESBLOQUEADO el 2026-08-15.** Y la Fase 5 acota el trabajo con un dato medido:
-**no cambia ni un ancho en todo el demo**, cero elementos en 40 mediciones sobre
-20 vistas. O sea que el número sale de medir con la Fase 4 aplicada y **ya no se
-mueve más**: se puede recalcular de una y confiar en el resultado.
+**Y apareció el dato que faltaba, que da vuelta el peso de esta mitigación.**
+Medido sobre los títulos reales del catálogo (`data/track-b/tours-db-snapshot.json`,
+30 tours):
 
-Ya hay evidencia de que ese píxel decide: en la simulación del Paso 0 de la Fase 4, **el único elemento de todo el demo que reflowea son esos 2px sobre `.gc-t`**, en el tour "Caral", que pasa de tres líneas a dos.
+| | |
+|---|---|
+| Largo del título, mediana | **38 caracteres** |
+| Títulos de más de 38 caracteres | **13 de 30** |
+| El más largo | 52 (`Huanchaco: caballitos de totora y cebiche del muelle`) |
 
-**2. `.gcnt` cambia `width:60px` por `min-width:60px`.**
+O sea que a 15px **casi la mitad del catálogo se iría a tres líneas**. El clamp
+deja de ser la mitigación de un caso borde y pasa a ser parte del cambio.
 
-Una línea. Elimina el **riesgo #5** sin congelar el tamaño del contador.
+Dos cosas más: **el demo no usa `-webkit-line-clamp` en ningún lado hoy**, así que
+es patrón nuevo (lo que hay es `ellipsis` de una línea en `.sr-name` y
+`.pf-op-desc`); y ya hay evidencia de que un solo píxel decide, porque en la
+simulación del Paso 0 de la Fase 4 **el único elemento de todo el demo que
+reflowea son esos 2px sobre `.gc-t`**, en el tour "Caral".
 
-### `.logo`
+**2. ~~`.gcnt` cambia `width:60px` por `min-width:60px`.~~ YA ESTÁ HECHA.**
 
-Va a **`--fs-d2` con `line-height: 1.1` explícito**. Hoy computa 0.83 porque no declara interlineado propio y hereda el valor absoluto del root. Es el hallazgo de severidad baja de la Fase 0: el problema es de matemática de layout, no de legibilidad.
+La aplicó el **paso 2 de la Fase 5** (`fe85c1f`), junto con los interlineados de
+los display. Verificado el 2026-08-18: la regla dice `min-width:60px`. **El riesgo
+#5 está cerrado y esta fase no tiene que hacer nada.**
+
+### `.logo`: sale de la escala
+
+> **Corregido el 2026-08-18.** Este plan decía que iba a `--fs-d2`. **No va.**
+
+Se queda en **28px, 26 en `.tn` a partir de 1024 y 24 en el pie**, más los 42 de
+`.login-hero-logo`. Dos motivos, y el segundo solo:
+
+1. `--fs-d2` vale hoy 20/22, o sea que el token lo bajaría de 28 a 20.
+2. **Es la única pieza serif que queda en el producto**, y los números de la
+   escala están calibrados por la altura de x de Jakarta, con el factor 0,884 de
+   la decisión del 2026-08-18. Ese factor no le aplica a DM Serif: aplicárselo es
+   corregir dos veces.
+
+Lo que sí queda del hallazgo original es el `line-height:1.1`, y **ya está puesto
+desde la Fase 5**. El problema era de matemática de layout, no de legibilidad.
 
 ### El número de rating, heredado de la Fase 1
 
@@ -1135,6 +1318,131 @@ Separarlos exige envolver el número en su propio elemento, que es un cambio de 
 
 Objetivo al separarlos: número en `--ch` o `--gy-strong`, estrella en `--gd`.
 
+**Cae en 6B**, con el barrido de la pantalla que corresponda: `.sr-rating` está a
+10px y muere con el piso, y `.tc-m` y `.gc-m` cambian de tamaño y de peso ahí.
+
+---
+
+### Los cuatro pasos de la Fase 6A
+
+Rama `tipografia/fase-6a-escala` desde `dev`. QA solo con `demo@finde.pe` y sobre
+tours de cuentas `@finde.pe`.
+
+#### Paso 0 · Medir y decidir. Sin código, sin commit
+
+- **Qué toca:** nada.
+- **Qué se mide, en el navegador y no por cálculo:** el ancho real de la celda de
+  `.tg` a 390 y a 412, y cuántos caracteres de Jakarta 700 a 15px entran en ese
+  ancho, con los títulos reales del catálogo y no con un promedio.
+- **Qué puede romperse:** nada. Lo que puede fallar es la cuenta de 151px, y por
+  eso se mide.
+- **Cómo se verifica:** el número medido queda escrito acá antes de tocar una
+  línea. Si difiere del cálculo, manda el medido.
+
+**Las cinco decisiones, tomadas el 2026-08-18:** `.det-tl` se queda fuera de
+`--fs-d2` · el logo sale de la escala · `--fs-h1` baja a 18/20 para no ser el
+mismo número que `--fs-d2` · la etiqueta de escasez va a punto de color más
+leyenda, y eso es 6B · `--fs-d1` conserva su escalón de 640 y pasa a tres.
+
+#### Paso 1 · Declarar los nueve tokens, sin un solo consumidor
+
+- **Qué toca:** un bloque de variables en `.app` y su media query.
+- **Qué puede romperse:** nada, y ese es el punto. Es aditivo puro.
+- **Cómo se verifica:** volcado de `getComputedStyle`, **tiene que dar cero
+  diferencias**. Es el mismo criterio del paso 1 de la Fase 4, que dio cero.
+
+#### Paso 2 · La pareja de jerarquía: `--fs-d2` más `.gc-t` a 15px con clamp
+
+**Las dos van en el mismo push.** `--fs-d2` sin `.gc-t` deja la relación en 1,54 y
+no arregla nada; `.gc-t` sin clamp descuadra la grilla.
+
+- **Qué toca:** `.st` (19 a 20, y 23 a 22 en escritorio), `.gc-t` (13 a 15 en
+  móvil, 14 a 15 en escritorio) y su `-webkit-line-clamp:2`.
+- **Qué puede romperse:** la altura pareja de la grilla a 390px, que es el riesgo
+  #3 de la auditoría. Con 13 de 30 títulos por encima de los 38 caracteres, el
+  clamp se ejercita de entrada y no en un caso raro.
+- **Cómo se verifica:** home y catálogo a 390, 412 y 1440, con los cinco títulos
+  más largos del catálogo en pantalla. **La relación medida tiene que dar 1,33 en
+  móvil y 1,47 en escritorio**, que es la banda de los referentes.
+
+**Se reporta acá antes de seguir al paso 3.** Es el paso que responde lo que José
+notó.
+
+#### Paso 3 · El resto de los display
+
+- **Qué toca:** `--fs-d1` en `.hero-t` (25 a 26, 32 se queda, 42 a 39), el logo
+  fuera de escala, y las cabeceras de página y de formulario: `.login-title`,
+  `.bkf-t`, `.npage-h h2`, `.tp-h h2`, `.dsh-nm`, `.tdet-h`, `.welcome-title`,
+  `.suc-t`, `.pf-name`. Se migran al token los interlineados que la Fase 5 dejó
+  agrupados por rol y se corrigen sus comentarios.
+- **Qué puede romperse:** el hero, que tiene `max-width:280px` y puede cortar en
+  otro lado · el logotipo del login, que vive en un `flex:0 0 280px` con
+  `overflow:hidden` y del que la Fase 5 midió 60,2px de holgura · **`.tp-h h2`,
+  que es la baja más grande del grupo**, 25 a 20 en móvil.
+- **Cómo se verifica:** login, welcome, éxito de reserva, notificaciones, mis
+  reservas, perfil y panel, a 390 y 1440. Y el chequeo de alcance contra el tag
+  `pre-fase6a`, propiedad por propiedad, con el script de
+  `.claude/rules/frontend.md`.
+
+---
+
+## Fase 6B · El piso, las versalitas y el calendario
+
+Lo que se sacó de la 6A el 2026-08-18. **Más grande, más disperso y sin urgencia.**
+
+- **Archivos:** `src/AppDemo.jsx`, la constante CSS y el calendario
+- **Cómo se hace:** **por pantalla, no por propiedad.** Un commit por pantalla se
+  puede revertir; un commit de 250 reemplazos no. Cada commit aplica en UNA
+  pantalla el piso de 12px, el peso (800 a 700) y los roles `cap`, `sm`, `body` y
+  `label`. Orden por riesgo: home y catálogo, ficha y reserva, mis reservas y
+  voucher, perfil, **panel al final**, que es donde está el 70% de la deuda inline
+  y donde menos línea base hay
+- **Cómo se valida:** cada commit contra su propia captura, más el chequeo de
+  alcance contra un tag. **Una pantalla no pasa a la siguiente sin verificarse**
+
+**Las cuatro piezas, en orden:**
+
+1. **El barrido por pantalla**, seis commits. Acá se resuelven las 98
+   declaraciones que la primera pasada dejó sin rol, y la primera decisión es si
+   `--fs-h1` (18/20) y `--fs-h2` (17/18) se sostienen a 1px de distancia en móvil.
+2. **Versalitas y tracking.** Sacar `text-transform:uppercase` de los nueve
+   selectores que este plan nombra, dejarlo en los badges de estado (**que hoy son
+   `.tp-st` y `.dsh-bk-s`, no `.st-*`**), y unificar los seis valores absolutos de
+   `letter-spacing` en un solo `.03em`. *Qué puede romperse:* los anchos de las
+   etiquetas se acortan bastante al salir de mayúsculas, y eso descuadra filas de
+   dos columnas.
+3. **El número de rating**, separado de la estrella. Ver arriba.
+4. **El calendario, solo lo que el piso obliga.** Ver abajo.
+
+### El calendario: el piso lo arrastra en dos lugares
+
+**El calendario no se rediseña, pero el piso de 12px lo toca igual.** Medido el
+2026-08-18:
+
+- **Las cabeceras L/M/M/J/V/S/D están a `fontSize:11` inline.** Suben a 12. La
+  fila tiene aire, riesgo bajo.
+- **La etiqueta de escasez está a `fontSize:8`, con `whiteSpace:nowrap` y sin
+  `overflow:hidden`.** Y no entra ni hoy.
+
+Geometría real a 390px: `.bkf` deja 350, el calendario tiene borde de 1px y
+`padding:14`, quedan 320 internos, y siete columnas con `gap:4` dan **celdas de
+~42px de ancho**. "Último cupo" son 11 caracteres: **unos 48 a 51px a 8px, que ya
+se salen de la celda, y 72 a 77px a 12px, casi el doble**.
+
+**El piso no la aprieta: la rompe.**
+
+**Decidido el 2026-08-18: punto de color en la celda más leyenda debajo del
+calendario.** Se descartaron acortar el copy (se pierde la señal de urgencia, que
+es de negocio), moverla al texto de abajo referido a la fecha ya elegida (se
+pierde el escaneo previo, que es lo que hace útil la señal) y una excepción al
+piso (abre justo la puerta que el piso viene a cerrar).
+
+**Ojo al ejecutarlo:** la jerarquía visual de escasez ya está aplicada
+(`0100120`, `4379219`, `db21c0b`) y el tratamiento de la celda escasa es tinte
+terracota más borde propio. El punto de color tiene que convivir con eso, no
+duplicarlo. Y el calendario es el punto más frágil del demo: tres commits antes de
+la auditoría fueron ahí.
+
 ---
 
 ## Fase 7 · Los estilos inline
@@ -1143,8 +1451,9 @@ Cierre. Depende de la Fase 6.
 
 - **Hallazgos:** §1d
 - **Archivos:** `src/AppDemo.jsx`, fuera de la constante CSS
-- **Qué se hace:** migrar los 106 tamaños inline a la escala. Son el 30% de la superficie tipográfica y **ningún cambio de CSS los alcanza**, así que sin esta fase el rediseño queda a medias
-- **Qué puede romperse:** el `fontSize: 8` de `:437` vive dentro de una celda de calendario de 36px con texto que no envuelve. Cualquier aumento la rompe. Mismo punto frágil de la Fase 2
+- **Qué se hace:** migrar los tamaños inline a la escala. Son el 30% de la superficie tipográfica y **ningún cambio de CSS los alcanza**, así que sin esta fase el rediseño queda a medias
+- **Recontados el 2026-08-18: son 115, no 106, y NO están repartidos parejo.** 45 están en `NewTourView` y 35 en `DashView`, o sea **80, el 70%, en el panel de la agencia**, con 37 de las 43 que están por debajo del piso de 12px. **Esta fase son dos pantallas, no un barrido**
+- **Qué puede romperse:** el `fontSize: 8` de la etiqueta de escasez vive dentro de una celda de calendario que no envuelve texto. **Ese caso se resuelve antes, en la Fase 6B**, con el punto de color y la leyenda. La celda ya no mide 36px: la Fase 2 la subió a `minHeight:44`
 - **Cómo se valida:** las mismas pantallas de la Fase 6, más el calendario a mano
 
 ---
