@@ -1344,6 +1344,59 @@ tours de cuentas `@finde.pe`.
 mismo número que `--fs-d2` · la etiqueta de escasez va a punto de color más
 leyenda, y eso es 6B · `--fs-d1` conserva su escalón de 640 y pasa a tres.
 
+##### Paso 0 EJECUTADO el 2026-08-18: el cálculo estaba mal por 8px y la capacidad por línea, por un 19%
+
+Medido en Chrome contra `dev.finde.pe/demo`, con el método del iframe de la Fase
+0, sobre los 42 títulos reales del catálogo.
+
+**1. La barra de scroll se come 15px, y eso mueve la cuenta entera.**
+
+| | Calculado | **Medido** |
+|---|---|---|
+| Viewport | 390 | 390 (`innerWidth`) |
+| Ancho real del documento | 390 | **375** (`documentElement.clientWidth`) |
+| Celda de `.tg` | 173 | **165,5** |
+| **Útil para `.gc-t`** | ~151 | **143,5** |
+
+`html{scrollbar-gutter:stable}` reserva la barra siempre que el navegador use
+barra clásica. **En un teléfono real, con barras superpuestas, no la reserva**, y
+ahí los números sí dan 173 y 151. **La cuenta se hace sobre 143,5**, que es el
+caso apretado.
+
+**2. A 15px entran 16 caracteres por línea, no 19.** El ancho medio del carácter
+en Jakarta 700 a 15px, con el `letter-spacing:.18px` que hereda de `.app`, es de
+**8,6px**. O sea **32 caracteres en dos líneas**, contra una mediana de título de
+38.
+
+**3. Y el dato que cambia el peso del clamp: la grilla ya está despareja HOY.**
+Distribución de líneas sobre los 42 títulos del catálogo, a 143,5px de ancho:
+
+| | 1 línea | 2 líneas | 3 líneas | 4 líneas |
+|---|---|---|---|---|
+| **13px (hoy)** | 5 | 20 | **17** | 0 |
+| **15px (paso 2)** | 4 | 10 | **21** | **7** |
+
+**Con `-webkit-line-clamp:2`, 28 de 42 títulos quedan cortados.** Con clamp de 3
+serían 7. **Esa es una decisión de producto y no de tipografía**, así que se
+resuelve mirando la pantalla, no la tabla. Ver el reporte del paso 2.
+
+**4. Línea base de las relaciones, para poder comparar después:**
+
+| | 390px | 1440px |
+|---|---|---|
+| `.st` título de sección | 19 | 23 |
+| `.gc-t` título de tarjeta (grilla) | 13 | 14 |
+| `.tc-tl` título de tarjeta (carrusel) | 15 | 15 |
+| **relación grilla** | **1,46** | **1,64** |
+| relación carrusel | 1,27 | 1,53 |
+| `.hero-t` | 25 | 42 |
+| `.logo` | 28 | 26 |
+
+Coincide selector por selector con lo que dice el CSS, así que **la línea base
+está confirmada por medición y no por lectura**. En escritorio la celda mide 232px
+y le quedan 210 útiles, o sea 24 caracteres por línea: **el problema de las tres
+líneas es solo de móvil.**
+
 #### Paso 1 · Declarar los nueve tokens, sin un solo consumidor
 
 - **Qué toca:** un bloque de variables en `.app` y su media query.
