@@ -457,6 +457,71 @@ propio QA.
 
   Lo que queda al retomarlo es lo normal de cualquier elemento nuevo: **decidirle un color explícito en `.app`** en vez de confiar en lo que herede. Ver `docs/plans/2026-08-13-plan-tipografia.md` y `docs/historia/2026-08-tipografia.md`.
 
+## Deuda de raíz: el objeto del panel se arma en TRES lugares sin compartir código
+
+**Anotado el 2026-08-18, después del tercer bug de la misma familia.** No es
+prolijidad: es la causa de tres defectos que ya llegaron a producción, y cada uno
+se arregló solo en el lugar donde apareció.
+
+### La forma
+
+La tarjeta del panel de la agencia (`opTours`) es un objeto de **30 campos** que
+se construye en tres lugares distintos de `src/AppDemo.jsx`, **cada uno
+enumerando los campos a mano y ninguno compartiendo código con los otros**:
+
+| Dónde | Cómo arma el objeto | Qué pasa si falta un campo |
+|---|---|---|
+| `loadOperatorTours` | de cero, desde el API. **Es la forma canónica** | el campo no existe nunca |
+| `handleSaveTour` | campo por campo **sobre `...t`** | **conserva el valor VIEJO**, que parece un dato |
+| `handleCreateTour` | **de cero**, sin heredar | queda en `undefined`, y un `?? 0` río abajo lo vuelve creíble |
+
+**Las dos formas de fallar son distintas y las dos son silenciosas.** Ni el
+compilador ni el linter pueden ver el problema: no falta una propiedad de un
+tipo, falta una línea en un objeto literal.
+
+### Los tres casos que ya costó
+
+| # | Campo | Dónde se perdió | Qué se vio |
+|---|---|---|---|
+| 1 | `pendingRequests` | la lista blanca de `mapTourFromApi` | el API devolvía 2 solicitudes vigentes, el `?? 0` del consumidor lo convertía en un 0 creíble, **la opción de confirmación automática nunca se deshabilitaba** y el error reaparecía al guardar, que era justo lo que el cambio venía a evitar |
+| 2 | `shortPitch` | `handleSaveTour` | **el bug del 2026-08-18.** El gancho se guardaba bien en la base (67 caracteres, comprobado), y el panel seguía diciendo "falta la frase de gancho" y **bloqueaba el botón de publicar**. La descripción no fallaba solo porque sí estaba enumerada |
+| 3 | `shortPitch` y `pendingRequests` | `handleCreateTour` | latente, encontrado revisando el caso 2. No se veía **por casualidad**: un tour recién creado nace activo y el aviso solo se muestra en pausados |
+
+**El caso 2 es el que mejor muestra el costo:** el dato estaba bien guardado, el
+endpoint lo devolvía y los dos mapeos lo enumeraban. Se perdía en un cuarto
+eslabón que nadie mira, **el estado local que se actualiza después de guardar**.
+
+### Qué se hizo el 2026-08-18, y qué NO
+
+Se agregó el campo en los dos lugares **y se recargó la lista después de
+guardar** (`loadOperatorTours()` sin `await`, detrás de la navegación, como ya
+hacía `loadDepartures`). La recarga **no es lo que arregla el bug**: el merge
+local ya deja la tarjeta correcta. Es la red para el próximo campo.
+
+Costo medido antes de aceptarla, contra dev.finde.pe: el piso de la función son
+**243 ms** y la versión pesada del mismo query (los 42 tours públicos, 66 kB)
+tarda **1.284 ms**; el panel son 5 tours y 18 kB. **Como no se espera, el costo
+percibido al guardar es cero.**
+
+**Lo que NO se hizo es el arreglo de raíz**, y es este pendiente: **extraer una
+sola función que arme el objeto del panel** y usarla en los tres lugares, de modo
+que agregar un campo sea una línea en un lugar y no tres en tres.
+
+### Por qué no se hizo en el momento
+
+Toca los tres caminos a la vez (cargar, guardar y crear), y los tres necesitan QA
+propio con una cuenta de agencia: crear un tour, editarlo, pausarlo y publicarlo.
+El arreglo del bug se verifica en dos minutos; este no.
+
+**El disparador natural es el próximo campo que haya que agregar al panel.** Si
+aparece uno, se extrae la función en ese mismo viaje en vez de escribir la cuarta
+copia. Y **la recarga tras guardar tapa el síntoma mientras tanto**, que es
+exactamente por qué esto puede esperar sin volverse urgente.
+
+**Nota de alcance:** hoy la recarga corre después de guardar, no después de
+crear. Crear es el camino que arma el objeto desde cero, o sea el más frágil de
+los tres, así que al extraer la función conviene cubrir los dos.
+
 ## Pendientes menores
 
 No justifican tocar nada por sí solos.
