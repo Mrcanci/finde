@@ -54,17 +54,17 @@ No son bugs: no hay nada roto.
 
 - **Las traducciones al quechua las escribe un modelo y nadie del equipo las valida.**
 
-  El síntoma que encontramos es medible: el generador **agrega em-dashes que no están en el original**. Contado sobre los 49 tours de la base el 2026-08-14: **52 rayas en `descQu` contra 35 en `description`**, y hay tours con 3 o 4 en quechua y **cero** en español (Tambomachay, Pachacamac, Sacsayhuamán, Iquitos). No las está copiando, las está inventando.
+  **El riesgo sigue abierto. Lo que se cerró es el síntoma por el que lo descubrimos, y conviene no confundirlos.**
 
-  La causa es concreta y está en el código: los `SYSTEM_PROMPT` de `api/ai/generate-quechua.ts` y `api/ai/generate-description.ts` **contienen em-dashes ellos mismos** (2 y 3 respectivamente) y **no prohíben la raya**. El único prompt que sí la prohíbe es `api/search-reasoning.ts:63`. El modelo imita sus propias instrucciones.
+  **Cómo apareció (2026-08-14, ya resuelto).** El generador **agregaba em-dashes que no estaban en el original**: contado sobre los 49 tours, **52 rayas en `descQu` contra 35 en `description`**, con tours que tenían 3 o 4 en quechua y **cero** en español (Tambomachay, Pachacamac, Sacsayhuamán, Iquitos). No las copiaba, las inventaba. La causa estaba en el código: los `SYSTEM_PROMPT` de `api/ai/generate-quechua.ts` y `api/ai/generate-description.ts` **contenían em-dashes ellos mismos** y **no prohibían la raya**, mientras que el de `api/search-reasoning.ts` sí. El modelo imitaba sus propias instrucciones.
 
-  **Pero las rayas son lo de menos: son solo lo que encontramos porque lo buscábamos.** Lo que no sabemos es qué más está inventando el modelo en un idioma que nadie del equipo lee. Si imita el formato de sus instrucciones, no hay razón para suponer que no invente también contenido.
+  **Cerrado en `f2d527d`, mergeado a `main`**, y verificado el 2026-08-17: **los tres prompts prohíben la raya** y la base tiene **cero** em-dashes en `description`, `descQu` y `shortPitch`. La limpieza de los datos ya existentes la hizo `scripts/limpieza-em-dash.ts`.
 
-  **Hoy no llega a ningún usuario**, porque la capa de display de quechua no existe: las columnas `titleQu`, `descQu`, etc. se llenan pero no se muestran. Eso es lo que lo mantiene como riesgo y no como incidente.
+  **Y acá está el punto: las rayas nunca fueron el problema, fueron el único síntoma que sabíamos buscar.** Lo que no sabemos es **qué más inventa el modelo en un idioma que nadie del equipo lee**. Que el síntoma medible esté arreglado no dice nada sobre el resto; si acaso, ahora hay menos de dónde agarrarse para detectarlo.
+
+  **Hoy no llega a ningún usuario**, porque la capa de display de quechua no existe: las columnas `titleQu`, `descQu`, etc. se llenan (40 de 49 tours) pero no se muestran. **Eso, y solo eso, es lo que lo mantiene como riesgo y no como incidente.**
 
   **Antes de mostrar quechua en el producto, alguien que lo hable tiene que leer una muestra de las traducciones.** No es opcional: el quechua es una promesa de marca de Finde, y publicar traducciones sin revisar de un idioma que el equipo no habla es exactamente la forma de romperla sin enterarse. Sin fecha ni tanda asignada.
-
-  La canilla se cierra aparte, en `fix/prompts-sin-raya`. Eso arregla las rayas futuras, no la validación de fondo ni las 88 que ya están en la base.
 
 ## El deploy hook del prerender
 
@@ -99,13 +99,13 @@ Vercel**: su API responde 403 con las credenciales de esta sesión.
 
 ## Pendientes de rendimiento
 
-- **El bundle pasa los 500 kB y Vite lo avisa en cada build** (673 kB, 184 kB comprimido, en un solo chunk). No es urgente para el piloto, pero sí para el mercado real: Android de gama media sobre 4G peruano, con objetivo de LCP bajo 3 segundos. `src/AppDemo.jsx` son más de 6200 líneas que hoy viajan enteras aunque el usuario solo abra el home. Candidato claro a code splitting por vista, que es como ya está organizado el archivo (el switch de `effectiveView`). Sin fecha ni tanda asignada.
+- **El bundle pasa los 500 kB y Vite lo avisa en cada build** (673 kB, 184 kB comprimido, en un solo chunk). No es urgente para el piloto, pero sí para el mercado real: Android de gama media sobre 4G peruano, con objetivo de LCP bajo 3 segundos. `src/AppDemo.jsx` son **7.278 líneas** (medidas el 2026-08-17; eran 6.277 el 2026-08-13) que hoy viajan enteras aunque el usuario solo abra el home. Candidato claro a code splitting por vista, que es como ya está organizado el archivo (el switch de `effectiveView`). Sin fecha ni tanda asignada.
 
   **Ojo con la prioridad, que las mediciones del 2026-08-16 dieron vuelta.** Este pendiente figuraba como el número uno de rendimiento y no lo era: las tandas 1B y 1C sacaron **11,8 MB** entre las dos, más de sesenta veces el bundle comprimido entero. **Lo que pesa son imágenes, no JavaScript.** **Las dos puntas del problema de imágenes ya están resueltas**: la landing (tanda 1C) y las que suben las agencias (procesamiento en el navegador). Con eso, el code splitting sí pasa a ser el próximo pendiente de rendimiento.
 
 - **El botón "Panel de agencia" del perfil tarda 1 o 2 segundos.** Mientras
   `operatorResolved` es false, `ProfileView` muestra un esqueleto del mismo alto
-  (`AppDemo.jsx:3958`) y recién después aparece la card real.
+  (la clase `.pf-op-skel`) y recién después aparece la card real.
 
   **Esto NO es el mismo problema que el interruptor de activar un tour, aunque se
   vean igual, y la diferencia decide el arreglo:**
@@ -217,8 +217,9 @@ Vercel**: su API responde 403 con las credenciales de esta sesión.
   CUPO_FIJO.** `api/bookings.ts` solo lo mira `if (tour.salesMode === "SOLICITUD")`,
   así que un tour de cupo fijo vende hasta la víspera y no tiene forma de cortar
   antes. El campo existe en el schema y la agencia lo puede configurar, pero en
-  ese modo no hace nada: el único tour CUPO_FIJO de la base ("prueba") los tiene
-  los dos en NULL, o sea que ni siquiera se nota.
+  ese modo no hace nada: los dos tours CUPO_FIJO de la base ("prueba" y
+  "Ventanillas de Otuzco", recontados el 2026-08-17) los tienen en NULL, y además
+  **están los dos pausados**, o sea que hoy ni siquiera se nota.
 
   **El cupo sigue siendo el freno de integridad** (nunca se vende más de lo que
   entra) y eso funciona. **Lo que falta es el freno operativo**: que la agencia
@@ -235,7 +236,9 @@ Vercel**: su API responde 403 con las credenciales de esta sesión.
 
 - **El título del tour en desktop, fuera del hero.** `src/AppDemo.jsx` tiene un `<h1 class="det-tl-desktop">` con el nombre del tour que hoy computa `display:none` en todos los anchos, de 390 a 1600. **No es marcado muerto: es una intención abandonada.** La idea era el patrón de Airbnb, con el título del tour arriba y afuera de la foto en desktop, en vez de superpuesto al hero como está hoy (`.det-tl`). Quedó a medio camino: el marcado existe, el CSS que lo mostraría no. **Es trabajo del rediseño de la ficha de tour, no algo para borrar.**
 
-  Ojo con un detalle al retomarlo: ese `h1` hoy no declara color propio y hereda `--text-h` del bloque `.app-demo` de `index.css`, o sea que en modo oscuro saldría casi blanco. Es el mismo patrón de los dos títulos invisibles ya arreglados (`c171347`, `e818d8e`). **No hay que arreglarlo antes: la Fase 4 del plan tipográfico lo desactiva sola** al eliminar el bloque y con él la variable. Ver `docs/plans/2026-08-13-plan-tipografia.md`.
+  **El riesgo de color que este pendiente traía ya no existe, y esto se actualizó el 2026-08-17.** Decía que ese `h1` heredaba `--text-h` del bloque `.app-demo` de `index.css` y saldría casi blanco en modo oscuro, como los dos títulos invisibles que se arreglaron en `c171347` y `e818d8e`. **La Fase 4 eliminó ese bloque y con él la variable**, así que la trampa se desactivó sola, tal como estaba previsto. Hoy `index.css` son 20 líneas y no gobierna nada del demo: ver `.claude/rules/frontend.md`.
+
+  Lo que queda al retomarlo es lo normal de cualquier elemento nuevo: **decidirle un color explícito en `.app`** en vez de confiar en lo que herede. Ver `docs/plans/2026-08-13-plan-tipografia.md` y `docs/historia/2026-08-tipografia.md`.
 
 ## Pendientes menores
 
@@ -245,5 +248,5 @@ No justifican tocar nada por sí solos.
 
 ## Cerrados y verificados, NO reabrir
 
-- Gate de `operatorResolved` en `ProfileView` y `TopNav`: cerrado en `9a928c2`. Ambos lo consumen hoy (`AppDemo.jsx:3744` y `:1865`).
+- Gate de `operatorResolved` en `ProfileView` y `TopNav`: cerrado en `9a928c2`. Ambos lo consumen hoy.
 - `/api/me` corriendo el vencimiento perezoso en el camino de identidad: cerrado en `4e81cb0` con el `?scope=operator`.

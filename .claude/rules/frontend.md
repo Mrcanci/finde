@@ -12,24 +12,49 @@ paths:
 - **`src/Landing.jsx`**: landing pública (homepage de finde.pe). **ARCHIVO PROTEGIDO: no se modifica sin la frase explícita "EXCEPCIÓN AUTORIZADA" del usuario.**
 - **`src/AppDemo.jsx`**: demo interactivo de la app móvil, con gate de password propio (independiente de la sesión de Supabase).
 
-**No hay router library.** `AppDemo.jsx` renderiza "pantallas" con un `useState` (`view`) y un switch de `effectiveView` (`AppDemo.jsx:6250-6263`).
+**No hay router library, pero sí hay router propio.** El mapa entre URL y vista
+vive en **`src/lib/routes.js`** (`fromPath`, `toPath`, la tabla `ROUTES` y la
+constante `BASE_PATH`), y `AppDemo.jsx` guarda la vista actual en un `useState`
+(`view`) que resuelve contra el derivado **`effectiveView`**, dentro del
+componente `AppDemo`.
 
 ## Mapa de vistas
 
+**La tanda 3 (2026-08-17) eliminó el muro de entrada.** `/demo` pelado ya no abre
+el login: abre el inicio, y la navegación entera está disponible sin cuenta. La
+cuenta se pide recién en el checkout, con **un solo modal** que sirve a los cuatro
+puntos de entrada (reservar, "Mis reservas", "Perfil" y notificaciones). Entrar no
+desmonta nada: el viajero sigue con su paso, su fecha y sus cupos.
+
 ```
-login ─┬─► welcome ──► home
-       └─► (invitado: "Explorar sin cuenta")
-                       ├─► catalog (búsqueda)
-                       ├─► detail ──► booking ──► bookingSuccess (paso 4 dentro de BookingView)
-                       ├─► notifications
-                       ├─► trips ──► trip-detail
-                       ├─► profile
-                       └─► dashboard (panel de la agencia) ──► new-tour (crear/editar)
+home (entrada, sin cuenta)
+ ├─► catalog (búsqueda)
+ ├─► detail ──► booking ──► bookingSuccess (paso 4 dentro de BookingView)
+ ├─► notifications ┐
+ ├─► trips ──► trip-detail
+ ├─► profile       ├─ vistas privadas: entrar por URL muestra el inicio
+ └─► dashboard (panel de la agencia) ──► new-tour (crear/editar)
+                   └─ con el modal de cuenta encima, para no perder el destino
+
+login / welcome siguen existiendo como vistas, ya no como puerta de entrada
+not-found: cualquier URL que no matchea, y toda ficha con sufijo mal formado
 ```
 
-Estados del switch: `login`, `welcome`, `home`, `catalog`, `detail`, `booking`, `notifications`, `trips`, `trip-detail`, `profile`, `dashboard`, `new-tour`.
+Estados del switch: `home`, `catalog`, `detail`, `booking`, `notifications`,
+`trips`, `trip-detail`, `profile`, `dashboard`, `new-tour`, `login`, `welcome`,
+`not-found`.
 
-**Agregar una pantalla se hace acá, no en `vercel.json`.** Los rewrites de `/demo/*` y `/app/*` ya mandan todo al `index.html` de la raíz. Ver `.claude/rules/api-y-schema.md`.
+Las dos listas que gobiernan esto viven en `AppDemo.jsx` y son complementarias:
+**`GUEST_VIEWS`** (lo que se ve sin cuenta) y **`ACCOUNT_VIEWS`** (lo que la
+exige, y por lo tanto abre el modal). En `src/lib/routes.js` vivía además
+`PUBLIC_VIEWS`, borrada en la tanda 3: existía para distinguir "llegué por un
+link" de "entré a `/demo`", y esa distinción dejó de existir cuando se abrió la
+navegación entera.
+
+**Agregar una pantalla son DOS lugares, y ninguno es `vercel.json`:** la tabla
+`ROUTES` de `src/lib/routes.js` y el switch de `AppDemo.jsx`. Los rewrites de
+`/demo/*` y `/app/*` ya mandan todo al `index.html` de la raíz. Ver
+`.claude/rules/api-y-schema.md`.
 
 Al cambiar de vista hay un reset manual de scroll (window y contenedor), porque en una SPA cambiar de `view` no es navegación real y el usuario aterrizaba a media página.
 
@@ -41,7 +66,13 @@ Al cambiar de vista hay un reset manual de scroll (window y contenedor), porque 
 
 Regla que ya se rompió una vez y costó un bug de producto. `loading` (sesión) resuelve al instante; el perfil de agencia tarda un roundtrip más. En esa ventana `isOperator` es `false`, y cualquier ternario que dependa solo de eso le muestra a una agencia existente el cartel "¿Ofreces tours? Activa tu perfil de agencia". **Un estado falso que parece legítimo es peor que esperar.**
 
-Todo gate que dependa de la identidad de agencia espera `operatorResolved`, no `loading`. Hoy lo consumen `ProfileView` (`:3665`, `:3744`, con un skeleton del mismo alto para que la card real no empuje el layout), `TopNav` (`:1865`, prop en `:6249`) y el gate del panel (`:6260`). Cerrado en `9a928c2`. **No reintroducir gates que miren solo `isOperator`.**
+Todo gate que dependa de la identidad de agencia espera `operatorResolved`, no `loading`. Hoy lo consumen tres:
+
+- **`ProfileView`**, con un placeholder (`.pf-op-skel`) del mismo alto que la card real, para que resolver el operador no empuje el resto del perfil hacia abajo.
+- **`TopNav`**, que lo recibe como prop desde `AppDemo` y con eso decide la visibilidad del botón del panel.
+- **El gate del panel** en el switch de `effectiveView` de `AppDemo`.
+
+Cerrado en `9a928c2`. **No reintroducir gates que miren solo `isOperator`.**
 
 `AuthContext` tiene tres guardas de concurrencia que conviene no romper:
 
@@ -55,7 +86,9 @@ Además: un 200 con `operator: null` **no** degrada un operador ya resuelto. El 
 
 ## Estilos
 
-**Ojo, esto estaba mal documentado.** Las variables de marca **no están en `src/index.css`**. Viven en el template literal `CSS` de `src/AppDemo.jsx:939`, bajo el scope `.app`, y espejadas en `src/Landing.jsx:557-559` con su propio scope.
+**Desde la Fase 4 del plan tipográfico hay UN solo sistema de estilos para el demo, y vive dentro de `AppDemo.jsx`.** Antes había dos y esta sección describía el reparto entre ellos; ese reparto ya no existe.
+
+Las variables de marca viven en el template literal **`CSS`** de `src/AppDemo.jsx`, bajo el scope **`.app`**, y están espejadas en `src/Landing.jsx` con su propio scope.
 
 | Variable | Valor | Rol |
 |---|---|---|
@@ -65,18 +98,29 @@ Además: un 200 con `operator: null` **no** degrada un operador ya resuelto. El 
 | `--gd` | `#D4A843` | Dorado |
 | `--yp` | `#6B2FA0` | Morado |
 
-Otras del mismo bloque: `--sg`, `--sd`, `--cr`, `--wh`, `--trl`, `--ch`, `--gy`, `--gy-soft`, `--lg`, `--pl`, `--ai`, `--focus`.
+Las demás del mismo bloque `.app`: `--sg`, `--sd`, `--cr`, `--wh`, `--tr-text`, `--trl`, `--gd-text`, `--ch`, `--gy`, `--gy-strong`, `--lg`, `--pl`, `--ai`, `--focus`.
 
-`src/index.css` tiene un juego de variables **distinto** (`--text`, `--text-h`, `--bg`, `--border`, `--accent`, `--shadow`, `--sans`, `--heading`, `--mono`) con bloque de dark mode. Son dos sistemas separados: no mezclarlos ni asumir que una variable de uno existe en el otro.
+**Ojo con dos que se confunden.** `--gy-soft` **no existe en el demo**: se borró de `.app` en `2c002bb` y hoy solo vive en `src/Landing.jsx`. Escribirla en `AppDemo.jsx` da un valor vacío sin error, que es la peor forma de fallar. La del demo es `--gy`.
 
-**Ojo con dónde vive ese juego: no es `:root`, es `.app-demo`.** La distinción importa y ya costó dos bugs. Si fuera `:root` sería un default global que cualquier regla del demo pisa sin esfuerzo. Pero `.app-demo` es una clase que **el root del demo lleva puesta** (`<div className="app app-demo">`, `AppDemo.jsx:6257`), así que ese bloque no es un fallback: **gobierna el demo de igual a igual con `.app`**, y le gana en todo lo que `.app` no declara (ancho, centrado, tamaño de texto del root, interlineado base, espaciado entre letras, `font-synthesis`) y empata en lo que sí (`font-family`, `color`, `background`), resolviéndose por orden de documento.
+`--tr-text`, `--gd-text` y `--gy-strong` son las variantes accesibles que agregó esa misma tanda de contraste (`2c002bb`, `6bcc211`). **Se usan solo sobre texto**, verificado: sus 57 usos son todos `color:`. `--tr`, `--gd` y `--gy` siguen para fondos y bordes, que tienen otro umbral.
 
-De ahí salieron los dos títulos que desaparecían en modo oscuro (`c171347` y `e818d8e`): heredaban `--text-h` de `.app-demo` porque no le ganaban la cascada a `.app-demo h2`. La pregunta correcta frente a esta herencia nunca es "¿declara la propiedad?" sino "¿le gana a `.app-demo`?". Ver `docs/plans/2026-08-13-plan-tipografia.md`, Fase 4.
+### `src/index.css` son 20 líneas, y no gobierna nada del demo
+
+Hoy declara **solo** `body { margin: 0; font-family }`. El `font-family` **no es redundante** aunque `.landing` y `.app` declaren la suya: la hoja de notificaciones se renderiza en mobile con `createPortal(popover, document.body)`, o sea que cuelga del `<body>` y queda fuera de los dos scopes.
+
+**El bloque `.app-demo` que vivía acá ya no existe.** Era residuo de la plantilla de Vite y gobernaba el ancho, el centrado, el tamaño de texto del root, el interlineado, el espaciado entre letras y los `h2` del demo, con un juego de variables propio (`--text`, `--text-h`, `--bg`...) y bloque de modo oscuro. **La Fase 4 lo eliminó**, replicando antes en `.app` lo que había que conservar. El comentario de `index.css` dice "no lo devuelvas", y va en serio.
+
+Consecuencias prácticas, que es lo que hay que saber al tocar CSS hoy:
+
+- **La clase `.app-demo` sigue puesta en el root del demo** (`<div className="app app-demo">`) pero **no tiene ni una regla asociada**. Es vestigial. No escribas reglas nuevas contra ella: el scope del demo es `.app`.
+- **Ya no hay dos sistemas de variables que no mezclar.** La pregunta vieja frente a una herencia era "¿le gana a `.app-demo`?" y hoy no aplica: si una propiedad no está declarada en `.app` o en una regla más específica, no está declarada.
+- Los dos títulos que desaparecían en modo oscuro (`c171347` y `e818d8e`) eran de esa época: heredaban `--text-h` de `.app-demo`. Quedan como historia, no como patrón vigente. Ver `docs/plans/2026-08-13-plan-tipografia.md`, Fase 4, y `docs/historia/2026-08-tipografia.md`.
+
+### Lo demás
 
 - Tipografías: **DM Serif Display** (títulos), **Plus Jakarta Sans** (cuerpo).
-- Ancho del contenedor: **1126px** en desktop, con `max-width:100%` por debajo. El contenido interno usa `max-width` por sección (1280, 1080, 680, 640, 520px). No hay ningún 430px en el código: ese valor estaba mal documentado acá.
-
-  **Ojo: ese ancho no lo declara el CSS del demo.** Sale del bloque `.app-demo` de `src/index.css` (plantilla de Vite renombrada), igual que el centrado, el tamaño de texto del root y el interlineado base. `.app` no declara ancho propio, así que gana `index.css` por defecto, no por empate de cascada. **Este valor va a cambiar cuando la Fase 4 de `docs/plans/2026-08-13-plan-tipografia.md` elimine ese bloque:** ahí hay que decidir a propósito qué ancho se replica en `.app`.
+- Ancho del contenedor: **1126px** en desktop, con `max-width:100%` por debajo. **Lo declara `.app`, dentro de la constante `CSS` de `AppDemo.jsx`**, junto con el centrado, el tamaño de texto del root, el interlineado base y el espaciado entre letras. Todo eso se replicó ahí en la Fase 4, a propósito y con la línea base medida antes.
+- El contenido interno usa `max-width` por sección (1280, 1080, 680, 640, 520px). No hay ningún 430px en el código: ese valor estaba mal documentado acá.
 - Sin em-dashes en ningún copy, tampoco en el texto que genera la IA dentro del producto.
 
 ### Excepción: la raya como glifo de dato vacío se queda
@@ -107,13 +151,13 @@ El detalle vive en `docs/estado.md` y cambia seguido. Resumen: notificaciones, r
 Dos cosas que siguen incompletas y hay que tratar con cuidado:
 
 - **Reseñas**: no hay modelo `Review` en la DB. Las que deja el viajero viven solo en el estado de sesión y se pierden al recargar. Un tour sin reseñas muestra "Nuevo", nunca un rating inventado.
-- **`USER` (`AppDemo.jsx:921`)**: mock residual ("Alejandra Quispe"). Ya no se usa para el saludo, pero sigue siendo el fallback del nombre del cliente (`:2908`, `:6194`) y el autor de las reseñas de sesión (`:5812`). Si cae en ese fallback, el usuario ve un nombre inventado, y eso rompe la regla de "nada falso visible al usuario real". Está en la checklist pre-lanzamiento.
+- **La constante `USER` de `AppDemo.jsx`**: mock residual ("Alejandra Quispe"). Ya no se usa para el saludo, pero sigue siendo el fallback en tres lugares: `buildWhatsAppLink` (el nombre del cliente en el mensaje), `handleAddLocalTrip` (el `customerName` del viaje local) y `handleReview` (el autor de las reseñas de sesión). Si cae en ese fallback, el usuario ve un nombre inventado, y eso rompe la regla de "nada falso visible al usuario real". Está en la checklist pre-lanzamiento.
 
 ## `mapTourFromApi` es una LISTA BLANCA, y descarta en silencio
 
-Todo tour que llega del API pasa por `mapTourFromApi` (`src/AppDemo.jsx:484`),
-tanto el catálogo público como el listado del operador. **No hace spread del
-objeto de origen**: construye uno nuevo enumerando campos a mano.
+Todo tour que llega del API pasa por la función `mapTourFromApi` de
+`src/AppDemo.jsx`, tanto el catálogo público como el listado del operador. **No
+hace spread del objeto de origen**: construye uno nuevo enumerando campos a mano.
 
 Consecuencia: **cualquier campo del API que no esté en esa lista se descarta sin
 error, sin warning y sin dejar rastro.** El objeto llega al componente con el
@@ -183,11 +227,17 @@ punto, no deducirlo de los bordes.**
 
 No son bugs. No los "arregles" mostrándolos:
 
-- Pestaña **"Ingresos"** del dashboard (`:4211`): sin pasarela no hay ingresos reales. El mock `EARN` ya se borró, así que reactivarla implica construir el cálculo.
-- Stat **"Rating"** del dashboard (`:4205`): los ratings del seed son siembra, no reseñas reales.
+Los dos primeros están en el componente **`DashView`**, y en los dos el marcado se borró y quedó un comentario en su lugar. Buscalos por ahí, no por su etiqueta:
+
+- Pestaña **"Ingresos"** del dashboard, en el bloque `.dsh-tabs`: sin pasarela no hay ingresos reales. El mock `EARN` ya se borró, así que reactivarla implica construir el cálculo.
+- Stat **"Rating"** del dashboard, en el bloque `.dsh-sts`: los ratings del seed son siembra, no reseñas reales.
 - **Comisión**: la etapa piloto va sin comisión (link directo a WhatsApp). No hay ningún porcentaje en la UI y no hay que agregarlo hasta que se defina con Culqi. Ver `docs/decisiones.md`.
 
-La **política de cancelación sí se muestra** (`getCancelPolicy` en `:2795`, `:3045`, `:3406`, `:3457`, `:3497`), incluido el flujo de reserva. Es exigencia INDECOPI antes de pagar: no la ocultes.
+La **política de cancelación sí se muestra**, y el flujo de reserva está cubierto. Es exigencia INDECOPI antes de pagar: no la ocultes.
+
+`getCancelPolicy` tiene **seis llamadas**, en cuatro componentes: **`DetailView`** (la ficha), **`VoucherDetail`** (el comprobante), **`BookingView`** (tres, una por paso del formulario) y **`NewTourView`** (el resumen que ve la agencia al cargar el tour, no el viajero).
+
+**Ojo con las banderas antes de contar cuáles se ven.** Las seis están detrás de `SHOW_CANCELLATION_POLICY`, que hoy vale `DEMO_PAYMENT_FLOW`, que es `true`. Pero dos de las tres de `BookingView` piden además `!DEMO_PAYMENT_FLOW`, así que **hoy no renderizan**: son el camino alternativo para cuando el flujo de pago deje de ser demo. La que cubre la exigencia en el checkout es la tercera. Si algún día se toca `DEMO_PAYMENT_FLOW`, hay que verificar en pantalla que la política siga apareciendo antes de pagar, no deducirlo del conteo de llamadas.
 
 ## Extraer o reemplazar en la constante CSS por script
 

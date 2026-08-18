@@ -20,8 +20,10 @@ La verificación contra SUNAT y MINCETUR **existe y está vigente, pero la hace 
 Lo que sí importa al escribir: cuando el copy dice "validamos el RUC en SUNAT", eso describe **el proceso**, no una integración. No lo cites como comportamiento del código.
 
 Estado actual del trabajo: leer `docs/estado.md` antes de empezar cualquier tanda.
-**Son unas 170 líneas y se lee entero**: si vuelve a crecer, hay que podarlo (ver
-`.claude/rules/metodo.md`, "Cómo se escribe la documentación").
+**Son 218 líneas al 2026-08-17 y se lee entero.** Venía de una poda de 1.767 a
+174; si pasa de **250**, hay que podarlo otra vez (ver `.claude/rules/metodo.md`,
+"Cómo se escribe la documentación"). **Ese número sale de `wc -l`, no a ojo**, y
+se actualiza acá cuando se actualiza el estado.
 
 ## Cómo comunicarte conmigo
 
@@ -107,6 +109,7 @@ El effort controla cuánto piensa, no cuán largo responde. El largo se pide apa
 
 - Logs en **español**, código e identificadores en **inglés**.
 - TypeScript estricto en `/api/`, `/lib/`, `/scripts/`. Frontend queda en JSX.
+  - **Una excepción, y está medida: `lib/tour-publish.js`.** Es JavaScript plano con tipos en JSDoc y **sin un solo import**, porque lo importan los dos lados (la función serverless y el navegador). Si fuera `.ts` con zod o Prisma adentro, el frontend arrastraría todo eso al bundle y la única salida sería copiar la condición de publicar, que es exactamente el error que ese archivo existe para evitar. **No le agregues imports ni lo migres a TypeScript.** El porqué completo está en `.claude/rules/api-y-schema.md`.
 - Imports en `/api/` y `/lib/` **con extensión `.js`** (Node ESM). Sin la extensión, la función falla en runtime.
 - Validar todo body con `zod` antes de tocar la DB.
 - Usar los singletons de `/lib/`, nunca instanciar Prisma, Anthropic o Voyage ad-hoc.
@@ -148,6 +151,22 @@ npm run db:studio        # GUI de la DB
 npm run db:seed          # sembrar datos
 ```
 
+### No existe `npm run db:migrate`, y es a propósito
+
+Hasta el 2026-08-17 `package.json` tenía un script `db:migrate` que corría
+**`prisma migrate dev`**, el comando que este archivo y `.claude/rules/api-y-schema.md`
+prohíben en mayúsculas porque **causa drift con las extensiones de Supabase**.
+
+**Nunca se usó** (no existe `prisma/migrations/` y la base no tiene drift), pero
+estaba a un `npm run db:migrate` de distancia, y el nombre es justo el que uno
+tipea por costumbre viniendo de otro proyecto Prisma. **Una prohibición escrita
+en un documento no protege contra un atajo cargado en `package.json`.**
+
+Hoy ese script se llama **`db:migrate:PROHIBIDO-usar-db-push`** y no corre Prisma:
+imprime el motivo y sale con error. El nombre largo es el punto, no un descuido.
+**El cambio de schema va por `prisma db push`**, con el procedimiento completo
+(backup, push, generate, documentar) en `.claude/rules/api-y-schema.md`.
+
 No hay suite de tests configurada. Cuando un doc dice "verificado con test", fue verificación manual.
 
 Trampa conocida: `DATABASE_URL`, `DIRECT_URL`, `ANTHROPIC_API_KEY` y `VOYAGE_API_KEY` vienen del entorno **Development de Vercel** y pisan lo que haya en `.env.local`. Las tres de Supabase (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) no están en Development, así que esas sí salen de `.env.local` vía `dotenv-cli`. En `vercel dev` cada request corre en proceso nuevo, así que las latencias locales no son representativas.
@@ -163,7 +182,46 @@ Trampa conocida: `DATABASE_URL`, `DIRECT_URL`, `ANTHROPIC_API_KEY` y `VOYAGE_API
 | `finde-reglas-negocio-v1_3.md` | Comisiones, cancelaciones, verificación, compliance. En la raíz. |
 | `docs/migrations/` | Historial de cambios de schema con su razón. Índice en `docs/migrations/README.md`. |
 | `docs/audits/` | Auditorías de estado y de incidentes, y diagnósticos pendientes de ejecución. |
-| `docs/roadmap-mvp.md` | Fases M1 a M6. |
+| `docs/roadmap-mvp.md` | **HISTÓRICO (2026-05-22), no es el plan vigente.** Fases M1 a M6, útil para reconstruir por qué el MVP se construyó así. Su sección de pagos quedó superada por la decisión del 2026-08-13 sobre Culqi. Lleva el aviso en el encabezado. |
+
+### No se citan números de línea. Se citan nombres.
+
+**Regla escrita el 2026-08-17, después de que una auditoría encontrara 13
+referencias corridas en tres documentos.**
+
+Cuando un documento apunta a un lugar del código, apunta con el **nombre**: la
+función, el componente, la constante, la clase CSS, el `export`. Nunca con el
+número de línea.
+
+| Escribí así | No escribas así |
+|---|---|
+| "el componente `ProfileView`" | "`ProfileView` (`:4107`)" |
+| "la constante `USER` de `AppDemo.jsx`" | "`src/AppDemo.jsx:921`" |
+| "el bloque `.dsh-tabs` de `DashView`" | "`AppDemo.jsx:4211`" |
+
+**Por qué, con el dato medido y no con la intuición.** `src/AppDemo.jsx` pasó de
+**6.277 líneas el 2026-08-13 a 7.278 el 2026-08-17**: mil líneas en cuatro días,
+un 16%. Cada referencia por número que había escrita quedó apuntando a otra cosa,
+y **ninguna dio error**: seguían siendo líneas válidas del archivo, con contenido
+plausible. Un puntero roto que devuelve algo es peor que uno que falla.
+
+**Y no es que el backend esté mejor documentado: es que son archivos distintos.**
+En la misma ventana, `lib/tour-select.ts` y `api/search-reasoning.ts` no se
+movieron ni una línea, así que sus referencias por número sobrevivieron intactas.
+El frontend es **un solo archivo de 7.278 líneas** donde cualquier cambio corre
+todo lo que está debajo; el backend son 26 archivos chicos donde un cambio queda
+contenido. **La regla vale igual para los dos**, porque el que escribe no sabe
+cuál va a crecer.
+
+Dos consecuencias prácticas:
+
+- **Si el nombre no alcanza para encontrarlo, el problema es el código, no la
+  referencia.** Un bloque que solo se puede señalar por número de línea es un
+  bloque sin nombre, y ponerle uno (extraer la función, nombrar la clase) es
+  mejor arreglo que citar la línea.
+- **Un rango de líneas en un comando de shell está bien** (`sed -n '100,120p'`
+  para mirar algo en el momento). Lo que no va es un número de línea **escrito en
+  un documento**, que es lo que se lee meses después.
 
 **La fuente de verdad vive en el repo, no en la memoria automática de Claude.** El estado es `docs/estado.md` y las decisiones son `docs/decisiones.md`; la memoria automática es un apunte de un momento dado y envejece sin avisar. Si algo vale la pena recordar entre sesiones, va al repo, no a la memoria (auditoría del 2026-08-13: se borraron las seis notas que había, todas desactualizadas o duplicadas).
 

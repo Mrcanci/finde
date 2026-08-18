@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "db:generate": "dotenv -e .env.local -- prisma generate",
-    "db:migrate": "dotenv -e .env.local -- prisma migrate dev",
+    "db:migrate:PROHIBIDO-usar-db-push": "echo 'PROHIBIDO: este proyecto no usa migraciones de Prisma. Los cambios de schema van con prisma db push (ver CLAUDE.md). migrate dev causa drift con las extensiones de Supabase.' && exit 1",
     "db:migrate:deploy": "dotenv -e .env.local -- prisma migrate deploy",
     "db:studio": "dotenv -e .env.local -- prisma studio",
     "db:seed": "dotenv -e .env.local -- tsx prisma/seed.ts"

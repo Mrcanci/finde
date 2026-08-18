@@ -75,6 +75,8 @@ nada delante.** El detalle de las tandas 2, 5 y 5B está en
 
 - **Navegación abierta y modal de cuenta (tanda 3, 2026-08-17)**: `/demo` pelado abre el catálogo, no el login. El muro de cuenta se movió al checkout, con **un solo modal** que sirve a los cuatro puntos de entrada (reservar, "Mis reservas", "Perfil" y notificaciones) y dice por qué se pide la cuenta en cada uno. Entrar no desmonta nada: el viajero sigue con su paso, su fecha y sus cupos. Tres cosas más que salieron del mismo viaje: el email del paso 2 se **deriva** de la cuenta y va de solo lectura (antes se prellenaba una vez al montar y el viajero podía ver un correo que el backend descarta), el aviso de carrera de cupos **salió del paso de pago** y se muestra también en el paso 2 (donde el POST sale con el flag apagado, y ahí el 409 fallaba mudo), y entrar por URL a una vista privada muestra el inicio con el modal encima en vez del login, así no se pierde a dónde iba.
 
+- **El copy de viajero deja de hablar de "salidas" (`de73b14`, 2026-08-17)**: el tooltip de un día no elegible en el calendario y el aviso de carrera de cupos usaban "salida", que es la fila de `Departure` que ve la agencia en su panel, no el vocabulario del viajero. Es la misma regla que `.claude/rules/reservas.md` ya aplicaba a los mensajes del motor: **a cada lado se le habla en el vocabulario de SU interfaz.** Los dos textos viven en ramas que hoy no se pueden ejercitar (ningún tour limita días, y el 409 exigiría crear reservas reales), así que se verificaron por lectura y no en pantalla; está anotado en el mensaje del commit.
+
 - **SEO de las fichas (tandas 5 y 5B, 2026-08-17)**: cada tour tiene su HTML estático con title, description y `og:` propios, generado en cada deploy y con `noindex` mientras el producto viva en `/demo`. La metadata mínima (gancho de 40 a 80, descripción de 300, portada) es obligatoria **por los dos caminos**: al guardar en el formulario y al activar desde el panel, con la condición compartida en `lib/tour-publish.js`. El panel apaga el interruptor de entrada y dice qué falta.
 
 - **tours-db-i18n**: tours migrados de array hardcoded a DB, con embeddings Voyage, 6 categorías sincronizadas con el enum, skeleton loading y dropdown AI_SUGGESTIONS.
@@ -132,29 +134,47 @@ Ninguno.
 - [x] **El sello de verificación falso: CERRADO el 2026-08-16.** Fue el único bloqueante de lanzamiento y El registro completo está en `docs/historia/2026-08-sello-verificacion.md`. Resultado: **42 tours visibles y MEGATOURS como la única agencia con sello, que es la única que lo tiene de verdad.**
 - [ ] **Borrar los datos de prueba.** Inventario concreto:
   - Tours de `hola@finde.pe` ("Tour Prueba", sin verificar): **dos**, `"prueba"` (2026-07-28) y `"prueba manual"` (2026-08-13). **Los dos están pausados**: `"prueba manual"` ya lo estaba y `"prueba"` se pausó el 2026-08-17, porque seguía en el catálogo público con 15 caracteres de descripción. Falta borrarlos.
-  - Las **37 reservas** son de prueba salvo revisión caso por caso. Cuentas que las crearon: `hola@finde.pe`, `test@finde.pe`, `demo@finde.pe`, `megatours@finde.pe` y **`totemhubapp@gmail.com`** (ojo: esta no es `@finde.pe`. Y el criterio **nunca** es el dominio: ver `.claude/rules/api-y-schema.md`, porque MEGATOURS también es `@finde.pe`). **La agencia MEGATOURS no se toca** (ver el ítem de coordinación en esta misma lista); lo que se borra son las reservas de prueba hechas desde esa cuenta y las que caen sobre sus tours.
-  - Las **25 salidas**, incluidas 7 del tour "prueba".
+  - Las **43 reservas** son de prueba salvo revisión caso por caso. Cuentas que las crearon, con su conteo al 2026-08-17: `demo@finde.pe` (16), `test@finde.pe` (12), `hola@finde.pe` (11), `megatours@finde.pe` (2) y **`totemhubapp@gmail.com`** (2, ojo: esta no es `@finde.pe`. Y el criterio **nunca** es el dominio: ver `.claude/rules/api-y-schema.md`, porque MEGATOURS también es `@finde.pe`). Esas cinco cuentas cubren las 43, no queda ninguna de origen desconocido. **La agencia MEGATOURS no se toca** (ver el ítem de coordinación en esta misma lista); lo que se borra son las reservas de prueba hechas desde esa cuenta y las que caen sobre sus tours.
+  - Las **25 salidas**, incluidas **8** del tour "prueba".
   - Agencias sin tours creadas en pruebas: `test@finde.pe` (jose luis cancino cuellar), `op-test@finde.pe` (Tours Test), `totemhubapp@gmail.com` (Totem Travels).
   - Borrar reservas antes que tours: el FK `Booking.tourId` es `onDelete: Restrict` y el DELETE responde 409 si el tour tiene reservas.
 - [ ] **Coordinar la operación con MEGATOURS antes de que entre una reserva real.** `megatours@finde.pe` es **agencia piloto confirmada, no dato de prueba**: no se borra. Sus 5 tours de Cajamarca (City Tour, Cumbe Mayo, Granja Porcón, Otuzco, Namora) están **públicos hoy en finde.pe**, pero la coordinación operativa con la agencia todavía está pendiente. O sea: si un viajero reserva hoy, le llega un correo a alguien que no lo está esperando y no sabe qué hacer con eso. Hay que cerrar la coordinación, o pausar los tours mientras tanto.
-- [ ] **Sacar el mock `USER`** de `src/AppDemo.jsx:921` ("Alejandra Quispe"). Ya no se usa para el saludo, pero sigue siendo el fallback del nombre del cliente (`:2908`, `:6194`) y el autor de las reseñas de sesión (`:5812`). Si alguna vez cae en ese fallback, el usuario ve un nombre inventado.
+- [ ] **Sacar el mock `USER`** de `src/AppDemo.jsx` ("Alejandra Quispe"). Ya no se usa para el saludo, pero sigue siendo el fallback en tres lugares: `buildWhatsAppLink`, `handleAddLocalTrip` y `handleReview`. Si alguna vez cae en ese fallback, el usuario ve un nombre inventado.
+- [ ] **Sacarle el sello y el MINCETUR inventado a la cuenta de demos.** `demo@finde.pe` ("Descubre el Perú") está con `verified: true` y `mincetur: "REG12345"`, que **es un número inventado**. Hoy no se ve, y por una sola razón: sus **5 tours están todos pausados**, así que `gateOperatorMincetur` nunca lo publica. **Eso no es una contención, es una casualidad.** Reactivar cualquiera de esos 5 tours publica un registro MINCETUR falso en la ficha, que es exactamente lo que la regla de "nada falso visible al usuario real" prohíbe, y lo mismo que se limpió el 2026-08-16 en las otras ocho agencias (`38823ed`). La cuenta sirve para demos y se queda; lo que sale es el sello, o el número, o los dos. **Decidir cuál antes de volver a activar un tour de esa cuenta.**
 
-## Inventario real de la base (2026-08-16)
+## Inventario real de la base (2026-08-17)
 
 Local, dev.finde.pe y producción usan **la misma base**. Estos son los números
-reales, no los del PRD:
+reales, no los del PRD. Recontados el 2026-08-17 contra la base:
 
 - **49 tours**, de los cuales **42 activos** y visibles en el catálogo público.
 - **14 agencias**, y **solo 2 verificadas**: MEGATOURS (real) y "Descubre el Perú"
-  (la cuenta de demos, que ya no tiene tours públicos).
-- **43 reservas**. Casi todas de prueba.
+  (la cuenta de demos, que ya no tiene tours públicos, **pero sigue con el sello
+  y un MINCETUR inventado**: ver la checklist de arriba).
+- **43 reservas**. Casi todas de prueba. Por estado: 21 vencidas, 17 confirmadas,
+  4 rechazadas, 1 en solicitud.
 - **25 salidas** materializadas, varias con cupo tomado.
 - Categorías de los activos: cultural 15, adventure 14, nature 9, gastronomy 2, mystic 2.
 - `FeaturedSearch`: 33 filas. `SearchLog`: 272 filas.
-- Bucket `tour-images`: **44 archivos, 26 MB de 1 GB**.
+- Bucket `tour-images`: **49 archivos, 36,8 MB de 1 GB**, y **13 de esos archivos
+  no los referencia ningún tour**. Ver abajo.
+- Agencias **sin dueño** (seed, sin `userId`): **8**. Con dueño real: **6**.
 
 **De los 42 tours públicos, 37 son del seed y se borran en el lanzamiento.**
 Quedan los 5 de MEGATOURS.
+
+### Las fotos huérfanas tienen número, y el número es para que se vea si crece
+
+**36 de los 49 archivos del bucket están referenciados por algún tour. Los otros
+13 no los referencia nadie**, y ningún camino de limpieza los toca: el borrado de
+fotos solo ocurre al borrar un tour. El pendiente está explicado en
+`docs/pendientes-producto.md`; lo que faltaba acá era el número.
+
+**Entre el 2026-08-16 y el 2026-08-17 el bucket pasó de 44 archivos y 26 MB a 49
+y 36,8 MB, sin que se creara ningún tour nuevo.** Eso es exactamente lo que el
+pendiente decía que iba a pasar. **Al actualizar este inventario, recontar las
+dos cifras** (archivos del bucket y archivos referenciados): la distancia entre
+las dos es la deuda, y es la única forma de saber si crece.
 
 ## Estado de los datos: real vs mock
 
@@ -162,12 +182,12 @@ Casi todo lo que antes era mock ya se eliminó. Lo que queda:
 
 | Qué | Estado |
 |---|---|
-| Notificaciones | **Real.** Se derivan de reservas reales (`derivedNotifs`, `AppDemo.jsx:5762`), de `trips` y `opBookings`. La constante `NOTIFS` ya no existe. |
+| Notificaciones | **Real.** Se derivan de reservas reales (el `useMemo` `derivedNotifs` del componente `AppDemo`), de `trips` y `opBookings`. La constante `NOTIFS` ya no existe. |
 | Reservas del panel | **Real.** `GET /api/operators/me/bookings`. `OP_BK` eliminado en M3. |
 | Ingresos del dashboard | **Eliminado.** `EARN` borrado junto con la tab "Ingresos", que está oculta hasta que haya pasarela. |
 | Reviews | **Parcial, no mock.** `generateMockReviews` fue eliminado. Un tour sin reseñas muestra "Nuevo". Las reseñas que deja el viajero viven solo en el estado de sesión: **se pierden al recargar**. No existe modelo `Review` en la DB. |
 | Mis viajes | **Real.** Salen de `GET /api/me`. `MY_TRIPS` eliminado. |
-| Rating del dashboard | **Oculto** (`AppDemo.jsx:4205`), porque los ratings del seed son siembra, no reseñas reales. |
+| Rating del dashboard | **Oculto** (bloque `.dsh-sts` del componente `DashView`, donde quedó el comentario en lugar del marcado), porque los ratings del seed son siembra, no reseñas reales. |
 | `USER` | **Mock residual.** Ver "Antes de lanzar a usuarios reales". |
 
 ## Material de postulaciones

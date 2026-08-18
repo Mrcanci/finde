@@ -231,9 +231,25 @@ migración; si lo deja agnóstico del prefijo, es un cambio de una constante.
 En concreto, y esto se revisa al cerrar cada tanda:
 
 1. **El prefijo de las rutas es una constante, nunca un literal repetido.** Ningún
-   archivo nuevo puede escribir `/demo` a mano. Hoy los únicos dos lugares que lo
-   nombran son `src/App.jsx` (que decide Landing contra AppDemo) y los rewrites de
-   `vercel.json`. Esa cuenta no puede crecer.
+   archivo nuevo puede escribir `/demo` a mano.
+
+   **Actualizado el 2026-08-17, y la decisión se cumplió mejor de lo que este
+   texto describía.** Cuando se escribió, los dos lugares que nombraban `/demo`
+   eran `src/App.jsx` (que decide Landing contra AppDemo) y los rewrites de
+   `vercel.json`. La tanda 2 creó **`src/lib/routes.js`** con la constante
+   `BASE_PATH`, **y `src/App.jsx` pasó a consumirla**: hoy ese archivo importa
+   `BASE_PATH` y no escribe el prefijo a mano. La única mención que le queda es
+   un comentario.
+
+   **Estado real hoy: el prefijo se declara en DOS lugares.**
+
+   | Dónde | Qué es | El día del switch |
+   |---|---|---|
+   | `src/lib/routes.js` (`BASE_PATH`) | La constante. Todo el código sale de acá | pasa a `""` |
+   | `vercel.json` (rewrites) | Configuración de plataforma, que la constante no puede cubrir | se suma el rewrite de la raíz |
+
+   **Esa cuenta de dos no puede crecer.** Ningún archivo nuevo escribe `/demo`:
+   se importa `BASE_PATH`, o se arma el link con `toPath()` / `href()`.
 2. **Todo link interno se arma con esa constante.** Un link absoluto a `/tour/x`
    funciona en la raíz y rompe bajo `/demo`; uno armado con el prefijo funciona en
    los dos.
@@ -315,7 +331,7 @@ inconsistencia a emparejar.**
 
 **Estado real al 2026-08-13** (verificado contra la DB, ver `docs/estado.md`):
 
-- **49 tours** y **14 agencias** en la base. De las 14, **9 son del seed** (sin dueño, sin RUC, sin MINCETUR) y **5 tienen dueño real**.
+- **49 tours** y **14 agencias** en la base. De las 14, **8 son del seed** (sin dueño, sin RUC, sin MINCETUR) y **6 tienen dueño real**. *(Recontado el 2026-08-17: acá decía 9 y 5. Los tours y las agencias no se movieron; lo que cambió es cuántas tienen `userId`.)*
 - **0 ventas.** Etapa pre-comercial: la pasarela todavía no existe.
 - **MEGATOURS es agencia piloto confirmada**, con 5 tours de Cajamarca públicos hoy en finde.pe. Es la tracción real que sí se puede contar, y la coordinación operativa con ellos sigue pendiente.
 - Lo demostrable: el MVP funcional en producción, la búsqueda semántica, el quechua persistido y la verificación manual SUNAT/MINCETUR.
@@ -336,15 +352,15 @@ inconsistencia a emparejar.**
 
 Las dos opciones sobre la mesa:
 
-1. **Donde está hoy:** una card "¿Ofreces tours?" dentro del Perfil (`src/AppDemo.jsx:3763`). El viajero ya registrado la descubre navegando.
+1. **Donde está hoy:** la card "¿Ofreces tours?" (clase `.pf-op-card`) dentro del componente `ProfileView`. El viajero ya registrado la descubre navegando.
 2. **Elegir rol viajero o agencia en el registro mismo**, antes de crear la cuenta.
 
 **Razón para no dejarlo implícito:** conseguir agencias es el cuello de botella del marketplace. La fricción y la visibilidad de este punto de entrada son decisión de negocio, no de UI.
 
 **Estado en el código al 2026-08-13:**
 
-- La card del Perfil sigue siendo la única puerta: `src/AppDemo.jsx:3763`.
-- El enlace "¿Eres agencia de turismo?" en la pantalla de Login sigue **comentado como TODO**: `src/AppDemo.jsx:2152`. Se difirió en M1 y nunca se retomó.
+- La card del Perfil (`.pf-op-card`, en `ProfileView`) sigue siendo la única puerta.
+- El enlace "¿Eres agencia de turismo?" en la pantalla de Login sigue **comentado como TODO** dentro de `LoginView`: buscar `TODO(M1 sub-paso 8)`. Se difirió en M1 y nunca se retomó.
 
 **Por qué caducó el encuadre de M2:** M2 (persistencia de tours de la agencia) está terminado y mergeado, y la decisión nunca se tomó. Atarla a un milestone cerrado la volvía invisible. Ahora vive acá hasta que se resuelva.
 
@@ -376,10 +392,10 @@ Las dos opciones sobre la mesa:
 
 **Consecuencia (verificada contra el código el 2026-08-13):** lo que hoy está oculto esperando la pasarela es:
 
-- La pestaña **"Ingresos"** del dashboard de la agencia (`src/AppDemo.jsx:4211`). El mock `EARN` que la alimentaba ya fue eliminado, así que reactivarla implica construir el cálculo real, no solo mostrar la tab.
-- El stat **"Rating"** del dashboard (`src/AppDemo.jsx:4205`), oculto por una razón distinta: no hay modelo `Review` en la DB y los ratings del seed son siembra. No lo destraba Culqi.
+- La pestaña **"Ingresos"** del dashboard de la agencia (bloque `.dsh-tabs` del componente `DashView`, donde quedó el comentario en lugar del marcado). El mock `EARN` que la alimentaba ya fue eliminado, así que reactivarla implica construir el cálculo real, no solo mostrar la tab.
+- El stat **"Rating"** del dashboard (bloque `.dsh-sts`, mismo componente), oculto por una razón distinta: no hay modelo `Review` en la DB y los ratings del seed son siembra. No lo destraba Culqi.
 
-**Corrección respecto de la versión anterior de esta entrada:** decía que la política de cancelación estaba oculta en la UI. **Es falso.** `getCancelPolicy(tour.cancellation)` se renderiza en cinco puntos de `src/AppDemo.jsx` (`:2795`, `:3045`, `:3406`, `:3457`, `:3497`), incluido el flujo de reserva. La exigencia INDECOPI de mostrarla antes de pagar ya está cumplida y no depende de Culqi.
+**Corrección respecto de la versión anterior de esta entrada:** decía que la política de cancelación estaba oculta en la UI. **Es falso.** `getCancelPolicy` se renderiza en el flujo de reserva y en la ficha, entre otros puntos. La exigencia INDECOPI de mostrarla antes de pagar ya está cumplida y no depende de Culqi. El detalle de dónde se renderiza y qué banderas la gobiernan está en `.claude/rules/frontend.md`, que es donde se mantiene actualizado.
 
 **Pendiente de la decisión:** el porcentaje de comisión (15% o 20%) **queda sin definir hasta la integración de Culqi**. No hace falta resolverlo antes: mientras no haya cobro, la UI no muestra ningún porcentaje. Se define al integrar.
 
@@ -439,6 +455,10 @@ La entrada anterior decía "el CLAUDE.md y la UI todavía mencionan 15%, hay que
 
 **Matiz:** se bloquean los datos de contacto (no la identidad) hasta que la reserva esté confirmada, patrón Airbnb, para evitar desintermediación.
 
-**Consecuencia en el código:** `gateOperatorMincetur` (`lib/tour-select.ts:126`) implementa la parte visible de esto: el número de MINCETUR de la agencia se muestra al público solo si `Operator.verified` es true, y siempre en el dashboard propio de la agencia.
+**Consecuencia en el código:** `gateOperatorMincetur` (`lib/tour-select.ts`) implementa la parte visible de esto: el número de MINCETUR de la agencia se muestra al público solo si `Operator.verified` es true, y siempre en el dashboard propio de la agencia.
 
-**Tensión abierta:** la promesa de "verificada" hoy no tiene respaldo técnico. El código solo valida que el RUC tenga 11 dígitos, y hay 8 agencias del seed con `verified: true` sin RUC ni MINCETUR cargados. Ver la checklist de `docs/estado.md`.
+**Tensión, actualizada el 2026-08-17.** *(La versión anterior decía "hay 8 agencias del seed con `verified: true` sin RUC ni MINCETUR cargados". Eso se cerró el 2026-08-16 y quedó sin corregir hasta la auditoría de coherencia. La decisión no cambia; cambia su consecuencia.)*
+
+- **El sello falso ya se limpió** (`38823ed`, ver `docs/historia/2026-08-sello-verificacion.md`). Hoy hay **2 agencias verificadas** sobre 14, no 9.
+- **La única con el sello ganado de verdad es MEGATOURS.** La otra es `demo@finde.pe`, la cuenta de demos, que conserva `verified: true` y un MINCETUR inventado (`"REG12345"`). No se ve porque sus tours están pausados, no porque algo lo impida: **está en la checklist de `docs/estado.md` como ítem propio.**
+- **Lo que sigue sin respaldo técnico es el proceso, y es a propósito.** El código solo valida que el RUC tenga 11 dígitos; la verificación contra SUNAT y MINCETUR la hace José a mano y **es el proceso vigente, no una carencia** (ver `CLAUDE.md`). La tensión real no es que falte automatización: es que **`verified` es un booleano que se escribe a mano y nada en el código impide escribirlo mal**. Por eso el control es la checklist, no una validación.
