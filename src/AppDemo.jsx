@@ -3006,7 +3006,10 @@ function CitySelector({ selectedDept, opciones, onPick }) {
           <div className="city-backdrop" onClick={() => setOpen(false)} />
           <div className="city-sheet" role="listbox" aria-label="Elegir ciudad">
             <div className="city-sheet-grip" />
-            <div className="city-sheet-title">Elige tu ciudad</div>
+            {/* "Elige UNA ciudad", no "tu ciudad": el posesivo decía que esa
+                ciudad es la del viajero, que es el mismo error de origen
+                contra destino del rótulo de la fila. */}
+            <div className="city-sheet-title">Elige una ciudad</div>
             {opciones.map((c) => (
               <button
                 key={c}
@@ -3135,7 +3138,19 @@ function HomeView({ go, cat, setCat, tours, toursLoading, selectedDept, setSelec
             existir y hay que escribirla a mano. */}
         {!yaEligio && !toursLoading && (
           <div className="city-ask">
-            <div className="city-ask-t">¿Desde dónde viajas?</div>
+            {/* EL CRITERIO DE TODO EL COPY DE ESTA SECCIÓN: se pregunta por
+                el DESTINO, nunca por dónde está el viajero.
+                Decía "¿Desde dónde viajas?", que pregunta por el ORIGEN, y la
+                sección muestra tours EN esa ciudad, o sea el destino. En
+                turismo interno son cosas distintas: alguien en Lima puede
+                querer tours en Cusco. Se corrigió el 2026-08-19 junto con
+                otros tres textos de la zona que tenían el mismo problema.
+                Se eligió nombrar la unidad ("qué ciudad") y no un genérico
+                ("¿a dónde quieres ir?") porque abajo hay doce chips: nombrar
+                la unidad pone la expectativa donde la podemos cumplir. Y
+                "explorar" es el verbo que ya usa el producto, en la pestaña
+                del menú y en el hero. */}
+            <div className="city-ask-t">¿Qué ciudad quieres explorar?</div>
             <div className="city-ask-row">
               {deptsConTours.map((d) => (
                 <button
@@ -3157,13 +3172,20 @@ function HomeView({ go, cat, setCat, tours, toursLoading, selectedDept, setSelec
             por conexión resulta falso, esto molesta pero no rompe. */}
         {sugerenciaCambio && (
           <div className="city-ask city-ask-move">
-            <span>¿Estás en {displayName(sugerenciaCambio)}?</span>
+            {/* Pregunta por el destino, no por la ubicación. Decía "¿Estás
+                en X?", que afirmaba saber dónde estaba el viajero justo
+                después de que el título dejara de hacerlo.
+                LA LÓGICA NO CAMBIÓ Y SE SOSTIENE: esto se dispara cuando la
+                IP CAMBIÓ, o sea cuando la persona probablemente se movió, y
+                para alguien que acaba de llegar "estás acá" sí predice
+                "querés tours acá". Lo que estaba mal era el texto. */}
+            <span>¿Buscas tours en {displayName(sugerenciaCambio)}?</span>
             <button
               type="button"
               className="city-ask-chip on"
               onClick={() => handleCityChange(sugerenciaCambio)}
             >
-              Ver tours de {displayName(sugerenciaCambio)}
+              Ver tours en {displayName(sugerenciaCambio)}
             </button>
           </div>
         )}

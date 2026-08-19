@@ -892,10 +892,24 @@ IP deja de elegirlo.
 
 **Razón, y es de probabilidad, no de precisión.** De la detección hay **dos casos
 medidos**: uno acertó (Cajamarca) y uno falló (José en Lima, detectado como
-Arequipa, con `reason: "matched"`). **No sabemos la tasa de error.** Lo que sí se
-sabe es que **Lima concentra alrededor del 30% de la población del país** y va a
-ser el origen más frecuente. Si el default se va a equivocar igual, conviene que
-se equivoque hacia el caso más probable y no hacia un dato poco confiable.
+Arequipa, con `reason: "matched"`). **No sabemos la tasa de error.** Si el default
+se va a equivocar igual, conviene que se equivoque hacia el caso más probable y
+no hacia un dato poco confiable.
+
+> **EL MOTIVO SE CORRIGIÓ EL MISMO DÍA, y la decisión NO cambió.** La primera
+> versión decía que Lima es **"el origen más frecuente"**, apoyándose en que
+> concentra alrededor del 30% de la población. **Ese argumento dejó de aplicar
+> unas horas después**, cuando se corrigió el copy: la sección pregunta por el
+> **DESTINO**, no por dónde está el viajero, así que un argumento sobre orígenes
+> ya no sostiene nada.
+>
+> **El motivo vigente es otro y se sostiene solo:** Lima es **el departamento con
+> más tours (10 contra 9 de Cusco)** y **el punto de partida más común** para
+> alguien que empieza a mirar.
+>
+> Queda escrito así, y no reescrito en silencio, porque **un motivo
+> desactualizado es peor que ninguno**: alguien lo cita como si siguiera valiendo
+> y construye encima.
 
 **Y no se pierde nada:** lo que resuelve de verdad es la fila "¿Desde dónde
 viajas?", que está a un toque, y la elección se recuerda.
@@ -967,3 +981,21 @@ darle URL propia al paso**, que cuesta cero bytes y sobrevive al redactor si es
 ruta y no query. **Se activa junto con esa instrumentación**, que está diferida
 hasta que haya tráfico (medido entonces: 15 páginas vistas en 30 días, todas del
 QA propio).
+
+### PREGUNTA ABIERTA: si el default es una sugerencia de DESTINO, ¿sigue siendo Lima?
+
+**Abierta el 2026-08-19, sin resolver a propósito.** El default se fijó con un
+argumento de origen, y ese marco cambió. Con el marco de destino, el candidato
+obvio que compite es **Cusco**, que es el destino insignia del Perú.
+
+**A favor de que Lima se quede:** tiene más tours (**10 contra 9**) y es el punto
+de partida más común de quien empieza a mirar.
+
+**Por qué no se decide ahora:** **con 10 contra 9 la diferencia es mínima**, y
+esta decisión se toma mejor con datos de qué buscan las personas que con una
+intuición sobre cuál destino suena más.
+
+> **Disparador: los mismos datos que reabren el default.** Cuando exista la
+> instrumentación del embudo y se vea qué ciudades elige la gente en la fila, ese
+> mismo dato responde las dos preguntas: si la detección falla seguido, y si Lima
+> es el destino que más se elige. **Se revisan juntas.**
