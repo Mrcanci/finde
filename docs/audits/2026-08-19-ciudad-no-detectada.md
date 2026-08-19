@@ -440,16 +440,51 @@ que el que no quiera elegir simplemente siga scrolleando.
 está en un lugar que la IP reporta mal deja de depender de que nosotros
 acertemos.
 
+## Lo que sigue SIN medirse: el valor real del header
+
+**Ningún valor de `x-vercel-ip-country-region` en este documento salió de una
+medición.** Los `"CAJ"` y `"ARE"` que aparecen arriba **los tipeamos nosotros**
+como headers simulados contra localhost, para probar el mapeo. Que Vercel mande
+el código ISO sigue siendo **lectura de la documentación**, no un dato observado
+en nuestro stack.
+
+Es el tercer caso del mismo tipo en un solo día, y por eso queda escrito:
+primero una afirmación circular sobre dónde estaba la máquina, después una
+conclusión general con dos casos, y ahora un valor supuesto que parecía medido
+porque apareció en la salida de un comando. **Lo que hace peligroso a este
+último es que la salida se ve idéntica a una medición.**
+
+**Cómo se cierra, y cuesta diez segundos:** abrir en el navegador
+`https://dev.finde.pe/api/geo?debug=1`, que ya está desplegado con `?debug=1`.
+Devuelve `debug.rawRegion` con lo que Vercel manda de verdad. Hasta entonces
+**la C no se apoya en el departamento**.
+
 ## Sobre invertir el orden: sí, y hay un argumento que no es solo de prioridad
 
-**La C empeora el costo de una detección equivocada.** Hoy, cuando la detección
-falla, el viajero aterriza en Lima: el catálogo más grande, el destino menos
-sorprendente, y la equivocación pasa desapercibida.
+**La C empeora el costo de una detección equivocada, y esto es lo que no se
+reconstruye después si no queda escrito.**
 
-**Con la C, una detección equivocada puede aterrizar en "Loreto" y mostrar UN
-tour.** Y el viajero, que además leyó "cerca de ti", concluye que eso es todo lo
-que Finde tiene cerca suyo. **Mejorar la lista sin sacar la afirmación hace que
-el error, cuando pase, sea más caro y más creíble.**
+Hoy, cuando la detección falla, el respaldo es Lima, que es **el grupo más
+grande: 10 de los 42 tours activos**. El viajero ve un carrusel lleno, con
+destinos conocidos, y **la equivocación pasa desapercibida**: no tiene forma de
+notar que le estamos mostrando la ciudad equivocada.
+
+**Con la C eso deja de ser cierto.** Los grupos por departamento medidos hoy van
+de 10 a **1**:
+
+```
+Lima 10 · Cusco 8 · Cajamarca 5 · Arequipa 5 · Ica 4 · Piura 2
+Madre de Dios 2 · La Libertad 2 · Amazonas 1 · Loreto 1 · Áncash 1 · San Martín 1
+```
+
+O sea que **una detección equivocada puede aterrizar en Loreto y mostrar UN
+tour**. Y el viajero, que además leía "cerca de ti", concluye que eso es todo lo
+que Finde tiene cerca suyo, y se va.
+
+**El mismo error, con la lista mejorada, pasa de invisible a caro.** Y encima
+**más creíble**, porque el departamento existe y tiene tours: ya no se puede
+sospechar que el sistema no sabe. Por eso la afirmación se saca ANTES, y no
+después.
 
 Por eso el orden pasa a ser:
 

@@ -1387,8 +1387,11 @@ html{scrollbar-gutter:stable}
 
 /* ── Sección "Tours en [ciudad]" con selector ── */
 .city-sh{align-items:center}
-.city-near{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:13px;color:var(--gy);font-weight:400;letter-spacing:0}
-.city-near-off{color:var(--tr-text);font-weight:600}
+/* Aca vivian .city-near y .city-near-off, que pintaban ' · cerca de ti' y
+   ' · no detectamos tu ciudad' al lado del titulo de la seccion de ciudad. Las
+   dos frases se sacaron el 2026-08-19 (ver el comentario largo en HomeView) y
+   las reglas se van con ellas. Si alguna vuelve a aparecer, que sea con una
+   decision nueva y no porque quedo el estilo hecho. */
 .city-actions{display:flex;align-items:center;gap:12px}
 /* Mobile-first: el botón "Ver todos / Ver menos" se oculta en mobile porque
    el carrusel horizontal ya permite navegar todas las cards con swipe. En
@@ -2005,7 +2008,6 @@ html{scrollbar-gutter:stable}
   .sh{margin-bottom:24px}
   /* .st y .gc-t ya no declaran tamano aca: lo manda el token, que tiene su
      propio escalon de escritorio. Ver la Fase 6A, paso 2. */
-  .city-near{font-size:14px}
 
   .tg{grid-template-columns:repeat(3,1fr);gap:24px;padding:0 0 48px}
   .gc:hover{transform:translateY(-5px);box-shadow:0 16px 40px rgba(0,0,0,.1)}
@@ -2897,12 +2899,17 @@ function CitySelector({ selectedCity, onPick }) {
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
+      {/* El nombre accesible dice que esto CAMBIA algo. Sin él, el lector de
+          pantalla anunciaba solo "Lima", que suena a etiqueta y no a control, y
+          es justo el control que el viajero necesita cuando la ciudad elegida
+          no es la suya. */}
       <button
         type="button"
         className={`city-btn ${open ? "open" : ""}`}
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-label={`Cambiar ciudad, ahora ${selectedCity}`}
       >
         <MapPin size={14} strokeWidth={1.5} />
         {selectedCity}
@@ -2936,7 +2943,7 @@ function CitySelector({ selectedCity, onPick }) {
   );
 }
 
-function HomeView({ go, cat, setCat, tours, toursLoading, selectedCity, setSelectedCity, geoSource, geoReason }) {
+function HomeView({ go, cat, setCat, tours, toursLoading, selectedCity, setSelectedCity }) {
   const [cityExpanded, setCityExpanded] = useState(false);
   const filt = cat === "all" ? tours : tours.filter((t) => t.category === cat);
   // Destacados: los 4 más recientes (createdAt desc). Antes ordenaba por rating,
@@ -2972,19 +2979,35 @@ function HomeView({ go, cat, setCat, tours, toursLoading, selectedCity, setSelec
         <div className="sh fd2"><div className="st">Recién publicados</div><button className="sl" onClick={() => go("catalog")}>Ver todos <ArrowRight size={12} strokeWidth={1.5} style={{verticalAlign:"middle"}} /></button></div>
         <div className="tscr fd3">{toursLoading ? Array.from({ length: 4 }).map((_, i) => <TCardSkeleton key={i} />) : feat.map((t) => <TCard key={t.id} t={t} onClick={() => { go("detail", { tour: t }); }} />)}</div>
         <div className="sh city-sh" style={{ marginTop: 8 }}>
-          {/* El titulo AFIRMA una ubicacion, asi que solo puede decir "cerca de
-              ti" cuando de verdad detecto. Antes decia "Tours en Lima" con la
-              misma cara cuando detectaba Lima y cuando no detectaba nada, y eso
-              es lo que hizo que un viajero en Cajamarca creyera que el producto
-              sabia donde estaba. Cuando no detecto, lo dice y manda al selector,
-              que esta al lado. */}
-          <div className="st">
-            Tours en {selectedCity}
-            {geoSource === "geo" && <span className="city-near"> · cerca de ti</span>}
-            {geoSource === "fallback" && geoReason && geoReason !== "matched" && (
-              <span className="city-near city-near-off"> · no detectamos tu ciudad</span>
-            )}
-          </div>
+          {/* ESTE TÍTULO DICE QUÉ ESTÁS VIENDO, NO DÓNDE ESTÁS. La distinción
+              parece de redacción y es la única cosa que la app puede afirmar
+              con certeza.
+
+              Acá vivían dos frases y las dos se fueron el 2026-08-19:
+
+              " · cerca de ti", que aparecía cuando la geo IP había matcheado.
+              Es la única frase donde la app decía SABER dónde estaba el
+              viajero, y se midió equivocada: desde una máquina en Lima, sin
+              VPN, /api/geo devolvió "Arequipa" con source "geo" de forma
+              estable. O sea que la pantalla decía "Tours en Arequipa · cerca
+              de ti" a alguien que estaba en Lima. No es que no supiera: es que
+              afirmó, y se equivocó.
+
+              " · no detectamos tu ciudad", que se había agregado ese mismo día
+              para el caso contrario. Era honesta, pero sostenía el marco
+              equivocado: hablaba de un intento de detectarte. Si el título ya
+              no afirma dónde estás, no hay nada que desmentir.
+
+              NO SE VUELVEN A PONER, y el motivo no es la tasa de error, que no
+              está medida (dos casos no miden una tasa). Es la asimetría:
+              acertar le ahorra al viajero UN toque en el selector, y errar lo
+              manda a otro catálogo diciéndole que es el suyo. Con esa cuenta,
+              aunque acertara casi siempre, seguiría sin convenir afirmar.
+
+              La geo IP sigue eligiendo la ciudad inicial, y está bien: es una
+              sugerencia. Lo que no hace es anunciarse como conocimiento. El
+              control para cambiarla está al lado, y es el que manda. */}
+          <div className="st">Tours en {selectedCity}</div>
           <div className="city-actions">
             {allCityTours.length > 4 && (
               <button className="sl" onClick={() => setCityExpanded((v) => !v)}>
@@ -6543,10 +6566,12 @@ export default function AppDemo() {
   // Si hay override en localhost lo tratamos como "manual" para que la respuesta
   // tardía de /api/geo (siempre fallback en localhost) no lo pise.
   const [geoSource, setGeoSource] = useState(() => readDevCityOverride() ? "manual" : "fallback");
-  // El motivo por el que la ciudad es la que es. Llega siempre desde /api/geo
-  // (matched | unmapped | non_pe | no_input | no_headers | error) y sirve para
-  // que la interfaz no afirme una ubicacion que en realidad no detecto.
-  const [geoReason, setGeoReason] = useState(null);
+  // NO hay estado para el `reason` de /api/geo, y es a propósito. El endpoint
+  // lo devuelve siempre (ver api/geo.ts) porque ahí es lo que permite
+  // diagnosticar sin adivinar, pero la interfaz no lo muestra: mostrarlo
+  // obligaba a hablar de detección, y el título dejó de afirmar ubicación el
+  // 2026-08-19. Si vuelve a hacer falta (por ejemplo para preseleccionar una
+  // sugerencia al preguntar la ciudad la primera vez), se agrega ahí.
   const pickCity = useCallback((city) => {
     setSelectedCity(city);
     setGeoSource("manual");
@@ -6911,7 +6936,6 @@ export default function AppDemo() {
           if (prevSource === "manual") return prevSource;
           if (data?.city && SUPPORTED_CITIES.includes(data.city)) {
             setSelectedCity(data.city);
-            setGeoReason(data.reason ?? null);
             return data.source === "geo" ? "geo" : "fallback";
           }
           return prevSource;
@@ -7699,7 +7723,7 @@ export default function AppDemo() {
         {effectiveView === "welcome" && <WelcomeView go={go} />}
         {effectiveView === "not-found" && <NotFoundView go={go} />}
         {effectiveView === "reset-password" && <ResetPasswordView go={go} />}
-        {effectiveView === "home" && <HomeView go={go} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} selectedCity={selectedCity} setSelectedCity={pickCity} geoSource={geoSource} geoReason={geoReason} />}
+        {effectiveView === "home" && <HomeView go={go} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} selectedCity={selectedCity} setSelectedCity={pickCity} geoSource={geoSource} />}
         {effectiveView === "catalog" && <CatalogView go={go} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} />}
         {effectiveView === "detail" && (currentTour
           ? <DetailView tour={currentTour} go={go} onBook={handleBook} reviews={reviews} />
