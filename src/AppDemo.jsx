@@ -749,6 +749,73 @@ function clearBookingDraft() {
   }
 }
 
+// ── El departamento que eligió el viajero ────────────────────────────────────
+// Tercer par de helpers con la misma forma que los dos de arriba
+// (`finde_notif_seen` y `finde:borrador-reserva`), con la misma guarda de
+// `typeof` y el mismo try/catch. No se inventa un mecanismo nuevo.
+//
+// SE GUARDAN TRES CAMPOS, Y EL TERCERO ES EL QUE HACE FUNCIONAR TODO:
+//
+//   dept             lo que el viajero eligió
+//   detectedAtChoice lo que la IP decía EN EL MOMENTO en que eligió
+//   ts               cuándo
+//
+// POR QUÉ `detectedAtChoice` Y NO COMPARAR CONTRA `dept`. La pregunta que hay
+// que responder en cada visita es "¿este viajero se movió?", y la respuesta
+// NO es "¿la IP dice algo distinto de lo que eligió?".
+//
+// El caso real que lo demuestra, y está medido: la IP de José reporta
+// "Arequipa" estando él en Lima. Si él elige "Lima", entonces la detección va a
+// diferir de su elección EN TODAS LAS VISITAS SIGUIENTES, esté donde esté.
+// Comparar contra la elección lo haría ver la oferta de cambio para siempre:
+// lo estaríamos castigando en cada visita por un error nuestro.
+//
+// Comparar contra lo que la IP decía CUANDO eligió responde la pregunta
+// correcta:
+//
+//   mismo lugar, la IP sigue igual de equivocada -> detected == detectedAtChoice
+//                                                   -> silencio
+//   se movió, la IP cambió                       -> detected != detectedAtChoice
+//                                                   -> se ofrece cambiar
+//
+// SUPUESTO, Y VA COMO SUPUESTO Y NO COMO HECHO: esto asume que la detección es
+// ESTABLE POR CONEXIÓN, o sea que desde la misma red la IP contesta siempre lo
+// mismo aunque se equivoque. De eso hay DOS muestras (la conexión de José, las
+// dos veces "Arequipa"). Dos muestras no prueban estabilidad.
+//
+// QUÉ SE VERÍA SI EL SUPUESTO ES FALSO, para reconocerlo rápido: la oferta de
+// cambio ("¿Estás en X? Cambiar") aparecería sola, a gente que no se movió, y
+// cambiando de departamento entre visitas o incluso entre recargas. Si alguien
+// reporta eso, la detección es ruidosa y esta comparación no sirve: habría que
+// exigir varias lecturas seguidas iguales antes de ofrecer, o directamente dejar
+// de ofrecer. Por eso la oferta es una línea descartable y no un modal: si el
+// supuesto falla, molesta, no rompe.
+const CITY_CHOICE_KEY = "finde_ciudad";
+
+function readCityChoice() {
+  if (typeof localStorage === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(CITY_CHOICE_KEY);
+    if (!raw) return null;
+    const c = JSON.parse(raw);
+    return c && typeof c === "object" && typeof c.dept === "string" ? c : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCityChoice(dept, detectedAtChoice) {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(
+      CITY_CHOICE_KEY,
+      JSON.stringify({ dept, detectedAtChoice: detectedAtChoice || null, ts: Date.now() })
+    );
+  } catch {
+    /* quota: recordar la ciudad es una comodidad, no se rompe nada por esto */
+  }
+}
+
 // Fecha de hoy (yyyy-mm-dd) en hora de Lima, para los reminders "hoy/mañana".
 function limaTodayISO() {
   return new Intl.DateTimeFormat("en-CA", {
@@ -1399,6 +1466,13 @@ html{scrollbar-gutter:stable}
 
 /* ── Sección "Tours en [ciudad]" con selector ── */
 .city-sh{align-items:center}
+.city-ask{margin:0 0 16px;text-align:left}
+.city-ask-t{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:15px;font-weight:700;color:var(--ch);margin-bottom:8px}
+.city-ask-row{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.city-ask-row::-webkit-scrollbar{display:none}
+.city-ask-chip{flex:0 0 auto;padding:9px 14px;border-radius:100px;border:1.5px solid var(--sd);background:white;color:var(--ch);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+.city-ask-chip.on{background:var(--f);border-color:var(--f);color:white}
+.city-ask-move{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:14px;color:var(--gy-strong);font-weight:600}
 /* Aca vivian .city-near y .city-near-off, que pintaban ' · cerca de ti' y
    ' · no detectamos tu ciudad' al lado del titulo de la seccion de ciudad. Las
    dos frases se sacaron el 2026-08-19 (ver el comentario largo en HomeView) y
@@ -2955,7 +3029,7 @@ function CitySelector({ selectedDept, opciones, onPick }) {
   );
 }
 
-function HomeView({ go, cat, setCat, tours, toursLoading, selectedDept, setSelectedDept }) {
+function HomeView({ go, cat, setCat, tours, toursLoading, selectedDept, setSelectedDept, yaEligio, sugerenciaCambio }) {
   const [cityExpanded, setCityExpanded] = useState(false);
   const filt = cat === "all" ? tours : tours.filter((t) => t.category === cat);
   // Destacados: los 4 más recientes (createdAt desc). Antes ordenaba por rating,
@@ -3035,6 +3109,64 @@ function HomeView({ go, cat, setCat, tours, toursLoading, selectedDept, setSelec
             <CitySelector selectedDept={selectedDept} opciones={deptsConTours} onPick={handleCityChange} />
           </div>
         </div>
+
+        {/* LA PREGUNTA VIVE ACÁ, DENTRO DE LA SECCIÓN DE CIUDAD, Y NO ARRIBA.
+            El motivo NO es el espacio, es el ALCANCE, y conviene tenerlo claro
+            antes de "mejorar" la ubicación:
+
+            el filtro por ciudad afecta EXCLUSIVAMENTE a este carrusel. Está
+            medido: `CatalogView` nunca recibió la ciudad, y "Recién publicados"
+            tampoco se filtra. O sea que preguntar más arriba interrumpiría a
+            TODOS, incluido al que llegó buscando otra cosa, para decidir algo
+            que no cambia nada de lo que está viendo en ese momento.
+
+            El costo de subirla también está medido, a 390px: la fila mide 98px
+            y empujaría la primera tarjeta de y=489 a y=587, dejando 113px de
+            ella visibles con un viewport útil de unos 700. Pero ese es el
+            argumento chico. El grande es el de arriba.
+
+            Y DE ACÁ SALE GRATIS EL CASO DEL DEEP LINK. A alguien que llega de
+            Google a una ficha de tour NO se le pregunta la ciudad, porque el
+            filtro no afecta a esa pantalla en absoluto: sería pedirle una
+            decisión que no cambia ni un píxel de lo que está mirando. No hizo
+            falta escribir "si es deep link, no preguntes": la fila no está ahí
+            porque esta sección no está ahí. Si algún día alguien mueve esta
+            fila a un lugar común a todas las vistas, esa condición pasa a
+            existir y hay que escribirla a mano. */}
+        {!yaEligio && !toursLoading && (
+          <div className="city-ask">
+            <div className="city-ask-t">¿Desde dónde viajas?</div>
+            <div className="city-ask-row">
+              {deptsConTours.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  className={`city-ask-chip ${d === selectedDept ? "on" : ""}`}
+                  onClick={() => handleCityChange(d)}
+                >
+                  {displayName(d)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* La oferta de cambio: solo si la IP dice algo distinto de lo que
+            decía cuando el viajero eligió. Es una línea descartable y no un
+            modal, a propósito: si el supuesto de que la detección es estable
+            por conexión resulta falso, esto molesta pero no rompe. */}
+        {sugerenciaCambio && (
+          <div className="city-ask city-ask-move">
+            <span>¿Estás en {displayName(sugerenciaCambio)}?</span>
+            <button
+              type="button"
+              className="city-ask-chip on"
+              onClick={() => handleCityChange(sugerenciaCambio)}
+            >
+              Ver tours de {displayName(sugerenciaCambio)}
+            </button>
+          </div>
+        )}
         {toursLoading ? (
           <div className="tscr">
             {Array.from({ length: 4 }).map((_, i) => <TCardSkeleton key={i} />)}
@@ -6581,14 +6713,29 @@ export default function AppDemo() {
   // Guarda un DEPARTAMENTO, no una ciudad. El nombre que se muestra sale de
   // displayName(): en seis casos el destino no se llama como el departamento
   // (Loreto se muestra como Iquitos, y así). Ver lib/cities.js.
-  const [selectedDept, setSelectedDept] = useState(() => readDevCityOverride() || "Lima");
+  //
+  // PRECEDENCIA, de más fuerte a más débil:
+  //   1. el override de desarrollo (?city= en localhost)
+  //   2. LO QUE EL VIAJERO ELIGIÓ y quedó guardado
+  //   3. "Lima", hasta que conteste /api/geo
+  // La detección nunca pisa una elección: por eso, si hay elección guardada,
+  // el ref de abajo arranca en "manual".
+  const [choice, setChoice] = useState(() => readCityChoice());
+  const [selectedDept, setSelectedDept] = useState(
+    () => readDevCityOverride() || readCityChoice()?.dept || "Lima"
+  );
+  // Lo que la IP dice AHORA. Va duplicado en estado Y en ref a propósito: el
+  // estado porque la oferta de cambio se renderiza a partir de esto, y el ref
+  // porque `pickDept` es un useCallback estable y leería un valor viejo.
+  const [detectedDept, setDetectedDept] = useState(null);
+  const detectedDeptRef = useRef(null);
   // De dónde salió el departamento elegido. NO SE RENDERIZA: desde que el
   // título dejó de afirmar ubicación (2026-08-19) su único trabajo es que una
   // respuesta tardía de /api/geo no pise una elección manual. Por eso es un ref
   // y no estado: cambiarlo no tiene que re-renderizar nada.
   // Si hay override en localhost arranca en "manual", para que la respuesta
   // tardía (siempre fallback en localhost) tampoco lo pise.
-  const geoSourceRef = useRef(readDevCityOverride() ? "manual" : "auto");
+  const geoSourceRef = useRef(readDevCityOverride() || readCityChoice() ? "manual" : "auto");
   // NO hay estado para el `reason` de /api/geo, y es a propósito. El endpoint
   // lo devuelve siempre (ver api/geo.ts) porque ahí es lo que permite
   // diagnosticar sin adivinar, pero la interfaz no lo muestra: mostrarlo
@@ -6598,7 +6745,28 @@ export default function AppDemo() {
   const pickDept = useCallback((dept) => {
     setSelectedDept(dept);
     geoSourceRef.current = "manual";
+    // Se guarda junto con lo que la IP decía EN ESTE MOMENTO. Ver el comentario
+    // largo de readCityChoice: es lo que después permite distinguir "se movió"
+    // de "la IP siempre se equivoca igual".
+    const nueva = { dept, detectedAtChoice: detectedDeptRef.current, ts: Date.now() };
+    writeCityChoice(dept, detectedDeptRef.current);
+    setChoice(nueva);
   }, []);
+
+  // ── Lo que decide qué se ve en la sección de ciudad ──
+  // `yaEligio` distingue "nunca contestó" de "ya contestó", que es lo único que
+  // enciende la fila de chips.
+  const yaEligio = !!choice;
+  // La oferta de cambio aparece SOLO si lo que la IP dice ahora es distinto de
+  // lo que decía cuando el viajero eligió. Ver el comentario largo de
+  // readCityChoice: comparar contra su elección lo castigaría en cada visita
+  // por un error nuestro.
+  const sugerenciaCambio =
+    choice && detectedDept &&
+    detectedDept !== choice.detectedAtChoice &&
+    detectedDept !== selectedDept
+      ? detectedDept
+      : null;
 
   // opTours (dashboard del operador) se hidrata aparte, desde
   // /api/operators/me/tours (ver efecto más abajo). Arranca vacío.
@@ -6959,9 +7127,12 @@ export default function AppDemo() {
       .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
       .then(data => {
         if (cancelled) return;
-        if (geoSourceRef.current === "manual") return;
+        // Lo detectado se guarda SIEMPRE, aunque no se aplique: es lo que se
+        // compara contra `detectedAtChoice` para saber si el viajero se movió.
         if (data?.department && DEPARTMENTS.includes(data.department)) {
-          setSelectedDept(data.department);
+          detectedDeptRef.current = data.department;
+          setDetectedDept(data.department);
+          if (geoSourceRef.current !== "manual") setSelectedDept(data.department);
         }
       })
       .catch(() => {
@@ -7746,7 +7917,7 @@ export default function AppDemo() {
         {effectiveView === "welcome" && <WelcomeView go={go} />}
         {effectiveView === "not-found" && <NotFoundView go={go} />}
         {effectiveView === "reset-password" && <ResetPasswordView go={go} />}
-        {effectiveView === "home" && <HomeView go={go} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} selectedDept={selectedDept} setSelectedDept={pickDept} />}
+        {effectiveView === "home" && <HomeView go={go} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} selectedDept={selectedDept} setSelectedDept={pickDept} yaEligio={yaEligio} sugerenciaCambio={sugerenciaCambio} />}
         {effectiveView === "catalog" && <CatalogView go={go} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} />}
         {effectiveView === "detail" && (currentTour
           ? <DetailView tour={currentTour} go={go} onBook={handleBook} reviews={reviews} />
