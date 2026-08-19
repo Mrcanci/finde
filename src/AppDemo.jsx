@@ -355,7 +355,16 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
     padding: 0, fontFamily: "inherit",
   });
   return (
-    <div style={{ background: "white", border: "1px solid var(--sd)", borderRadius: 14, padding: 14 }}>
+    // TOPE DE ANCHO, Y ES LO QUE HACE QUE ESCRITORIO SE VEA COMO MOVIL.
+    // La celda es cuadrada y se estira con la tarjeta, pero el numero (13px) y
+    // la etiqueta (8,5px) no: son fijos. Medido, sin tope la celda pasa de
+    // 42,28px a 390 a 72,28px de 1024 para arriba, un 64% mas de alto para el
+    // mismo contenido, y el hueco entre el numero y la etiqueta se multiplica
+    // por 14 (de 1,08 a 15,22px). El contenido pasa de llenar el 59% de la
+    // celda a llenar el 35%, y en escritorio queda todo flotando.
+    // 372px deja la celda en 45,42, que es exactamente la de un movil de 412.
+    // En movil este tope NO APLICA: la tarjeta ya mide 350 a 390 y 372 a 412.
+    <div style={{ background: "white", border: "1px solid var(--sd)", borderRadius: 14, padding: 14, maxWidth: 372, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <button type="button" onClick={goPrev} disabled={!canPrev} style={navStyle(canPrev)} aria-label="Mes anterior">
           <ChevronLeft size={18} strokeWidth={1.5} />
@@ -458,7 +467,18 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
               }}
               style={{
                 position: "relative",
-                minHeight: 44, minWidth: 0, width: "100%", aspectRatio: "1", borderRadius: 8, border,
+                minHeight: 44,
+                /* minWidth:0 NO ES DECORATIVO Y SACARLO ROMPE LA GRILLA.
+                   `minHeight:44` junto con `aspectRatio:1` le transfiere a la
+                   celda un ANCHO minimo de 44px a traves de la relacion de
+                   aspecto. Con siete columnas eso son 308px de minimo mas los
+                   gaps, mas de lo que entra en la tarjeta a 390: la grilla
+                   desborda y los domingos se salen de la tarjeta. Paso de
+                   verdad en la Fase 2, cuando la celda subio de 36 a 44 de
+                   alto. `minWidth:0` corta esa transferencia y deja que mande
+                   la columna `1fr`. Parece innecesario JUSTAMENTE porque
+                   funciona: no lo saques. */
+                minWidth: 0, width: "100%", aspectRatio: "1", borderRadius: 8, border,
                 background: bg, color, fontSize: 13, fontWeight: 600,
                 cursor, fontFamily: "inherit", textDecoration, opacity,
                 transition: "background .15s", padding: 0,

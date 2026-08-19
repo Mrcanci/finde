@@ -818,3 +818,65 @@ etiqueta ocupa los 9,72px que estaban muertos abajo.
 **Para el barrido del piso de 12px de la Fase 6B esto es una excepción medida:**
 el piso no se puede cumplir acá sin sacar el texto de la celda, que es lo que se
 revirtió. Queda para decidir cuando se ejecute ese barrido.
+
+---
+
+## La tarjeta del calendario tiene un tope de 372px en escritorio
+
+*2026-08-18*
+
+**Decisión:** la tarjeta de `MonthCalendar` lleva `maxWidth: 372`, en **los dos
+calendarios**, el de reservar y el del paso 3 del formulario de tour.
+
+**El problema, medido antes de tocar nada.** La celda es cuadrada
+(`aspectRatio: 1`) y se estira con la tarjeta, pero el número (13px) y la
+etiqueta (8,5px) son fijos. Entonces:
+
+| Ancho | Tarjeta | Celda | Aire arriba del número | Hueco número → etiqueta |
+|---|---|---|---|---|
+| 390 | 350 | 42,28 × 44 | 13 | **1,08** |
+| 412 | 372 | 45,42 × 45,42 | 13,7 | 1,8 |
+| 768 | 516 | 66 × 66 | 24 | 12,08 |
+| 1024 y 1440 | 560 | 72,28 × 72,28 | 27,14 | **15,22** |
+
+El contenido pasa de llenar el **59%** del alto de la celda a llenar el **35%**,
+y el hueco entre el número y la etiqueta se multiplica por **14**. En el
+calendario del formulario es peor, porque solo tiene el número: del 38% al
+**23%**.
+
+**Por qué 372 y no otro.** Deja la celda en 45,42px, que es exactamente la de un
+móvil de 412: compacta pero un poco más holgada que la de 390. Y en móvil el tope
+**no puede aplicar**, porque la tarjeta ya mide 350 a 390 y 372 a 412.
+
+**Descartadas, las dos medidas:**
+
+- **Escalar el número y la etiqueta con la celda** (factor 1,67: número a 21,75px
+  y etiqueta a 14,22px). Restaura la proporción exacta y de paso la etiqueta
+  superaría el piso de 12px, pero el número de día queda más grande que varios
+  títulos del producto y **no deja el escritorio igual al móvil, lo deja como un
+  calendario más grande**. Además los tamaños son estilos inline, que no aceptan
+  media queries.
+- **Que la celda deje de ser cuadrada arriba de un breakpoint.** Simulada a 1024
+  con alto fijo de 48: la grilla NO se rompe (7 columnas, todas las celdas de 48,
+  filas separadas 52, los 11 huecos vacíos estiran solos). Pero arregla el aire
+  vertical y **deja el horizontal intacto**: la celda sigue midiendo 72px de
+  ancho para un número de 13px.
+
+**Va en los dos calendarios a propósito:** no hay motivo para que la agencia vea
+un calendario peor que el viajero, y mantenerlos iguales evita que dentro de seis
+meses alguien arregle uno y se olvide del otro.
+
+**Verificación:** volcado de rectángulos a 390, 412, 768, 1024 y 1440, sobre los
+dos calendarios. **A 390 y 412: 0 celdas movidas de 33, en los dos.** De 768 para
+arriba se mueven 32 de 33, que es el cambio buscado, y la única que no se mueve
+es la flecha de mes anterior, que vive en el padding de la tarjeta. La celda
+queda en **45,42 × 45,42 a 768, 1024 y 1440**, igual que en 412.
+
+**Y de acá salió el porqué de `minWidth: 0`, que ahora está comentado en el
+código.** `minHeight: 44` junto con `aspectRatio: 1` le transfiere a la celda un
+**ancho mínimo de 44px** a través de la relación de aspecto. Con siete columnas
+eso son 308px de mínimo más los gaps, más de lo que entra en la tarjeta a 390: la
+grilla desborda y los domingos se salen. Pasó de verdad en la Fase 2, cuando la
+celda subió de 36 a 44 de alto. `minWidth: 0` es lo que corta esa transferencia.
+**Parece innecesario justamente porque funciona**, y por eso el comentario está
+al lado de la propiedad y no en un documento.
