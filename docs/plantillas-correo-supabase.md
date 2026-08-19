@@ -1,19 +1,38 @@
 # Plantillas de correo de Supabase, en español
 
-> **Para pegar a mano en el panel de Supabase: Authentication > Emails > Templates.**
-> Claude no tiene acceso a ese panel, así que este archivo es la entrega: el
-> asunto y el HTML de cada plantilla, listos para copiar.
+> **LAS CUATRO YA ESTÁN PEGADAS Y GUARDADAS** en Authentication > Emails >
+> Templates, desde el 2026-08-18. Este archivo deja de ser la entrega y pasa a
+> ser **la fuente de verdad del HTML**: si alguna vez hay que volver a pegarlas,
+> o cambiar una, se edita acá y se copia de acá.
 >
 > Escritas el 2026-08-18, después de que la prueba del SMTP propio destapara que
-> las plantillas están en inglés ("You have been invited to create a user on...").
+> venían en inglés ("You have been invited to create a user on...").
+>
+> Claude no tiene acceso a ese panel, así que pegar y probar lo hace José.
 
-## Antes que nada: lo que NO se pudo probar
+## Antes que nada: qué está probado y qué no
 
-**El HTML no se probó en ningún cliente de correo real.** No hay forma de
-hacerlo desde acá: haría falta mandarse los correos y abrirlos en Gmail, Outlook
-y Apple Mail.
+**Pegadas: las cuatro. Probadas en un cliente de correo: UNA.**
 
-**Lo que sí se verificó**, y contra la documentación, no de memoria:
+| Plantilla | ¿Se puede disparar hoy? | Estado |
+|---|---|---|
+| **Invite user** | Sí, desde Auth > Users | **Probada en Gmail el 2026-08-18. Se ve bien.** |
+| **Confirm sign up** | No: `mailer_autoconfirm` está en `true` | Pegada, **sin probar** |
+| **Magic Link** (código de 6 dígitos) | No: no hay flujo de OTP | Pegada, **sin probar** |
+| **Reset password** | No: no hay flujo de recuperación | Pegada, **sin probar** |
+
+**Las tres sin probar no lo están por descuido: hoy no se pueden mandar**, porque
+no existe el flujo que las dispara.
+
+> **Cada una se verifica EN EL MOMENTO en que se implemente su flujo, no antes.
+> Estar pegada no es estar probada.**
+
+**Y falta un eje entero en las cuatro: solo se probó Gmail.** Queda pendiente
+**Outlook de Windows**, que usa el motor de Word y es el que rompe lo que en
+todos los demás anda, y **Apple Mail**.
+
+**Lo que sí se verificó al escribirlas**, contra la documentación y no de
+memoria:
 
 1. Que cada variable que aparece en las plantillas exista de verdad en la
    plantilla donde se usa (documentación de Supabase, ver la tabla de abajo).
@@ -22,10 +41,8 @@ y Apple Mail.
    `<style>`, clases CSS, `flex`, `grid`, `position`, `@font-face`, `@media`,
    enlaces a fuentes web, scripts o imágenes remotas.
 
-**Lo que queda pendiente de verdad: abrir los cuatro correos en Gmail, en Outlook
-de Windows y en Apple Mail antes de darlos por buenos.** Sobre todo Outlook de
-Windows, que usa el motor de Word y es el que rompe cosas que en todos los demás
-andan.
+**Nada de eso reemplaza abrir el correo.** El script lee el HTML; no sabe cómo lo
+dibuja Outlook.
 
 ## Qué plantillas ofrece Supabase, y cuáles necesita Finde
 
@@ -446,11 +463,12 @@ Finde. Tours de agencias peruanas formales.<br>finde.pe
 
 ---
 
-## Al pegarlas, dos cosas
+## Dos cosas al volver acá
 
-1. **El asunto también está en inglés** y va en el campo de arriba, aparte del
-   HTML. Es fácil cambiar el cuerpo y olvidarse del asunto.
-2. **La confirmación de correo sigue apagada** (`mailer_autoconfirm: true`).
-   Pegar la plantilla 1 no la enciende, y encenderla es una decisión de producto
-   aparte: corta el checkout con la fecha y los cupos ya elegidos. El
-   razonamiento está en `docs/pendientes-producto.md`.
+1. **El asunto va en el campo de arriba, aparte del HTML.** Es fácil cambiar el
+   cuerpo y olvidarse del asunto, que era la otra mitad que venía en inglés.
+2. **Pegar la plantilla 1 no enciende la confirmación de correo.** Sigue apagada
+   (`mailer_autoconfirm: true`), y encenderla es una decisión de producto aparte:
+   corta el checkout con la fecha y los cupos ya elegidos. El razonamiento está
+   en `docs/pendientes-producto.md`. **Ese es también el momento de abrir el
+   correo de Confirm sign up y mirarlo**, que hoy no se puede.

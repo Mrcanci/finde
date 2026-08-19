@@ -79,31 +79,48 @@ corte**: el viajero igual tiene que salir al correo y volver.
 > falta es tomar esa decisión, y traducir las plantillas antes de que esos
 > textos se empiecen a ver.
 
-## Pendiente: las plantillas de correo de Supabase están en INGLÉS
+## Las plantillas de correo: traducidas y pegadas, probada una de cuatro
 
-**Encontrado el 2026-08-18, probando el SMTP propio.** La invitación de prueba
-llegó diciendo **"You have been invited to create a user on..."**.
+**Estaban en inglés**, encontrado el 2026-08-18 probando el SMTP propio: la
+invitación llegó diciendo **"You have been invited to create a user on..."**. Los
+usuarios son peruanos y el resto del producto está en español, con el canon de
+`CLAUDE.md`: segunda persona, español peruano, sin vocabulario ibérico y sin
+rayas. Un correo de la plataforma en inglés rompía eso en el primer contacto con
+la cuenta.
 
-**Los usuarios son peruanos y el resto del producto está en español**, con el
-canon de terminología que fija `CLAUDE.md`: segunda persona, español peruano, sin
-vocabulario ibérico y sin rayas. Un correo de la plataforma en inglés rompe eso
-en el primer contacto con la cuenta.
+**Resuelto el mismo día: las cuatro están escritas, pegadas y guardadas** en
+Authentication > Emails > Templates, en español y con la identidad de Finde. El
+HTML de cada una vive en `docs/plantillas-correo-supabase.md`. Entre ellas está
+la que faltaba en la lista original: **el código de 6 dígitos no tiene plantilla
+propia, sale de "Magic Link"**.
 
-**Dónde se cambia:** Authentication > Emails > Templates, en el panel de Supabase.
-Es configuración, igual que el SMTP.
+### Lo que queda abierto es la VERIFICACIÓN, y no es lo mismo que estar pegadas
 
-**Las plantillas ya están escritas**, en español y con la identidad de la app, en
-`docs/plantillas-correo-supabase.md`: son cuatro, con su asunto y su HTML listo
-para copiar. **Ahí está también la que faltaba en la lista original: el código de
-6 dígitos no tiene plantilla propia, sale de "Magic Link".** Lo que no se pudo
-hacer desde acá es abrirlas en un cliente de correo real, así que eso queda como
-el paso final antes de darlas por buenas.
+**Probada de verdad hay una sola.** Este es el estado real, plantilla por
+plantilla:
 
-**Cuándo:** **junto con reactivar la confirmación de correo.** Hoy casi nadie ve
-esos textos, porque con `mailer_autoconfirm` encendido el alta no manda correo de
-confirmación. El día que se reactive, pasan a ser el primer correo que recibe
-todo usuario nuevo. Hacer las dos cosas en el mismo movimiento evita el hueco de
-mandar el primer correo del producto en inglés.
+| Plantilla | ¿Se puede disparar hoy? | Estado |
+|---|---|---|
+| **Invite user** | Sí, desde Auth > Users | **Probada en Gmail el 2026-08-18. Se ve bien.** |
+| **Confirm sign up** | No: `mailer_autoconfirm` está en `true` | Pegada, **sin probar** |
+| **Magic Link** (el código de 6 dígitos) | No: no hay flujo de OTP, nadie llama a `signInWithOtp` | Pegada, **sin probar** |
+| **Reset password** | No: no hay flujo de recuperación, nadie llama a `resetPasswordForEmail` | Pegada, **sin probar** |
+
+**Las tres sin probar no lo están por descuido: no se pueden mandar.** Cada una
+necesita que exista su flujo, y ninguno de los tres existe todavía.
+
+> **Regla, para que nadie las dé por buenas antes de tiempo: cada una de esas
+> tres se verifica EN EL MOMENTO en que se implemente su flujo, no antes.**
+> Reactivar `mailer_autoconfirm`, construir el OTP o construir la recuperación
+> son las tres ocasiones, y el correo se abre y se mira como parte de esa tanda.
+> Estar pegada no es estar probada.
+
+**Y falta un eje entero, en las cuatro: solo se probó Gmail.** La advertencia al
+escribirlas fue que el render no se podía verificar desde el repo, y sigue en
+pie para **Outlook de Windows** (que usa el motor de Word y es el que rompe lo
+que en todos los demás anda) y **Apple Mail**. Los detalles de qué se verificó
+por lectura del HTML, y qué no, están arriba de todo en
+`docs/plantillas-correo-supabase.md`.
 
 ## BUG DE UX: el botón de atrás rompe el checkout entero
 

@@ -87,5 +87,7 @@ if (fallas > 0) {
   process.exit(1);
 }
 console.log("Todo OK en lo que se puede verificar leyendo el HTML.");
-console.log("FALTA, y no lo cubre este script: abrir los correos en Gmail,");
-console.log("Outlook de Windows y Apple Mail.");
+console.log("LO QUE ESTE SCRIPT NO CUBRE: como dibuja el HTML un cliente real.");
+console.log("Al 2026-08-18 solo se probo Invite user, en Gmail. Las otras tres no");
+console.log("se pueden disparar todavia, y falta Outlook de Windows y Apple Mail");
+console.log("en las cuatro. Ver docs/plantillas-correo-supabase.md.");
