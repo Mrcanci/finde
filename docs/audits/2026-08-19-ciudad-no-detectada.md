@@ -207,3 +207,150 @@ el formulario de tour tenga un selector de ciudad y región en vez de texto libr
 la lista de ciudades de ese selector y la lista de ciudades soportadas **deberían
 ser la misma**. Hacer las dos cosas en tandas separadas y con listas distintas
 sería crear una cuarta.
+
+---
+
+# El plan (propuesto el 2026-08-19, sin escribir código todavía)
+
+## Un hallazgo posterior al diagnóstico que cambia el plan
+
+**`x-vercel-ip-country-region` no es un nombre de región: es el código ISO
+3166-2.** Documentación de Vercel: "a string of up to three characters containing
+the region-portion of the ISO 3166-2 code for the first level region". En Perú el
+primer nivel son **los 25 departamentos más Callao**, así que ese header trae
+`CAJ`, `LIM`, `CUS`, `ARE`.
+
+**Consecuencia inmediata: la rama por región de `mapToSupportedCity` es código
+muerto, salvo por una coincidencia.** Compara el código ISO contra alias que son
+nombres de ciudad. Probados los 25 códigos:
+
+```
+codigos que matchean: ICA -> Ica     (uno solo, y por casualidad ortográfica)
+
+alguien en Pisco (Ica)      -> "Ica"  (matched, por el accidente de "ICA")
+alguien en Urubamba (Cusco) -> "Lima" (unmapped)
+```
+
+**Y consecuencia para el plan: existe una llave que cubre el país entero y no
+cambia nunca**, porque los departamentos del Perú no se agregan cada vez que
+entra una agencia.
+
+## 1. Unificar la lista, antes de agregar una sola ciudad
+
+**Hoy está escrita tres veces y las tres son distintas.** Agregar Cajamarca sin
+unificar es crear la cuarta copia. Es el mismo patrón que ya costó cuatro veces:
+`mapTourFromApi`, `takeSeats`, la condición de publicar y el objeto del panel.
+
+**Forma propuesta: `lib/cities.js`, JavaScript plano con JSDoc y CERO imports**,
+siguiendo el precedente documentado de `lib/tour-publish.js`, que existe
+exactamente por esto: lo importan los dos lados sin que el navegador arrastre
+nada. Ahí viven la lista canónica, la tabla de mapeo y `normalize`.
+
+Consumidores: `lib/geo.ts` (que se queda como el que lee headers), y las **dos**
+listas de `src/AppDemo.jsx`, incluida la del buscador local por palabras.
+
+> **Anotar junto a la lista: el día que el formulario de tour tenga selector de
+> ciudad y región en vez de texto libre, ESA lista y ESTA tienen que ser la
+> misma.** Si no, se crea la cuarta copia por otra puerta, y esta vez con la
+> excusa de que es "del formulario".
+
+## 2. Que se pueda diagnosticar sin adivinar
+
+Tres piezas, de menor a mayor:
+
+1. **`reason` pasa a ser un campo permanente de la respuesta.** Hoy existe pero
+   solo dentro de `debug`, y `debug` no sale nunca en Vercel. `source` colapsa
+   tres casos distintos en `"fallback"`. Con `reason` visible siempre, un `curl`
+   distingue "no te detecté" de "te detecté y no te tengo".
+   **No expone nada:** es una categoría de cuatro valores.
+2. **`/api/geo?debug=1` devuelve la ciudad y la región crudas.** Lo único que
+   revela es **la ubicación del que pregunta, a él mismo**. No hay datos de otros
+   usuarios ni secretos. Es lo que habría contestado la pregunta de José sin que
+   él tuviera que acordarse de nada.
+3. **Que la interfaz deje de afirmar lo que no sabe.** Hoy dice "Tours en Lima"
+   con la misma cara cuando detectó Lima y cuando no detectó nada. Propuesta:
+   cuando `reason !== "matched"`, el título no afirma ubicación y **el selector
+   se muestra prominente**, invitando a elegir. Eso además cubre el escenario de
+   las IPs móviles sin tener que resolverlo: si la detección no es confiable, lo
+   honesto es preguntar.
+
+## 3. Las ciudades que faltan: el criterio
+
+**La formulación que importa, y no era el bug reportado:** hoy **7 de 42 tours
+activos no aparecen en ninguna ciudad, y cinco son de MEGATOURS**. El catálogo
+entero de la única agencia real es invisible en la única sección que ordena tours
+por ubicación.
+
+### Las tres opciones, con su costo medido
+
+| | Qué es | Grupos hoy | Datos sucios | Mantenimiento |
+|---|---|---|---|---|
+| **A** | Agregar Cajamarca, Chachapoyas y Tarapoto a mano | 12 | ninguno | **Una edición por agencia nueva fuera de la lista** |
+| **B** | Derivar de las **ciudades** que tienen tours | **18** | **1** (`"Huacachina, Ica"`, con la coma adentro) | cero |
+| **C** | Derivar de la **región** (departamento), y mapear la IP por **código ISO** | **12** | **0** | **cero, y para siempre** |
+
+**Medido sobre los 42 activos:**
+
+```
+por ciudad:  18 grupos | 1 sucio | fragmenta Cusco en Cusco/Ollantaytambo/Pisac
+                                   y Lima en Lima/Chancay/Lunahuaná
+por region:  12 grupos | 0 sucios | 0 tours sin region | 0 huerfanos
+             Lima 10 · Cusco 8 · Cajamarca 5 · Arequipa 5 · Ica 4 · Piura 2
+             Madre de Dios 2 · La Libertad 2 · Amazonas 1 · Loreto 1
+             Áncash 1 · San Martín 1
+```
+
+### La recomendación es la C, y el argumento es que la lista deja de existir
+
+**La A es la que hay que descartar por lo que José ya dijo**: una lista a mano de
+nueve ciudades en un producto que vende descentralización queda corta cada vez
+que entra una agencia nueva.
+
+**La B tiene un costo que no se ve hasta medirlo: hereda la calidad del dato.**
+Uno de los 18 grupos ya nace roto (`"Huacachina, Ica"`, con la coma del campo de
+texto libre metida adentro de la ciudad), y fragmenta destinos que el viajero
+piensa juntos. **El selector pasaría a ser un espejo del pendiente de datos
+sucios que sigue abierto.**
+
+**La C usa una llave que no depende de nosotros ni de las agencias:** los 25
+departamentos del Perú. El mapeo IP → departamento es una tabla escrita una vez y
+que no se toca nunca más, y los grupos salen de los tours que existen. **Con eso
+la lista deja de ser una lista.**
+
+### Lo que cuesta la C, dicho completo
+
+1. **El nombre que ve el viajero cambia en seis casos.** "Tours en Loreto" en vez
+   de "Tours en Iquitos", y lo mismo con Áncash/Huaraz, La Libertad/Trujillo,
+   Madre de Dios/Puerto Maldonado, San Martín/Tarapoto y Amazonas/Chachapoyas.
+   **En los seis, el departamento es menos reconocible que el destino.** Se
+   resuelve con una tabla chica de nombres para mostrar, pero eso es una decisión
+   de producto y va aparte.
+2. **Acopla esta función al pendiente de `Tour.region` sucio.** Hoy los 42
+   activos tienen región limpia, pero el formulario puede volver a ensuciarla.
+   **Esto no es solo un costo: sube la apuesta de cerrar ese formulario**, porque
+   pasa a verse en el producto y no solo en una métrica de un informe.
+3. **Hay que confirmar el valor real del header**, y hoy no se puede. **Por eso
+   el paso 2 va antes que el 3**: sin poder ver qué manda Vercel, la C se
+   escribiría sobre una lectura de la documentación en vez de sobre una medición.
+
+## 4. Pendiente aparte, sin arreglar: "tours cerca de mí" no funciona
+
+El POST a `/api/search` manda **solo** `{ query }`. La ciudad detectada nunca
+viaja al backend, así que la búsqueda con IA no puede priorizar por cercanía
+aunque el frontend ya sepa dónde está el usuario. **Se anota, no se arregla en
+esta tanda.**
+
+## 5. La poda de `docs/estado.md`
+
+Va en la tanda del arreglo. Está en 248 líneas contra un tope de 250, y este bug
+necesita su propia línea.
+
+## El orden, y por qué es ese
+
+1. **Unificar** (sin cambiar comportamiento). Verificable: la salida del filtro
+   tiene que ser idéntica antes y después, tour por tour.
+2. **Hacer visible el diagnóstico.** Habilita medir el header real.
+3. **Medir el header en producción** y recién ahí elegir entre B y C con el dato
+   a la vista.
+4. **Aplicar la opción elegida**, más los nombres para mostrar si se va por C.
+5. **Anotar** el pendiente de la búsqueda y **podar** el estado.
