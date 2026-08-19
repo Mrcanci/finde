@@ -24,15 +24,23 @@ x-vercel-ip-city="Cajamarca" region="Cajamarca" -> "Lima" (reason: unmapped)
 x-vercel-ip-city="Arequipa"  region="ARE"       -> "Arequipa" (reason: matched)
 ```
 
-**Y el endpoint funciona.** Contra producción, desde una máquina en Arequipa:
+**Y el endpoint responde.** Contra producción:
 
 ```
 GET https://www.finde.pe/api/geo
 {"city":"Arequipa","country":"PE","source":"geo"}
 ```
 
-O sea que el mecanismo está bien: detecta, mapea y responde. Solo que para
-Cajamarca no tiene a dónde mapear.
+> **CORRECCIÓN del 2026-08-19, y es un error de razonamiento mío, no un dato
+> que envejeció.** La primera versión de este párrafo decía "desde una máquina
+> en Arequipa". **Eso era circular**: describí dónde estaba la máquina usando la
+> respuesta que estaba probando. Nadie verificó que la máquina estuviera en
+> Arequipa. Lo que la medición dice es "el endpoint responde Arequipa con
+> source geo", nada más. Ver "La segunda cara" al final, que es donde esa
+> distinción resultó ser lo más importante del informe.
+
+O sea que el mecanismo responde: detecta algo, mapea y contesta. Para Cajamarca
+no tiene a dónde mapear.
 
 ## 1. Cómo detecta la ciudad
 
@@ -354,3 +362,101 @@ necesita su propia línea.
    a la vista.
 4. **Aplicar la opción elegida**, más los nombres para mostrar si se va por C.
 5. **Anotar** el pendiente de la búsqueda y **podar** el estado.
+
+---
+
+# La segunda cara: la detección se equivocó, y eso cambia el orden
+
+*Agregado el 2026-08-19, después de que José confirmara que no usa VPN.*
+
+## Las dos mediciones, juntas
+
+| Dónde estaba José | Qué detectó | Qué hizo | Veredicto |
+|---|---|---|---|
+| **Cajamarca** | `Cajamarca` (bien) | no matcheó, cayó a Lima | **la lista era corta** |
+| **Lima** | `Arequipa` (**mal**) | matcheó y mostró Arequipa | **la detección se equivocó** |
+
+**La segunda medición salió de la máquina de José, corriendo en Lima, y da
+`Arequipa` con `source: "geo"` de forma estable (repetida dos veces).** Sin VPN.
+
+**Y esa es la peor de las dos**, porque `source: "geo"` es lo que enciende el
+texto **" · cerca de ti"**. O sea que la app le decía a José, con confianza:
+
+> **Tours en Arequipa · cerca de ti**
+
+estando él en Lima. **No es que no supiera: es que afirmó, y se equivocó.**
+
+## Lo que NO se puede concluir, y hay que decirlo
+
+**Dos casos no miden una tasa de error.** Sería exactamente el error que este
+mismo repo acaba de anotar como regla (`.claude/rules/metodo.md`, punto 6): sacar
+una conclusión general de un solo caso que salió como uno esperaba.
+
+**No sabemos si la geolocalización por IP falla el 5% o el 50% de las veces en
+Perú.** Lo que sabemos es que **falla**, con un caso confirmado y sin VPN de por
+medio.
+
+## Y no hace falta saber la tasa, porque la asimetría ya decide
+
+| | Qué gana el viajero | Qué pierde |
+|---|---|---|
+| **Detección correcta** | se ahorra **un toque** en el selector | nada |
+| **Detección incorrecta** | nada | ve **el catálogo equivocado**, con un sello que dice que estamos seguros |
+
+**El premio por acertar es un toque. El costo de errar es mandarlo a otra ciudad
+y decirle que es la suya.** Con esa asimetría, la decisión no depende de la tasa:
+aunque acertara el 90% de las veces, seguiría sin convenir afirmar.
+
+**La detección por IP no se arregla con código nuestro.** Se deja de afirmar, o
+se pregunta.
+
+## El tratamiento propuesto para la interfaz, en tres niveles
+
+### Nivel 1: sacar " · cerca de ti"
+
+**Es la única frase donde la app dice saber dónde está el viajero**, y es la que
+estaba mintiendo. Sacarla no cuesta nada y no se pierde ninguna función: la
+ciudad elegida se sigue viendo en el título y en el selector.
+
+### Nivel 2: el encabezado deja de afirmar
+
+Hoy "Tours en Lima" es una **afirmación sobre el viajero**. Pasa a ser una
+**etiqueta de lo que está mirando**, con el selector al lado como el control que
+lo cambia. La ciudad deja de ser "dónde estás" y pasa a ser "qué estás viendo",
+que es lo único que la app puede sostener.
+
+### Nivel 3: preguntar la primera vez, y no volver a adivinar
+
+En la primera visita, en vez de adivinar en silencio, **una fila de ciudades con
+la sugerencia ya resaltada**. Un toque y listo. La elección se recuerda
+(`localStorage`, con el precedente que ya existe para las notificaciones vistas y
+el borrador del checkout).
+
+**Qué cuesta:** algo de fricción en la primera carga del inicio. Se mitiga
+haciéndolo **en línea y no en un modal**, con la sugerencia preseleccionada, para
+que el que no quiera elegir simplemente siga scrolleando.
+
+**Qué resuelve, y es lo que ningún arreglo de código resuelve:** el viajero que
+está en un lugar que la IP reporta mal deja de depender de que nosotros
+acertemos.
+
+## Sobre invertir el orden: sí, y hay un argumento que no es solo de prioridad
+
+**La C empeora el costo de una detección equivocada.** Hoy, cuando la detección
+falla, el viajero aterriza en Lima: el catálogo más grande, el destino menos
+sorprendente, y la equivocación pasa desapercibida.
+
+**Con la C, una detección equivocada puede aterrizar en "Loreto" y mostrar UN
+tour.** Y el viajero, que además leyó "cerca de ti", concluye que eso es todo lo
+que Finde tiene cerca suyo. **Mejorar la lista sin sacar la afirmación hace que
+el error, cuando pase, sea más caro y más creíble.**
+
+Por eso el orden pasa a ser:
+
+1. **Dejar de afirmar** (niveles 1 y 2). Es chico y quita una mentira que ya
+   ocurrió, medida.
+2. **La C**, que sigue valiendo por sí sola: 7 tours invisibles, 5 de la única
+   agencia real, es un problema independiente de la precisión de la detección.
+3. **Preguntar la primera vez** (nivel 3), que es lo que de verdad reemplaza a la
+   adivinanza, y que conviene hacer **después** de la C, porque recién ahí la
+   lista de ciudades para elegir cubre el país.
