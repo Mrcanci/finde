@@ -880,3 +880,90 @@ grilla desborda y los domingos se salen. Pasó de verdad en la Fase 2, cuando la
 celda subió de 36 a 44 de alto. `minWidth: 0` es lo que corta esa transferencia.
 **Parece innecesario justamente porque funciona**, y por eso el comentario está
 al lado de la propiedad y no en un documento.
+
+---
+
+## La ciudad por defecto es Lima fija, sin usar la detección por IP
+
+*2026-08-19*
+
+**Decisión:** el departamento por defecto es **Lima, fijo**. La geolocalización por
+IP deja de elegirlo.
+
+**Razón, y es de probabilidad, no de precisión.** De la detección hay **dos casos
+medidos**: uno acertó (Cajamarca) y uno falló (José en Lima, detectado como
+Arequipa, con `reason: "matched"`). **No sabemos la tasa de error.** Lo que sí se
+sabe es que **Lima concentra alrededor del 30% de la población del país** y va a
+ser el origen más frecuente. Si el default se va a equivocar igual, conviene que
+se equivoque hacia el caso más probable y no hacia un dato poco confiable.
+
+**Y no se pierde nada:** lo que resuelve de verdad es la fila "¿Desde dónde
+viajas?", que está a un toque, y la elección se recuerda.
+
+### Se sigue llamando a `/api/geo`, y esto es lo que hace coherente la decisión
+
+Parece contradictorio conservar algo de lo que se desconfía. **La distinción es
+entre AFIRMAR y PREGUNTAR:**
+
+- El default y el viejo " · cerca de ti" eran **afirmaciones**: la app decía saber
+  dónde estabas, y cuando se equivocaba, mentía.
+- La oferta "¿Estás en Cusco?" es una **pregunta descartable**, y **una pregunta
+  puede estar equivocada sin mentir**.
+
+Hay además un motivo técnico: **la oferta no necesita que la detección sea
+correcta, solo que sea estable.** Lo que la dispara es un CAMBIO respecto de lo
+que la IP decía cuando el viajero eligió, y un cambio sigue significando "la
+conexión cambió" aunque el valor esté mal. **Si dejáramos de llamar,
+`detectedAtChoice` quedaría en null para siempre y la oferta no podría dispararse
+nunca**: dejar de llamar no habría sido neutral, habría matado la función en
+silencio.
+
+### La fila se le muestra a todos, y por qué no se saltea
+
+**No mostrársela a quien la IP dice que está en Lima sería usar la detección para
+tomar una decisión sobre el usuario**, que es exactamente lo que se sacó. Y sería
+peor que " · cerca de ti": aquello al menos estaba en pantalla y se podía
+desmentir; esto sería invisible.
+
+El dato de población juega en la misma dirección: si Lima es el ~30%, **el ~70%
+no está en Lima**. Saltear la pregunta solo se justificaría si pudiéramos
+identificar a ese 30%, que es justo lo que no podemos.
+
+### Arregló de paso un defecto que nadie había reportado
+
+**La sección de ciudad cambiaba bajo el usuario.** Arrancaba en Lima y saltaba a
+lo detectado cuando `/api/geo` respondía, así que el carrusel se reemplazaba solo
+unos cientos de milisegundos después de cargar.
+
+**Medido con las dos versiones**, retardando la respuesta del endpoint para poder
+observar la ventana:
+
+```
+codigo anterior -> "Tours en Lima" y salta a "Tours en Arequipa"
+codigo nuevo    -> "Tours en Lima" a los 178 segundos, con la API
+                   detectando Arequipa. NO SALTA.
+```
+
+**Queda registrado como defecto arreglado, no como efecto lateral**, para que
+nadie lo reintroduzca "aplicando la sugerencia" de nuevo.
+
+### El disparador de revisión, con su instrumento
+
+> **Cuando haya tráfico real: si mucha gente cambia de ciudad apenas entra, la
+> detección falla seguido y conviene revisar la decisión. Si casi nadie la
+> cambia, el default está bien.**
+
+**Y hay que decir que HOY ESO NO SE PUEDE MEDIR**, porque un disparador que no se
+puede medir no es un disparador:
+
+- **Los eventos personalizados de Vercel Web Analytics no están en el plan
+  Hobby** (verificado contra la tabla de planes: aparecen desde Pro).
+- **El redactor de `src/main.jsx` borra todos los query params** antes de enviar
+  el evento, por la decisión de privacidad ya tomada, así que un `?ciudad=`
+  tampoco se vería.
+
+**El instrumento elegido es el mismo que la tanda 4 ya eligió para el embudo:
+darle URL propia al paso**, que cuesta cero bytes y sobrevive al redactor si es
+ruta y no query. **Se activa junto con esa instrumentación**, que está diferida
+hasta que haya tráfico (medido entonces: 15 páginas vistas en 30 días, todas del
+QA propio).

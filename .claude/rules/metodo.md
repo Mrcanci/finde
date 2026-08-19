@@ -327,6 +327,33 @@ En la práctica, antes de insertar un bloque nuevo: **mirar bajo qué `##` va a
 quedar**, no solo qué párrafo tiene arriba. Un `grep -n "^## "` sobre el archivo
 cuesta un segundo y evita esto.
 
+### 7. Un disparador que no se puede medir no es un disparador
+
+**Escrito el 2026-08-19, revisando una decisión propia.** Al fijar Lima como
+ciudad por defecto se escribió el disparador de revisión: *"cuando haya tráfico,
+si mucha gente cambia de ciudad apenas entra, la detección falla seguido"*.
+
+Suena bien y **no se podía medir**. Los eventos personalizados de Vercel Web
+Analytics no están en el plan Hobby, y el redactor de `src/main.jsx` borra los
+query params antes de enviarlos. O sea que la condición que iba a reabrir la
+decisión **no tenía forma de cumplirse ni de fallar**.
+
+**Un disparador así es peor que no tener ninguno**, y por una razón concreta: da
+la sensación de que la decisión queda vigilada. Nadie vuelve a mirarla, porque
+figura como pendiente de un dato que nunca va a llegar.
+
+**La regla operativa, y son dos líneas al escribir cualquier disparador:**
+
+1. **Nombrar el instrumento**, no solo la condición. No "si mucha gente cambia de
+   ciudad" sino "si el evento X, que hoy no existe, muestra que...".
+2. **Si el instrumento no existe, decirlo ahí mismo y atarlo a la tanda que lo
+   va a crear.** En este caso: la instrumentación del embudo, que ya estaba
+   diferida hasta que hubiera tráfico. El disparador pasa a depender de algo
+   agendado en vez de algo imaginario.
+
+**Vale igual para los criterios de éxito**, no solo para los de revisión: "hasta
+que se vea que funciona" sin decir dónde se vería es la misma trampa.
+
 ---
 
 ## El criterio para decidir cuánto rigor aplicar
