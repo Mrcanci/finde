@@ -124,6 +124,49 @@ recorriendo el flujo con intención de usarlo.
 pidiendo un checklist corto y específico (páginas, flujos, casos borde) y nunca
 uno genérico.
 
+#### Un QA que crea o publica algo TERMINA con el paso de limpieza y su conteo
+
+**Va como paso numerado de la checklist, nunca como nota al pie.** Un "borrá los
+datos que crees al terminar" al final del mensaje no se ejecuta: se lee cuando
+la cabeza ya está en el resultado de la prueba.
+
+**Ocurrió DOS veces, y la segunda con la nota al pie puesta:**
+
+| Cuándo | Qué quedó en producción | Cómo se detectó |
+|---|---|---|
+| **2026-08-16** | nueve agencias con el sello de verificación sin tenerlo ganado | por auditoría, no por el QA |
+| **2026-08-18** | el tour **"prueba" público en finde.pe** (el paso decía "publicalo y volvé a pausarlo") y **"prueba beto" sin borrar** (el paso decía "borralo al terminar"). El catálogo público pasó de 42 a **44** | **de casualidad**, consultando la base para otra cosa |
+
+**El segundo caso es el que fija la regla, y por dos motivos.** Primero, la
+checklist **sí** pedía revertir las dos cosas, y aun así quedaron: pedirlo no
+alcanza. Segundo, **nada avisa**. Un tour de prueba publicado no rompe nada, no
+da error y no aparece en ninguna pantalla que alguien mire: se queda ahí hasta
+que a alguien se le ocurre contar.
+
+**La regla operativa, en dos partes:**
+
+1. **El último paso de la checklist es la limpieza, numerado como los demás**, y
+   dice qué revertir, uno por uno. "Publicá X" obliga a "volvé a pausar X".
+2. **Y cierra con un conteo verificable**, no con "listo". El conteo es lo único
+   que distingue "lo hice" de "creo que lo hice":
+
+   > **6. Limpieza.** Pausá "prueba" y borrá el tour que creaste. Al terminar,
+   > el catálogo público tiene que volver a **42 tours activos**.
+
+**El número sale de medirlo ANTES**, al escribir la checklist, no después. Si no
+se sabe cuál es el número de partida, el paso de limpieza no se puede verificar y
+la checklist está incompleta.
+
+**Vale para todo lo que deja rastro fuera de la sesión**, no solo para tours:
+reservas creadas, salidas confirmadas (que además mandan correos reales e
+irreversibles, ver `CLAUDE.md`), agencias de prueba y fotos subidas al bucket.
+
+**Y si la limpieza la hace el asistente por la base**, va con las mismas guardas
+que el endpoint que haría lo mismo: verificar el registro por id **y por
+nombre**, comprobar que no tenga dependencias (`_count` de reservas y salidas
+antes de borrar), y borrar la foto del bucket, o queda huérfana y suma a la deuda
+que `docs/pendientes-producto.md` ya lista.
+
 ### 5. Medir el punto exacto, no los bordes
 
 **Tres bugs distintos con la misma forma**: el API devolvía el dato, el consumidor

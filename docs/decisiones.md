@@ -754,3 +754,129 @@ La entrada anterior decía "el CLAUDE.md y la UI todavía mencionan 15%, hay que
 - **El sello falso ya se limpió** (`38823ed`, ver `docs/historia/2026-08-sello-verificacion.md`). Hoy hay **2 agencias verificadas** sobre 14, no 9.
 - **La única con el sello ganado de verdad es MEGATOURS.** La otra es `demo@finde.pe`, la cuenta de demos, que conserva `verified: true` y un MINCETUR inventado (`"REG12345"`). No se ve porque sus tours están pausados, no porque algo lo impida: **está en la checklist de `docs/estado.md` como ítem propio.**
 - **Lo que sigue sin respaldo técnico es el proceso, y es a propósito.** El código solo valida que el RUC tenga 11 dígitos; la verificación contra SUNAT y MINCETUR la hace José a mano y **es el proceso vigente, no una carencia** (ver `CLAUDE.md`). La tensión real no es que falte automatización: es que **`verified` es un booleano que se escribe a mano y nada en el código impide escribirlo mal**. Por eso el control es la checklist, no una validación.
+
+---
+
+## La etiqueta de escasez del calendario se queda en la celda, con el texto corto
+
+*2026-08-18*
+
+**Decisión:** el aviso de cupos bajos sigue **dentro de la celda** del
+calendario. Lo que cambia es el texto: **"Último cupo" pasa a "1 cupo"**, y el
+tamaño sube de 8 a **8,5px**.
+
+**Descartados, los dos medidos en pantalla y no discutidos:**
+
+1. **El punto de color en la celda.** Era la opción anotada en `docs/estado.md`
+   antes de mirarla. Se montaron las dos variantes a 390 y 412: sin elegir, el
+   punto no aporta nada sobre el tinte, el borde y el número que la celda ya
+   tiene en terracota; y **con la fecha ya elegida la celda se llena de terracota
+   sólido y el punto terracota desaparece**. O sea que falla en el estado donde
+   más importaría. Sostenerlo obliga a invertirlo a blanco, una regla condicional
+   de color para algo que en el estado normal ya era redundante.
+2. **Sacar el texto de la celda**, compensándolo con una leyenda dentro de la
+   tarjeta y un `aria-label`. **Se construyó, se verificó (198 celdas comparadas,
+   0 movidas) y se revirtió** en el mismo día: resolvía el desborde, pero a
+   cambio de tres piezas nuevas donde alcanzaba con acortar una palabra.
+
+**Razón del camino elegido:** el desborde lo causaba el largo del texto, no el
+tamaño. "Último cupo" mide **47,31px a 8px**, y desborda en **los cuatro anchos
+probados**, incluso en 412 donde solo hay 43,42px. "3 cupos" mide 32,53px a
+8,5px. El problema era de 11 caracteres, no de tipografía.
+
+**Consecuencia en el código:** una sola línea del `data-low-label` de
+`MonthCalendar` (`src/AppDemo.jsx`). Las variantes de ese texto son exactamente
+tres, porque el valor está acotado a 1..3 por la condición de la celda y por
+`computeAvailability` (`api/tours/[id].ts`): "1 cupo", "2 cupos", "3 cupos".
+
+**El dato que hay que llevarse, y que vale más que la decisión: esta etiqueta no
+puede cumplir el piso de 12px de la escala tipográfica.** Medido con la fuente
+real, en el ancho de la celda de cada viewport:
+
+| Ancho | Celda | Disponible | "3 cupos" a 8,5px | a 9px | a 12px |
+|---|---|---|---|---|---|
+| 360 | 38px | **36px** | 32,53 (entra) | 34,45 (entra) | 45,92 (desborda) |
+| 390 | 42,3px | 40,28px | 32,53 | 34,45 | 45,92 (desborda) |
+| 412 | 45,4px | 43,42px | 32,53 | 34,45 | 45,92 (desborda) |
+
+**El techo es 9px** (a 9,5 ya desborda en 360). Se aplicó **8,5** y no 9 por una
+medición concreta: si Plus Jakarta Sans no llegó a cargar todavía, el respaldo
+`system-ui` mide **36,95px a 9px** contra los 36 disponibles, o sea que **9px
+desborda durante el FOUT**, que es exactamente el defecto que esto viene a
+arreglar. A 8,5px el respaldo mide 35,11 y entra.
+
+**Ajuste posterior del mismo día, y destapó un defecto que nadie había visto.**
+La etiqueta quedaba pegada al número y abajo sobraba espacio. Al medirlo apareció
+la causa real: número y etiqueta vivían dentro de un mismo `flex column` que se
+centraba **como una sola pieza**, así que en las celdas con cupo bajo el número
+quedaba **4,46px más arriba** que en las celdas normales. En una fila de siete
+días eso se ve. La etiqueta pasó a `position: absolute` anclada al fondo de la
+celda, o sea que ya no participa del centrado: **la desalineación del número
+contra una celda sin etiqueta pasó de 4,46px a 0** a 360, 390 y 412, y la
+etiqueta ocupa los 9,72px que estaban muertos abajo.
+
+**Para el barrido del piso de 12px de la Fase 6B esto es una excepción medida:**
+el piso no se puede cumplir acá sin sacar el texto de la celda, que es lo que se
+revirtió. Queda para decidir cuando se ejecute ese barrido.
+
+---
+
+## La tarjeta del calendario tiene un tope de 372px en escritorio
+
+*2026-08-18*
+
+**Decisión:** la tarjeta de `MonthCalendar` lleva `maxWidth: 372`, en **los dos
+calendarios**, el de reservar y el del paso 3 del formulario de tour.
+
+**El problema, medido antes de tocar nada.** La celda es cuadrada
+(`aspectRatio: 1`) y se estira con la tarjeta, pero el número (13px) y la
+etiqueta (8,5px) son fijos. Entonces:
+
+| Ancho | Tarjeta | Celda | Aire arriba del número | Hueco número → etiqueta |
+|---|---|---|---|---|
+| 390 | 350 | 42,28 × 44 | 13 | **1,08** |
+| 412 | 372 | 45,42 × 45,42 | 13,7 | 1,8 |
+| 768 | 516 | 66 × 66 | 24 | 12,08 |
+| 1024 y 1440 | 560 | 72,28 × 72,28 | 27,14 | **15,22** |
+
+El contenido pasa de llenar el **59%** del alto de la celda a llenar el **35%**,
+y el hueco entre el número y la etiqueta se multiplica por **14**. En el
+calendario del formulario es peor, porque solo tiene el número: del 38% al
+**23%**.
+
+**Por qué 372 y no otro.** Deja la celda en 45,42px, que es exactamente la de un
+móvil de 412: compacta pero un poco más holgada que la de 390. Y en móvil el tope
+**no puede aplicar**, porque la tarjeta ya mide 350 a 390 y 372 a 412.
+
+**Descartadas, las dos medidas:**
+
+- **Escalar el número y la etiqueta con la celda** (factor 1,67: número a 21,75px
+  y etiqueta a 14,22px). Restaura la proporción exacta y de paso la etiqueta
+  superaría el piso de 12px, pero el número de día queda más grande que varios
+  títulos del producto y **no deja el escritorio igual al móvil, lo deja como un
+  calendario más grande**. Además los tamaños son estilos inline, que no aceptan
+  media queries.
+- **Que la celda deje de ser cuadrada arriba de un breakpoint.** Simulada a 1024
+  con alto fijo de 48: la grilla NO se rompe (7 columnas, todas las celdas de 48,
+  filas separadas 52, los 11 huecos vacíos estiran solos). Pero arregla el aire
+  vertical y **deja el horizontal intacto**: la celda sigue midiendo 72px de
+  ancho para un número de 13px.
+
+**Va en los dos calendarios a propósito:** no hay motivo para que la agencia vea
+un calendario peor que el viajero, y mantenerlos iguales evita que dentro de seis
+meses alguien arregle uno y se olvide del otro.
+
+**Verificación:** volcado de rectángulos a 390, 412, 768, 1024 y 1440, sobre los
+dos calendarios. **A 390 y 412: 0 celdas movidas de 33, en los dos.** De 768 para
+arriba se mueven 32 de 33, que es el cambio buscado, y la única que no se mueve
+es la flecha de mes anterior, que vive en el padding de la tarjeta. La celda
+queda en **45,42 × 45,42 a 768, 1024 y 1440**, igual que en 412.
+
+**Y de acá salió el porqué de `minWidth: 0`, que ahora está comentado en el
+código.** `minHeight: 44` junto con `aspectRatio: 1` le transfiere a la celda un
+**ancho mínimo de 44px** a través de la relación de aspecto. Con siete columnas
+eso son 308px de mínimo más los gaps, más de lo que entra en la tarjeta a 390: la
+grilla desborda y los domingos se salen. Pasó de verdad en la Fase 2, cuando la
+celda subió de 36 a 44 de alto. `minWidth: 0` es lo que corta esa transferencia.
+**Parece innecesario justamente porque funciona**, y por eso el comentario está
+al lado de la propiedad y no en un documento.

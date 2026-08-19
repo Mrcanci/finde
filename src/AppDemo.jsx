@@ -355,7 +355,16 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
     padding: 0, fontFamily: "inherit",
   });
   return (
-    <div style={{ background: "white", border: "1px solid var(--sd)", borderRadius: 14, padding: 14 }}>
+    // TOPE DE ANCHO, Y ES LO QUE HACE QUE ESCRITORIO SE VEA COMO MOVIL.
+    // La celda es cuadrada y se estira con la tarjeta, pero el numero (13px) y
+    // la etiqueta (8,5px) no: son fijos. Medido, sin tope la celda pasa de
+    // 42,28px a 390 a 72,28px de 1024 para arriba, un 64% mas de alto para el
+    // mismo contenido, y el hueco entre el numero y la etiqueta se multiplica
+    // por 14 (de 1,08 a 15,22px). El contenido pasa de llenar el 59% de la
+    // celda a llenar el 35%, y en escritorio queda todo flotando.
+    // 372px deja la celda en 45,42, que es exactamente la de un movil de 412.
+    // En movil este tope NO APLICA: la tarjeta ya mide 350 a 390 y 372 a 412.
+    <div style={{ background: "white", border: "1px solid var(--sd)", borderRadius: 14, padding: 14, maxWidth: 372, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <button type="button" onClick={goPrev} disabled={!canPrev} style={navStyle(canPrev)} aria-label="Mes anterior">
           <ChevronLeft size={18} strokeWidth={1.5} />
@@ -457,17 +466,43 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
                 else onToggleException && onToggleException(iso, state);
               }}
               style={{
-                minHeight: 44, minWidth: 0, width: "100%", aspectRatio: "1", borderRadius: 8, border,
+                position: "relative",
+                minHeight: 44,
+                /* minWidth:0 NO ES DECORATIVO Y SACARLO ROMPE LA GRILLA.
+                   `minHeight:44` junto con `aspectRatio:1` le transfiere a la
+                   celda un ANCHO minimo de 44px a traves de la relacion de
+                   aspecto. Con siete columnas eso son 308px de minimo mas los
+                   gaps, mas de lo que entra en la tarjeta a 390: la grilla
+                   desborda y los domingos se salen de la tarjeta. Paso de
+                   verdad en la Fase 2, cuando la celda subio de 36 a 44 de
+                   alto. `minWidth:0` corta esa transferencia y deja que mande
+                   la columna `1fr`. Parece innecesario JUSTAMENTE porque
+                   funciona: no lo saques. */
+                minWidth: 0, width: "100%", aspectRatio: "1", borderRadius: 8, border,
                 background: bg, color, fontSize: 13, fontWeight: 600,
                 cursor, fontFamily: "inherit", textDecoration, opacity,
                 transition: "background .15s", padding: 0,
               }}
             >
               {lowN >= 1 && lowN <= 3 ? (
-                <span style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", lineHeight: 1.05 }}>
-                  <span>{d}</span>
-                  <span data-low-label style={{ fontSize: 8, fontWeight: 700, whiteSpace: "nowrap" }}>{lowN === 1 ? "Último cupo" : `${lowN} cupos`}</span>
-                </span>
+                <>
+                  {/* El número se renderiza EXACTAMENTE igual que en una celda
+                      sin etiqueta: texto suelto, centrado por el botón. Antes
+                      vivía dentro de un flex column junto con la etiqueta, y ese
+                      bloque, al centrarse como una sola pieza, lo empujaba
+                      4,46px hacia arriba. En una misma fila eso dejaba los días
+                      con cupo bajo más altos que el resto.
+
+                      La etiqueta va ABSOLUTA justamente para NO participar de
+                      ese centrado. Así ocupa el espacio muerto de abajo (había
+                      9,72px sin usar) sin mover el número ni un píxel.
+
+                      Medido a 360, 390 y 412: la desalineación del número
+                      contra la de una celda sin etiqueta da 0 en las tres, y la
+                      etiqueta no desborda por abajo en ninguna. */}
+                  {d}
+                  <span data-low-label style={{ position: "absolute", left: 0, right: 0, bottom: 3, fontSize: 8.5, fontWeight: 700, lineHeight: 1.05, whiteSpace: "nowrap" }}>{lowN === 1 ? "1 cupo" : `${lowN} cupos`}</span>
+                </>
               ) : (
                 d
               )}
@@ -7011,6 +7046,15 @@ export default function AppDemo() {
       capacity: String(updated.capacity || apiTour.capacity || ""),
       difficulty: apiTour.difficulty,
       description: updated.description,
+      // La frase de gancho, del API y no del form: es la que quedó guardada,
+      // ya recortada por el backend.
+      //
+      // FALTABA, y ese era el bug del 2026-08-18: este objeto se arma campo por
+      // campo sobre `...t`, así que un campo que no se enumera CONSERVA EL VALOR
+      // VIEJO en vez de quedar vacío. El gancho se guardaba bien en la base y el
+      // panel seguía diciendo que faltaba, porque leía el de antes de guardar.
+      // La descripción no tenía el problema solo porque sí estaba en la lista.
+      shortPitch: apiTour.shortPitch || "",
       included: updated.included || "",
       excluded: updated.excluded || "",
       days: Array.isArray(updated.days) ? updated.days : DEFAULT_DAYS,
@@ -7033,6 +7077,27 @@ export default function AppDemo() {
 
     // La config afecta lo que muestran las cards de salidas (cierre/cupos).
     loadDepartures({ silent: true });
+
+    // ── Y además se recarga la lista entera, a propósito ──
+    //
+    // El merge de arriba ya deja la tarjeta correcta, así que esto NO es lo que
+    // arregla el bug del gancho: es la red para el PRÓXIMO campo.
+    //
+    // Van tres veces el mismo patrón (pendingRequests en la lista blanca de
+    // mapTourFromApi, y el gancho acá y en crear): un campo nuevo aparece en el
+    // API, se agrega en el endpoint y en el consumidor, y se pierde en un
+    // eslabón del medio que lo enumera a mano. Agregar dos líneas cada vez que
+    // pasa es aceptar que va a volver a pasar.
+    //
+    // NO se espera (sin await), igual que loadDepartures: el usuario ya navegó
+    // al panel con los datos correctos y esto aterriza detrás. Costo percibido
+    // al guardar: cero. Medido el 2026-08-18 contra dev.finde.pe: el piso de la
+    // función es 243 ms y la versión pesada del mismo query (los 42 tours
+    // públicos, 66 kB) tarda 1.284 ms; el panel son 5 tours y 18 kB.
+    //
+    // El arreglo de raíz es que este objeto se arma en TRES lugares sin
+    // compartir código. Está anotado en docs/pendientes-producto.md.
+    loadOperatorTours();
 
     setEditingTour(null);
     setDashTab("listings");
@@ -7118,6 +7183,13 @@ export default function AppDemo() {
       capacity: String(formData.capacity || merged.capacity || ""),
       difficulty: merged.difficulty,
       description: formData.description,
+      // Mismo caso que en handleSaveTour, y acá era peor: este objeto se arma
+      // DESDE CERO, sin heredar nada, así que el gancho no quedaba viejo sino
+      // en undefined. No se notaba por casualidad: un tour recién creado nace
+      // activo y el aviso de "falta para publicar" solo se muestra en tours
+      // pausados. La primera vez que alguien pausara uno recién creado sin
+      // recargar la página, veía el mismo mensaje falso.
+      shortPitch: merged.shortPitch || "",
       included: formData.included || "",
       excluded: formData.excluded || "",
       days: Array.isArray(formData.days) ? formData.days : DEFAULT_DAYS,
@@ -7130,6 +7202,11 @@ export default function AppDemo() {
       allotment: apiTour.allotment ?? null,
       minQuorum: apiTour.minQuorum ?? null,
       closeTime: apiTour.closeTime ?? null,
+      // Un tour recién creado no tiene reservas, así que 0 es el valor real y
+      // no un default de relleno. Faltaba, y el `?? 0` del consumidor lo tapaba:
+      // es el mismo mecanismo por el que pendingRequests se perdió la primera
+      // vez, un undefined que se lee igual que un dato.
+      pendingRequests: 0,
       photo: formData.photo || null,
       images: Array.isArray(formData.images) ? formData.images : [],
     }]);

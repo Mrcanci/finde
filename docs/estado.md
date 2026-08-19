@@ -74,11 +74,17 @@ está en `docs/historia/2026-08-router-y-urls.md`.
   final porque ahí está el 70% de la deuda inline) · **versalitas y tracking**,
   donde los badges que las conservan son `.tp-st` y `.dsh-bk-s` y no `.st-*` ·
   **el número de rating separado de la estrella**, que es cambio de JSX · y **el
-  calendario, solo lo que el piso obliga**, con la etiqueta de escasez ya
-  decidida en la **opción b**: punto de color en la celda más leyenda debajo,
-  porque a 8px ya no entra (son unos 50px de texto en una celda de 42) y a 12
-  entraría menos. **La primera decisión de la fase** es si `--fs-h1` (18/20) y
-  `--fs-h2` (17/18) se sostienen a 1px de distancia en móvil.
+  calendario, solo lo que el piso obliga**. **La primera decisión de la fase** es
+  si `--fs-h1` (18/20) y `--fs-h2` (17/18) se sostienen a 1px de distancia en
+  móvil.
+
+  **La etiqueta de escasez ya salió de esta fase** (se cerró el 2026-08-18, ver
+  "Terminado"), pero deja **la primera excepción conocida al piso de 12px**: esa
+  etiqueta no puede cumplirlo. "3 cupos" a 12px mide **45,92px** y en la celda de
+  un móvil de 360 hay **36** disponibles. El techo medido es 9px, y quedó en 8,5
+  porque es el que aguanta también la fuente de respaldo. **La 6B tiene que
+  decidir** si se documenta como excepción o si el piso obliga a sacar el texto
+  de la celda, que es un camino que ya se construyó y se revirtió.
 
   **Dos cosas vistas de paso en la 6A y sin tocar**, para la pantalla que las
   cubra: **`.app h2{font-weight:400}` quedó muerto** desde la tanda sin serif,
@@ -92,6 +98,8 @@ está en `docs/historia/2026-08-router-y-urls.md`.
   la pestaña "Ingresos" del dashboard, hoy oculta. Ver `docs/decisiones.md`.
 
 ## Terminado y mergeado
+
+- **El calendario de escasez, tres arreglos en una tanda (2026-08-18)**: **el texto se acortó a "1 cupo"** y subió de 8 a 8,5px, porque el desborde lo causaba el largo ("Último cupo" mide 47,31px y no entraba en ninguno de los cuatro anchos probados) · **la etiqueta bajó al fondo de la celda**, y eso corrigió de paso una desalineación que nadie había visto: el número de un día con cupo bajo quedaba **4,46px más arriba** que el de un día normal, porque número y etiqueta se centraban como un solo bloque · y **la tarjeta lleva un tope de 372px**, en los dos calendarios, porque la celda escalaba con el ancho y el texto no (de 42,28 a 72,28px, con el contenido pasando de llenar el 59% al 35%). Se descartaron, con la medición hecha, el punto de color y sacar el texto de la celda. Todo el porqué en `docs/decisiones.md`.
 
 - **La escala tipográfica en tokens, Fase 6A (2026-08-18)**: los nueve tokens
   declarados y consumidos por los display. Lo que se pidió era la relación entre
@@ -141,6 +149,7 @@ Acá va solo la lista, para que se vean desde el estado.
 | **`Tour.region` está sucio, y cerrar el formulario vence ANTES que el switch** | Lima está partida en tres grafías, y **"% de demanda fuera del eje Lima-Cusco" es métrica de Creatividad Empresarial 2027**. Hoy zafa de casualidad: los 31 tours sin coma están en Cusco, Arequipa y Lima, donde ciudad y departamento se llaman igual. **Con Huaraz, Cocachimba o Los Órganos la región queda mal desde el primer tour**, así que **el disparador es el onboarding de la próxima agencia**. **El arreglo está decidido el 2026-08-18 y sin implementar**: selector de departamento contra los 25, ciudad aparte y `enum` de zod en el backend. Ver `docs/decisiones.md` |
 | **`SearchLog` guarda el texto completo de 272 búsquedas** | El criterio de loguear solo el largo aplica a los logs de consola, **no a esa tabla**. Alguien puede buscar algo que lo identifique. Truncar, anonimizar o dejar: decidir antes del lanzamiento |
 | **El catálogo en escritorio usa 1000px de 1440** | Es lo que limita las columnas a cuatro, **no la caja de las tarjetas**, que fue la sospecha original y quedó descartada con medición. Pregunta de producto: más opciones por pantalla o tarjetas más grandes |
+| **El objeto del panel se arma en TRES lugares sin compartir código** | Cargar la lista, guardar y crear enumeran los 30 campos a mano. **Ya costó tres bugs**: `pendingRequests` en la lista blanca, y el gancho al guardar y al crear. El de guardar hereda el valor VIEJO y el de crear deja `undefined`: las dos formas fallan en silencio. Extraer una sola función es el arreglo de raíz |
 | **La foto mensual de la analítica necesita disparador** | La ventana de Hobby es de **un mes**: lo que no se copia se pierde para siempre. La propuesta es un renglón fechado en este archivo, que se lee al empezar cada tanda |
 
 **Auditoría de identidad visual, pendiente.** José, mirando el home, dijo que los
