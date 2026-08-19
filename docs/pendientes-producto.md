@@ -395,6 +395,56 @@ propio QA.
 
   **Tanda aparte, con su propia verificación de cambio de cuenta.** Sin fecha.
 
+## BACKLOG: entrar con Google
+
+*(Anotado el 2026-08-18. No es para ahora, y el disparador está escrito abajo.)*
+
+**Por qué vale la pena.** Airbnb lo tiene y le funciona por una razón que Finde
+comparte: **su modal de cuenta aparece DESPUÉS de que el viajero eligió fecha y
+personas**, igual que el nuestro desde la tanda 3. En ese punto el viajero ya
+invirtió algo y la fricción de escribir una contraseña en un teclado de celular
+es justo donde se cae. Un botón de Google saca esa fricción.
+
+### La precondición NO es opcional, y sale de algo ya medido
+
+**En la tanda 3 se midió que el redirect de `signInWithOAuth` desmonta la SPA
+entera.** Y `BookingView` guarda **todo** su estado en `useState`, sin ninguna
+persistencia: la fecha, los cupos, el paso del formulario y los cuatro campos del
+viajero (nombre, teléfono, correo y documento).
+
+**O sea que el viajero volvería con sesión y sin nada de lo que había elegido**,
+que es exactamente el corte que el modal vino a evitar. Poner el botón sin
+resolver esto no mejora el embudo: lo empeora, porque cambia una fricción visible
+(escribir una contraseña) por una invisible (perder lo que ya habías cargado).
+
+> **Precondición: persistir un borrador `{ tourId, date, guests, step }` antes
+> del redirect y restaurarlo al volver. Se escribe y se prueba ANTES de que el
+> botón exista, no después.**
+
+Hay precedente en el código para no inventar nada: las notificaciones vistas ya
+se persisten en `localStorage` con un par de helpers de lectura y escritura, con
+la guarda `typeof localStorage === "undefined"`. La misma forma sirve acá.
+
+### Lo que necesita fuera del código
+
+Nada de esto es desarrollo, pero sin esto el botón no funciona:
+
+1. **Credenciales en Google Cloud** (proyecto, pantalla de consentimiento, client
+   ID y client secret).
+2. **Tres URLs de retorno** en la lista blanca: `finde.pe`, `dev.finde.pe` y
+   `localhost`. Si falta una, ese entorno queda roto y los otros dos no avisan.
+3. **Habilitarlo en Supabase.** Hoy está apagado: `google: false`, medido contra
+   `/auth/v1/settings` el 2026-08-18. De hecho **no hay ningún proveedor externo
+   encendido**, solo email.
+
+### El disparador
+
+**Después del switch, cuando haya tráfico real para medir cuánta gente abandona
+en el modal.** Hoy sería adivinar: la tanda 4 ya midió que en 30 días hubo 15
+páginas vistas, todas del QA propio. Con ese volumen no se puede saber si el
+modal es un problema o no, y el botón de Google es trabajo que se justifica con
+un número, no con una intuición.
+
 ## Huecos de producto
 
 - **PREGUNTA ABIERTA: el catálogo en escritorio usa 1000px de 1440, y eso es lo
