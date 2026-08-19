@@ -13,26 +13,50 @@
 > entero vive acá** porque es el mismo archivo donde está el arreglo que lo cubre
 > (la URL por paso). Partirlo en dos era garantizar que se leyera medio.
 
-## Pendiente de lanzamiento: el SMTP de los correos de auth
+## RESUELTO el 2026-08-18: el SMTP de los correos de auth
 
-**Conectar Resend como SMTP propio en Supabase.** Hoy Custom SMTP está
-**apagado**, así que los correos de autenticación salen por el remitente por
-defecto de Supabase, que en el plan Free tiene un tope bajo por hora. **Sirve
-para probar, no para operar.**
+**Resend quedó configurado y verificado como remitente de los correos de auth de
+Supabase.** Era configuración, no desarrollo: Resend ya movía los correos
+transaccionales con `RESEND_API_KEY` en los tres entornos, y lo que faltaba era
+apuntar el SMTP de Supabase al mismo proveedor.
 
-**No es una mejora, es un pendiente de lanzamiento**, y el motivo es que hay
-tres cosas atadas al mismo cambio que hoy figuran sueltas:
+**Los dos límites, medidos, y el segundo es el que de verdad bloqueaba:**
 
-- **Reactivar "Confirm email"**, que hoy está apagado (`mailer_autoconfirm: true`
-  en `/auth/v1/settings`, medido el 2026-08-17). Cada registro pasa a mandar un
-  correo por ese remitente.
-- **El código de 6 dígitos del modal de cuenta**, que es la alternativa natural a
-  la contraseña y manda un correo por cada intento de entrar.
-- **Cualquier recuperación de contraseña**, que también sale por ahí.
+| | Remitente por defecto de Supabase | Con SMTP propio |
+|---|---|---|
+| Ritmo | **2 correos por hora**, para todo el proyecto | **30 por hora**, ajustables |
+| A quién entrega | **solo a direcciones de la organización** | a cualquiera |
 
-**Es configuración, no desarrollo.** Resend ya está andando para los correos
-transaccionales, con `RESEND_API_KEY` cargada en los tres entornos: lo que falta
-es apuntar el SMTP de Supabase al mismo proveedor.
+**El tope de 2 por hora era incómodo; la restricción de destinatarios era
+directamente un muro.** Se verificó con una invitación a un **Gmail**, que con el
+remitente por defecto habría fallado con **"Email address not authorized"**. O
+sea que con la configuración vieja no se podía dar de alta a un usuario real, ni
+para probar.
+
+### El presupuesto de correos es UNO SOLO, y hay que tenerlo presente
+
+**El plan gratuito de Resend da 100 correos por día y 3.000 por mes.** Esos 100
+**no son para auth**: se comparten con los correos transaccionales que la app ya
+manda (confirmaciones de reserva, avisos de salida a la agencia y al viajero).
+
+Con **dos correos por reserva**, el presupuesto diario da para algo como **30
+reservas más 40 registros**. No es un problema hoy, pero es el número que hay que
+mirar antes de encender cualquier cosa que multiplique los envíos, y el que dice
+cuándo toca pasar a un plan pago.
+
+### Lo que esto desbloquea
+
+Las tres cosas que estaban atadas al mismo cambio y figuraban sueltas:
+
+- **Reactivar "Confirm email"**, que sigue apagado (`mailer_autoconfirm: true` en
+  `/auth/v1/settings`, medido el 2026-08-17).
+- **La recuperación de contraseña.**
+- **El código de 6 dígitos del modal de cuenta**, la alternativa natural a la
+  contraseña.
+
+**Desbloqueadas no quiere decir hechas.** Ver abajo por qué reactivar la
+confirmación sigue siendo una decisión de producto, y ver el pendiente de las
+plantillas en inglés, que conviene resolver en el mismo movimiento.
 
 ### El orden importa, y hoy no estaba escrito en ningún lado
 
@@ -51,7 +75,28 @@ corte**: el viajero igual tiene que salir al correo y volver.
 
 > Reactivarlo sigue siendo una decisión de producto y no un interruptor: cambia
 > el alta de "entras y sigues reservando" a "entras, sales al correo y vuelves".
-> Por eso va después del SMTP propio, no antes.
+> **El SMTP propio ya no lo bloquea** (resuelto el 2026-08-18): lo único que
+> falta es tomar esa decisión, y traducir las plantillas antes de que esos
+> textos se empiecen a ver.
+
+## Pendiente: las plantillas de correo de Supabase están en INGLÉS
+
+**Encontrado el 2026-08-18, probando el SMTP propio.** La invitación de prueba
+llegó diciendo **"You have been invited to create a user on..."**.
+
+**Los usuarios son peruanos y el resto del producto está en español**, con el
+canon de terminología que fija `CLAUDE.md`: segunda persona, español peruano, sin
+vocabulario ibérico y sin rayas. Un correo de la plataforma en inglés rompe eso
+en el primer contacto con la cuenta.
+
+**Dónde se cambia:** Authentication > Emails > Templates, en el panel de Supabase.
+Es configuración, igual que el SMTP.
+
+**Cuándo:** **junto con reactivar la confirmación de correo.** Hoy casi nadie ve
+esos textos, porque con `mailer_autoconfirm` encendido el alta no manda correo de
+confirmación. El día que se reactive, pasan a ser el primer correo que recibe
+todo usuario nuevo. Hacer las dos cosas en el mismo movimiento evita el hueco de
+mandar el primer correo del producto en inglés.
 
 ## BUG DE UX: el botón de atrás rompe el checkout entero
 
