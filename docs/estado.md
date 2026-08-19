@@ -78,19 +78,13 @@ está en `docs/historia/2026-08-router-y-urls.md`.
   si `--fs-h1` (18/20) y `--fs-h2` (17/18) se sostienen a 1px de distancia en
   móvil.
 
-  **La etiqueta de escasez ya se resolvió, y NO como decía esta lista.** Se
-  adelantó el 2026-08-18 porque el texto se desbordaba de la celda. Se descartó
-  el punto de color (medido: sobre la celda elegida, que es terracota sólido, no
-  se ve) y se descartó sacar el texto de la celda (se construyó y se revirtió).
-  Quedó el camino barato: **el texto se acortó a "1 cupo" y subió de 8 a 8,5px.**
-  Ver `docs/decisiones.md`.
-
-  **Y de ahí sale un dato duro para el barrido del piso de 12px: esta etiqueta no
-  va a poder cumplirlo.** "3 cupos" a 12px mide 45,92px y en la celda de un
-  móvil de 360 hay 36. El techo real es 9px, y 8,5 es el que aguanta también la
-  fuente de respaldo. **Es la primera excepción medida al piso**, y hay que
-  decidir si se documenta como excepción o si el piso obliga a sacar el texto de
-  la celda, que es justo lo que se revirtió.
+  **La etiqueta de escasez ya salió de esta fase** (se cerró el 2026-08-18, ver
+  "Terminado"), pero deja **la primera excepción conocida al piso de 12px**: esa
+  etiqueta no puede cumplirlo. "3 cupos" a 12px mide **45,92px** y en la celda de
+  un móvil de 360 hay **36** disponibles. El techo medido es 9px, y quedó en 8,5
+  porque es el que aguanta también la fuente de respaldo. **La 6B tiene que
+  decidir** si se documenta como excepción o si el piso obliga a sacar el texto
+  de la celda, que es un camino que ya se construyó y se revirtió.
 
   **Dos cosas vistas de paso en la 6A y sin tocar**, para la pantalla que las
   cubra: **`.app h2{font-weight:400}` quedó muerto** desde la tanda sin serif,
@@ -104,6 +98,8 @@ está en `docs/historia/2026-08-router-y-urls.md`.
   la pestaña "Ingresos" del dashboard, hoy oculta. Ver `docs/decisiones.md`.
 
 ## Terminado y mergeado
+
+- **El calendario de escasez, tres arreglos en una tanda (2026-08-18)**: **el texto se acortó a "1 cupo"** y subió de 8 a 8,5px, porque el desborde lo causaba el largo ("Último cupo" mide 47,31px y no entraba en ninguno de los cuatro anchos probados) · **la etiqueta bajó al fondo de la celda**, y eso corrigió de paso una desalineación que nadie había visto: el número de un día con cupo bajo quedaba **4,46px más arriba** que el de un día normal, porque número y etiqueta se centraban como un solo bloque · y **la tarjeta lleva un tope de 372px**, en los dos calendarios, porque la celda escalaba con el ancho y el texto no (de 42,28 a 72,28px, con el contenido pasando de llenar el 59% al 35%). Se descartaron, con la medición hecha, el punto de color y sacar el texto de la celda. Todo el porqué en `docs/decisiones.md`.
 
 - **La escala tipográfica en tokens, Fase 6A (2026-08-18)**: los nueve tokens
   declarados y consumidos por los display. Lo que se pidió era la relación entre
