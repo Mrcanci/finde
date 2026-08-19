@@ -671,6 +671,70 @@ function persistSeenNotifs(set) {
   }
 }
 
+// ── Borrador del checkout ────────────────────────────────────────────────────
+// POR QUE EXISTE. BookingView guarda TODO en useState y no persiste nada. Ese
+// diseño alcanzaba mientras la única interrupción era el modal de cuenta, que
+// es hermano de las vistas en el árbol y por lo tanto NO desmonta BookingView:
+// el viajero entra y sigue con su fecha y sus cupos intactos.
+//
+// Recuperar la contraseña rompe esa condición. El viajero sale al correo y
+// vuelve con una CARGA COMPLETA de página, así que BookingView se vuelve a
+// montar vacío: volvería con la contraseña cambiada y sin nada de lo que había
+// elegido, que es justo el corte que el modal vino a evitar.
+//
+// SOLO se guardan tour, fecha, cupos, paso y la RUTA de vuelta. Los datos
+// personales (nombre, teléfono, correo y documento) NO se guardan a propósito:
+// son identidad, no navegación, y no tienen por qué quedar escritos en el disco
+// de nadie.
+//
+// La ruta va porque sin ella el viajero que cambió su contraseña sabe que su
+// reserva quedó guardada pero no tiene botón para volver a ella: habría que
+// reconstruir la URL desde el id, y el id solo no alcanza (la ficha lleva slug
+// y sufijo).
+//
+// Es además la precondición anotada para "entrar con Google" en
+// `docs/pendientes-producto.md`: ese redirect tiene el mismo problema, más
+// grande. Se escribe una vez y sirve para los dos.
+const BOOKING_DRAFT_KEY = "finde:borrador-reserva";
+// Un borrador viejo no se restaura: si alguien vuelve una semana después, la
+// fecha que había elegido puede estar en el pasado o sin cupo.
+const BOOKING_DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
+
+function readBookingDraft() {
+  if (typeof localStorage === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(BOOKING_DRAFT_KEY);
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    if (!d || typeof d !== "object" || !d.tourId) return null;
+    if (!d.ts || Date.now() - d.ts > BOOKING_DRAFT_TTL_MS) {
+      localStorage.removeItem(BOOKING_DRAFT_KEY);
+      return null;
+    }
+    return d;
+  } catch {
+    return null;
+  }
+}
+
+function writeBookingDraft(d) {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(BOOKING_DRAFT_KEY, JSON.stringify({ ...d, ts: Date.now() }));
+  } catch {
+    /* quota: el borrador es una comodidad, no se rompe la reserva por esto */
+  }
+}
+
+function clearBookingDraft() {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.removeItem(BOOKING_DRAFT_KEY);
+  } catch {
+    /* idem */
+  }
+}
+
 // Fecha de hoy (yyyy-mm-dd) en hora de Lima, para los reminders "hoy/mañana".
 function limaTodayISO() {
   return new Intl.DateTimeFormat("en-CA", {
@@ -2308,8 +2372,13 @@ function translateAuthError(message) {
 // mismo. Ese título entra por `heading`, entre las pestañas y los campos, que
 // es donde estaba. onSuccess({ isSignIn }) decide qué pasa después, y es lo
 // único que cambia entre los dos usos.
+// El modo "recuperar" es un TERCER modo del mismo formulario, y no una ruta, a
+// proposito. AuthForm lo renderizan LoginView y AccountModal: en el login
+// navegar estaria bien, pero en el modal navegar es romperlo, porque el modal
+// existe justamente para que el viajero no se vaya del checkout. Un modo
+// interno funciona igual en los dos lados con un solo cambio.
 function AuthForm({ mode, onModeChange, onSuccess, heading = null }) {
-  const { signInWithPassword, signUpWithPassword } = useAuth();
+  const { signInWithPassword, signUpWithPassword, resetPasswordForEmail } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -2317,10 +2386,31 @@ function AuthForm({ mode, onModeChange, onSuccess, heading = null }) {
   const [aviso, setAviso] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const isRecuperar = mode === "recuperar";
   const isSignIn = mode === "signin";
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const validPassword = password.length >= 6;
-  const canSubmit = !busy && validEmail && validPassword;
+  const canSubmit = !busy && validEmail && (isRecuperar || validPassword);
+
+  async function handleRecuperar() {
+    if (!canSubmit) return;
+    setError("");
+    setAviso("");
+    setBusy(true);
+    // La URL absoluta se arma con toPath() y NUNCA escribiendo "/demo" a mano:
+    // es la regla de src/lib/routes.js, y es lo que hace que el dia del switch
+    // siga siendo el cambio de una linea.
+    const destino = `${window.location.origin}${toPath("reset-password")}`;
+    const { error: authError } = await resetPasswordForEmail(email.trim(), destino);
+    setBusy(false);
+    if (authError) {
+      setError(translateAuthError(authError.message));
+      return;
+    }
+    // Respuesta IGUAL exista o no la cuenta: si dijera "ese correo no existe",
+    // cualquiera podria averiguar quien tiene cuenta en Finde probando correos.
+    setAviso("Si ese correo tiene una cuenta en Finde, te mandamos un enlace para cambiar la contraseña. Revisa tu bandeja y también el spam.");
+  }
 
   async function handleSubmit() {
     if (!canSubmit) return;
@@ -2353,8 +2443,15 @@ function AuthForm({ mode, onModeChange, onSuccess, heading = null }) {
     setAviso("");
   }
 
+  function irA(m) {
+    onModeChange(m);
+    setError("");
+    setAviso("");
+  }
+
   return (
     <>
+      {!isRecuperar && (
       <div className="login-tabs" role="tablist">
         <button
           type="button"
@@ -2375,6 +2472,7 @@ function AuthForm({ mode, onModeChange, onSuccess, heading = null }) {
           Crear cuenta
         </button>
       </div>
+      )}
 
       {heading}
 
@@ -2388,6 +2486,7 @@ function AuthForm({ mode, onModeChange, onSuccess, heading = null }) {
         style={{ marginBottom: 10 }}
       />
 
+      {!isRecuperar && (
       <div style={{ position: "relative", marginBottom: 12 }}>
         <input
           className="login-input"
@@ -2412,6 +2511,19 @@ function AuthForm({ mode, onModeChange, onSuccess, heading = null }) {
           {showPassword ? <EyeOff size={18} strokeWidth={1.5} /> : <Eye size={18} strokeWidth={1.5} />}
         </button>
       </div>
+      )}
+
+      {isSignIn && (
+        <div style={{ textAlign: "right", marginBottom: 12, marginTop: -2 }}>
+          <button
+            type="button"
+            onClick={() => irA("recuperar")}
+            style={{ background: "transparent", border: 0, padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, color: "var(--tr-text)", textDecoration: "underline" }}
+          >
+            ¿Olvidaste tu contraseña?
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="login-banner" style={{ background: "rgba(199,97,58,0.12)", color: "#C7613A" }}>
@@ -2428,10 +2540,20 @@ function AuthForm({ mode, onModeChange, onSuccess, heading = null }) {
       <button
         className="login-btn"
         disabled={!canSubmit}
-        onClick={handleSubmit}
+        onClick={isRecuperar ? handleRecuperar : handleSubmit}
       >
-        {busy ? "..." : isSignIn ? "Entrar" : "Crear cuenta"}
+        {busy ? "..." : isRecuperar ? "Enviar enlace" : isSignIn ? "Entrar" : "Crear cuenta"}
       </button>
+
+      {isRecuperar && (
+        <button
+          type="button"
+          onClick={() => irA("signin")}
+          style={{ background: "transparent", border: 0, padding: "10px 0 0", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, color: "var(--gy-strong)", width: "100%" }}
+        >
+          Volver a iniciar sesión
+        </button>
+      )}
     </>
   );
 }
@@ -2535,6 +2657,160 @@ function AccountModal({ reason, onClose, onSuccess }) {
   );
 }
 
+// La pantalla donde se elige la contraseña nueva. Solo se llega por el enlace
+// del correo.
+//
+// LO QUE HAY QUE ENTENDER ANTES DE TOCARLA: el enlace del correo ES UN INICIO
+// DE SESIÓN. Supabase le crea sesión al usuario y dispara PASSWORD_RECOVERY
+// (ver el comentario de recoveryMode en AuthContext). Por eso esta pantalla NO
+// se protege con "no hay sesión", que es lo intuitivo y sería siempre falso:
+// se protege con recoveryMode.
+//
+// Los cuatro estados posibles están medidos, no supuestos (2026-08-19, contra
+// @supabase/auth-js 2.104.1 y pegándole al endpoint de verificación con un
+// token inválido, sin mandar correos):
+//
+//   1. Enlace vencido o ya usado -> el hash trae error_code=otp_expired y el
+//      cliente NO lo limpia, así que se puede leer.
+//   2. Enlace válido, evento todavía sin llegar -> el cliente limpia el hash y
+//      emite PASSWORD_RECOVERY en un setTimeout(0), o sea DESPUÉS de que esta
+//      pantalla montó. Sin el estado "verificando" echaríamos al usuario justo
+//      en el caso bueno.
+//   3. Enlace válido, evento llegado -> el formulario.
+//   4. Alguien entró a la URL de memoria, sin enlace -> no hay nada que hacer.
+//
+// BORDE CONOCIDO Y ACEPTADO: si el usuario RECARGA esta pantalla, el hash ya no
+// está y PASSWORD_RECOVERY no se vuelve a emitir (la sesión se restaura desde
+// el storage como una sesión normal), así que cae en el caso 4 y tiene que
+// pedir otro enlace. Es el fallo seguro: molesta, pero no deja a nadie creyendo
+// que cambió una contraseña que no cambió.
+function ResetPasswordView({ go }) {
+  const { recoveryMode, recoveryPending, recoveryLinkError, updatePassword, endRecovery } = useAuth();
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [listo, setListo] = useState(false);
+  const [draft] = useState(() => readBookingDraft());
+
+  const valido = password.length >= 6;
+
+  async function guardar() {
+    if (!valido || busy) return;
+    setError("");
+    setBusy(true);
+    const { error: authError } = await updatePassword(password);
+    setBusy(false);
+    if (authError) {
+      setError(translateAuthError(authError.message));
+      return;
+    }
+    endRecovery();
+    setListo(true);
+  }
+
+  const marco = (titulo, cuerpo) => (
+    <div className="bkf fu">
+      <div className="bkf-t" style={{ marginBottom: 6 }}>{titulo}</div>
+      {cuerpo}
+    </div>
+  );
+
+  if (listo) {
+    return marco("Listo, tu contraseña quedó cambiada", (
+      <>
+        <div className="bkf-sub" style={{ marginBottom: 20 }}>
+          Ya puedes usarla para entrar. Tu sesión de ahora sigue abierta.
+        </div>
+        {draft?.path ? (
+          <button className="mbtn" onClick={() => { window.location.assign(draft.path); }}>
+            Volver a tu reserva
+          </button>
+        ) : (
+          <button className="mbtn" onClick={() => go("home")}>Ir al inicio</button>
+        )}
+      </>
+    ));
+  }
+
+  if (recoveryLinkError) {
+    return marco("Ese enlace ya no sirve", (
+      <>
+        <div className="bkf-sub" style={{ marginBottom: 20 }}>
+          Los enlaces para cambiar la contraseña vencen, y también dejan de
+          funcionar después de usarlos una vez. Pide uno nuevo y vuelve a
+          intentarlo.
+        </div>
+        <button className="mbtn" onClick={() => go("login")}>Pedir un enlace nuevo</button>
+      </>
+    ));
+  }
+
+  if (recoveryPending) {
+    return marco("Verificando el enlace…", (
+      <div className="bkf-sub">Un segundo.</div>
+    ));
+  }
+
+  if (!recoveryMode) {
+    return marco("Aquí no hay nada que cambiar", (
+      <>
+        <div className="bkf-sub" style={{ marginBottom: 20 }}>
+          A esta pantalla se llega desde el enlace que te mandamos por correo.
+          Si quieres cambiar tu contraseña, pide el enlace desde el inicio de
+          sesión.
+        </div>
+        <button className="mbtn" onClick={() => go("login")}>Ir a iniciar sesión</button>
+      </>
+    ));
+  }
+
+  return marco("Elige tu contraseña nueva", (
+    <>
+      <div className="bkf-sub" style={{ marginBottom: 16 }}>
+        Mínimo 6 caracteres. Al guardarla, esta pantalla se cierra sola.
+      </div>
+      <div style={{ position: "relative", marginBottom: 12 }}>
+        <input
+          className="login-input"
+          type={showPassword ? "text" : "password"}
+          autoComplete="new-password"
+          placeholder="Contraseña nueva (mínimo 6 caracteres)"
+          value={password}
+          onChange={(e) => { setPassword(e.target.value); if (error) setError(""); }}
+          onKeyDown={(e) => { if (e.key === "Enter" && valido) guardar(); }}
+          style={{ paddingRight: 44 }}
+        />
+        <button
+          type="button"
+          aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+          onClick={() => setShowPassword((s) => !s)}
+          style={{
+            position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+            background: "transparent", border: 0, cursor: "pointer", padding: 6,
+            color: "#8A8A85", display: "flex", alignItems: "center",
+          }}
+        >
+          {showPassword ? <EyeOff size={18} strokeWidth={1.5} /> : <Eye size={18} strokeWidth={1.5} />}
+        </button>
+      </div>
+      {error && (
+        <div className="login-banner" style={{ background: "rgba(199,97,58,0.12)", color: "#C7613A" }}>
+          {error}
+        </div>
+      )}
+      <button className="mbtn" disabled={!valido || busy} onClick={guardar}>
+        {busy ? "..." : "Guardar contraseña"}
+      </button>
+      {draft?.date && (
+        <div className="bkf-sub" style={{ marginTop: 14, fontSize: 13 }}>
+          Tu reserva quedó guardada: al terminar puedes volver a ella.
+        </div>
+      )}
+    </>
+  ));
+}
+
 function LoginView({ go, loginMsg, onGuest }) {
   const [mode, setMode] = useState("signin"); // "signin" | "signup"
   const isSignIn = mode === "signin";
@@ -2568,9 +2844,15 @@ function LoginView({ go, loginMsg, onGuest }) {
           onSuccess={({ isSignIn: entro }) => go(entro ? "home" : "welcome")}
           heading={
             <>
-              <div className="login-title">{isSignIn ? "Inicia sesión" : "Crea tu cuenta"}</div>
+              <div className="login-title">
+                {mode === "recuperar" ? "Recupera tu contraseña" : isSignIn ? "Inicia sesión" : "Crea tu cuenta"}
+              </div>
               <div className="login-sub">
-                {isSignIn ? "Ingresa con tu email y contraseña" : "Regístrate con email y contraseña para empezar"}
+                {mode === "recuperar"
+                  ? "Escribe tu correo y te mandamos un enlace para elegir una nueva"
+                  : isSignIn
+                  ? "Ingresa con tu email y contraseña"
+                  : "Regístrate con email y contraseña para empezar"}
               </div>
             </>
           }
@@ -3505,16 +3787,31 @@ function VoucherDetail({ trip }) {
 
 function BookingView({ tour, go, onLocalBookingSuccess, onNeedAccount }) {
   const { user } = useAuth();
-  const [step, setStep] = useState(1);
+
+  // El borrador se lee UNA vez, en el primer render, y siembra los useState de
+  // abajo. Restaurarlo desde un efecto haría dos renders y un parpadeo: el
+  // calendario abriría sin fecha y saltaría después a la guardada. Solo se
+  // acepta si es de ESTE tour: volver de un correo con la fecha de otro tour
+  // sería peor que no restaurar nada.
+  const [draftInicial] = useState(() => {
+    const d = readBookingDraft();
+    return d && d.tourId === tour?.id ? d : null;
+  });
+
+  // El paso se restaura hasta el 2 nomás. Del 3 en adelante son pago y voucher,
+  // y ahí no se vuelve con un borrador: se vuelve con una reserva.
+  const [step, setStep] = useState(draftInicial?.step === 2 ? 2 : 1);
   // Numeración derivada del flag: en modo demo el pago es el paso 3 y el voucher
   // se corre al 4; en modo honesto el voucher sigue siendo el paso 3 (sin pago).
   const VOUCHER_STEP = DEMO_PAYMENT_FLOW ? 4 : 3;
   const PAYMENT_STEP = 3;
   const [pay, setPay] = useState("yape");
-  const [guests, setGuests] = useState(2);
+  const [guests, setGuests] = useState(
+    Number.isFinite(draftInicial?.guests) && draftInicial.guests >= 1 ? draftInicial.guests : 2
+  );
   // Sin fecha preseleccionada: el viajero elige el día explícitamente y
   // "Continuar" queda deshabilitado hasta entonces.
-  const [date, setDate] = useState("");
+  const [date, setDate] = useState(draftInicial?.date || "");
   // Sin prefill del mock USER: el viajero escribe su identidad real, así cada
   // reserva guarda su userName/userPhone reales (antes todas salían iguales).
   // El email sí se prefilla del token (real) más abajo.
@@ -3550,6 +3847,25 @@ function BookingView({ tour, go, onLocalBookingSuccess, onNeedAccount }) {
   // pantallas. { seatsLeft, message }.
   const [availError, setAvailError] = useState(null);
   const [serverBooking, setServerBooking] = useState(null);
+
+  // ── Borrador: guardar y limpiar ──
+  // El porqué está arriba, en readBookingDraft. La restauración no vive acá:
+  // siembra los useState del principio del componente.
+
+  // Guardar en cada cambio de lo que vale la pena. No se guarda nada hasta que
+  // el viajero eligió una fecha: un borrador vacío no ayuda a nadie.
+  useEffect(() => {
+    if (!tour?.id || !date) return;
+    if (step >= PAYMENT_STEP) return;
+    writeBookingDraft({ tourId: tour.id, path: window.location.pathname, date, guests, step });
+  }, [tour?.id, date, guests, step, PAYMENT_STEP]);
+
+  // Limpiar al llegar al voucher. Va en UN efecto y no en los dos lugares que
+  // llaman a setStep(VOUCHER_STEP), para que un tercer camino futuro no se
+  // olvide de limpiar.
+  useEffect(() => {
+    if (step === VOUCHER_STEP) clearBookingDraft();
+  }, [step, VOUCHER_STEP]);
   // Disponibilidad de cupos por mes visible (solo CUPO_FIJO): fechas llenas se
   // deshabilitan en el calendario y 1-3 restantes muestran el aviso en la
   // celda. El fetch/caching vive a nivel módulo (fetchMonthAvailability); el
@@ -6165,7 +6481,7 @@ function NotFoundView({ go, deTour }) {
 //
 // Lo que sigue siendo privado y cae al login: trips, trip-detail, profile,
 // dashboard, new-tour y notifications.
-const GUEST_VIEWS = ["home", "catalog", "detail", "booking", "login", "welcome", "not-found"];
+const GUEST_VIEWS = ["home", "catalog", "detail", "booking", "login", "welcome", "not-found", "reset-password"];
 
 // Las vistas que EXIGEN cuenta. Es el complemento de GUEST_VIEWS, y existe
 // aparte porque la guarda no se hace en cada botón sino en go(), que es el
@@ -7391,6 +7707,7 @@ export default function AppDemo() {
         {effectiveView === "login" && <LoginView go={go} loginMsg={loginMsg} onGuest={handleGuest} />}
         {effectiveView === "welcome" && <WelcomeView go={go} />}
         {effectiveView === "not-found" && <NotFoundView go={go} />}
+        {effectiveView === "reset-password" && <ResetPasswordView go={go} />}
         {effectiveView === "home" && <HomeView go={go} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} selectedCity={selectedCity} setSelectedCity={pickCity} geoSource={geoSource} />}
         {effectiveView === "catalog" && <CatalogView go={go} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} />}
         {effectiveView === "detail" && (currentTour
