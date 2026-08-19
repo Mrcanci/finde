@@ -3006,7 +3006,10 @@ function CitySelector({ selectedDept, opciones, onPick }) {
           <div className="city-backdrop" onClick={() => setOpen(false)} />
           <div className="city-sheet" role="listbox" aria-label="Elegir ciudad">
             <div className="city-sheet-grip" />
-            <div className="city-sheet-title">Elige tu ciudad</div>
+            {/* "Elige UNA ciudad", no "tu ciudad": el posesivo decía que esa
+                ciudad es la del viajero, que es el mismo error de origen
+                contra destino del rótulo de la fila. */}
+            <div className="city-sheet-title">Elige una ciudad</div>
             {opciones.map((c) => (
               <button
                 key={c}
@@ -3135,7 +3138,19 @@ function HomeView({ go, cat, setCat, tours, toursLoading, selectedDept, setSelec
             existir y hay que escribirla a mano. */}
         {!yaEligio && !toursLoading && (
           <div className="city-ask">
-            <div className="city-ask-t">¿Desde dónde viajas?</div>
+            {/* EL CRITERIO DE TODO EL COPY DE ESTA SECCIÓN: se pregunta por
+                el DESTINO, nunca por dónde está el viajero.
+                Decía "¿Desde dónde viajas?", que pregunta por el ORIGEN, y la
+                sección muestra tours EN esa ciudad, o sea el destino. En
+                turismo interno son cosas distintas: alguien en Lima puede
+                querer tours en Cusco. Se corrigió el 2026-08-19 junto con
+                otros tres textos de la zona que tenían el mismo problema.
+                Se eligió nombrar la unidad ("qué ciudad") y no un genérico
+                ("¿a dónde quieres ir?") porque abajo hay doce chips: nombrar
+                la unidad pone la expectativa donde la podemos cumplir. Y
+                "explorar" es el verbo que ya usa el producto, en la pestaña
+                del menú y en el hero. */}
+            <div className="city-ask-t">¿Qué ciudad quieres explorar?</div>
             <div className="city-ask-row">
               {deptsConTours.map((d) => (
                 <button
@@ -3157,13 +3172,20 @@ function HomeView({ go, cat, setCat, tours, toursLoading, selectedDept, setSelec
             por conexión resulta falso, esto molesta pero no rompe. */}
         {sugerenciaCambio && (
           <div className="city-ask city-ask-move">
-            <span>¿Estás en {displayName(sugerenciaCambio)}?</span>
+            {/* Pregunta por el destino, no por la ubicación. Decía "¿Estás
+                en X?", que afirmaba saber dónde estaba el viajero justo
+                después de que el título dejara de hacerlo.
+                LA LÓGICA NO CAMBIÓ Y SE SOSTIENE: esto se dispara cuando la
+                IP CAMBIÓ, o sea cuando la persona probablemente se movió, y
+                para alguien que acaba de llegar "estás acá" sí predice
+                "querés tours acá". Lo que estaba mal era el texto. */}
+            <span>¿Buscas tours en {displayName(sugerenciaCambio)}?</span>
             <button
               type="button"
               className="city-ask-chip on"
               onClick={() => handleCityChange(sugerenciaCambio)}
             >
-              Ver tours de {displayName(sugerenciaCambio)}
+              Ver tours en {displayName(sugerenciaCambio)}
             </button>
           </div>
         )}
@@ -6717,9 +6739,15 @@ export default function AppDemo() {
   // PRECEDENCIA, de más fuerte a más débil:
   //   1. el override de desarrollo (?city= en localhost)
   //   2. LO QUE EL VIAJERO ELIGIÓ y quedó guardado
-  //   3. "Lima", hasta que conteste /api/geo
-  // La detección nunca pisa una elección: por eso, si hay elección guardada,
-  // el ref de abajo arranca en "manual".
+  //   3. "Lima", FIJO
+  //
+  // El tercero es una DECISIÓN DE PRODUCTO del 2026-08-19, no un valor
+  // provisorio a la espera de la detección: la geo IP ya no participa de esta
+  // precedencia. El motivo está en `docs/decisiones.md`, y en una línea es que
+  // Lima concentra alrededor del 30% de la población, así que si el default se
+  // va a equivocar igual, conviene que se equivoque hacia el caso más probable
+  // y no hacia un dato poco confiable. Lo que resuelve de verdad es la fila
+  // "¿Desde dónde viajas?", que está a un toque.
   const [choice, setChoice] = useState(() => readCityChoice());
   const [selectedDept, setSelectedDept] = useState(
     () => readDevCityOverride() || readCityChoice()?.dept || "Lima"
@@ -6729,13 +6757,10 @@ export default function AppDemo() {
   // porque `pickDept` es un useCallback estable y leería un valor viejo.
   const [detectedDept, setDetectedDept] = useState(null);
   const detectedDeptRef = useRef(null);
-  // De dónde salió el departamento elegido. NO SE RENDERIZA: desde que el
-  // título dejó de afirmar ubicación (2026-08-19) su único trabajo es que una
-  // respuesta tardía de /api/geo no pise una elección manual. Por eso es un ref
-  // y no estado: cambiarlo no tiene que re-renderizar nada.
-  // Si hay override en localhost arranca en "manual", para que la respuesta
-  // tardía (siempre fallback en localhost) tampoco lo pise.
-  const geoSourceRef = useRef(readDevCityOverride() || readCityChoice() ? "manual" : "auto");
+  // Acá vivía `geoSourceRef`, que existía para que una respuesta tardía de
+  // /api/geo no pisara una elección manual. Se fue el 2026-08-19 junto con esa
+  // posibilidad: la detección ya no elige nada, así que no hay nada que pisar
+  // ni nada de lo que protegerse.
   // NO hay estado para el `reason` de /api/geo, y es a propósito. El endpoint
   // lo devuelve siempre (ver api/geo.ts) porque ahí es lo que permite
   // diagnosticar sin adivinar, pero la interfaz no lo muestra: mostrarlo
@@ -6744,7 +6769,6 @@ export default function AppDemo() {
   // sugerencia al preguntar la ciudad la primera vez), se agrega ahí.
   const pickDept = useCallback((dept) => {
     setSelectedDept(dept);
-    geoSourceRef.current = "manual";
     // Se guarda junto con lo que la IP decía EN ESTE MOMENTO. Ver el comentario
     // largo de readCityChoice: es lo que después permite distinguir "se movió"
     // de "la IP siempre se equivoca igual".
@@ -7112,31 +7136,51 @@ export default function AppDemo() {
     return () => { cancel = true; };
   }, [user, loading]);
 
-  // Resolución del departamento vía /api/geo. Si el usuario ya eligió a mano
-  // cuando llega la respuesta, se ignora (race condition R2). En localhost el
-  // override de desarrollo ya dejó el ref en "manual", así que esta respuesta
-  // tardía tampoco lo pisa.
+  // SE SIGUE LLAMANDO A /api/geo, PERO YA NO ELIGE NADA. Desde el 2026-08-19
+  // el departamento por defecto es Lima fijo y la detección no lo toca.
   //
-  // La sugerencia de la IP se sigue aplicando, y está bien: es un punto de
-  // partida. Lo que NO se hace es anunciarla como si supiéramos dónde está el
-  // viajero, porque se midió equivocada. Ver el comentario del título en
-  // HomeView.
+  // ── POR QUÉ SEGUIMOS USANDO ALGO DE LO QUE DESCONFIAMOS ──
+  // Parece contradictorio: si la detección se equivoca (medido: con José en
+  // Lima y sin VPN, la IP reporta Arequipa), ¿por qué conservarla para
+  // preguntar "¿Estás en Cusco?"?
+  //
+  // LA DISTINCIÓN ES ENTRE AFIRMAR Y PREGUNTAR. El default y el viejo
+  // " · cerca de ti" eran AFIRMACIONES: la app decía saber dónde estabas, y
+  // cuando se equivocaba, mentía. La oferta es una PREGUNTA descartable, y una
+  // pregunta puede estar equivocada sin mentir. Esa es toda la línea, y es la
+  // que hace coherente desconfiar de la detección para el default y usarla
+  // igual para ofrecer.
+  //
+  // Y HAY UN MOTIVO TÉCNICO ADEMÁS DEL CONCEPTUAL: la oferta no necesita que
+  // la detección sea CORRECTA, solo que sea ESTABLE. Lo que la dispara es un
+  // CAMBIO respecto de lo que la IP decía cuando el viajero eligió, y un cambio
+  // sigue significando "la conexión cambió" aunque el valor esté mal. Si
+  // dejáramos de llamar, `detectedAtChoice` quedaría en null para siempre y la
+  // oferta no podría dispararse nunca: dejar de llamar no es neutral, mata la
+  // función en silencio.
+  //
+  // ── Y ESTO ARREGLÓ ALGO QUE NADIE HABÍA REPORTADO ──
+  // Antes la sección de ciudad CAMBIABA BAJO EL USUARIO: arrancaba en Lima y
+  // saltaba a lo detectado cuando /api/geo respondía, así que el carrusel se
+  // reemplazaba solo unos cientos de milisegundos después de cargar. Con Lima
+  // fija ese salto desaparece. No es un efecto lateral: es un defecto que se
+  // arregla, y queda anotado para que nadie lo reintroduzca "aplicando la
+  // sugerencia" de nuevo.
   useEffect(() => {
     let cancelled = false;
     fetch("/api/geo")
       .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
       .then(data => {
         if (cancelled) return;
-        // Lo detectado se guarda SIEMPRE, aunque no se aplique: es lo que se
-        // compara contra `detectedAtChoice` para saber si el viajero se movió.
+        // Lo detectado SOLO se guarda. No elige, no pisa, no muestra nada por
+        // su cuenta: alimenta `detectedAtChoice` y la oferta de cambio.
         if (data?.department && DEPARTMENTS.includes(data.department)) {
           detectedDeptRef.current = data.department;
           setDetectedDept(data.department);
-          if (geoSourceRef.current !== "manual") setSelectedDept(data.department);
         }
       })
       .catch(() => {
-        // Silencioso: ya tenemos Lima por defecto.
+        // Silencioso: el default es Lima y no dependía de esto.
       });
     return () => { cancelled = true; };
   }, []);

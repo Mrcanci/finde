@@ -540,3 +540,54 @@ Por eso el orden pasa a ser:
 3. **Preguntar la primera vez** (nivel 3), que es lo que de verdad reemplaza a la
    adivinanza, y que conviene hacer **después** de la C, porque recién ahí la
    lista de ciudades para elegir cubre el país.
+
+---
+
+# La detección no es imprecisa: MIDE OTRA COSA
+
+*Agregado el 2026-08-19, después de que José notara que el copy preguntaba por el
+origen del viaje y la sección muestra el destino.*
+
+## El hallazgo
+
+El rótulo decía **"¿Desde dónde viajas?"**, que pregunta por el **ORIGEN**. La
+sección muestra tours **EN** esa ciudad, o sea el **DESTINO**. En turismo interno
+son cosas distintas: **alguien en Lima puede querer tours en Cusco.**
+
+Al revisar el resto del copy de la zona con el mismo criterio aparecieron tres
+más, no uno:
+
+| Decía | Problema | Dice |
+|---|---|---|
+| `¿Desde dónde viajas?` | pregunta por el origen | `¿Qué ciudad quieres explorar?` |
+| `¿Estás en X?` | afirma saber dónde está | `¿Buscas tours en X?` |
+| `Elige TU ciudad` | el posesivo dice que esa ciudad es la suya | `Elige UNA ciudad` |
+| `Ver tours DE X` | único lugar donde el vocabulario se rompía | `Ver tours EN X` |
+
+## Y de acá sale la conclusión más fuerte de todo este trabajo
+
+**La geolocalización por IP no es imprecisa para esto. MIDE OTRA COSA.**
+
+Todo lo anterior de este documento discute si la detección acierta o falla, y
+mide que falla. Eso ahora es secundario: **aun con una detección perfecta, saber
+dónde está alguien no dice a dónde quiere ir.**
+
+Un dato correcto sobre la ubicación sigue siendo un dato equivocado sobre la
+intención. No hay proveedor de IP que arregle eso, porque el problema no está en
+la calidad del dato sino en que **el dato no es sobre lo que preguntamos**.
+
+**Sigue valiendo como punto de partida**, y por un motivo razonable: la mayoría
+empieza mirando lo que tiene cerca. **Pero eso es una suposición sobre el
+comportamiento, no un dato**, y el texto no debe insinuar que sabemos a dónde
+quiere ir el viajero.
+
+### También le pega a la oferta, pero más débilmente
+
+La oferta ("¿Buscas tours en Cusco?") tiene como premisa "te moviste, así que
+querés tours acá". Esa inferencia es **fuerte para quien acaba de llegar a un
+lugar** y **débil para quien planifica desde su casa**.
+
+**La lógica se sostiene igual, porque el disparador es el MOVIMIENTO**, no la
+ubicación: se dispara cuando la IP cambió respecto de lo que decía cuando el
+viajero eligió. Lo que estaba mal era el texto, que arrancaba afirmando dónde
+estaba.
