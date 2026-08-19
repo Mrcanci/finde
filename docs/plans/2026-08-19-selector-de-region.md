@@ -1,6 +1,10 @@
 # Selector de región en el formulario de tour: investigación y plan
 
-> **2026-08-19. Investigación y plan, sin código escrito.**
+> **2026-08-19. Investigación, plan, y las decisiones con las que se ejecutó.**
+>
+> **ESTADO: EJECUTADO.** La investigación de abajo es del estado previo y se deja
+> tal cual. Las decisiones de José y lo que efectivamente se hizo están al final,
+> en "Lo que se decidió". Los números medidos acá son de antes del cambio.
 >
 > La decisión ya está tomada (`docs/decisiones.md`, opción A): selector de
 > departamento, ciudad en campo aparte, validación con `enum` de zod en
@@ -125,7 +129,18 @@ O sea que **la validación no lo toca**, ni para bien ni para mal. Si algún dí
 seed escribe una región inválida, nada lo detiene. **Queda como decisión: validar
 también ahí o dejarlo anotado.**
 
-### c. `generateAiDesc`: un TERCER parseo por coma, en el frontend
+### c. `generateAiDesc`: un TERCER parseo por coma, y ES EL MÁS CARO DE LOS TRES
+
+> **PRIORIDAD, y no es la que sugiere el orden de esta lista.** José lo marcó
+> como el hallazgo más caro de la investigación, y no estaba en ninguna lista
+> previa. El motivo: **los otros dos guardan un dato mal en una columna; este le
+> dice a la IA sobre qué lugar escribir.**
+>
+> Con la región derivada mal, Claude no falla ni avisa: escribe un párrafo bien
+> redactado sobre el lugar equivocado, se publica, y **le llega al viajero como
+> texto plausible**. Un error que se ve bien es más difícil de detectar que uno
+> que rompe: un campo vacío se nota, un párrafo sobre Áncash en un tour de Ica
+> pasa la revisión de cualquiera que no conozca los dos lugares.
 
 El botón de generar descripción con IA hace su propio
 `form.location.split(",")` y manda `city` y `region` a
@@ -223,3 +238,96 @@ decisión de Callao o la de normalizar merecen quedar registradas.
 - **No migra los datos.** No hace falta: ninguno de los 42 activos es inválido.
 - **No valida el seed.** Queda anotado como decisión aparte.
 - **No toca el selector de ciudad del viajero.** Mejora solo.
+
+
+---
+
+# Lo que se decidió, y lo que se ejecutó
+
+**2026-08-19, mismo día.** Las cinco decisiones de José y el resultado.
+
+## 1. Callao: van las 24, y el motivo de producto pesa más que el técnico
+
+**Decidido: la lista del formulario son las mismas 24, y Callao entra como
+CIUDAD con región Lima.**
+
+El motivo técnico ya estaba (un tour con `region: "Callao"` se caería del
+agrupamiento). **El que José agregó es más fuerte y es el que quedó escrito
+primero en el código:** un viajero que busca tours no piensa "Callao" como
+destino separado de Lima, piensa Lima. **La división administrativa no coincide
+con cómo la gente busca**, y esta lista ordena una búsqueda, no un padrón.
+
+Queda anotado **al lado de la lista**, en `lib/cities.js`, para que nadie la
+"complete" a 25 después: la lista se ve incompleta y no lo está.
+
+## 2. Normalizar antes de validar
+
+**Decidido: sí.** Rechazar `"lima"` cuando sabemos que es Lima es fricción sin
+beneficio. Lo hace `toDepartment`, que acepta cualquier grafía y devuelve siempre
+la forma canónica.
+
+**Medido con el código ya escrito, contra los 49 tours reales:**
+
+```
+tours en la base: 49 (activos: 42)
+RECHAZADOS por la validacion nueva: 1
+   pausado  region="lima lima"  prueba
+ACEPTADOS pero se les corrige la grafia: 1
+   pausado  "lima" -> "Lima"  prueba manual
+>>> ACTIVOS que fallarian al editarse: 0
+```
+
+## 3. Los dos fallos silenciosos quedan escritos, aunque ya no puedan pasar
+
+**Decidido: van al plan Y al código, como evidencia.** Desaparecen solos con el
+selector, así que documentarlos parece innecesario. No lo es: **son la razón por
+la que el texto libre no servía**, y sin ellos "volvamos a un solo campo, es más
+simple" suena razonable dentro de seis meses.
+
+Los tres casos (la tercera parte descartada, la coma inicial que corre todo un
+lugar, y la región que quedaba igual a la ciudad sin coma) están escritos en
+`lib/tour-input.ts`, arriba de los campos que los reemplazaron.
+
+## 4. El seed: qué costaba, y qué se hizo
+
+**La pregunta era si convenía hacerlo pasar por la validación. La respuesta es
+que no, y que la garantía sale igual por otro lado más barato.**
+
+**Enchufarlo a `parseTourInput` es caro y además equivocado.** El seed escribe
+con la forma del MODELO (`priceSoles` en céntimos, `durationHours` entero, el
+enum `Category`) y `parseTourInput` espera la forma del FORMULARIO (precio en
+soles, `"5 horas"`, `"culture"`). Habría que convertir 40 tours **hacia atrás**
+para que la función los convierta de nuevo hacia adelante, y arrastraría zod,
+Prisma y Voyage a un script que hoy no los necesita.
+
+**Lo que hacía falta era la garantía, no el camino.** Se agregó
+`verificarRegiones` en `prisma/seed.ts`: quince líneas que corren **antes de
+escribir nada** y cortan el seed si alguna región no es un departamento.
+
+**Y cubre las DOS fuentes, que es el punto.** El seed no tiene una lista de
+tours, tiene dos:
+
+| Fuente | Tours | Protección previa |
+|---|---|---|
+| el array `TOURS` de `seed.ts` | 30 | el tipo `TourSeed`, que solo dice `string` |
+| `data/track-b/tours-to-migrate-from-hardcoded.json` | 10 | **ninguna, es un JSON** |
+
+**La segunda es la que importa**: ningún chequeo de tipos puede mirar adentro de
+un JSON. Medido: **40 regiones, 0 inválidas**, y con un valor malo inyectado el
+corte dispara.
+
+## 5. Qué quedó tocado
+
+| Archivo | Qué |
+|---|---|
+| `lib/cities.js` | el criterio de Callao, `DEPARTMENTS_FOR_SELECT` y `toDepartment` |
+| `lib/geo.ts` | los reexporta con tipos |
+| `lib/tour-input.ts` | `city` y `region` separados, validación normalizando |
+| `src/AppDemo.jsx` | los dos campos, `formatLocation`, y los cinco puntos que leían `location` |
+| `prisma/seed.ts` | `verificarRegiones` |
+
+**El orden de `DEPARTMENTS` resultó ser un problema real que no estaba
+previsto.** Ese array sale de recorrer la tabla de códigos ISO, donde `CAL` viene
+antes que `CUS`, así que **"Lima" aparecía entre Cajamarca y Cusco**. En un
+desplegable eso se lee como un error. Por eso el selector usa
+`DEPARTMENTS_FOR_SELECT`, que es la misma lista ordenada, no una lista aparte.

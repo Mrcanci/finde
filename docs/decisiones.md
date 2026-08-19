@@ -999,3 +999,41 @@ intuición sobre cuál destino suena más.
 > instrumentación del embudo y se vea qué ciudades elige la gente en la fila, ese
 > mismo dato responde las dos preguntas: si la detección falla seguido, y si Lima
 > es el destino que más se elige. **Se revisan juntas.**
+
+## 2026-08-19: la lista de regiones son 24 y Callao no está
+
+**Decisión de producto de José, al implementar el selector de región del
+formulario de tour.** La división política del Perú son 24 departamentos más la
+Provincia Constitucional del Callao. **La lista de Finde son 24, y Callao entra
+como ciudad de Lima.**
+
+**El motivo de producto, que es el principal:** un viajero que busca tours **no
+piensa "Callao" como destino separado de Lima**, piensa Lima. La división
+administrativa no coincide con cómo la gente busca, y esta lista ordena una
+búsqueda, no un padrón.
+
+**El motivo técnico, que confirma el anterior:** el agrupamiento del inicio
+matchea la región del tour contra esa lista. Un tour guardado con
+`region: "Callao"` **no matchearía y caería fuera de todo grupo**, invisible en
+la única sección que ordena por ubicación. Es el bug de los siete tours
+invisibles que se había cerrado ese mismo día.
+
+**Consecuencia al leer el código:** la lista **se ve incompleta y no lo está**.
+El criterio quedó escrito al lado de `DEPARTMENTS`, en `lib/cities.js`,
+justamente porque la reacción natural de quien la lee es completarla a 25.
+
+**Qué pasaría si se decide al revés**, para que se pueda reabrir con el costo a
+la vista: hay que agregar Callao a `DEPARTMENT_BY_ISO` (hoy `CAL` cae en Lima),
+decidir si el mapeo de la IP sigue mandando a los del Callao a Lima o los separa,
+y aceptar que el inicio muestre dos grupos donde el viajero espera uno.
+
+### Y la región se normaliza antes de validarse
+
+Misma tanda. La validación acepta `"lima"`, `"LIMA"` y `"Lima"`, y guarda siempre
+la forma canónica. **Rechazar una grafía que sabemos traducir es fricción sin
+beneficio**: el dato queda igual de limpio y no se frena a nadie.
+
+**Medido antes de decidir**, sobre los 49 tours: con match exacto quedaban **dos**
+tours inválidos, normalizando queda **uno**, y los dos son de prueba y están
+pausados. **Ninguno de los 42 activos falla con ninguna de las dos variantes**, o
+sea que la validación no arregla nada existente: evita lo que viene.

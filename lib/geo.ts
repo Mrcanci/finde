@@ -10,10 +10,12 @@
 
 import {
   DEPARTMENTS as DEPS,
+  DEPARTMENTS_FOR_SELECT as DEPS_SELECT,
   DEPARTMENT_BY_ISO as BY_ISO,
   DEPARTMENT_DISPLAY as DISPLAY,
   displayName as display,
   normalizeCity,
+  toDepartment as toDep,
   mapToDepartment as mapDep,
   departmentsOfTour as depsOfTour,
   departmentsWithTours as depsWithTours,
@@ -21,6 +23,14 @@ import {
 } from "./cities.js";
 
 export const DEPARTMENTS = DEPS as readonly string[];
+export const DEPARTMENTS_FOR_SELECT = DEPS_SELECT as readonly string[];
+
+/**
+ * Un texto de región → el departamento canónico, o null. Normaliza antes de
+ * validar (acepta "lima", devuelve "Lima"). Acepta SOLO departamentos: para una
+ * ciudad hay que usar la tabla de ciudades. La usa `parseTourInput`.
+ */
+export const toDepartment: (raw: string | undefined | null) => string | null = toDep;
 export const DEPARTMENT_BY_ISO = BY_ISO as Record<string, string>;
 export const DEPARTMENT_DISPLAY = DISPLAY as Record<string, string>;
 

@@ -12,6 +12,7 @@ import {
   CancellationPolicy,
 } from "@prisma/client";
 import { readFileSync } from "node:fs";
+import { toDepartment } from "../lib/geo.js";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -1114,7 +1115,49 @@ async function createMigratedTours(): Promise<void> {
   );
 }
 
+// ── POR QUÉ EL SEED NO PASA POR parseTourInput, Y ESTO ALCANZA ──────────────
+// Desde el 2026-08-19 el formulario valida que la región de un tour sea uno de
+// los 24 departamentos, en `parseTourInput`. El seed NO pasa por ahí y no tiene
+// sentido que pase: escribe con la forma del MODELO (priceSoles en céntimos,
+// durationHours entero, el enum Category), y `parseTourInput` espera la forma
+// del FORMULARIO (precio en soles, "5 horas", "culture"). Enchufarlo obligaría
+// a convertir 40 tours HACIA ATRÁS, a la forma del form, para que la función
+// los convierta de nuevo hacia adelante. Más código, más para equivocarse, y
+// arrastraría zod, Prisma y Voyage a un script que hoy no los necesita.
+//
+// Lo que sí hacía falta es la GARANTÍA, no el camino: que ninguna región del
+// seed quede fuera de la lista. Eso son estas quince líneas, y cubren las DOS
+// fuentes, que es lo que un chequeo de tipos no puede hacer:
+//
+//   TOURS            30 tours, un array tipado en este archivo
+//   el JSON de       10 tours, `data/track-b/...json`, sin tipos de ningún tipo
+//   track-b          y por lo tanto el único que de verdad puede desviarse
+//
+// Corre ANTES de escribir nada: si algo está mal, el seed no toca la base.
+function verificarRegiones(): void {
+  const fuentes: { origen: string; title: string; region: string }[] = [
+    ...TOURS.map((t) => ({ origen: "TOURS", title: t.title, region: t.region })),
+    ...loadJson<{ tours: { title: string; region: string }[] }>(
+      "tours-to-migrate-from-hardcoded.json"
+    ).tours.map((t) => ({ origen: "track-b", title: t.title, region: t.region })),
+  ];
+  const malas = fuentes.filter((t) => !toDepartment(t.region));
+  if (malas.length > 0) {
+    for (const t of malas) {
+      console.error(`  region invalida: ${JSON.stringify(t.region)} en "${t.title}" (${t.origen})`);
+    }
+    throw new Error(
+      `El seed tiene ${malas.length} tour(s) con una region que no es un departamento del Peru. ` +
+        `La lista valida esta en lib/cities.js (DEPARTMENTS). No se escribio nada en la base.`
+    );
+  }
+  console.log(`Regiones verificadas: ${fuentes.length} tours, todas son departamentos validos.`);
+}
+
 async function main(): Promise<void> {
+  // Antes de tocar la base: que las regiones del seed sean departamentos.
+  verificarRegiones();
+
   const initialCount = await prisma.tour.count();
   console.log(`Tours actuales en DB: ${initialCount}`);
 

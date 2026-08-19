@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db } from "./db.js";
 import { voyage, MODEL_EMBED, DIM } from "./voyage.js";
 import { PITCH_MIN, PITCH_MAX, DESC_MIN } from "./tour-publish.js";
+import { toDepartment } from "./geo.js";
 
 // Los mínimos para publicar viven en lib/tour-publish.js, que NO tiene
 // dependencias y por eso lo puede importar también el frontend. El schema de
@@ -33,8 +34,31 @@ const DEFAULT_DAYS = [true, true, true, true, true, true, true];
 // Schema del cuerpo que envía el form del operador (crear/editar comparten forma).
 export const tourInputSchema = z.object({
   title: z.string().trim().min(3).max(120),
-  // "Ciudad, Región" → se separa por coma en parseTourInput.
-  location: z.string().trim().min(2).max(120),
+  // ── UBICACIÓN: DOS CAMPOS, Y ANTES ERA UNO DE TEXTO LIBRE ─────────────────
+  // Hasta el 2026-08-19 esto era un solo campo `location` con la forma
+  // "Ciudad, Región", que acá se partía por la coma. Ese parseo tenía DOS
+  // fallos que no daban error nunca, y por eso el campo se separó:
+  //
+  //   "Huacachina, Ica, Perú"  ->  city "Huacachina", region "Ica"
+  //                                y "Perú" SE DESCARTABA EN SILENCIO, porque
+  //                                nadie leía la tercera parte.
+  //   ", Áncash"               ->  city "Áncash", region "Áncash"
+  //                                la coma al principio corría todo un lugar y
+  //                                el DEPARTAMENTO quedaba guardado como CIUDAD.
+  //   "Huaraz"                 ->  city "Huaraz", region "Huaraz"
+  //                                sin coma, la región quedaba mal. Zafaba solo
+  //                                cuando la ciudad se llama igual que el
+  //                                departamento (Cusco, Arequipa, Ica...), que
+  //                                es el caso de 31 de los 49 tours.
+  //
+  // Los tres desaparecen con dos campos: no hay coma que interpretar. Quedan
+  // escritos acá porque son la evidencia de por qué el texto libre no servía, y
+  // sin ellos "volvamos a un solo campo, es más simple" suena razonable.
+  city: z.string().trim().min(2).max(80),
+  // La región es un DEPARTAMENTO de la lista cerrada, no texto libre. La
+  // validación de que sea uno de los 24 está abajo, en parseTourInput, porque
+  // normaliza antes de comparar y eso un z.enum no lo hace.
+  region: z.string().trim().min(2).max(80),
   // soles (string o number) → priceSoles en céntimos.
   price: z.coerce.number().positive().max(100000),
   // "5 horas" / "2 días" → durationHours (Int) en parseTourInput.
@@ -145,7 +169,8 @@ function parseDurationHours(raw: string): number {
 // nombre el campo que falló en vez de un genérico "Cuerpo inválido".
 const FIELD_LABELS: Record<string, string> = {
   title: "Nombre",
-  location: "Ubicación",
+  city: "Ciudad",
+  region: "Región",
   price: "Precio",
   duration: "Duración",
   category: "Categoría",
@@ -194,12 +219,30 @@ export function parseTourInput(rawBody: unknown): ParseTourInputResult {
   }
   const b = parsed.data;
 
-  // location "Ciudad, Región" → city / region (region cae a city si falta).
-  const locParts = b.location.split(",").map((s) => s.trim()).filter(Boolean);
-  const city = locParts[0];
-  const region = locParts[1] ?? city;
-  if (!city) {
-    return { ok: false, status: 400, error: "location debe incluir al menos la ciudad" };
+  const city = b.city;
+
+  // ── LA REGIÓN SE NORMALIZA ANTES DE VALIDARSE, Y ES UNA DECISIÓN ───────────
+  // `toDepartment` acepta "lima", "LIMA" y "Lima", y devuelve siempre la forma
+  // canónica ("Lima", con su tilde donde va). Rechazar una grafía que sabemos
+  // traducir sería fricción sin beneficio: el objetivo es que el dato quede
+  // canónico, y normalizando queda igual de canónico sin frenar a nadie.
+  //
+  // Medido sobre los 49 tours de la base el 2026-08-19: con match exacto fallan
+  // DOS ("lima" y "lima lima"), normalizando falla UNO ("lima lima"). Los dos
+  // son tours de prueba pausados. Ninguno de los 42 activos falla, así que esta
+  // validación no arregla nada existente: EVITA lo que viene.
+  //
+  // No hay migración de datos y no hace falta: un tour con región inválida falla
+  // recién cuando alguien lo edita, y ahí se corrige. Se limpia solo.
+  const region = toDepartment(b.region);
+  if (!region) {
+    return {
+      ok: false,
+      status: 400,
+      // El mensaje nombra el campo como lo llama la interfaz y dice qué hacer.
+      // "Región inválida" a secas obliga a adivinar cuál era la lista.
+      error: `La región "${b.region}" no es un departamento del Perú. Elegí uno de la lista en el paso 1.`,
+    };
   }
 
   const durationHours = parseDurationHours(b.duration);
