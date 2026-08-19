@@ -79,24 +79,48 @@ corte**: el viajero igual tiene que salir al correo y volver.
 > falta es tomar esa decisión, y traducir las plantillas antes de que esos
 > textos se empiecen a ver.
 
-## Pendiente: las plantillas de correo de Supabase están en INGLÉS
+## Las plantillas de correo: traducidas y pegadas, probada una de cuatro
 
-**Encontrado el 2026-08-18, probando el SMTP propio.** La invitación de prueba
-llegó diciendo **"You have been invited to create a user on..."**.
+**Estaban en inglés**, encontrado el 2026-08-18 probando el SMTP propio: la
+invitación llegó diciendo **"You have been invited to create a user on..."**. Los
+usuarios son peruanos y el resto del producto está en español, con el canon de
+`CLAUDE.md`: segunda persona, español peruano, sin vocabulario ibérico y sin
+rayas. Un correo de la plataforma en inglés rompía eso en el primer contacto con
+la cuenta.
 
-**Los usuarios son peruanos y el resto del producto está en español**, con el
-canon de terminología que fija `CLAUDE.md`: segunda persona, español peruano, sin
-vocabulario ibérico y sin rayas. Un correo de la plataforma en inglés rompe eso
-en el primer contacto con la cuenta.
+**Resuelto el mismo día: las cuatro están escritas, pegadas y guardadas** en
+Authentication > Emails > Templates, en español y con la identidad de Finde. El
+HTML de cada una vive en `docs/plantillas-correo-supabase.md`. Entre ellas está
+la que faltaba en la lista original: **el código de 6 dígitos no tiene plantilla
+propia, sale de "Magic Link"**.
 
-**Dónde se cambia:** Authentication > Emails > Templates, en el panel de Supabase.
-Es configuración, igual que el SMTP.
+### Lo que queda abierto es la VERIFICACIÓN, y no es lo mismo que estar pegadas
 
-**Cuándo:** **junto con reactivar la confirmación de correo.** Hoy casi nadie ve
-esos textos, porque con `mailer_autoconfirm` encendido el alta no manda correo de
-confirmación. El día que se reactive, pasan a ser el primer correo que recibe
-todo usuario nuevo. Hacer las dos cosas en el mismo movimiento evita el hueco de
-mandar el primer correo del producto en inglés.
+**Probada de verdad hay una sola.** Este es el estado real, plantilla por
+plantilla:
+
+| Plantilla | ¿Se puede disparar hoy? | Estado |
+|---|---|---|
+| **Invite user** | Sí, desde Auth > Users | **Probada en Gmail el 2026-08-18. Se ve bien.** |
+| **Confirm sign up** | No: `mailer_autoconfirm` está en `true` | Pegada, **sin probar** |
+| **Magic Link** (el código de 6 dígitos) | No: no hay flujo de OTP, nadie llama a `signInWithOtp` | Pegada, **sin probar** |
+| **Reset password** | No: no hay flujo de recuperación, nadie llama a `resetPasswordForEmail` | Pegada, **sin probar** |
+
+**Las tres sin probar no lo están por descuido: no se pueden mandar.** Cada una
+necesita que exista su flujo, y ninguno de los tres existe todavía.
+
+> **Regla, para que nadie las dé por buenas antes de tiempo: cada una de esas
+> tres se verifica EN EL MOMENTO en que se implemente su flujo, no antes.**
+> Reactivar `mailer_autoconfirm`, construir el OTP o construir la recuperación
+> son las tres ocasiones, y el correo se abre y se mira como parte de esa tanda.
+> Estar pegada no es estar probada.
+
+**Y falta un eje entero, en las cuatro: solo se probó Gmail.** La advertencia al
+escribirlas fue que el render no se podía verificar desde el repo, y sigue en
+pie para **Outlook de Windows** (que usa el motor de Word y es el que rompe lo
+que en todos los demás anda) y **Apple Mail**. Los detalles de qué se verificó
+por lectura del HTML, y qué no, están arriba de todo en
+`docs/plantillas-correo-supabase.md`.
 
 ## BUG DE UX: el botón de atrás rompe el checkout entero
 
@@ -370,6 +394,56 @@ propio QA.
   esperar, que es la misma razón por la que se puso el esqueleto.
 
   **Tanda aparte, con su propia verificación de cambio de cuenta.** Sin fecha.
+
+## BACKLOG: entrar con Google
+
+*(Anotado el 2026-08-18. No es para ahora, y el disparador está escrito abajo.)*
+
+**Por qué vale la pena.** Airbnb lo tiene y le funciona por una razón que Finde
+comparte: **su modal de cuenta aparece DESPUÉS de que el viajero eligió fecha y
+personas**, igual que el nuestro desde la tanda 3. En ese punto el viajero ya
+invirtió algo y la fricción de escribir una contraseña en un teclado de celular
+es justo donde se cae. Un botón de Google saca esa fricción.
+
+### La precondición NO es opcional, y sale de algo ya medido
+
+**En la tanda 3 se midió que el redirect de `signInWithOAuth` desmonta la SPA
+entera.** Y `BookingView` guarda **todo** su estado en `useState`, sin ninguna
+persistencia: la fecha, los cupos, el paso del formulario y los cuatro campos del
+viajero (nombre, teléfono, correo y documento).
+
+**O sea que el viajero volvería con sesión y sin nada de lo que había elegido**,
+que es exactamente el corte que el modal vino a evitar. Poner el botón sin
+resolver esto no mejora el embudo: lo empeora, porque cambia una fricción visible
+(escribir una contraseña) por una invisible (perder lo que ya habías cargado).
+
+> **Precondición: persistir un borrador `{ tourId, date, guests, step }` antes
+> del redirect y restaurarlo al volver. Se escribe y se prueba ANTES de que el
+> botón exista, no después.**
+
+Hay precedente en el código para no inventar nada: las notificaciones vistas ya
+se persisten en `localStorage` con un par de helpers de lectura y escritura, con
+la guarda `typeof localStorage === "undefined"`. La misma forma sirve acá.
+
+### Lo que necesita fuera del código
+
+Nada de esto es desarrollo, pero sin esto el botón no funciona:
+
+1. **Credenciales en Google Cloud** (proyecto, pantalla de consentimiento, client
+   ID y client secret).
+2. **Tres URLs de retorno** en la lista blanca: `finde.pe`, `dev.finde.pe` y
+   `localhost`. Si falta una, ese entorno queda roto y los otros dos no avisan.
+3. **Habilitarlo en Supabase.** Hoy está apagado: `google: false`, medido contra
+   `/auth/v1/settings` el 2026-08-18. De hecho **no hay ningún proveedor externo
+   encendido**, solo email.
+
+### El disparador
+
+**Después del switch, cuando haya tráfico real para medir cuánta gente abandona
+en el modal.** Hoy sería adivinar: la tanda 4 ya midió que en 30 días hubo 15
+páginas vistas, todas del QA propio. Con ese volumen no se puede saber si el
+modal es un problema o no, y el botón de Google es trabajo que se justifica con
+un número, no con una intuición.
 
 ## Huecos de producto
 
