@@ -92,6 +92,13 @@ en el primer contacto con la cuenta.
 **Dónde se cambia:** Authentication > Emails > Templates, en el panel de Supabase.
 Es configuración, igual que el SMTP.
 
+**Las plantillas ya están escritas**, en español y con la identidad de la app, en
+`docs/plantillas-correo-supabase.md`: son cuatro, con su asunto y su HTML listo
+para copiar. **Ahí está también la que faltaba en la lista original: el código de
+6 dígitos no tiene plantilla propia, sale de "Magic Link".** Lo que no se pudo
+hacer desde acá es abrirlas en un cliente de correo real, así que eso queda como
+el paso final antes de darlas por buenas.
+
 **Cuándo:** **junto con reactivar la confirmación de correo.** Hoy casi nadie ve
 esos textos, porque con `mailer_autoconfirm` encendido el alta no manda correo de
 confirmación. El día que se reactive, pasan a ser el primer correo que recibe
