@@ -5,6 +5,26 @@
 //
 // Nota: este proyecto corre en @vercel/node (Serverless), no en Edge, por
 // lo que request.geo NO está disponible. La fuente de verdad son los headers.
+//
+// ── POR QUÉ `reason` VIAJA SIEMPRE ──────────────────────────────────────────
+// Hasta el 2026-08-19 `reason` existía pero solo dentro de un bloque `debug`
+// que se emitía si `NODE_ENV !== "production"`. En Vercel eso es "production"
+// TAMBIÉN en los deploys de preview, así que ese bloque no salía nunca, ni en
+// finde.pe ni en dev.finde.pe.
+//
+// El resultado fue que cuando José vio tours de Lima estando en Cajamarca no
+// había forma de saber qué había pasado, y las dos explicaciones posibles
+// pedían arreglos distintos:
+//
+//   "no te detecté"            -> la IP no trajo nada, o no es peruana
+//   "te detecté y no te tengo" -> Cajamarca no está en la lista de soportadas
+//
+// `source` no las distingue: colapsa las dos en "fallback". `reason` sí, y no
+// expone nada: es una categoría de cinco valores, sin datos de nadie.
+//
+// El detalle crudo (qué ciudad exacta reportó la IP) va detrás de `?debug=1`,
+// porque eso sí es la ubicación de alguien. Y es la de quien pregunta, sobre sí
+// mismo: no hay forma de preguntar por otro.
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { mapToSupportedCity } from "../lib/geo.js";
@@ -39,21 +59,24 @@ export default async function handler(
     const rawCityHeader = firstHeader(req.headers["x-vercel-ip-city"]);
     const rawCity = safeDecode(rawCityHeader);
 
+    // Opt-in explícito. Devuelve la ubicación que la IP reporta de QUIEN
+    // PREGUNTA, a sí mismo: no hay parámetro para preguntar por otro.
+    const wantsDebug = firstHeader(req.query.debug as string | string[] | undefined) === "1";
+    const debug = {
+      rawCity: rawCity ?? null,
+      rawRegion: rawRegion ?? null,
+      rawCountry: rawCountry ?? null,
+    };
+
     // Sin ninguna cabecera de geo (localhost o vercel dev) → fallback Lima.
     if (!rawCountry && !rawRegion && !rawCity) {
       const body: Record<string, unknown> = {
         city: "Lima",
         country: "PE",
         source: "fallback",
+        reason: "no_headers",
       };
-      if (process.env.NODE_ENV !== "production") {
-        body.debug = {
-          rawCity: null,
-          rawRegion: null,
-          rawCountry: null,
-          reason: "no_geo_headers",
-        };
-      }
+      if (wantsDebug) body.debug = debug;
       res.setHeader("Cache-Control", "private, max-age=300");
       res.status(200).json(body);
       return;
@@ -67,15 +90,9 @@ export default async function handler(
       city: result.city,
       country: rawCountry || "PE",
       source,
+      reason: result.reason,
     };
-    if (process.env.NODE_ENV !== "production") {
-      body.debug = {
-        rawCity: rawCity ?? null,
-        rawRegion: rawRegion ?? null,
-        rawCountry: rawCountry ?? null,
-        reason: result.reason,
-      };
-    }
+    if (wantsDebug) body.debug = debug;
 
     res.setHeader("Cache-Control", "private, max-age=300");
     res.status(200).json(body);
@@ -87,6 +104,7 @@ export default async function handler(
       city: "Lima",
       country: "PE",
       source: "fallback",
+      reason: "error",
     });
   }
 }

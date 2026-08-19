@@ -181,6 +181,71 @@ Ya está escrito en tres reglas de la casa, y no por casualidad:
 **Comprobar las dos puntas de una cadena no alcanza.** Hay que leer el valor
 computado en el punto exacto donde se usa.
 
+#### Y la cadena incluye a las personas, no solo a las funciones
+
+**Agregado el 2026-08-19, con un caso propio.** Investigando por qué la
+geolocalización fallaba hacía falta un dato que solo se podía medir desde el
+navegador de José. Él **abrió la URL y lo midió**. El JSON nunca llegó al otro
+extremo de la conversación.
+
+**Resultado: una tanda entera trabajada con valores simulados**, tipeados a mano
+contra localhost, creyendo que eran lo mejor disponible. La medición real ya
+existía.
+
+**Es la misma forma que los tres bugs de arriba**: el valor está en una punta, el
+consumidor está en la otra, y se pierde en el medio. Lo único distinto es que el
+eslabón del medio era una persona, y **eso no lo hace menos eslabón**.
+
+Dos cosas prácticas:
+
+- **Cuando un dato solo lo puede medir la otra persona, la tanda está bloqueada
+  hasta que llegue.** No "mientras tanto avanzo con una aproximación": eso es lo
+  que convierte una suposición en la base de lo que viene después.
+- **Insistir con la pregunta es barato y desbloquea.** En este caso el costo de
+  no insistir habría sido construir sobre un valor supuesto que se veía idéntico
+  a uno medido, porque los dos aparecen en la salida de un comando.
+
+### 6. Un solo valor que coincide por casualidad hace que una rama muerta parezca viva
+
+**Encontrado el 2026-08-19, investigando por qué un viajero en Cajamarca veía
+tours de Lima.** No es el bug que se buscaba: es una segunda rama que llevaba
+meses sin funcionar y que nadie había mirado, **porque acertaba en un caso**.
+
+`mapToSupportedCity` tiene dos intentos: primero busca por ciudad y, si falla,
+busca por región. La rama por región compara el header
+`x-vercel-ip-country-region`, que trae el **código ISO 3166-2** (`CAJ`, `LIM`,
+`CUS`), contra una tabla de alias que son **nombres de ciudad**. Son dos
+alfabetos distintos: esa comparación no puede acertar.
+
+**Salvo una vez.** Probados los 25 códigos del Perú contra la tabla:
+
+```
+codigos que matchean: ICA -> Ica    (uno solo, de 25)
+
+alguien en Pisco (Ica)      -> "Ica"  (acierta)
+alguien en Urubamba (Cusco) -> "Lima" (cae al respaldo)
+```
+
+**"ICA" acierta porque el código se escribe igual que la ciudad.** Nada más. Y
+alcanza para que la rama tenga un caso de prueba que pasa, un comentario que la
+describe como si funcionara, y cero motivos aparentes para sospechar.
+
+**Lo que hay que llevarse, y por qué esto no es la regla 5 otra vez.** La regla 5
+dice que hay que medir en el punto exacto en vez de en los bordes. Esta dice algo
+peor: **que medir en el punto exacto tampoco alcanza si se mide con UN caso.**
+Cualquier prueba con Ica habría salido verde.
+
+En la práctica, cuando una rama traduce entre dos vocabularios (un código y un
+nombre, un id y un slug, un enum y una etiqueta):
+
+- **Probala con el conjunto, no con un ejemplo.** Los 25 códigos tardan un
+  segundo y son la diferencia entre "anda" y "anda en el 4%".
+- **Desconfiá cuando el que acierta es el ejemplo del comentario.** Suele ser el
+  que se usó para escribirla, y es el único que se verificó.
+- **Que los dos lados de una comparación sean del mismo vocabulario es una
+  propiedad que se enuncia, no que se supone.** Acá nadie escribió nunca "esto
+  compara códigos ISO contra nombres de ciudad", y por eso nadie lo vio.
+
 ---
 
 ## Lo que costó, y hay que decirlo

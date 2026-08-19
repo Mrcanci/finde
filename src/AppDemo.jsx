@@ -9,6 +9,9 @@ import { fromPath, toPath, parseTourSegment, canonicalTourPath } from "./lib/rou
 // La condición de publicar y sus números salen del MISMO módulo que usa el
 // backend. No se copian acá: ver lib/tour-publish.js.
 import { faltaParaPublicar, PITCH_MIN, PITCH_MAX, DESC_MIN } from "../lib/tour-publish.js";
+// Las ciudades soportadas y sus alias salen del MISMO modulo que usa /api/geo.
+// Estuvieron escritas tres veces y las tres eran distintas: ver lib/cities.js.
+import { SUPPORTED_CITIES, QUERY_CITY_ALIASES, normalizeCity, toursByCity } from "../lib/cities.js";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // FINDE v3 — AI-Native Marketplace
@@ -930,35 +933,16 @@ const KEYWORD_MAPS = [
   { keywords: ["sin altitud","baja altitud"], filters: { maxAltitude: 3000 } },
 ];
 
-const CITY_ALIASES = {
-  lima: ["Lima","Miraflores"], cusco: ["Cusco"], arequipa: ["Arequipa"],
-  ica: ["Ica","Paracas","Huacachina"], huaraz: ["Huaraz","Áncash"],
-  piura: ["Piura","Los Órganos","Máncora"], apurímac: ["Apurímac"],
-};
+// Aca vivian TRES definiciones de las ciudades: la lista soportada, sus alias y
+// una tercera lista mas chica para el buscador local. Las tres se fueron a
+// lib/cities.js, que es el mismo modulo que consume /api/geo. El porque, y el
+// bug que costo (un viajero en Cajamarca veia tours de Lima), estan ahi.
+//
+// Lo unico que quedo aca es el override de desarrollo, que es de la app y no
+// del dominio.
 
-// Feature "Tours en [ciudad]": 9 ciudades soportadas, ordenadas por tráfico
-// turístico. SUPPORTED_CITY_ALIASES amplía CITY_ALIASES (usado por la búsqueda
-// IA) con distritos de Lima y subdestinos de cada región, alineado con el
-// mapeo de lib/geo.ts del backend.
-const SUPPORTED_CITIES = [
-  "Lima","Cusco","Arequipa","Trujillo","Ica","Iquitos","Piura","Huaraz","Puerto Maldonado",
-];
-const SUPPORTED_CITY_ALIASES = {
-  "Lima": ["Lima","Miraflores","San Isidro","Barranco","Surco","La Molina","Callao","Chorrillos","San Borja","Magdalena","Pueblo Libre","Chancay","Lunahuaná","Marcapomacocha"],
-  "Cusco": ["Cusco","Cuzco"],
-  "Arequipa": ["Arequipa"],
-  "Trujillo": ["Trujillo"],
-  "Ica": ["Ica","Paracas","Huacachina","Nazca","Chincha"],
-  "Iquitos": ["Iquitos"],
-  "Piura": ["Piura","Máncora","Los Órganos","Talara"],
-  "Huaraz": ["Huaraz"],
-  "Puerto Maldonado": ["Puerto Maldonado","Tambopata"],
-};
-function normalizeCity(s) {
-  return (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
-}
 // Dev-only: en localhost permitimos override por ?city=Cusco. En cualquier
-// otro host devuelve null y el frontend confía en /api/geo.
+// otro host devuelve null y el frontend confia en /api/geo.
 function readDevCityOverride() {
   if (typeof window === "undefined") return null;
   const host = window.location.hostname;
@@ -968,14 +952,6 @@ function readDevCityOverride() {
   if (!override) return null;
   const norm = normalizeCity(override);
   return SUPPORTED_CITIES.find(c => normalizeCity(c) === norm) || null;
-}
-function toursByCity(tours, city) {
-  const aliases = SUPPORTED_CITY_ALIASES[city] || [city];
-  const normAliases = aliases.map(normalizeCity);
-  return tours.filter(t => {
-    const loc = normalizeCity(t.location);
-    return loc && normAliases.some(a => loc.includes(a));
-  });
 }
 
 function parseAltitude(t) { return parseInt((t.altitude || "").replace(/,/g, ""), 10) || 0; }
@@ -1004,7 +980,7 @@ function searchTours(tours, query, categoryFilter) {
     }
   }
   let cityMatch = null;
-  for (const [city, aliases] of Object.entries(CITY_ALIASES)) {
+  for (const [city, aliases] of Object.entries(QUERY_CITY_ALIASES)) {
     if (remaining.includes(city) || remaining.includes("cerca de " + city)) {
       cityMatch = aliases;
       remaining = remaining.replace("cerca de " + city, "").replace(city, "").trim();
@@ -1411,7 +1387,11 @@ html{scrollbar-gutter:stable}
 
 /* ── Sección "Tours en [ciudad]" con selector ── */
 .city-sh{align-items:center}
-.city-near{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:13px;color:var(--gy);font-weight:400;letter-spacing:0}
+/* Aca vivian .city-near y .city-near-off, que pintaban ' · cerca de ti' y
+   ' · no detectamos tu ciudad' al lado del titulo de la seccion de ciudad. Las
+   dos frases se sacaron el 2026-08-19 (ver el comentario largo en HomeView) y
+   las reglas se van con ellas. Si alguna vuelve a aparecer, que sea con una
+   decision nueva y no porque quedo el estilo hecho. */
 .city-actions{display:flex;align-items:center;gap:12px}
 /* Mobile-first: el botón "Ver todos / Ver menos" se oculta en mobile porque
    el carrusel horizontal ya permite navegar todas las cards con swipe. En
@@ -2028,7 +2008,6 @@ html{scrollbar-gutter:stable}
   .sh{margin-bottom:24px}
   /* .st y .gc-t ya no declaran tamano aca: lo manda el token, que tiene su
      propio escalon de escritorio. Ver la Fase 6A, paso 2. */
-  .city-near{font-size:14px}
 
   .tg{grid-template-columns:repeat(3,1fr);gap:24px;padding:0 0 48px}
   .gc:hover{transform:translateY(-5px);box-shadow:0 16px 40px rgba(0,0,0,.1)}
@@ -2920,12 +2899,17 @@ function CitySelector({ selectedCity, onPick }) {
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
+      {/* El nombre accesible dice que esto CAMBIA algo. Sin él, el lector de
+          pantalla anunciaba solo "Lima", que suena a etiqueta y no a control, y
+          es justo el control que el viajero necesita cuando la ciudad elegida
+          no es la suya. */}
       <button
         type="button"
         className={`city-btn ${open ? "open" : ""}`}
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-label={`Cambiar ciudad, ahora ${selectedCity}`}
       >
         <MapPin size={14} strokeWidth={1.5} />
         {selectedCity}
@@ -2959,7 +2943,7 @@ function CitySelector({ selectedCity, onPick }) {
   );
 }
 
-function HomeView({ go, cat, setCat, tours, toursLoading, selectedCity, setSelectedCity, geoSource }) {
+function HomeView({ go, cat, setCat, tours, toursLoading, selectedCity, setSelectedCity }) {
   const [cityExpanded, setCityExpanded] = useState(false);
   const filt = cat === "all" ? tours : tours.filter((t) => t.category === cat);
   // Destacados: los 4 más recientes (createdAt desc). Antes ordenaba por rating,
@@ -2995,10 +2979,35 @@ function HomeView({ go, cat, setCat, tours, toursLoading, selectedCity, setSelec
         <div className="sh fd2"><div className="st">Recién publicados</div><button className="sl" onClick={() => go("catalog")}>Ver todos <ArrowRight size={12} strokeWidth={1.5} style={{verticalAlign:"middle"}} /></button></div>
         <div className="tscr fd3">{toursLoading ? Array.from({ length: 4 }).map((_, i) => <TCardSkeleton key={i} />) : feat.map((t) => <TCard key={t.id} t={t} onClick={() => { go("detail", { tour: t }); }} />)}</div>
         <div className="sh city-sh" style={{ marginTop: 8 }}>
-          <div className="st">
-            Tours en {selectedCity}
-            {geoSource === "geo" && <span className="city-near"> · cerca de ti</span>}
-          </div>
+          {/* ESTE TÍTULO DICE QUÉ ESTÁS VIENDO, NO DÓNDE ESTÁS. La distinción
+              parece de redacción y es la única cosa que la app puede afirmar
+              con certeza.
+
+              Acá vivían dos frases y las dos se fueron el 2026-08-19:
+
+              " · cerca de ti", que aparecía cuando la geo IP había matcheado.
+              Es la única frase donde la app decía SABER dónde estaba el
+              viajero, y se midió equivocada: desde una máquina en Lima, sin
+              VPN, /api/geo devolvió "Arequipa" con source "geo" de forma
+              estable. O sea que la pantalla decía "Tours en Arequipa · cerca
+              de ti" a alguien que estaba en Lima. No es que no supiera: es que
+              afirmó, y se equivocó.
+
+              " · no detectamos tu ciudad", que se había agregado ese mismo día
+              para el caso contrario. Era honesta, pero sostenía el marco
+              equivocado: hablaba de un intento de detectarte. Si el título ya
+              no afirma dónde estás, no hay nada que desmentir.
+
+              NO SE VUELVEN A PONER, y el motivo no es la tasa de error, que no
+              está medida (dos casos no miden una tasa). Es la asimetría:
+              acertar le ahorra al viajero UN toque en el selector, y errar lo
+              manda a otro catálogo diciéndole que es el suyo. Con esa cuenta,
+              aunque acertara casi siempre, seguiría sin convenir afirmar.
+
+              La geo IP sigue eligiendo la ciudad inicial, y está bien: es una
+              sugerencia. Lo que no hace es anunciarse como conocimiento. El
+              control para cambiarla está al lado, y es el que manda. */}
+          <div className="st">Tours en {selectedCity}</div>
           <div className="city-actions">
             {allCityTours.length > 4 && (
               <button className="sl" onClick={() => setCityExpanded((v) => !v)}>
@@ -6557,6 +6566,12 @@ export default function AppDemo() {
   // Si hay override en localhost lo tratamos como "manual" para que la respuesta
   // tardía de /api/geo (siempre fallback en localhost) no lo pise.
   const [geoSource, setGeoSource] = useState(() => readDevCityOverride() ? "manual" : "fallback");
+  // NO hay estado para el `reason` de /api/geo, y es a propósito. El endpoint
+  // lo devuelve siempre (ver api/geo.ts) porque ahí es lo que permite
+  // diagnosticar sin adivinar, pero la interfaz no lo muestra: mostrarlo
+  // obligaba a hablar de detección, y el título dejó de afirmar ubicación el
+  // 2026-08-19. Si vuelve a hacer falta (por ejemplo para preseleccionar una
+  // sugerencia al preguntar la ciudad la primera vez), se agrega ahí.
   const pickCity = useCallback((city) => {
     setSelectedCity(city);
     setGeoSource("manual");
