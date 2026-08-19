@@ -9,6 +9,9 @@ import { fromPath, toPath, parseTourSegment, canonicalTourPath } from "./lib/rou
 // La condición de publicar y sus números salen del MISMO módulo que usa el
 // backend. No se copian acá: ver lib/tour-publish.js.
 import { faltaParaPublicar, PITCH_MIN, PITCH_MAX, DESC_MIN } from "../lib/tour-publish.js";
+// Las ciudades soportadas y sus alias salen del MISMO modulo que usa /api/geo.
+// Estuvieron escritas tres veces y las tres eran distintas: ver lib/cities.js.
+import { SUPPORTED_CITIES, QUERY_CITY_ALIASES, normalizeCity, toursByCity } from "../lib/cities.js";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // FINDE v3 — AI-Native Marketplace
@@ -930,35 +933,16 @@ const KEYWORD_MAPS = [
   { keywords: ["sin altitud","baja altitud"], filters: { maxAltitude: 3000 } },
 ];
 
-const CITY_ALIASES = {
-  lima: ["Lima","Miraflores"], cusco: ["Cusco"], arequipa: ["Arequipa"],
-  ica: ["Ica","Paracas","Huacachina"], huaraz: ["Huaraz","Áncash"],
-  piura: ["Piura","Los Órganos","Máncora"], apurímac: ["Apurímac"],
-};
+// Aca vivian TRES definiciones de las ciudades: la lista soportada, sus alias y
+// una tercera lista mas chica para el buscador local. Las tres se fueron a
+// lib/cities.js, que es el mismo modulo que consume /api/geo. El porque, y el
+// bug que costo (un viajero en Cajamarca veia tours de Lima), estan ahi.
+//
+// Lo unico que quedo aca es el override de desarrollo, que es de la app y no
+// del dominio.
 
-// Feature "Tours en [ciudad]": 9 ciudades soportadas, ordenadas por tráfico
-// turístico. SUPPORTED_CITY_ALIASES amplía CITY_ALIASES (usado por la búsqueda
-// IA) con distritos de Lima y subdestinos de cada región, alineado con el
-// mapeo de lib/geo.ts del backend.
-const SUPPORTED_CITIES = [
-  "Lima","Cusco","Arequipa","Trujillo","Ica","Iquitos","Piura","Huaraz","Puerto Maldonado",
-];
-const SUPPORTED_CITY_ALIASES = {
-  "Lima": ["Lima","Miraflores","San Isidro","Barranco","Surco","La Molina","Callao","Chorrillos","San Borja","Magdalena","Pueblo Libre","Chancay","Lunahuaná","Marcapomacocha"],
-  "Cusco": ["Cusco","Cuzco"],
-  "Arequipa": ["Arequipa"],
-  "Trujillo": ["Trujillo"],
-  "Ica": ["Ica","Paracas","Huacachina","Nazca","Chincha"],
-  "Iquitos": ["Iquitos"],
-  "Piura": ["Piura","Máncora","Los Órganos","Talara"],
-  "Huaraz": ["Huaraz"],
-  "Puerto Maldonado": ["Puerto Maldonado","Tambopata"],
-};
-function normalizeCity(s) {
-  return (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
-}
 // Dev-only: en localhost permitimos override por ?city=Cusco. En cualquier
-// otro host devuelve null y el frontend confía en /api/geo.
+// otro host devuelve null y el frontend confia en /api/geo.
 function readDevCityOverride() {
   if (typeof window === "undefined") return null;
   const host = window.location.hostname;
@@ -968,14 +952,6 @@ function readDevCityOverride() {
   if (!override) return null;
   const norm = normalizeCity(override);
   return SUPPORTED_CITIES.find(c => normalizeCity(c) === norm) || null;
-}
-function toursByCity(tours, city) {
-  const aliases = SUPPORTED_CITY_ALIASES[city] || [city];
-  const normAliases = aliases.map(normalizeCity);
-  return tours.filter(t => {
-    const loc = normalizeCity(t.location);
-    return loc && normAliases.some(a => loc.includes(a));
-  });
 }
 
 function parseAltitude(t) { return parseInt((t.altitude || "").replace(/,/g, ""), 10) || 0; }
@@ -1004,7 +980,7 @@ function searchTours(tours, query, categoryFilter) {
     }
   }
   let cityMatch = null;
-  for (const [city, aliases] of Object.entries(CITY_ALIASES)) {
+  for (const [city, aliases] of Object.entries(QUERY_CITY_ALIASES)) {
     if (remaining.includes(city) || remaining.includes("cerca de " + city)) {
       cityMatch = aliases;
       remaining = remaining.replace("cerca de " + city, "").replace(city, "").trim();
@@ -1412,6 +1388,7 @@ html{scrollbar-gutter:stable}
 /* ── Sección "Tours en [ciudad]" con selector ── */
 .city-sh{align-items:center}
 .city-near{font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:13px;color:var(--gy);font-weight:400;letter-spacing:0}
+.city-near-off{color:var(--tr-text);font-weight:600}
 .city-actions{display:flex;align-items:center;gap:12px}
 /* Mobile-first: el botón "Ver todos / Ver menos" se oculta en mobile porque
    el carrusel horizontal ya permite navegar todas las cards con swipe. En
@@ -2959,7 +2936,7 @@ function CitySelector({ selectedCity, onPick }) {
   );
 }
 
-function HomeView({ go, cat, setCat, tours, toursLoading, selectedCity, setSelectedCity, geoSource }) {
+function HomeView({ go, cat, setCat, tours, toursLoading, selectedCity, setSelectedCity, geoSource, geoReason }) {
   const [cityExpanded, setCityExpanded] = useState(false);
   const filt = cat === "all" ? tours : tours.filter((t) => t.category === cat);
   // Destacados: los 4 más recientes (createdAt desc). Antes ordenaba por rating,
@@ -2995,9 +2972,18 @@ function HomeView({ go, cat, setCat, tours, toursLoading, selectedCity, setSelec
         <div className="sh fd2"><div className="st">Recién publicados</div><button className="sl" onClick={() => go("catalog")}>Ver todos <ArrowRight size={12} strokeWidth={1.5} style={{verticalAlign:"middle"}} /></button></div>
         <div className="tscr fd3">{toursLoading ? Array.from({ length: 4 }).map((_, i) => <TCardSkeleton key={i} />) : feat.map((t) => <TCard key={t.id} t={t} onClick={() => { go("detail", { tour: t }); }} />)}</div>
         <div className="sh city-sh" style={{ marginTop: 8 }}>
+          {/* El titulo AFIRMA una ubicacion, asi que solo puede decir "cerca de
+              ti" cuando de verdad detecto. Antes decia "Tours en Lima" con la
+              misma cara cuando detectaba Lima y cuando no detectaba nada, y eso
+              es lo que hizo que un viajero en Cajamarca creyera que el producto
+              sabia donde estaba. Cuando no detecto, lo dice y manda al selector,
+              que esta al lado. */}
           <div className="st">
             Tours en {selectedCity}
             {geoSource === "geo" && <span className="city-near"> · cerca de ti</span>}
+            {geoSource === "fallback" && geoReason && geoReason !== "matched" && (
+              <span className="city-near city-near-off"> · no detectamos tu ciudad</span>
+            )}
           </div>
           <div className="city-actions">
             {allCityTours.length > 4 && (
@@ -6557,6 +6543,10 @@ export default function AppDemo() {
   // Si hay override en localhost lo tratamos como "manual" para que la respuesta
   // tardía de /api/geo (siempre fallback en localhost) no lo pise.
   const [geoSource, setGeoSource] = useState(() => readDevCityOverride() ? "manual" : "fallback");
+  // El motivo por el que la ciudad es la que es. Llega siempre desde /api/geo
+  // (matched | unmapped | non_pe | no_input | no_headers | error) y sirve para
+  // que la interfaz no afirme una ubicacion que en realidad no detecto.
+  const [geoReason, setGeoReason] = useState(null);
   const pickCity = useCallback((city) => {
     setSelectedCity(city);
     setGeoSource("manual");
@@ -6921,6 +6911,7 @@ export default function AppDemo() {
           if (prevSource === "manual") return prevSource;
           if (data?.city && SUPPORTED_CITIES.includes(data.city)) {
             setSelectedCity(data.city);
+            setGeoReason(data.reason ?? null);
             return data.source === "geo" ? "geo" : "fallback";
           }
           return prevSource;
@@ -7708,7 +7699,7 @@ export default function AppDemo() {
         {effectiveView === "welcome" && <WelcomeView go={go} />}
         {effectiveView === "not-found" && <NotFoundView go={go} />}
         {effectiveView === "reset-password" && <ResetPasswordView go={go} />}
-        {effectiveView === "home" && <HomeView go={go} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} selectedCity={selectedCity} setSelectedCity={pickCity} geoSource={geoSource} />}
+        {effectiveView === "home" && <HomeView go={go} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} selectedCity={selectedCity} setSelectedCity={pickCity} geoSource={geoSource} geoReason={geoReason} />}
         {effectiveView === "catalog" && <CatalogView go={go} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} />}
         {effectiveView === "detail" && (currentTour
           ? <DetailView tour={currentTour} go={go} onBook={handleBook} reviews={reviews} />
