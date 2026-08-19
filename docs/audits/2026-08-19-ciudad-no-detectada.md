@@ -440,24 +440,69 @@ que el que no quiera elegir simplemente siga scrolleando.
 está en un lugar que la IP reporta mal deja de depender de que nosotros
 acertemos.
 
-## Lo que sigue SIN medirse: el valor real del header
+## LA MEDICIÓN REAL del header (2026-08-19)
 
-**Ningún valor de `x-vercel-ip-country-region` en este documento salió de una
-medición.** Los `"CAJ"` y `"ARE"` que aparecen arriba **los tipeamos nosotros**
-como headers simulados contra localhost, para probar el mapeo. Que Vercel mande
-el código ISO sigue siendo **lectura de la documentación**, no un dato observado
-en nuestro stack.
+**Esta sí es una medición.** Salió de `https://dev.finde.pe/api/geo?debug=1`
+abierto por José en su navegador, **desde Lima y sin VPN**:
 
-Es el tercer caso del mismo tipo en un solo día, y por eso queda escrito:
-primero una afirmación circular sobre dónde estaba la máquina, después una
-conclusión general con dos casos, y ahora un valor supuesto que parecía medido
-porque apareció en la salida de un comando. **Lo que hace peligroso a este
-último es que la salida se ve idéntica a una medición.**
+```json
+{"city":"Arequipa","country":"PE","source":"geo","reason":"matched",
+ "debug":{"rawCity":"Arequipa","rawRegion":"ARE","rawCountry":"PE"}}
+```
 
-**Cómo se cierra, y cuesta diez segundos:** abrir en el navegador
-`https://dev.finde.pe/api/geo?debug=1`, que ya está desplegado con `?debug=1`.
-Devuelve `debug.rawRegion` con lo que Vercel manda de verdad. Hasta entonces
-**la C no se apoya en el departamento**.
+> **Distinción que importa al leer este documento.** Todos los `"CAJ"` y `"ARE"`
+> que aparecen en las secciones anteriores **los tipeamos nosotros** como
+> headers simulados contra localhost, para probar el mapeo. **Esta es la única
+> línea del informe donde el valor lo puso Vercel.** Se ven iguales en la salida
+> de un comando, y esa es justamente la trampa.
+
+### Las tres cosas que confirma
+
+**1. `rawRegion` llega como `"ARE"`: es el código ISO 3166-2, como decía la
+documentación.** Es **un** valor real, no los 25, pero coincide con lo
+documentado. **La C se puede apoyar en el departamento.**
+
+**2. El error no es nuestro, es del proveedor.** `rawCity` llega como
+`"Arequipa"`. O sea que **Vercel mismo reporta Arequipa** para una IP que está en
+Lima. Nuestro mapeo hizo exactamente lo que debía con el dato que recibió: no hay
+nada que arreglar en `mapToSupportedCity` para este caso.
+
+**3. La app estaba segura.** `reason: "matched"`, `source: "geo"`. Es el estado
+que encendía el " · cerca de ti" que se sacó.
+
+### Y una consecuencia para la C que hay que tener clarísima
+
+**El código ISO arregla la COBERTURA, no la PRECISIÓN.**
+
+Si la IP dice "Arequipa" estando el viajero en Lima, entonces `rawRegion` dice
+`"ARE"` y **se equivoca igual**: los dos salen de la misma consulta. Cambiar de
+nombre de ciudad a código de departamento hace que **entren los 25
+departamentos** en vez de nueve ciudades, y eso resuelve los 7 tours invisibles.
+**No hace que la detección acierte más veces.**
+
+| | Qué resuelve | Qué NO resuelve |
+|---|---|---|
+| **La C** (departamento por código ISO) | los 7 tours que hoy no aparecen en ninguna ciudad | que la IP diga Arequipa cuando estás en Lima |
+| **Preguntar la primera vez** (nivel 3) | nada de lo anterior | **exactamente eso** |
+
+Por eso el nivel 3 no es opcional ni "más de lo mismo": es **la única de las tres
+piezas que ataca la precisión**. Las otras dos atacan cobertura y honestidad.
+
+## El eslabón que falló, y es el patrón de siempre
+
+**El dato existía y no llegó.** José abrió la URL y midió; el JSON no viajó hasta
+el otro extremo de la conversación. Durante una tanda entera se trabajó con
+valores simulados creyendo que eran lo mejor disponible, cuando la medición ya
+estaba hecha.
+
+**Es exactamente la forma de los tres bugs que este repo ya tiene anotados**
+(`mapTourFromApi` con `pendingRequests`, el API que devolvía el dato y el
+consumidor que lo leía): **el valor está en una punta, el consumidor está en la
+otra, y se pierde en el medio.** La diferencia es que acá el eslabón del medio
+era una persona y no una función, y eso no lo hace menos eslabón.
+
+**Lo que lo hizo visible fue insistir con la pregunta.** El costo de no insistir
+habría sido escribir la C sobre una suposición.
 
 ## Sobre invertir el orden: sí, y hay un argumento que no es solo de prioridad
 

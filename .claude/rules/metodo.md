@@ -181,6 +181,30 @@ Ya está escrito en tres reglas de la casa, y no por casualidad:
 **Comprobar las dos puntas de una cadena no alcanza.** Hay que leer el valor
 computado en el punto exacto donde se usa.
 
+#### Y la cadena incluye a las personas, no solo a las funciones
+
+**Agregado el 2026-08-19, con un caso propio.** Investigando por qué la
+geolocalización fallaba hacía falta un dato que solo se podía medir desde el
+navegador de José. Él **abrió la URL y lo midió**. El JSON nunca llegó al otro
+extremo de la conversación.
+
+**Resultado: una tanda entera trabajada con valores simulados**, tipeados a mano
+contra localhost, creyendo que eran lo mejor disponible. La medición real ya
+existía.
+
+**Es la misma forma que los tres bugs de arriba**: el valor está en una punta, el
+consumidor está en la otra, y se pierde en el medio. Lo único distinto es que el
+eslabón del medio era una persona, y **eso no lo hace menos eslabón**.
+
+Dos cosas prácticas:
+
+- **Cuando un dato solo lo puede medir la otra persona, la tanda está bloqueada
+  hasta que llegue.** No "mientras tanto avanzo con una aproximación": eso es lo
+  que convierte una suposición en la base de lo que viene después.
+- **Insistir con la pregunta es barato y desbloquea.** En este caso el costo de
+  no insistir habría sido construir sobre un valor supuesto que se veía idéntico
+  a uno medido, porque los dos aparecen en la salida de un comando.
+
 ### 6. Un solo valor que coincide por casualidad hace que una rama muerta parezca viva
 
 **Encontrado el 2026-08-19, investigando por qué un viajero en Cajamarca veía
