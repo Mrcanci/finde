@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
-import { supabase } from "../lib/supabase.js";
+import { supabase, initialAuthHash, llegoPorRecuperacion } from "../lib/supabase.js";
 import { authFetch } from "../lib/authFetch.js";
 
 const AuthContext = createContext(null);
@@ -14,6 +14,21 @@ export function AuthProvider({ children }) {
   // Los gates que dependen del operador (panel) esperan esto, NO `loading`:
   // la sesión resuelve al instante, el operador tarda un roundtrip más.
   const [operatorResolved, setOperatorResolved] = useState(false);
+
+  // EL ENLACE DEL CORREO DE RECUPERACION ES UN INICIO DE SESION, Y ESTE FLAG
+  // EXISTE POR ESO. Supabase no manda al usuario a una pantalla neutra: le crea
+  // una sesion y dispara el evento PASSWORD_RECOVERY (verificado el 2026-08-19
+  // contra @supabase/auth-js 2.104.1).
+  //
+  // Abajo, onAuthStateChange trataba TODOS los eventos igual. Sin este flag el
+  // usuario hace clic en el correo, vuelve a la app YA LOGUEADO, aterriza en el
+  // inicio, y NADIE LE PIDE LA CONTRASENA NUEVA: se va creyendo que la cambio
+  // cuando la vieja sigue siendo la unica que hay.
+  //
+  // Es peor que no tener el flujo, porque parece que funciona. Por eso la
+  // pantalla de contrasena nueva NO se protege con "no hay sesion" (si la hay):
+  // se protege con "acabamos de ver PASSWORD_RECOVERY".
+  const [recoveryMode, setRecoveryMode] = useState(false);
 
   // Guards de concurrencia de la resolución de operador:
   // - opSeq (latest-wins): solo la llamada más reciente setea estado. Sin esto,
@@ -110,7 +125,10 @@ export function AuthProvider({ children }) {
 
     // Reaccionar a SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED, INITIAL_SESSION.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
+      (event, newSession) => {
+        // La unica rama que NO es "tratar todos los eventos igual". Ver el
+        // comentario de recoveryMode arriba.
+        if (event === "PASSWORD_RECOVERY") setRecoveryMode(true);
         setSession(newSession);
         setUser(newSession?.user ?? null);
         resolveOperatorFor(newSession?.user ?? null);
@@ -136,6 +154,26 @@ export function AuthProvider({ children }) {
     signUpWithPassword: ({ email, password }) =>
       supabase.auth.signUp({ email, password }),
     signOut: () => supabase.auth.signOut(),
+
+    // ── Recuperar contrasena ──
+    // redirectTo lo arma quien llama, con toPath(), para no escribir /demo a
+    // mano (ver src/lib/routes.js).
+    resetPasswordForEmail: (email, redirectTo) =>
+      supabase.auth.resetPasswordForEmail(email, { redirectTo }),
+    updatePassword: (password) => supabase.auth.updateUser({ password }),
+
+    recoveryMode,
+    // El evento PASSWORD_RECOVERY llega en un setTimeout(0) DESPUES de que el
+    // cliente limpia el hash, asi que hay una ventana en la que la pantalla ya
+    // monto y todavia no sabe nada. Sin esto la pantalla decidiria "no es una
+    // recuperacion" y echaria al usuario justo en el caso bueno.
+    recoveryPending: llegoPorRecuperacion && !recoveryMode && !initialAuthHash.error_code,
+    // Enlace vencido o ya usado. El cliente NO limpia el hash en este camino,
+    // por eso se puede leer.
+    recoveryLinkError: initialAuthHash.error_code
+      ? { code: initialAuthHash.error_code, description: initialAuthHash.error_description || "" }
+      : null,
+    endRecovery: () => setRecoveryMode(false),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

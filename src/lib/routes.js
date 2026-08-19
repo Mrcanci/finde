@@ -115,6 +115,7 @@ const ROUTES = [
   { view: "new-tour", segs: ["panel", "tour", "nuevo"] },
   { view: "detail", segs: ["tour", ":seg"] },
   { view: "booking", segs: ["reservar", ":seg"] },
+  { view: "reset-password", segs: ["nueva-contrasena"] },
   { view: "not-found", segs: ["no-encontrado"] },
 ];
 
