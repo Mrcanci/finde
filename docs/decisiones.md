@@ -805,6 +805,16 @@ medición concreta: si Plus Jakarta Sans no llegó a cargar todavía, el respald
 desborda durante el FOUT**, que es exactamente el defecto que esto viene a
 arreglar. A 8,5px el respaldo mide 35,11 y entra.
 
+**Ajuste posterior del mismo día, y destapó un defecto que nadie había visto.**
+La etiqueta quedaba pegada al número y abajo sobraba espacio. Al medirlo apareció
+la causa real: número y etiqueta vivían dentro de un mismo `flex column` que se
+centraba **como una sola pieza**, así que en las celdas con cupo bajo el número
+quedaba **4,46px más arriba** que en las celdas normales. En una fila de siete
+días eso se ve. La etiqueta pasó a `position: absolute` anclada al fondo de la
+celda, o sea que ya no participa del centrado: **la desalineación del número
+contra una celda sin etiqueta pasó de 4,46px a 0** a 360, 390 y 412, y la
+etiqueta ocupa los 9,72px que estaban muertos abajo.
+
 **Para el barrido del piso de 12px de la Fase 6B esto es una excepción medida:**
 el piso no se puede cumplir acá sin sacar el texto de la celda, que es lo que se
 revirtió. Queda para decidir cuando se ejecute ese barrido.

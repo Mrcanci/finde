@@ -457,6 +457,7 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
                 else onToggleException && onToggleException(iso, state);
               }}
               style={{
+                position: "relative",
                 minHeight: 44, minWidth: 0, width: "100%", aspectRatio: "1", borderRadius: 8, border,
                 background: bg, color, fontSize: 13, fontWeight: 600,
                 cursor, fontFamily: "inherit", textDecoration, opacity,
@@ -464,10 +465,24 @@ function MonthCalendar({ mode, selectedDate, onSelect, days = DEFAULT_DAYS, excl
               }}
             >
               {lowN >= 1 && lowN <= 3 ? (
-                <span style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", lineHeight: 1.05 }}>
-                  <span>{d}</span>
-                  <span data-low-label style={{ fontSize: 8.5, fontWeight: 700, whiteSpace: "nowrap" }}>{lowN === 1 ? "1 cupo" : `${lowN} cupos`}</span>
-                </span>
+                <>
+                  {/* El número se renderiza EXACTAMENTE igual que en una celda
+                      sin etiqueta: texto suelto, centrado por el botón. Antes
+                      vivía dentro de un flex column junto con la etiqueta, y ese
+                      bloque, al centrarse como una sola pieza, lo empujaba
+                      4,46px hacia arriba. En una misma fila eso dejaba los días
+                      con cupo bajo más altos que el resto.
+
+                      La etiqueta va ABSOLUTA justamente para NO participar de
+                      ese centrado. Así ocupa el espacio muerto de abajo (había
+                      9,72px sin usar) sin mover el número ni un píxel.
+
+                      Medido a 360, 390 y 412: la desalineación del número
+                      contra la de una celda sin etiqueta da 0 en las tres, y la
+                      etiqueta no desborda por abajo en ninguna. */}
+                  {d}
+                  <span data-low-label style={{ position: "absolute", left: 0, right: 0, bottom: 3, fontSize: 8.5, fontWeight: 700, lineHeight: 1.05, whiteSpace: "nowrap" }}>{lowN === 1 ? "1 cupo" : `${lowN} cupos`}</span>
+                </>
               ) : (
                 d
               )}
