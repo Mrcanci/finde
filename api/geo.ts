@@ -17,7 +17,10 @@
 // pedían arreglos distintos:
 //
 //   "no te detecté"            -> la IP no trajo nada, o no es peruana
-//   "te detecté y no te tengo" -> Cajamarca no está en la lista de soportadas
+//   "te detecté y no te tengo" -> Cajamarca no estaba en la lista de soportadas
+//                                 (eso ya no pasa: desde el 2026-08-19 los
+//                                 grupos son los 26 departamentos, ver
+//                                 lib/cities.js)
 //
 // `source` no las distingue: colapsa las dos en "fallback". `reason` sí, y no
 // expone nada: es una categoría de cinco valores, sin datos de nadie.
@@ -27,7 +30,7 @@
 // mismo: no hay forma de preguntar por otro.
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { mapToSupportedCity } from "../lib/geo.js";
+import { mapToDepartment, displayName } from "../lib/geo.js";
 
 function firstHeader(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) return value[0];
@@ -71,7 +74,8 @@ export default async function handler(
     // Sin ninguna cabecera de geo (localhost o vercel dev) → fallback Lima.
     if (!rawCountry && !rawRegion && !rawCity) {
       const body: Record<string, unknown> = {
-        city: "Lima",
+        department: "Lima",
+        display: displayName("Lima"),
         country: "PE",
         source: "fallback",
         reason: "no_headers",
@@ -82,12 +86,16 @@ export default async function handler(
       return;
     }
 
-    const result = mapToSupportedCity(rawCity, rawRegion, rawCountry);
+    // El departamento sale del CODIGO ISO de la region, que es una tabla
+    // cerrada que cubre el pais entero. El nombre de ciudad quedo como
+    // respaldo. Ver lib/cities.js.
+    const result = mapToDepartment(rawCity, rawRegion, rawCountry);
     const source: "geo" | "fallback" =
-      result.reason === "matched" ? "geo" : "fallback";
+      result.reason === "iso" || result.reason === "city" ? "geo" : "fallback";
 
     const body: Record<string, unknown> = {
-      city: result.city,
+      department: result.department,
+      display: displayName(result.department),
       country: rawCountry || "PE",
       source,
       reason: result.reason,
@@ -101,7 +109,8 @@ export default async function handler(
     // devolvemos siempre el fallback Lima para que el frontend pueda seguir.
     console.error("Error en GET /api/geo:", error);
     res.status(200).json({
-      city: "Lima",
+      department: "Lima",
+      display: "Lima",
       country: "PE",
       source: "fallback",
       reason: "error",

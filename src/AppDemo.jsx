@@ -11,7 +11,7 @@ import { fromPath, toPath, parseTourSegment, canonicalTourPath } from "./lib/rou
 import { faltaParaPublicar, PITCH_MIN, PITCH_MAX, DESC_MIN } from "../lib/tour-publish.js";
 // Las ciudades soportadas y sus alias salen del MISMO modulo que usa /api/geo.
 // Estuvieron escritas tres veces y las tres eran distintas: ver lib/cities.js.
-import { SUPPORTED_CITIES, QUERY_CITY_ALIASES, normalizeCity, toursByCity } from "../lib/cities.js";
+import { DEPARTMENTS, QUERY_DEPT_ALIASES, displayName, normalizeCity, departmentsWithTours, toursByDepartment } from "../lib/cities.js";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // FINDE v3 — AI-Native Marketplace
@@ -536,6 +536,17 @@ function mapTourFromApi(t) {
     // tour aún no está traducido → el toggle QU cae a español.
     titleQu: t.titleQu ?? "",
     location: t.region && t.region !== t.city ? `${t.city}, ${t.region}` : t.city,
+    // city y region viajan ADEMAS de location, y no es redundancia: la
+    // agrupacion por departamento necesita los campos crudos. Antes solo estaba
+    // `location` (los dos concatenados), asi que agrupar obligaba a partir un
+    // string por la coma, que es exactamente el problema que tiene el campo de
+    // Ubicacion del formulario. Ver lib/cities.js.
+    //
+    // Y es el tercero de los TRES lugares que hay que tocar para agregar un
+    // campo (`.claude/rules/frontend.md`): el select del backend ya lo traia,
+    // el consumidor lo pedia, y esta lista blanca lo descartaba EN SILENCIO.
+    city: t.city,
+    region: t.region ?? undefined,
     price: Number.isFinite(t.priceSoles) ? Math.round(t.priceSoles / 100) : null,
     rating: t.rating,
     reviews: t.reviewsCount,
@@ -951,7 +962,8 @@ function readDevCityOverride() {
   const override = params.get("city");
   if (!override) return null;
   const norm = normalizeCity(override);
-  return SUPPORTED_CITIES.find(c => normalizeCity(c) === norm) || null;
+  // Acepta el departamento ("Loreto") o el nombre que se muestra ("Iquitos").
+  return DEPARTMENTS.find(d => normalizeCity(d) === norm || normalizeCity(displayName(d)) === norm) || null;
 }
 
 function parseAltitude(t) { return parseInt((t.altitude || "").replace(/,/g, ""), 10) || 0; }
@@ -980,7 +992,7 @@ function searchTours(tours, query, categoryFilter) {
     }
   }
   let cityMatch = null;
-  for (const [city, aliases] of Object.entries(QUERY_CITY_ALIASES)) {
+  for (const [city, aliases] of Object.entries(QUERY_DEPT_ALIASES)) {
     if (remaining.includes(city) || remaining.includes("cerca de " + city)) {
       cityMatch = aliases;
       remaining = remaining.replace("cerca de " + city, "").replace(city, "").trim();
@@ -2872,7 +2884,7 @@ function WelcomeView({ go }) {
   );
 }
 
-function CitySelector({ selectedCity, onPick }) {
+function CitySelector({ selectedDept, opciones, onPick }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -2909,10 +2921,10 @@ function CitySelector({ selectedCity, onPick }) {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label={`Cambiar ciudad, ahora ${selectedCity}`}
+        aria-label={`Cambiar ciudad, ahora ${displayName(selectedDept)}`}
       >
         <MapPin size={14} strokeWidth={1.5} />
-        {selectedCity}
+        {displayName(selectedDept)}
         <ChevronDown className="city-btn-chev" size={14} strokeWidth={1.5} />
       </button>
       {open && (
@@ -2921,17 +2933,17 @@ function CitySelector({ selectedCity, onPick }) {
           <div className="city-sheet" role="listbox" aria-label="Elegir ciudad">
             <div className="city-sheet-grip" />
             <div className="city-sheet-title">Elige tu ciudad</div>
-            {SUPPORTED_CITIES.map((c) => (
+            {opciones.map((c) => (
               <button
                 key={c}
                 type="button"
                 role="option"
-                aria-selected={c === selectedCity}
-                className={`city-sheet-opt ${c === selectedCity ? "on" : ""}`}
+                aria-selected={c === selectedDept}
+                className={`city-sheet-opt ${c === selectedDept ? "on" : ""}`}
                 onClick={() => handlePick(c)}
               >
-                <span>{c}</span>
-                {c === selectedCity && (
+                <span>{displayName(c)}</span>
+                {c === selectedDept && (
                   <Check className="city-sheet-check" size={16} strokeWidth={2} />
                 )}
               </button>
@@ -2943,7 +2955,7 @@ function CitySelector({ selectedCity, onPick }) {
   );
 }
 
-function HomeView({ go, cat, setCat, tours, toursLoading, selectedCity, setSelectedCity }) {
+function HomeView({ go, cat, setCat, tours, toursLoading, selectedDept, setSelectedDept }) {
   const [cityExpanded, setCityExpanded] = useState(false);
   const filt = cat === "all" ? tours : tours.filter((t) => t.category === cat);
   // Destacados: los 4 más recientes (createdAt desc). Antes ordenaba por rating,
@@ -2953,7 +2965,11 @@ function HomeView({ go, cat, setCat, tours, toursLoading, selectedCity, setSelec
   // Renderizamos siempre todos: en mobile el .tscr es carrusel horizontal y
   // muestra todos por swipe natural. En ≥640px el CSS oculta las cards 5+
   // cuando .city-tscr no tiene la clase .expanded.
-  const allCityTours = toursByCity(filt, selectedCity)
+  // Los departamentos que se ofrecen salen de los tours que EXISTEN, no de una
+  // lista escrita a mano. Ver lib/cities.js: una lista a mano quedaba corta cada
+  // vez que entraba una agencia nueva, y con 42 tours ya dejaba siete afuera.
+  const deptsConTours = departmentsWithTours(tours);
+  const allCityTours = toursByDepartment(filt, selectedDept)
     .slice()
     .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
   // Cambiar de ciudad colapsa la sección para que el usuario no aterrice
@@ -2961,7 +2977,7 @@ function HomeView({ go, cat, setCat, tours, toursLoading, selectedCity, setSelec
   // botón "Ver tours en Lima" del empty state.
   const handleCityChange = (c) => {
     setCityExpanded(false);
-    setSelectedCity(c);
+    setSelectedDept(c);
   };
   return (
     <div>
@@ -3007,7 +3023,7 @@ function HomeView({ go, cat, setCat, tours, toursLoading, selectedCity, setSelec
               La geo IP sigue eligiendo la ciudad inicial, y está bien: es una
               sugerencia. Lo que no hace es anunciarse como conocimiento. El
               control para cambiarla está al lado, y es el que manda. */}
-          <div className="st">Tours en {selectedCity}</div>
+          <div className="st">Tours en {displayName(selectedDept)}</div>
           <div className="city-actions">
             {allCityTours.length > 4 && (
               <button className="sl" onClick={() => setCityExpanded((v) => !v)}>
@@ -3016,7 +3032,7 @@ function HomeView({ go, cat, setCat, tours, toursLoading, selectedCity, setSelec
                 )}
               </button>
             )}
-            <CitySelector selectedCity={selectedCity} onPick={handleCityChange} />
+            <CitySelector selectedDept={selectedDept} opciones={deptsConTours} onPick={handleCityChange} />
           </div>
         </div>
         {toursLoading ? (
@@ -3032,7 +3048,7 @@ function HomeView({ go, cat, setCat, tours, toursLoading, selectedCity, setSelec
         ) : (
           <div className="city-empty">
             <div className="city-empty-ic"><MapPin size={22} strokeWidth={1.5} /></div>
-            <div className="city-empty-tl">Pronto tendremos tours en {selectedCity}</div>
+            <div className="city-empty-tl">Pronto tendremos tours en {displayName(selectedDept)}</div>
             <div className="city-empty-sub">Estamos sumando agencias verificadas de todo el Perú.</div>
             <button type="button" className="city-empty-btn" onClick={() => handleCityChange("Lima")}>
               Ver tours en Lima
@@ -6562,19 +6578,26 @@ export default function AppDemo() {
   // Feature "Tours en [ciudad]": ciudad mostrada en la sección. Arranca en
   // Lima para evitar flash/CLS antes de que llegue /api/geo. geoSource permite
   // ignorar respuestas tardías de la geo si el usuario ya eligió manualmente.
-  const [selectedCity, setSelectedCity] = useState(() => readDevCityOverride() || "Lima");
-  // Si hay override en localhost lo tratamos como "manual" para que la respuesta
-  // tardía de /api/geo (siempre fallback en localhost) no lo pise.
-  const [geoSource, setGeoSource] = useState(() => readDevCityOverride() ? "manual" : "fallback");
+  // Guarda un DEPARTAMENTO, no una ciudad. El nombre que se muestra sale de
+  // displayName(): en seis casos el destino no se llama como el departamento
+  // (Loreto se muestra como Iquitos, y así). Ver lib/cities.js.
+  const [selectedDept, setSelectedDept] = useState(() => readDevCityOverride() || "Lima");
+  // De dónde salió el departamento elegido. NO SE RENDERIZA: desde que el
+  // título dejó de afirmar ubicación (2026-08-19) su único trabajo es que una
+  // respuesta tardía de /api/geo no pise una elección manual. Por eso es un ref
+  // y no estado: cambiarlo no tiene que re-renderizar nada.
+  // Si hay override en localhost arranca en "manual", para que la respuesta
+  // tardía (siempre fallback en localhost) tampoco lo pise.
+  const geoSourceRef = useRef(readDevCityOverride() ? "manual" : "auto");
   // NO hay estado para el `reason` de /api/geo, y es a propósito. El endpoint
   // lo devuelve siempre (ver api/geo.ts) porque ahí es lo que permite
   // diagnosticar sin adivinar, pero la interfaz no lo muestra: mostrarlo
   // obligaba a hablar de detección, y el título dejó de afirmar ubicación el
   // 2026-08-19. Si vuelve a hacer falta (por ejemplo para preseleccionar una
   // sugerencia al preguntar la ciudad la primera vez), se agrega ahí.
-  const pickCity = useCallback((city) => {
-    setSelectedCity(city);
-    setGeoSource("manual");
+  const pickDept = useCallback((dept) => {
+    setSelectedDept(dept);
+    geoSourceRef.current = "manual";
   }, []);
 
   // opTours (dashboard del operador) se hidrata aparte, desde
@@ -6921,25 +6944,25 @@ export default function AppDemo() {
     return () => { cancel = true; };
   }, [user, loading]);
 
-  // Resolución de ciudad vía /api/geo. Si el usuario ya cambió manualmente
-  // (geoSource === "manual") cuando llega la respuesta, la ignoramos
-  // (race condition R2). En localhost el dev override aplicado en el
-  // inicializador de useState ya marcó geoSource = "manual", así que esta
-  // respuesta tardía no lo pisará.
+  // Resolución del departamento vía /api/geo. Si el usuario ya eligió a mano
+  // cuando llega la respuesta, se ignora (race condition R2). En localhost el
+  // override de desarrollo ya dejó el ref en "manual", así que esta respuesta
+  // tardía tampoco lo pisa.
+  //
+  // La sugerencia de la IP se sigue aplicando, y está bien: es un punto de
+  // partida. Lo que NO se hace es anunciarla como si supiéramos dónde está el
+  // viajero, porque se midió equivocada. Ver el comentario del título en
+  // HomeView.
   useEffect(() => {
     let cancelled = false;
     fetch("/api/geo")
       .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
       .then(data => {
         if (cancelled) return;
-        setGeoSource(prevSource => {
-          if (prevSource === "manual") return prevSource;
-          if (data?.city && SUPPORTED_CITIES.includes(data.city)) {
-            setSelectedCity(data.city);
-            return data.source === "geo" ? "geo" : "fallback";
-          }
-          return prevSource;
-        });
+        if (geoSourceRef.current === "manual") return;
+        if (data?.department && DEPARTMENTS.includes(data.department)) {
+          setSelectedDept(data.department);
+        }
       })
       .catch(() => {
         // Silencioso: ya tenemos Lima por defecto.
@@ -7723,7 +7746,7 @@ export default function AppDemo() {
         {effectiveView === "welcome" && <WelcomeView go={go} />}
         {effectiveView === "not-found" && <NotFoundView go={go} />}
         {effectiveView === "reset-password" && <ResetPasswordView go={go} />}
-        {effectiveView === "home" && <HomeView go={go} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} selectedCity={selectedCity} setSelectedCity={pickCity} geoSource={geoSource} />}
+        {effectiveView === "home" && <HomeView go={go} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} selectedDept={selectedDept} setSelectedDept={pickDept} />}
         {effectiveView === "catalog" && <CatalogView go={go} cat={cat} setCat={setCat} tours={tours} toursLoading={toursLoading} />}
         {effectiveView === "detail" && (currentTour
           ? <DetailView tour={currentTour} go={go} onBook={handleBook} reviews={reviews} />

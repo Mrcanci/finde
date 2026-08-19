@@ -1,41 +1,51 @@
 // lib/geo.ts
-// Fachada tipada de las ciudades soportadas para el backend.
+// Fachada tipada para el backend.
 //
 // LOS DATOS Y LA LÓGICA NO VIVEN ACÁ: viven en `lib/cities.js`, que no tiene ni
 // un import justamente para que lo puedan usar los dos lados, la función
-// serverless y el navegador. Este archivo solo les pone tipos de TypeScript y
-// los reexporta, para que `api/geo.ts` no cambie.
+// serverless y el navegador. Este archivo solo les pone tipos y los reexporta.
 //
-// Si vas a agregar o sacar una ciudad, es en `lib/cities.js`. Acá no hay nada
-// que tocar.
+// Si vas a tocar la tabla de departamentos, los nombres para mostrar o el mapeo
+// de la IP, es en `lib/cities.js`. Acá no hay nada que cambiar.
 
 import {
-  SUPPORTED_CITIES as CITIES,
-  CITY_ALIASES as ALIASES,
+  DEPARTMENTS as DEPS,
+  DEPARTMENT_BY_ISO as BY_ISO,
+  DEPARTMENT_DISPLAY as DISPLAY,
+  displayName as display,
   normalizeCity,
-  mapToSupportedCity as mapCity,
-  toursByCity as filterByCity,
+  mapToDepartment as mapDep,
+  departmentsOfTour as depsOfTour,
+  departmentsWithTours as depsWithTours,
+  toursByDepartment as byDep,
 } from "./cities.js";
 
-export const SUPPORTED_CITIES = CITIES as readonly string[];
-export type SupportedCity = string;
+export const DEPARTMENTS = DEPS as readonly string[];
+export const DEPARTMENT_BY_ISO = BY_ISO as Record<string, string>;
+export const DEPARTMENT_DISPLAY = DISPLAY as Record<string, string>;
 
-export const CITY_ALIASES = ALIASES as Record<string, readonly string[]>;
-
+export const displayName: (department: string) => string = display;
 export const normalize: (raw: string | undefined | null) => string = normalizeCity;
 
 export type MapResult = {
-  city: SupportedCity;
-  reason: "matched" | "non_pe" | "unmapped" | "no_input";
+  department: string;
+  reason: "iso" | "city" | "non_pe" | "unmapped" | "no_input";
 };
 
-export const mapToSupportedCity: (
+export const mapToDepartment: (
   rawCity: string | undefined | null,
   rawRegion: string | undefined | null,
   country: string | undefined | null
-) => MapResult = mapCity;
+) => MapResult = mapDep;
 
-export const toursByCity: <T extends { location?: string }>(
+export const departmentsOfTour: (tour: { region?: string; city?: string }) => string[] =
+  depsOfTour;
+
+export const departmentsWithTours: (
+  tours: { region?: string; city?: string }[]
+) => string[] = depsWithTours;
+
+export const toursByDepartment: <T extends { region?: string; city?: string }>(
   tours: T[],
-  city: SupportedCity
-) => T[] = filterByCity;
+  department: string
+) => T[] = byDep;
