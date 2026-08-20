@@ -676,6 +676,8 @@ Las dos opciones sobre la mesa:
 
 ## 2026-08-13 - Culqi pasa a ser feature de lanzamiento
 
+> SUPERADA por Reglas de Negocio v1.5 (agosto 2026).
+
 **Decisión:** integrar Culqi desde el inicio, no como hito posterior.
 
 **Descartado:** coordinar pagos por WhatsApp durante la etapa piloto.
@@ -695,6 +697,8 @@ Las dos opciones sobre la mesa:
 
 ## 2026-07 - Comisión única de 20% todo incluido
 
+> SUPERADA por Reglas de Negocio v1.5 (agosto 2026).
+
 *(día exacto sin registrar)*
 
 **Decisión:** comisión única del 20%, a éxito, que incluye pasarela, soporte y demanda.
@@ -712,6 +716,8 @@ La entrada anterior decía "el CLAUDE.md y la UI todavía mencionan 15%, hay que
 ---
 
 ## 2026-07 - Custodia total de fondos
+
+> SUPERADA por Reglas de Negocio v1.5 (agosto 2026).
 
 *(día exacto sin registrar)*
 
@@ -1037,3 +1043,119 @@ beneficio**: el dato queda igual de limpio y no se frena a nadie.
 tours inválidos, normalizando queda **uno**, y los dos son de prueba y están
 pausados. **Ninguno de los 42 activos falla con ninguna de las dos variantes**, o
 sea que la validación no arregla nada existente: evita lo que viene.
+
+
+---
+
+## 2026-08-20 - Finde es agente de cobro de la agencia, no merchant of record
+
+**Decisión:** Finde vende **en nombre y por cuenta de la agencia**, como
+comisionista mercantil o mandatario con representación, con custodia diferida de
+los fondos. **El contrato de servicio es entre el viajero y la agencia**, no entre
+el viajero y Finde.
+
+**Descartado:** el modelo merchant of record, que era la figura implícita de las
+Reglas v1.3. Finde **no compra ni revende tours**.
+
+**Razón:** es la figura que corresponde a lo que Finde de verdad hace. Comprar y
+revender obligaría a facturar el valor total del tour y a responder como prestador
+del servicio, dos cosas que Finde ni hace ni quiere hacer.
+
+**Consecuencias, y son cuatro:**
+
+- El pago del viajero a Finde **extingue su obligación frente a la agencia**. No
+  queda debiendo nada aunque Finde todavía no haya liquidado.
+- **Solo la comisión es ingreso de Finde.** Los fondos en tránsito son **pasivo**
+  (cuentas por pagar a agencias), nunca ingreso. No es un detalle contable: cambia
+  qué se puede declarar como facturación.
+- **La agencia emite el comprobante al viajero por el PVP completo**, y esa
+  emisión es **condición de payout**: sin comprobante cargado, no se paga.
+- Nada en el producto puede sugerir que Finde opera, presta o vende el tour como
+  propio. Ver `.claude/rules/frontend.md`.
+
+---
+
+## 2026-08-20 - El precio lo declara la agencia como NETO y Finde publica el PVP con markup
+
+**Decisión:** la agencia declara un **precio neto**. Finde aplica un **markup
+negociado por agencia y fijo por tour**, y publica el PVP resultante.
+
+**Descartado:** el modelo anterior, donde la agencia fijaba el precio final y
+Finde cobraba un 20% de comisión sobre él.
+
+**Razón:** con el markup la agencia sabe exactamente cuánto va a recibir, que es
+lo que le importa, y Finde puede ajustar el precio de venta por plaza sin
+renegociar la tarifa. **No es una tarifa pública:** se negocia caso por caso.
+
+**Los números:** piso operativo **15%**, objetivo **25% en Lima** y **15% en
+regiones**, con **IGV incluido en el markup** (markup bruto). Ejemplo canónico:
+neto S/96, markup 25%, PVP S/120; de los S/24, **S/3.66 es IGV y S/20.34 es
+ingreso de Finde**.
+
+**Ojo con leer el 25% como una suba:** **25% de markup sobre el neto es lo mismo
+que 20% de take rate sobre el PVP.** Es el mismo número mirado desde los dos
+lados, no un aumento respecto del 20% viejo. La diferencia real está en el margen,
+que baja de S/19 a **S/15.21**, porque el S/19 nunca descontó el IGV de la
+comisión. El equilibrio del piloto pasa de 34 a **43 reservas al mes**.
+
+**Consecuencias:**
+
+- **Precio congelado al reservar, y es obligación de INDECOPI**: el PVP y el neto
+  se **copian a la reserva** al momento de reservar, y **nunca** se leen del tour
+  al pagar ni al liquidar.
+- **Cambio de neto: 48 horas de preaviso, solo para reservas nuevas, máximo un
+  cambio por tour cada 7 días.** Irretroactividad absoluta.
+- Al viajero **no se le muestra markup, comisión ni porcentaje**. Solo ve el PVP.
+
+---
+
+## 2026-08-20 - El payout se rige por dos condiciones, no por calendario
+
+**Decisión:** se paga a la agencia cuando ocurra **lo más tarde** de estas dos:
+
+1. la pasarela **abonó los fondos** a Finde, y
+2. pasaron **48 horas del tour sin reclamo abierto**.
+
+Más la condición documental: **el comprobante de la agencia tiene que estar
+cargado**. El pago es **por reserva**, sin cortes de calendario, con un **mínimo
+de S/50 acumulados** para liquidar.
+
+**Descartado:** la liquidación quincenal de los días 4 y 19, y también el "24
+horas post-tour" que circuló en paralelo.
+
+**Razón:** un calendario fijo promete un día que Finde no controla, porque el
+primer eslabón es cuándo abona la pasarela. La regla de dos condiciones dice la
+verdad sobre lo que hace falta para pagar.
+
+**Consecuencia:** la **ventana de reporte del viajero baja de 72 a 48 horas**, y
+es la misma que la segunda condición: se paga cuando ya no puede entrar un
+reclamo.
+
+**Lo que NO cambió, y conviene decirlo porque se confunde:** las **políticas de
+cancelación siguen siendo las cuatro de siempre, con los mismos plazos**. La
+ventana de reporte post-tour y la política de cancelación pre-tour son cosas
+distintas.
+
+---
+
+## 2026-08-20 - Ninguna pasarela se integra sin aprobación escrita del modelo
+
+**Decisión:** **ninguna pasarela se integra sin aprobación escrita del modelo de
+custodia.** La integración va detrás de una **interfaz abstracta de proveedor**
+(`createCharge`, `capture`, `refund`, `handleWebhook`), sin nada acoplado a un
+proveedor concreto.
+
+**Descartado:** **Culqi como opción por defecto.** Su contrato **prohíbe al
+comercio actuar como intermediario o agregador**, que es exactamente la figura de
+Finde según la decisión de agente de cobro de esta misma fecha.
+
+**Razón:** el modelo jurídico define qué pasarela sirve, no al revés. Integrar
+primero y verificar después es como se llega a tener que rehacerlo entero.
+
+**Estado:** **Mercado Pago (Split de Pagos) es prioridad 1, sin decisión final.**
+Conversación comercial abierta también con Culqi e Izipay.
+
+**Consecuencia sobre el límite de 12 funciones:** la estimación sube a **~4 rutas,
+no 3** (crear cargo, webhook, estado, callback OAuth de subcomercios). **El slot
+de `generate-quechua` NO se libera hasta tener la decisión**, porque liberar uno
+para algo que necesita cuatro no resuelve nada. Ver `.claude/rules/api-y-schema.md`.

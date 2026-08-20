@@ -147,8 +147,10 @@ Los tres motivos:
    mismo prompt.
 3. **Hoy no llega a ningún usuario**: la capa de display de quechua no existe.
 
-**El destinatario previsto es Culqi**, que necesita al menos tres endpoints (crear
-cargo, webhook, estado).
+**Destinatario por definir.** Culqi prohíbe por contrato actuar como agregador;
+Mercado Pago Split es candidata sin confirmar. Estimación ~4 rutas, no 3 (crear
+cargo, webhook, estado, callback OAuth de subcomercios). **NO liberar el slot
+hasta tener la decisión.**
 
 Y si algún día se retoma el quechua en vivo, **el camino no es revivir el archivo
 suelto sino consolidarlo en una ruta dinámica**, como se hizo con

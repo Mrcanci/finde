@@ -231,7 +231,7 @@ Los dos primeros están en el componente **`DashView`**, y en los dos el marcado
 
 - Pestaña **"Ingresos"** del dashboard, en el bloque `.dsh-tabs`: sin pasarela no hay ingresos reales. El mock `EARN` ya se borró, así que reactivarla implica construir el cálculo.
 - Stat **"Rating"** del dashboard, en el bloque `.dsh-sts`: los ratings del seed son siembra, no reseñas reales.
-- **Comisión**: la etapa piloto va sin comisión (link directo a WhatsApp). No hay ningún porcentaje en la UI y no hay que agregarlo hasta que se defina con Culqi. Ver `docs/decisiones.md`.
+- **Precio**: la agencia declara un precio neto y Finde publica el PVP aplicando un markup negociado por tour. En la UI NO se muestra markup, comisión ni porcentaje al viajero. El viajero solo ve el PVP. Ver `docs/decisiones.md`.
 
 La **política de cancelación sí se muestra**, y el flujo de reserva está cubierto. Es exigencia INDECOPI antes de pagar: no la ocultes.
 

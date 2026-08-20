@@ -94,8 +94,10 @@ está en `docs/historia/2026-08-router-y-urls.md`.
   línea, mientras el resto no trunca y `.gc-t` ahora clampea a dos: **tres
   tratamientos distintos para el mismo problema**.
 - **Barrido de padding del Grupo B**, más chico y ya desbloqueado.
-- **Integración de Culqi** como feature de lanzamiento. Al integrarla se reactiva
-  la pestaña "Ingresos" del dashboard, hoy oculta. Ver `docs/decisiones.md`.
+- **Pasarela por definir.** Conversación comercial abierta con Mercado Pago, Culqi
+  e Izipay. Nada se integra sin aprobación escrita del modelo de custodia. Al
+  integrarla se reactiva la pestaña "Ingresos" del dashboard, hoy oculta. Ver
+  `docs/decisiones.md`.
 
 ## Terminado y mergeado
 

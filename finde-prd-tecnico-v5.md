@@ -17,7 +17,7 @@ Documento técnico definitivo · Refleja el estado real del producto en julio 20
 | Reemplaza a | v4 (mayo 2026) |
 | Confidencialidad | Documento confidencial — uso interno y evaluadores |
 
-**Resumen ejecutivo.** Finde tiene un **MVP funcional en producción** (Vercel + Supabase + pgvector): autenticación real (Supabase), gestión completa de tours por parte de las agencias (crear/editar/borrar/pausar, con imágenes propias y galería multi-foto), reservas reales con datos verdaderos en el dashboard, coordinación por WhatsApp con teléfonos reales, búsqueda semántica con embeddings Voyage + razonamiento Claude, generación de descripciones con IA y traducción quechua persistida con toggle ES/QU en producción. 40 tours con embeddings reales y traducción quechua completa (40/40), y 13 agencias (9 verificadas). **Falta para MVP transaccional:** pasarela de pagos con custodia (el flujo actual de pago es solo demo tras bandera), comprobantes electrónicos y el checklist pre-lanzamiento. Modelo de negocio: comisión única 20% todo incluido; economía por reserva S/24 − S/5 = S/19 de margen.
+**Resumen ejecutivo.** Finde tiene un **MVP funcional en producción** (Vercel + Supabase + pgvector): autenticación real (Supabase), gestión completa de tours por parte de las agencias (crear/editar/borrar/pausar, con imágenes propias y galería multi-foto), reservas reales con datos verdaderos en el dashboard, coordinación por WhatsApp con teléfonos reales, búsqueda semántica con embeddings Voyage + razonamiento Claude, generación de descripciones con IA y traducción quechua persistida con toggle ES/QU en producción. 40 tours con embeddings reales y traducción quechua completa (40/40), y 13 agencias (9 verificadas). **Falta para MVP transaccional:** pasarela de pagos con custodia (el flujo actual de pago es solo demo tras bandera), comprobantes electrónicos y el checklist pre-lanzamiento. Modelo de negocio: neto declarado por la agencia más markup negociado (piso 15%, objetivo 25%, equivalente a take rate de 20% sobre el PVP); economía por reserva S/24 − S/3.66 de IGV − S/5 = S/15.21 de margen.
 
 **Terminología:** en todo el producto, la documentación y los materiales, el lado oferta se denomina **"agencias"** (vocabulario MINCETUR/SUNAT). El término "operador" queda deprecado; donde persista en código (p. ej. modelo `Operator`, rutas `/api/operators`) es deuda de nomenclatura interna, nunca copy visible al usuario ni lenguaje de documentos.
 
@@ -33,7 +33,7 @@ La realidad de julio 2026: Finde ya no es un demo con fallbacks mock — es un M
 
 # **2. Visión del producto**
 
-Finde es un marketplace curado (no P2P) que conecta viajeros con **agencias locales verificadas** de tours y experiencias en Perú. Modelo de ingresos: **comisión única del 20% todo incluido, a éxito** — incluye pasarela, soporte y demanda; la agencia solo paga cuando vende. Custodia total del pago: el viajero paga a Finde y el dinero se libera a la agencia al completarse el tour.
+Finde es un marketplace curado (no P2P) que conecta viajeros con **agencias locales verificadas** de tours y experiencias en Perú. Modelo de ingresos: **neto declarado por la agencia más markup negociado** (piso 15%, objetivo 25%, equivalente a un take rate de 20% sobre el PVP); la agencia declara cuánto quiere recibir y Finde publica el precio de venta. Custodia total del pago: el viajero paga a Finde y el dinero se libera a la agencia al completarse el tour.
 
 ## **2.1 Principios estratégicos**
 
@@ -43,7 +43,7 @@ Finde es un marketplace curado (no P2P) que conecta viajeros con **agencias loca
 
 - **Pagos locales como moat.** Yape + Plin + tarjeta, en soles. Ningún competidor global lo acepta como método nativo.
 
-- **Custodia como base de confianza.** El viajero no le paga a un desconocido; la agencia cobra garantizado aunque haya no-show; Finde retiene el poder de mediación. (Modelo de señal/adelanto parcial evaluado y descartado — ver Reglas de Negocio v1.3, sección 4.1.)
+- **Custodia como base de confianza.** El viajero no le paga a un desconocido; la agencia cobra garantizado aunque haya no-show; Finde retiene el poder de mediación. (Modelo de señal/adelanto parcial evaluado y descartado, ver Reglas de Negocio v1.5, sección 4.1.)
 
 - **IA transversal a toda la solución.** (1) Verificación: agentes que validan RUC activo en SUNAT y registro MINCETUR vigente, con verificación continua (roadmap; hoy manual). (2) Experiencia: búsqueda semántica real, conversación para planificar y recomendaciones por comportamiento (roadmap). (3) Operación: agente de IA en WhatsApp para soporte 24/7 y traducción a quechua (siguiente fase). La IA no es un chatbot decorativo: es el núcleo de la propuesta ("primera plataforma de tours AI-native del Perú").
 
@@ -65,12 +65,14 @@ El mercado global de tours vale $300B pero Viator + GetYourGuide controlan solo 
 | --- | --- | --- | --- |
 | Reservas/año | 5,000 (~400/mes) | 40,000 | 120,000 |
 | GMV (S/) | 600,000 | 4,800,000 | 14,400,000 |
-| Ingresos (comisión 20%) | S/120,000 | S/960,000 | S/2,880,000 |
+| Ingresos (take rate 20% sobre PVP) | S/120,000 | S/960,000 | S/2,880,000 |
 | Utilidad operativa | S/51,000 | S/623,000 | S/1,978,000 |
 | Equipo | 1 persona | 3 personas | 6 personas |
 | Punto de equilibrio (% del volumen) | 27% | 9% | 5% |
 
-Economía por reserva: ingreso S/24 (20% × S/120) − costo variable S/5 (pasarela ~S/4 + IA ~S/1) = **margen S/19**. Punto de equilibrio del piloto (fundadores sin sueldo, solo infraestructura S/650/mes): **34 reservas/mes**. Validación de demanda: 25 entrevistas (20 viajeros + 5 agencias), 80% de intención de uso.
+Cifras pendientes de recálculo con el markup promedio ponderado real.
+
+Economía por reserva: markup S/24 (25% sobre un neto de S/96) − IGV S/3.66 − costo variable S/5 (pasarela ~S/4 + IA ~S/1) = **margen S/15.21**. El S/19 anterior nunca descontó el IGV de la comisión. Punto de equilibrio del piloto (fundadores sin sueldo, solo infraestructura S/650/mes): **43 reservas/mes**. Validación de demanda: 25 entrevistas (20 viajeros + 5 agencias), 80% de intención de uso.
 
 # **3. Estado real del producto (julio 2026)**
 
@@ -92,7 +94,7 @@ El producto se compone de: landing pública (finde.pe), aplicación demo con acc
 | --- | --- | --- | --- |
 | Pestaña "Ingresos" (dashboard agencia) | Oculta | Sin pasarela no hay dinero real que mostrar | Con pasarela en producción |
 | Política de cancelación (4 niveles) | Existe en schema; UI atada a DEMO_PAYMENT_FLOW: visible en modo demo (paso de pago, voucher, detalle y selector en creación/edición), oculta en modo piloto | Sin pago real no hay reembolso real; coordinación por WhatsApp | End-to-end real con pasarela en producción |
-| Comisión en UI | Oculta durante el piloto | Se comunica en onboarding, no en la UI del flujo | Con transacciones reales |
+| Markup en UI | Nunca visible al viajero, que solo ve el PVP | Se negocia con la agencia en onboarding, no se muestra en el flujo | No aplica: no se muestra nunca |
 | Ratings | Seed muestra ratings; tours de agencias reales muestran 0/0 | Integridad: sin reseñas reales no hay rating | Revisión de coherencia pendiente en "Mis Tours" |
 | Stat "Neto mes" (dashboard) | Desconectada | Sin ingresos reales | Con pasarela en producción |
 
@@ -168,7 +170,7 @@ Serverless functions TypeScript en Vercel; PostgreSQL en Supabase (región São 
 
 | **Pendiente** | **Descripción** | **Estimado** |
 | --- | --- | --- |
-| Pasarela de pagos con custodia | Selección de pasarela (Culqi candidata; evaluar Izipay/Niubiz y verificar costos/soporte vigentes con proveedores). Cobro total al viajero, retención y liberación post-tour. Incluye webhook de confirmación | 2-3 semanas |
+| Pasarela de pagos con custodia | Selección de pasarela **detrás de una interfaz abstracta de proveedor**. Culqi descartado como opción por defecto (su contrato prohíbe actuar como agregador); Mercado Pago Split es prioridad 1, sin confirmar. Cobro total al viajero, retención y liberación post-tour. Incluye webhook de confirmación | 2-3 semanas |
 | Restaurar UI condicionada al pago | Pestaña Ingresos, política de cancelación end-to-end, stat "Neto mes" | 1 semana (con pasarela) |
 | Comprobantes electrónicos SUNAT | Integración OSE (Nubefact u otro emisor) — factura solo por la comisión (comisión mercantil) | 1-2 semanas |
 
@@ -242,11 +244,11 @@ Serverless functions TypeScript en Vercel; PostgreSQL en Supabase (región São 
 
 - Storage: signed URLs para imágenes de agencias.
 
-## **6.2 Compliance peruano (ver Reglas de Negocio v1.3, sección 9, para el detalle)**
+## **6.2 Compliance peruano (ver Reglas de Negocio v1.5, sección 9, para el detalle)**
 
 - Marca FINDE registrada en INDECOPI (Clase 39, Cert. S00141782, vigente a 2032); cesión onerosa en trámite.
 
-- Régimen: persona natural con negocio (RMT); migración a SACS con tracción. Comisión mercantil: solo la comisión es ingreso gravable.
+- Régimen: persona natural con negocio (RMT); constitución de SAC con tracción. Comisión mercantil: solo la comisión es ingreso gravable.
 
 - Ley 29733 (datos personales): registro ANPD pendiente; política de privacidad en landing.
 
@@ -261,7 +263,7 @@ Serverless functions TypeScript en Vercel; PostgreSQL en Supabase (región São 
 | **Riesgo** | **Probabilidad** | **Impacto** | **Mitigación** |
 | --- | --- | --- | --- |
 | Costos de Claude/Voyage suben con tráfico | Media | Medio | Cache FeaturedSearch activo (10s → 1.3s); cache adicional evaluable |
-| Pasarela no soporta custodia/liberación diferida como se necesita | Media | Alto | Verificar con Culqi/Izipay/Niubiz antes de comprometer; liberación vía payout quincenal propio |
+| Pasarela no soporta custodia/liberación diferida como se necesita | Media | Alto | Verificar con los proveedores antes de comprometer, y con aprobación escrita del modelo de custodia; liberación vía payout propio con la regla de dos condiciones |
 | Caída de gateway en feriado | Media | Alto | Fallback entre métodos + cola de reintentos |
 | Fraude con reservas falsas | Media | Medio | Auth verificada + límites por usuario |
 | Agencia no cumple el tour | Baja | Alto | Custodia + disputas + Finde Guarantee |
@@ -277,7 +279,7 @@ Serverless functions TypeScript en Vercel; PostgreSQL en Supabase (región São 
 | MVP funcional (M1-M4) | Junio-julio 2026 | Auth real, CRUD de tours con galería multi-foto, reservas reales, coordinación WhatsApp, dashboard honesto, quechua persistido (40/40), notificaciones derivadas | ✓ Hecho |
 | e-Turismo TEC 2026 | Julio 2026 | Módulos 1-8 del programa + Pitch Bootcamp y Demo Day (Cajamarca). Reconocimiento: S/12,000 + beca de incubación (top 3) | En curso |
 | Pre-lanzamiento | Post-Demo Day | Checklist 4.1 completo + Libro de Reclamaciones + selección de pasarela | Siguiente |
-| Piloto transaccional | 6 meses, Lima | Pasarela con custodia + comprobantes + ~50 agencias activas + superar equilibrio (34 reservas/mes). Presupuesto S/11,790 con EDT y ruta crítica definidas | Planificado |
+| Piloto transaccional | 6 meses, Lima | Pasarela con custodia + comprobantes + ~50 agencias activas + superar equilibrio (43 reservas/mes). Presupuesto S/11,790 con EDT y ruta crítica definidas | Planificado |
 | Growth | 2027 | Agente WhatsApp 24/7 + quechua, recomendaciones, horarios múltiples/disponibilidad, i18n (EN), verificación automatizada continua | Planificado |
 | Funding | Q4 2026 - Q1 2027 | Startup Perú EIN 14G (esperado Q4 2026) · Platanus/500 Global con tracción real (Q1 2027) · Google for Startups Cloud (reaplicar con MVP público) | Pipeline |
 
@@ -292,12 +294,12 @@ Serverless functions TypeScript en Vercel; PostgreSQL en Supabase (región São 
 | Google Workspace (hola@finde.pe) | ~S/25 | Correo corporativo |
 | Dominio + varios | ~S/15 | — |
 | Contabilidad | ~S/150 | Régimen RMT |
-| **Total fijo aproximado** | **~S/650/mes** | Base del punto de equilibrio del piloto (34 reservas/mes) |
+| **Total fijo aproximado** | **~S/650/mes** | Base del punto de equilibrio del piloto (43 reservas/mes) |
 
-Proyección de fijos del modelo financiero: Año 1 S/26,000 (infra + 1 persona a S/1,500) · Año 2 S/65,000 (3 personas) · Año 3 S/122,000 (6 personas). Con pasarela en producción se suma el costo variable (~S/4/reserva) ya contemplado en el margen de S/19.
+Proyección de fijos del modelo financiero: Año 1 S/26,000 (infra + 1 persona a S/1,500) · Año 2 S/65,000 (3 personas) · Año 3 S/122,000 (6 personas). Con pasarela en producción se suma el costo variable (~S/4/reserva) ya contemplado en el margen de S/15.21.
 
 *PRD Técnico v5 · finde · Julio 2026 · Documento confidencial*
 
-*Reemplaza: PRD v4 (mayo 2026). Documento hermano: Reglas de Negocio v1.3 (julio 2026).*
+*Reemplaza: PRD v4 (mayo 2026). Documento hermano: Reglas de Negocio v1.5 (agosto 2026), en `docs/`.*
 
 Página · finde · Julio 2026

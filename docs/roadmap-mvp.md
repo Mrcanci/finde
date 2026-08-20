@@ -15,8 +15,8 @@
 >
 > | Sección de acá | Qué la superó |
 > |---|---|
-> | **"Pagos: WhatsApp directo (pasarela postergada)"**, que condiciona Culqi a tener RUC activo, agencias que pidan cobrar y volumen | **La decisión del 2026-08-13 en `docs/decisiones.md`: "Culqi pasa a ser feature de lanzamiento"**, o sea desde el inicio y no como hito posterior. El motivo es el opuesto al de acá: sin pasarela hay partes del producto que quedan ocultas o a medias, y eso choca con la regla de no mostrar nada falso ni incompleto |
-> | **"Comisión: Modelo C (sin comisión en piloto)"** | Sigue siendo cierto para el piloto, pero el número final es el de la decisión de 2026-07: **comisión única del 20%**, que se define al integrar la pasarela. El "~5-8%" que aparece más abajo es el costo del gateway, no la comisión de Finde |
+> | **"Pagos: WhatsApp directo (pasarela postergada)"**, que condiciona Culqi a tener RUC activo, agencias que pidan cobrar y volumen | **`docs/finde-reglas-negocio-v1_5.md`**. La pasarela va desde el lanzamiento, pero **el proveedor está por definir**: Culqi quedó descartado como opción por defecto porque su contrato prohíbe actuar como agregador. Ver `docs/decisiones.md` |
+> | **"Comisión: Modelo C (sin comisión en piloto)"** | Sigue siendo cierto para el piloto, pero **el modelo ya no es de comisión**: la agencia declara un precio neto y Finde publica el PVP con un markup negociado (piso 15%, objetivo 25%, equivalente a un take rate de 20% sobre el PVP). Ver `docs/finde-reglas-negocio-v1_5.md`. El "~5-8%" que aparece más abajo es el costo del gateway, no el ingreso de Finde |
 > | Los conteos de catálogo (40 tours, agencias) | `docs/estado.md`, sección "Inventario real de la base". El PRD y los docs de pitch heredaron cifras infladas: ver la entrada del 2026-08-13 en `docs/decisiones.md` |
 > | La mención a **`OTPView`** y al login falso en M1 | M1 cerró con Supabase Auth real. `OTPView` fue eliminada. Ver `.claude/rules/frontend.md` |
 > | Las **RLS** como ventaja a usar | Medido en la tanda 3 (2026-08-17): RLS está **apagado** y sin grants. El gate es la API, no la base. Ver `docs/historia/2026-08-navegacion-y-cuenta.md` |
