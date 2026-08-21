@@ -11,7 +11,7 @@ import { fromPath, toPath, parseTourSegment, canonicalTourPath } from "./lib/rou
 import { faltaParaPublicar, PITCH_MIN, PITCH_MAX, DESC_MIN } from "../lib/tour-publish.js";
 // Las ciudades soportadas y sus alias salen del MISMO modulo que usa /api/geo.
 // Estuvieron escritas tres veces y las tres eran distintas: ver lib/cities.js.
-import { DEPARTMENTS, QUERY_DEPT_ALIASES, displayName, normalizeCity, departmentsWithTours, toursByDepartment } from "../lib/cities.js";
+import { DEPARTMENTS, DEPARTMENTS_FOR_SELECT, QUERY_DEPT_ALIASES, displayName, normalizeCity, departmentsWithTours, toursByDepartment } from "../lib/cities.js";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // FINDE v3 — AI-Native Marketplace
@@ -528,6 +528,19 @@ const CANCEL_API_TO_UI = {
   NoReembolsable: "no_reembolsable",
 };
 
+// Ciudad y región → el texto de ubicación que se MUESTRA ("Huaraz, Áncash", o
+// solo "Cusco" cuando la ciudad y el departamento se llaman igual).
+//
+// Existe como función y no escrito al vuelo porque tiene DOS llamadores que
+// antes no coincidían: el mapeo del API y el guardado local del panel. Desde que
+// el formulario tiene ciudad y región separadas, `location` es un campo DERIVADO
+// para mostrar y ya no un campo que alguien escribe. La regla de cuándo lleva
+// coma vive acá y en ningún otro lado.
+function formatLocation(city, region) {
+  if (!city) return region || "";
+  return region && region !== city ? `${city}, ${region}` : city;
+}
+
 function mapTourFromApi(t) {
   return ensureAvailabilityFields({
     id: t.id,
@@ -535,7 +548,7 @@ function mapTourFromApi(t) {
     // Traducción quechua persistida en DB (solo la trae DETAIL_SELECT). "" si el
     // tour aún no está traducido → el toggle QU cae a español.
     titleQu: t.titleQu ?? "",
-    location: t.region && t.region !== t.city ? `${t.city}, ${t.region}` : t.city,
+    location: formatLocation(t.city, t.region),
     // city y region viajan ADEMAS de location, y no es redundancia: la
     // agrupacion por departamento necesita los campos crudos. Antes solo estaba
     // `location` (los dos concatenados), asi que agrupar obligaba a partir un
@@ -938,7 +951,14 @@ function buildOperatorNotifs(opBookings) {
 function tourFormToApiBody(f) {
   return {
     title: f.title,
-    location: f.location,
+    // Ciudad y región van SEPARADAS. Hasta el 2026-08-19 acá viajaba un solo
+    // `location` de texto libre que el backend partía por la coma; el porqué del
+    // cambio, con los tres casos que fallaban en silencio, está en
+    // lib/tour-input.ts. No hay respaldo de `location`: el único cliente de este
+    // endpoint es este formulario, y mantener los dos caminos sería mantener
+    // vivo justo el que se quiso eliminar.
+    city: f.city,
+    region: f.region,
     price: f.price,
     duration: f.duration,
     category: CAT_UI_TO_API[f.category] || f.category,
@@ -968,7 +988,7 @@ function tourFormToApiBody(f) {
 // el campo que falló a partir de `details` (zod issues) cuando POST/PUT /api/tours
 // responde 400. Evita el mensaje genérico que oculta la causa.
 const API_FIELD_LABELS = {
-  title: "Nombre", location: "Ubicación", price: "Precio", duration: "Duración",
+  title: "Nombre", city: "Ciudad", region: "Región", price: "Precio", duration: "Duración",
   category: "Categoría", capacity: "Cantidad de personas", difficulty: "Dificultad",
   description: "Descripción", included: "Qué incluye", excluded: "Qué no incluye",
   days: "Días", excludedDates: "Fechas excluidas", addedDates: "Fechas agregadas",
@@ -1632,7 +1652,7 @@ html{scrollbar-gutter:stable}
 .bkf{width:100%;box-sizing:border-box}
 .fg{margin-bottom:20px}
 .lbl{display:block;font-size:12px;font-weight:700;color:var(--gy);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
-.inp{width:100%;padding:13px 16px;border:2px solid var(--sd);border-radius:14px;font-size:16px;font-family:inherit;background:white;color:var(--ch);outline:none;transition:.2s}
+.inp{width:100%;padding:13px 16px;border:2px solid var(--sd);border-radius:14px;font-size:16px;font-family:inherit;background:white;color:var(--ch);outline:none;transition:.2s}.inp-select{appearance:none;-webkit-appearance:none;padding-right:42px;background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' stroke='%23555' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center;cursor:pointer}.inp-select:invalid{color:var(--gy)}
 .inp:focus{border-color:var(--m)}
 .gctr{display:flex;align-items:center;gap:0;border:2px solid var(--sd);border-radius:14px;overflow:hidden;width:fit-content}
 .gbtn{width:44px;height:44px;background:var(--cr);border:none;font-size:20px;cursor:pointer;font-family:inherit;transition:.2s;color:var(--ch)}
@@ -5729,7 +5749,13 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
     initCover && initImages.includes(initCover) ? initCover : (initImages[0] ?? null);
   const [form, setForm] = useState(isEditing ? {
     title: editingTour.title || "",
-    location: editingTour.location || "",
+    // Ciudad y región SEPARADAS, no el `location` concatenado. Precargar desde
+    // `location` obligaría a partirlo por la coma otra vez, que es el parseo que
+    // este cambio vino a borrar. Los campos crudos llegan hasta acá porque el
+    // mapeo del API y el del panel los enumeran a los dos: si alguno los
+    // descarta, esto queda vacío y el editor pisa la región del tour con nada.
+    city: editingTour.city || "",
+    region: editingTour.region || "",
     meetingPoint: editingTour.meetingPoint || "",
     category: editingTour.category || "adventure",
     duration: editingTour.duration || "",
@@ -5757,7 +5783,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
     images: initImages,
     photo: initPhoto,
   } : {
-    title: "", location: "", meetingPoint: "", category: "adventure", duration: "", price: "",
+    title: "", city: "", region: "", meetingPoint: "", category: "adventure", duration: "", price: "",
     capacity: "", difficulty: "Moderada", description: "", shortPitch: "", included: "", excluded: "",
     days: [], excludedDates: [], addedDates: [], startTime: "08:00", cancellation: "flexible",
     // Default de venta para tour NUEVO: confirmación automática (CUPO_FIJO).
@@ -5913,15 +5939,31 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
   // Marca una foto como portada (debe ser una de form.images).
   const makeCover = (url) => setForm(prev => ({ ...prev, photo: url }));
 
+  // ── ESTE ERA EL TERCER PARSEO POR COMA, Y EL MÁS CARO DE LOS TRES ──────────
+  // Hasta el 2026-08-19 acá adentro había un `form.location.split(",")` propio,
+  // aparte del del backend, para sacar la ciudad y la región que van al prompt.
+  //
+  // POR QUÉ ERA EL PEOR de los tres, aunque fuera el mismo error: los otros dos
+  // guardaban un dato mal en una columna, y este le dice a la IA sobre qué lugar
+  // escribir. Con la región derivada mal, Claude no falla ni avisa: **escribe una
+  // descripción perfectamente redactada sobre el lugar equivocado**, y eso se
+  // publica y lo lee el viajero como si fuera cierto.
+  //
+  // Un error que se ve bien es más difícil de detectar que uno que rompe. Un
+  // campo vacío se nota; un párrafo plausible sobre Áncash en un tour de Ica
+  // pasa la revisión de cualquiera que no conozca los dos lugares.
+  //
+  // Ahora la ciudad y la región salen de los campos del formulario, que son los
+  // mismos que se van a guardar. No hay forma de que el prompt y la ficha
+  // discrepen, porque ya no son dos derivaciones distintas del mismo texto.
   const generateAiDesc = async () => {
-    if (!form.title || !form.location) return;
+    if (!form.title || !form.city || !form.region) return;
     setAiLoading(true);
     setAiError("");
     setAiDesc(null);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
     try {
-      const cityRegion = form.location.split(",").map(s => s.trim());
       const apiCat = CAT_UI_TO_API[form.category] || form.category;
       const allowed = ["adventure", "cultural", "gastronomy", "nature", "mystic"];
       const safeCat = allowed.includes(apiCat) ? apiCat : "adventure";
@@ -5932,13 +5974,13 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
       const highlights = (form.included
         ? form.included.split(",").map(s => s.trim()).filter(s => s.length >= 5)
         : []).slice(0, 5);
-      if (highlights.length === 0) highlights.push(`${form.title} en ${cityRegion[0] || form.location}`);
+      if (highlights.length === 0) highlights.push(`${form.title} en ${form.city}`);
       const body = {
         title: form.title,
         category: safeCat,
         durationHours: Math.max(1, Math.min(168, hours)),
-        city: cityRegion[0] || form.location,
-        region: cityRegion[1] || cityRegion[0] || form.location,
+        city: form.city,
+        region: form.region,
         highlights,
         ...(inclArr.length ? { included: inclArr } : {}),
       };
@@ -5980,7 +6022,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         <div className="suc-sub">"{form.title}" {isEditing ? "ha sido actualizado correctamente." : "ya está visible para miles de viajeros en Finde."}</div>
         <div className="suc-card">
           <div className="suc-row"><span className="l">Tour</span><span style={{ fontWeight: 700 }}>{form.title}</span></div>
-          <div className="suc-row"><span className="l">Ubicación</span><span>{form.location}</span></div>
+          <div className="suc-row"><span className="l">Ubicación</span><span>{formatLocation(form.city, form.region)}</span></div>
           <div className="suc-row"><span className="l">Precio</span><span style={{ fontWeight: 800, color: "var(--f)" }}>S/ {form.price || "0"}</span></div>
           <div className="suc-row"><span className="l">Cantidad de personas</span><span>{form.capacity} personas</span></div>
         </div>
@@ -6046,9 +6088,39 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
             </div>
           )}
         </div>
+        {/* UBICACIÓN: DOS CAMPOS. Antes era uno solo de texto libre con la forma
+            "Ciudad, Región", y el backend lo partía por la coma. Tres formas de
+            escribirlo daban un dato mal SIN dar error nunca; están listadas en
+            lib/tour-input.ts. La región es una lista cerrada porque es la que
+            agrupa los tours por destino en el inicio: si no coincide con un
+            departamento, el tour no aparece en ningún grupo. */}
         <div className="fg">
-          <label className="lbl" htmlFor="nt-location">Ubicación <span style={{ color: "var(--tr)" }}>*</span></label>
-          <input id="nt-location" className="inp" placeholder="Ej: Huaraz, Áncash" value={form.location} onChange={(e) => u("location", e.target.value)} />
+          <label className="lbl" htmlFor="nt-city">Ciudad <span style={{ color: "var(--tr)" }}>*</span></label>
+          <div style={{ fontSize: 11, color: "var(--gy)", marginBottom: 8 }}>
+            La ciudad o el distrito desde donde sale el tour (ej. "Huaraz", "Ollantaytambo", "Callao")
+          </div>
+          <input id="nt-city" className="inp" placeholder="Ej. Huaraz" value={form.city} maxLength={80} onChange={(e) => u("city", e.target.value)} />
+        </div>
+        <div className="fg">
+          <label className="lbl" htmlFor="nt-region">Región <span style={{ color: "var(--tr)" }}>*</span></label>
+          <div style={{ fontSize: 11, color: "var(--gy)", marginBottom: 8 }}>
+            El departamento donde queda. Es con lo que los viajeros filtran por destino.
+          </div>
+          {/* `required` no valida nada acá (no hay ningún <form> en el demo, el
+              paso lo bloquea el botón). Está por el CSS: es lo que hace que
+              `.inp-select:invalid` aplique mientras no se eligió nada, y así el
+              "Elige el departamento" se ve gris de placeholder y no negro de
+              valor elegido. */}
+          <select id="nt-region" className="inp inp-select" required value={form.region} onChange={(e) => u("region", e.target.value)}>
+            <option value="">Elige el departamento</option>
+            {/* La lista sale de lib/cities.js, la MISMA que agrupa los tours en
+                el inicio y la misma que mapea la geolocalización. Escribirla acá
+                a mano sería la cuarta copia. Son 24 y Callao no está: va como
+                ciudad, en el campo de arriba. El porqué está en ese archivo. */}
+            {DEPARTMENTS_FOR_SELECT.map((d) => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
         </div>
         <div className="fg">
           <label className="lbl" htmlFor="nt-meeting">Punto de encuentro <span style={{ color: "var(--tr)" }}>*</span></label>
@@ -6188,7 +6260,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
           )}
         </div>
         <button className="mbtn" style={{ marginTop: 8 }}
-          disabled={(form.title || "").trim().length < 3 || (form.location || "").trim().length < 2 || (form.meetingPoint || "").trim().length < 10}
+          disabled={(form.title || "").trim().length < 3 || (form.city || "").trim().length < 2 || !form.region || (form.meetingPoint || "").trim().length < 10}
           onClick={() => setStep(2)}>Siguiente</button>
       </div>}
 
@@ -6493,7 +6565,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
         <div style={{ padding: 14, background: "var(--cr)", borderRadius: 12, marginBottom: 16 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--f)", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}><Sparkles size={12} strokeWidth={1.5} /> Generador IA</div>
           <div style={{ fontSize: 11, color: "var(--gy)", marginBottom: 10 }}>Genera una descripción profesional basada en los datos que ya ingresaste</div>
-          <button className="ai-cc-btn" onClick={generateAiDesc} disabled={aiLoading || !form.title || !form.location}>
+          <button className="ai-cc-btn" onClick={generateAiDesc} disabled={aiLoading || !form.title || !form.city || !form.region}>
             <Sparkles size={12} strokeWidth={1.5} /> {aiLoading ? "Generando…" : "Generar descripción"}
           </button>
           {aiLoading && <div style={{ fontSize: 11, color: "var(--gy)", marginTop: 8 }}>Estamos escribiendo tu descripción. Toma unos segundos.</div>}
@@ -6530,7 +6602,7 @@ function NewTourView({ go, editingTour, onSaveTour, onCreateTour, onCancel }) {
 
         <div className="sum">
           <div className="sum-r"><span style={{ color: "var(--gy)" }}>Nombre</span><span style={{ fontWeight: 700 }}>{form.title}</span></div>
-          <div className="sum-r"><span style={{ color: "var(--gy)" }}>Ubicación</span><span>{form.location}</span></div>
+          <div className="sum-r"><span style={{ color: "var(--gy)" }}>Ubicación</span><span>{formatLocation(form.city, form.region)}</span></div>
           {form.meetingPoint && (
             <div className="sum-r"><span style={{ color: "var(--gy)" }}>Punto de encuentro</span><span style={{ textAlign: "right", maxWidth: "60%" }}>{form.meetingPoint}</span></div>
           )}
@@ -6873,6 +6945,14 @@ export default function AppDemo() {
         images: Array.isArray(t.images) ? t.images : [],
         title: t.title || "",
         location: t.location || "",
+        // Ciudad y region van ADEMAS de location, y son la mitad que faltaba.
+        // `mapTourFromApi` ya las traia desde la tanda de geolocalizacion, pero
+        // este segundo mapeo las descartaba EN SILENCIO: es el mismo trap de
+        // `pendingRequests` (.claude/rules/frontend.md) una capa mas afuera.
+        // Sin esto la precarga del editor llega vacia y guardar pisa la region
+        // del tour con nada, sin ningun error de por medio.
+        city: t.city || "",
+        region: t.region || "",
         duration: t.duration || "",
         price: t.price || 0,
         rating: t.rating || 0,
@@ -7494,7 +7574,9 @@ export default function AppDemo() {
       setTours(prev => prev.map(t => t.id === updated.tourId ? {
         ...t,
         title: updated.title,
-        location: updated.location,
+        // Derivada, no copiada: el form ya no tiene un campo `location`. Sin
+        // esto el catalogo mostraria undefined donde iba la ubicacion.
+        location: formatLocation(updated.city, updated.region),
         duration: updated.duration,
         price: updated.price,
         image: updated.image,
@@ -7609,6 +7691,10 @@ export default function AppDemo() {
       image: cssImage,
       title: apiTour.title,
       location: apiTour.location,
+      // Del API, para que el proximo "editar" sin recargar precargue el valor
+      // ya guardado y no el que quedo en memoria.
+      city: apiTour.city,
+      region: apiTour.region,
       duration: apiTour.duration,
       price: apiTour.price,
       category: apiTour.category,
@@ -7743,6 +7829,12 @@ export default function AppDemo() {
       image: cssImage,
       title: merged.title,
       location: merged.location,
+      // Mismo caso que el gancho, unas lineas mas abajo: este objeto se arma
+      // desde cero, asi que un campo que no se enumera queda en undefined. Sin
+      // estas dos, editar un tour recien creado sin recargar abre el formulario
+      // con la ubicacion vacia.
+      city: merged.city,
+      region: merged.region,
       duration: merged.duration,
       meetingPoint: merged.meetingPoint,
       price: merged.price,

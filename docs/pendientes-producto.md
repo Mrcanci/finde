@@ -159,129 +159,25 @@ tráfico que medir. **Este bug es un argumento para adelantarlo**: el viajero qu
 pierde el formulario no espera al lanzamiento, y MEGATOURS ya tiene sus cinco
 tours públicos. Sin decidir.
 
-## Riesgos de producto
+## RESUELTO el 2026-08-19: la región del tour ya no se puede ensuciar
 
-No son bugs: no hay nada roto.
+**Era el único riesgo de producto abierto de esta lista.** `Tour.region` estaba
+sucio y el formulario lo podía volver a ensuciar. El campo Ubicación de texto
+libre pasó a **ciudad + un selector de región** contra los 24 departamentos de
+`lib/cities.js`, con la validación en `parseTourInput`, que **normaliza antes de
+comparar**. Con eso el formulario deja de poder ensuciar la columna, que era la
+mitad urgente.
 
-- **`Tour.region` está sucio, y el formulario lo puede volver a ensuciar. Se
-  calcula mal una métrica que hay que presentar.**
+**No hubo migración y no hace falta:** medido contra los 49 tours, **1 quedaría
+rechazado y 0 activos**, y ese se corrige solo la próxima vez que alguien lo
+edite. Se cae además el disparador que tenía: ya no hay ventana que se cierre con
+el onboarding de la próxima agencia.
 
-  **La consecuencia primero:** "% de demanda fuera del eje Lima-Cusco" es una de
-  las métricas que pide Creatividad Empresarial 2027, y **hoy sale mal**, porque
-  Lima está partida en tres regiones distintas que no se suman entre sí.
-
-  **Medido el 2026-08-17 sobre los 49 tours:** 14 grafías de región y **una sola
-  familia sucia**, la de Lima: `"Lima"` (10 tours), `"lima"` (1) y `"lima lima"`
-  (1). **Los dos tours con la grafía mala están pausados**, así que en el
-  catálogo no se ve. **Del lado de las reservas pesa mucho más: 20 de las 43 caen
-  en esas dos grafías** (18 en `"lima lima"`, 2 en `"lima"`) contra 1 en
-  `"Lima"`. O sea que el informe de demanda parte Lima en tres y ninguna de las
-  tres dice la verdad.
-
-  **La causa no es un dato viejo: es el formulario, y sigue abierto.** El campo
-  Ubicación es **texto libre** (`Ej: Huaraz, Áncash`), y `parseTourInput`
-  (`lib/tour-input.ts`) parte por la coma: antes de la coma la ciudad, después la
-  región. **Si no hay coma, la región cae a la ciudad.** Hoy funciona de
-  casualidad en 31 de los 49 tours porque la ciudad y el departamento se llaman
-  igual (Cusco, Arequipa, Lima). Con "Huaraz" a secas la región queda `"Huaraz"`,
-  que no es una región. **Cada agencia nueva puede volver a ensuciarlo**, así que
-  limpiar los datos sin tocar el formulario es trabajo que se deshace solo.
-
-  **Eran dos cosas separadas, normalizar lo que ya está y cerrar la entrada, y
-  hoy quedó una sola.** Cerrar la entrada es lo urgente, y **está decidido desde
-  el 2026-08-18** (ver abajo y `docs/decisiones.md`). Normalizar lo viejo **dejó
-  de ser un pendiente aparte**: con la validación puesta, los dos tours sucios se
-  arreglan solos la próxima vez que alguien los edite.
-
-  ### El disparador NO es el switch: es el onboarding de la primera agencia
-
-  **Y esto le cambia la fecha al pendiente, así que va con su propio
-  encabezado.** La razón por la que hoy la región está casi limpia no es que el
-  sistema funcione: es que **los 31 tours donde la región cayó a la ciudad están
-  en Cusco, Arequipa y Lima, donde la ciudad y el departamento se llaman igual.**
-  Es una casualidad geográfica, no una validación.
-
-  **Las agencias reales cargan tours en otros lados.** Cocachimba, Chachapoyas,
-  Los Órganos, Huaraz, Paracas, Máncora: **ninguno de esos nombres coincide con
-  su región.** El primer tour que cargue una agencia en cualquiera de esos
-  lugares, sin escribir la coma, deja la región mal desde el día uno.
-
-  | Lo que la agencia escribe | Región que queda hoy | La de verdad |
-  |---|---|---|
-  | `Cusco` | Cusco | Cusco (zafa) |
-  | `Huaraz` | **Huaraz** | Áncash |
-  | `Cocachimba` | **Cocachimba** | Amazonas |
-  | `Los Órganos` | **Los Órganos** | Piura |
-
-  **Consecuencia práctica: la ventana se cierra con el onboarding de la próxima
-  agencia, no con el switch.** Cerrar la entrada después significa además tener
-  que corregirle los datos a una agencia real, que es otra conversación y otro
-  riesgo. Antes de onboardear la siguiente, esto tendría que estar resuelto.
-
-  ### Cómo se cierra la entrada: DECIDIDO el 2026-08-18, sin implementar
-
-  **La discusión está cerrada, el trabajo no.** La entrada completa, con lo que
-  se descartó y por qué, vive en `docs/decisiones.md`. Lo que hay que saber acá:
-
-  **Se cierra con tres piezas que van juntas**: un **selector de departamento**
-  contra la lista de los **25**, la **ciudad en un campo aparte** (así el backend
-  deja de partir un texto libre por la coma), y **la validación en el backend**,
-  con un `enum` de zod en `parseTourInput`.
-
-  Los dos motivos que eligieron esa forma, porque son los que hay que recordar si
-  alguien la reabre:
-
-  - **El selector ya obliga a separar los campos**, así que "dos campos libres"
-    no era una alternativa que se sumara: era la mitad de esto.
-  - **El selector solo protege al que pasa por el selector.** Es comodidad, no
-    defensa. **La validación del backend es la que la vuelve real**, y cubre POST
-    y PUT de una vez. Es la regla de `.claude/rules/api-y-schema.md`: la guarda
-    va en el estado que se protege, no en el camino que la descubrió.
-
-  **Y no hace falta migración.** Con la validación puesta, **los 2 tours sucios
-  de hoy fallan la próxima vez que alguien los edite** y quien los edite tiene
-  que elegir la región de la lista: se limpian solos por el camino normal del
-  producto.
-
-  **Dos detalles que van a aparecer al implementarlo**: **son 25 y no 24** (los
-  24 departamentos más la Provincia Constitucional del Callao), y **las tildes
-  tienen que entrar bien de entrada**, porque una lista cerrada mal escrita
-  vuelve el error permanente: Áncash, Apurímac, Huánuco, Junín, San Martín.
-
-- **`SearchLog` guarda el texto completo de las búsquedas: 272 filas desde el
-  2026-04-28, y no hay decisión sobre qué se hace con ellas.**
-
-  **La distinción que hay que tener clara, porque es fácil afirmar de más:** el
-  criterio de la Ley 29733 que sí está aplicado (loguear `qlen`, el largo, y
-  nunca el texto) vive en los **logs de consola** de `api/search.ts`. **La tabla
-  `SearchLog` es otra cosa, y es anterior a ese criterio**: la columna `query`
-  guarda la consulta entera. Escribir "Finde nunca guarda el texto de las
-  búsquedas" sería falso.
-
-  **Por qué es un riesgo y no un incidente.** En la fila no hay correo, ni
-  nombre, ni id de usuario: es texto y fecha. **Pero el texto lo escribe una
-  persona en un campo libre**, y alguien puede buscar algo que lo identifique.
-  Además no hay política de borrado: se acumula sin techo.
-
-  **Decisión abierta, antes del lanzamiento**, y las tres opciones son baratas:
-  truncar la consulta a los primeros N caracteres, guardar solo el largo y los
-  resultados (que es lo que la tabla se usa para analizar), o dejarla como está y
-  documentarlo. Lo que no puede pasar es llegar al lanzamiento sin haberlo
-  mirado, con la tabla creciendo con búsquedas de gente real.
-
-- **Las traducciones al quechua las escribe un modelo y nadie del equipo las valida.**
-
-  **El riesgo sigue abierto. Lo que se cerró es el síntoma por el que lo descubrimos, y conviene no confundirlos.**
-
-  **Cómo apareció (2026-08-14, ya resuelto).** El generador **agregaba em-dashes que no estaban en el original**: contado sobre los 49 tours, **52 rayas en `descQu` contra 35 en `description`**, con tours que tenían 3 o 4 en quechua y **cero** en español (Tambomachay, Pachacamac, Sacsayhuamán, Iquitos). No las copiaba, las inventaba. La causa estaba en el código: los `SYSTEM_PROMPT` de `api/ai/generate-quechua.ts` y `api/ai/generate-description.ts` **contenían em-dashes ellos mismos** y **no prohibían la raya**, mientras que el de `api/search-reasoning.ts` sí. El modelo imitaba sus propias instrucciones.
-
-  **Cerrado en `f2d527d`, mergeado a `main`**, y verificado el 2026-08-17: **los tres prompts prohíben la raya** y la base tiene **cero** em-dashes en `description`, `descQu` y `shortPitch`. La limpieza de los datos ya existentes la hizo `scripts/limpieza-em-dash.ts`.
-
-  **Y acá está el punto: las rayas nunca fueron el problema, fueron el único síntoma que sabíamos buscar.** Lo que no sabemos es **qué más inventa el modelo en un idioma que nadie del equipo lee**. Que el síntoma medible esté arreglado no dice nada sobre el resto; si acaso, ahora hay menos de dónde agarrarse para detectarlo.
-
-  **Hoy no llega a ningún usuario**, porque la capa de display de quechua no existe: las columnas `titleQu`, `descQu`, etc. se llenan (40 de 49 tours) pero no se muestran. **Eso, y solo eso, es lo que lo mantiene como riesgo y no como incidente.**
-
-  **Antes de mostrar quechua en el producto, alguien que lo hable tiene que leer una muestra de las traducciones.** No es opcional: el quechua es una promesa de marca de Finde, y publicar traducciones sin revisar de un idioma que el equipo no habla es exactamente la forma de romperla sin enterarse. Sin fecha ni tanda asignada.
+**Dos cosas que conviene no reabrir sin leer primero**: **Callao NO entra como
+departamento 25** (el motivo de producto está escrito al lado de la lista, y este
+archivo llegó a decir "son 25 y no 24"), y el **tercer parseo por coma**, el que
+armaba el prompt de la IA, se cerró en la misma tanda. Detalle en
+`docs/plans/2026-08-19-selector-de-region.md` y en `docs/decisiones.md`.
 
 ## El deploy hook del prerender
 
@@ -588,21 +484,22 @@ un número, no con una intuición.
 
   Lo que queda al retomarlo es lo normal de cualquier elemento nuevo: **decidirle un color explícito en `.app`** en vez de confiar en lo que herede. Ver `docs/plans/2026-08-13-plan-tipografia.md` y `docs/historia/2026-08-tipografia.md`.
 
-## Deuda de raíz: el objeto del panel se arma en TRES lugares sin compartir código
+## Deuda de raíz: el objeto del panel se arma en CUATRO lugares sin compartir código
 
-**Anotado el 2026-08-18, después del tercer bug de la misma familia.** No es
-prolijidad: es la causa de tres defectos que ya llegaron a producción, y cada uno
-se arregló solo en el lugar donde apareció.
+**Anotado el 2026-08-18 con tres casos, actualizado el 2026-08-19 con el
+cuarto.** No es prolijidad: **son cuatro defectos, uno por cada lugar donde el
+objeto se arma a mano**, y cada uno se arregló solo en el lugar donde apareció.
 
 ### La forma
 
 La tarjeta del panel de la agencia (`opTours`) es un objeto de **30 campos** que
-se construye en tres lugares distintos de `src/AppDemo.jsx`, **cada uno
+se construye en cuatro lugares distintos de `src/AppDemo.jsx`, **cada uno
 enumerando los campos a mano y ninguno compartiendo código con los otros**:
 
 | Dónde | Cómo arma el objeto | Qué pasa si falta un campo |
 |---|---|---|
-| `loadOperatorTours` | de cero, desde el API. **Es la forma canónica** | el campo no existe nunca |
+| `mapTourFromApi` | lista blanca de lo que llega del API. **Está antes que los otros tres** | el campo llega `undefined` y un `?? 0` río abajo lo vuelve creíble |
+| `loadOperatorTours` | de cero, sobre lo que devolvió el mapeo anterior. **Es la forma canónica del panel** | el campo no existe nunca, aunque el API lo mande |
 | `handleSaveTour` | campo por campo **sobre `...t`** | **conserva el valor VIEJO**, que parece un dato |
 | `handleCreateTour` | **de cero**, sin heredar | queda en `undefined`, y un `?? 0` río abajo lo vuelve creíble |
 
@@ -610,13 +507,14 @@ enumerando los campos a mano y ninguno compartiendo código con los otros**:
 compilador ni el linter pueden ver el problema: no falta una propiedad de un
 tipo, falta una línea en un objeto literal.
 
-### Los tres casos que ya costó
+### Los cuatro casos que ya costó
 
 | # | Campo | Dónde se perdió | Qué se vio |
 |---|---|---|---|
 | 1 | `pendingRequests` | la lista blanca de `mapTourFromApi` | el API devolvía 2 solicitudes vigentes, el `?? 0` del consumidor lo convertía en un 0 creíble, **la opción de confirmación automática nunca se deshabilitaba** y el error reaparecía al guardar, que era justo lo que el cambio venía a evitar |
 | 2 | `shortPitch` | `handleSaveTour` | **el bug del 2026-08-18.** El gancho se guardaba bien en la base (67 caracteres, comprobado), y el panel seguía diciendo "falta la frase de gancho" y **bloqueaba el botón de publicar**. La descripción no fallaba solo porque sí estaba enumerada |
 | 3 | `shortPitch` y `pendingRequests` | `handleCreateTour` | latente, encontrado revisando el caso 2. No se veía **por casualidad**: un tour recién creado nace activo y el aviso solo se muestra en pausados |
+| 4 | `city` y `region` | `loadOperatorTours` | **el caso del 2026-08-19**, en el selector de región. `mapTourFromApi` ya las traía desde la tanda de geolocalización y el segundo mapeo del panel las descartaba: la precarga del editor llegaba vacía y **guardar pisaba la región del tour con nada**, sin un solo error de por medio |
 
 **El caso 2 es el que mejor muestra el costo:** el dato estaba bien guardado, el
 endpoint lo devolvía y los dos mapeos lo enumeraban. Se perdía en un cuarto
@@ -635,19 +533,22 @@ tarda **1.284 ms**; el panel son 5 tours y 18 kB. **Como no se espera, el costo
 percibido al guardar es cero.**
 
 **Lo que NO se hizo es el arreglo de raíz**, y es este pendiente: **extraer una
-sola función que arme el objeto del panel** y usarla en los tres lugares, de modo
-que agregar un campo sea una línea en un lugar y no tres en tres.
+sola función que arme el objeto del panel** y usarla en los cuatro lugares, de
+modo que agregar un campo sea una línea en un lugar y no cuatro en cuatro.
 
 ### Por qué no se hizo en el momento
 
-Toca los tres caminos a la vez (cargar, guardar y crear), y los tres necesitan QA
-propio con una cuenta de agencia: crear un tour, editarlo, pausarlo y publicarlo.
-El arreglo del bug se verifica en dos minutos; este no.
+Toca los cuatro caminos a la vez (lo que llega del API, cargar, guardar y crear),
+y todos necesitan QA propio con una cuenta de agencia: crear un tour, editarlo,
+pausarlo y publicarlo. El arreglo del bug se verifica en dos minutos; este no.
 
-**El disparador natural es el próximo campo que haya que agregar al panel.** Si
-aparece uno, se extrae la función en ese mismo viaje en vez de escribir la cuarta
-copia. Y **la recarga tras guardar tapa el síntoma mientras tanto**, que es
-exactamente por qué esto puede esperar sin volverse urgente.
+**Ese disparador ya sonó, y no se extrajo la función.** El 2026-08-19 el
+selector de región agregó `city` y `region`, o sea el próximo campo del panel, y
+hubo que escribirlas **en los cuatro lugares a mano**: en tres entraron y en el
+cuarto se olvidaron, que es el caso 4 de la tabla. **La regla de "se extrae en el
+viaje del próximo campo" ya falló una vez**, así que si no se hace sola, la
+próxima vez va a fallar igual. Y **la recarga tras guardar tapa el síntoma**
+solo del camino de guardar: no cubrió nada de esto.
 
 **Nota de alcance:** hoy la recarga corre después de guardar, no después de
 crear. Crear es el camino que arma el objeto desde cero, o sea el más frágil de
