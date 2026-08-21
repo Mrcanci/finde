@@ -3,7 +3,7 @@
 > término "merchant of record", el margen de S/19, el equilibrio de
 > 34 reservas, la liquidación quincenal, la ventana de 72 horas y
 > el best-price guarantee. Todo eso quedó sin efecto.
-> Fuente vigente: docs/finde-reglas-negocio-v1_5.md
+> Fuente vigente: docs/finde-reglas-negocio-v1_6.md
 
 Finde · Reglas de Negocio v1.3	Julio 2026 · Confidencial
 

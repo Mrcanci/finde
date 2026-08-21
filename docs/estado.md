@@ -1,7 +1,7 @@
 # Estado del proyecto
 
 > **El presente. Se lee al empezar cada tanda y se actualiza en el mismo commit al cerrarla.**
-> Última actualización: 2026-08-20.
+> Última actualización: 2026-08-21.
 >
 > **Lo que ya se hizo NO vive acá**, vive en `docs/historia/`. Ver el índice al final.
 
@@ -185,6 +185,11 @@ contenido que pesan más que cualquier decisión de diseño. Detalle completo en
   - Las **25 salidas**, incluidas **8** del tour "prueba".
   - Agencias sin tours creadas en pruebas: `test@finde.pe` (jose luis cancino cuellar), `op-test@finde.pe` (Tours Test), `totemhubapp@gmail.com` (Totem Travels).
   - Borrar reservas antes que tours: el FK `Booking.tourId` es `onDelete: Restrict` y el DELETE responde 409 si el tour tiene reservas.
+- [ ] **Emisión electrónica de boletas** (Nubefact, Bsale o similar). Desde la v1.6 Finde le emite la boleta al viajero por el PVP, así que **sin esto no hay venta real**. **Suma endpoints y hoy hay 12 de 12 funciones en Vercel**: hay que resolver el slot, no solo contratar el emisor. Ver `docs/finde-reglas-negocio-v1_6.md`, secciones 2.2.1 y 9.6.
+- [ ] **Inscribir a Finde en el Directorio Nacional MINCETUR como agencia minorista** con canal digital exclusivo. Desbloquea el distintivo oficial y la denominación en la landing.
+- [ ] **Declaración jurada de adhesión al Código de Conducta contra la ESNNA**, firmada por el titular de Finde, más el afiche visible en la web. **Es de Finde, no de las agencias proveedoras.**
+- [ ] **Verificar régimen tributario y factura de muestra de las 14 agencias registradas.** Una agencia que no pueda facturar con IGV **deja la reserva en ~S/0.56 de margen en vez de S/15.21**, así que esto es economía, no papeleo.
+- [ ] **Pedir y archivar los certificados de aventura y canotaje** de los tours publicados que caigan en esas categorías. **Es fiscalizable**: sin certificado archivado, el tour se pausa.
 - [ ] **Coordinar la operación con MEGATOURS antes de que entre una reserva real.** `megatours@finde.pe` es **agencia piloto confirmada, no dato de prueba**: no se borra. Sus 5 tours de Cajamarca (City Tour, Cumbe Mayo, Granja Porcón, Otuzco, Namora) están **públicos hoy en finde.pe**, pero la coordinación operativa con la agencia todavía está pendiente. O sea: si un viajero reserva hoy, le llega un correo a alguien que no lo está esperando y no sabe qué hacer con eso. Hay que cerrar la coordinación, o pausar los tours mientras tanto.
 - [ ] **Sacar el mock `USER`** de `src/AppDemo.jsx` ("Alejandra Quispe"). Ya no se usa para el saludo, pero sigue siendo el fallback en tres lugares: `buildWhatsAppLink`, `handleAddLocalTrip` y `handleReview`. Si alguna vez cae en ese fallback, el usuario ve un nombre inventado.
 - [ ] **Sacarle el sello y el MINCETUR inventado a la cuenta de demos.** `demo@finde.pe` ("Descubre el Perú") está con `verified: true` y `mincetur: "REG12345"`, que **es un número inventado**. Hoy no se ve, y por una sola razón: sus **5 tours están todos pausados**, así que `gateOperatorMincetur` nunca lo publica. **Eso no es una contención, es una casualidad.** Reactivar cualquiera de esos 5 tours publica un registro MINCETUR falso en la ficha, que es exactamente lo que la regla de "nada falso visible al usuario real" prohíbe, y lo mismo que se limpió el 2026-08-16 en las otras ocho agencias (`38823ed`). La cuenta sirve para demos y se queda; lo que sale es el sello, o el número, o los dos. **Decidir cuál antes de volver a activar un tour de esa cuenta.**
