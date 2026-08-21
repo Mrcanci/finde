@@ -1,7 +1,7 @@
 # Estado del proyecto
 
 > **El presente. Se lee al empezar cada tanda y se actualiza en el mismo commit al cerrarla.**
-> Última actualización: 2026-08-18.
+> Última actualización: 2026-08-20.
 >
 > **Lo que ya se hizo NO vive acá**, vive en `docs/historia/`. Ver el índice al final.
 
@@ -151,7 +151,7 @@ Acá va solo la lista, para que se vean desde el estado.
 | **El bundle pasa los 500 kB** (673 kB, 184 comprimido, un solo chunk) | Candidato a code splitting por vista. **Dejó de ser el pendiente número uno de rendimiento**: las tandas 1B y 1C sacaron 11,8 MB, sesenta veces el bundle entero. Lo que pesa son imágenes, no JavaScript |
 | **`SearchLog` guarda el texto completo de 272 búsquedas** | El criterio de loguear solo el largo aplica a los logs de consola, **no a esa tabla**. Alguien puede buscar algo que lo identifique. Truncar, anonimizar o dejar: decidir antes del lanzamiento |
 | **El catálogo en escritorio usa 1000px de 1440** | Es lo que limita las columnas a cuatro, **no la caja de las tarjetas**, que fue la sospecha original y quedó descartada con medición. Pregunta de producto: más opciones por pantalla o tarjetas más grandes |
-| **El objeto del panel se arma en TRES lugares sin compartir código** | Cargar la lista, guardar y crear enumeran los 30 campos a mano. **Ya costó tres bugs y un cuarto caso evitado a mano**: `pendingRequests` en la lista blanca, el gancho al guardar y al crear, y en el selector de región hubo que agregar `city`/`region` en los tres lugares otra vez. El de guardar hereda el valor VIEJO y el de crear deja `undefined`: las dos formas fallan en silencio. Extraer una sola función es el arreglo de raíz |
+| **El objeto del panel se arma en CUATRO lugares sin compartir código** | `mapTourFromApi`, cargar la lista, guardar y crear enumeran los mismos campos a mano, y **ya se cobró un bug por lugar**: `pendingRequests` en la lista blanca, `shortPitch` al guardar, `shortPitch` y `pendingRequests` al crear, y **la ciudad y la región que `loadOperatorTours` descartaba en silencio** (2026-08-19, el selector de región). El de guardar hereda el valor VIEJO y el de crear deja `undefined`: las dos formas fallan sin error. **Cuatro veces el mismo error deja de ser prolijidad**: extraer una sola función es el arreglo de raíz |
 | **La foto mensual de la analítica necesita disparador** | La ventana de Hobby es de **un mes**: lo que no se copia se pierde para siempre. La propuesta es un renglón fechado en este archivo, que se lee al empezar cada tanda |
 
 **Auditoría de identidad visual, pendiente.** José, mirando el home, dijo que los
