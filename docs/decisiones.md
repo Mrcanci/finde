@@ -1049,6 +1049,14 @@ sea que la validación no arregla nada existente: evita lo que viene.
 
 ## 2026-08-20 - Finde es agente de cobro de la agencia, no merchant of record
 
+> **SUPERADA el 2026-08-21 por "Ruta B: Finde le factura el total al viajero".**
+> La figura de agente de cobro y el circuito de comisión mercantil quedaron sin
+> efecto: Finde pasa a comprar el servicio y venderlo como agencia minorista.
+> **Lo que sobrevive de esta entrada es la custodia** (el viajero paga a Finde y
+> la agencia cobra después) **y la identificación visible de la agencia**, que
+> con el circuito nuevo importa más, no menos. Fuente vigente:
+> `docs/finde-reglas-negocio-v1_6.md`.
+
 **Decisión:** Finde vende **en nombre y por cuenta de la agencia**, como
 comisionista mercantil o mandatario con representación, con custodia diferida de
 los fondos. **El contrato de servicio es entre el viajero y la agencia**, no entre
@@ -1111,6 +1119,14 @@ comisión. El equilibrio del piloto pasa de 34 a **43 reservas al mes**.
 
 ## 2026-08-20 - El payout se rige por dos condiciones, no por calendario
 
+> **AMPLIADA el 2026-08-21: son TRES condiciones.** Se agrega, como primera, la
+> **factura de la agencia a Finde** recibida y validada, que reemplaza a la
+> condición documental vieja (el comprobante de la agencia al viajero). **Las dos
+> de abajo siguen vigentes tal cual.** Y se corrige un supuesto: el reloj de la
+> pasarela arranca en el **cobro**, no en el tour, así que en reservas anticipadas
+> la condición que manda es tour + 48h. Ver `docs/finde-reglas-negocio-v1_6.md`,
+> sección 5.1.
+
 **Decisión:** se paga a la agencia cuando ocurra **lo más tarde** de estas dos:
 
 1. la pasarela **abonó los fondos** a Finde, y
@@ -1159,3 +1175,125 @@ Conversación comercial abierta también con Culqi e Izipay.
 no 3** (crear cargo, webhook, estado, callback OAuth de subcomercios). **El slot
 de `generate-quechua` NO se libera hasta tener la decisión**, porque liberar uno
 para algo que necesita cuatro no resuelve nada. Ver `.claude/rules/api-y-schema.md`.
+
+
+---
+
+## 2026-08-21 - Ruta B: Finde le factura el total al viajero, condicionada a que la agencia emita factura
+
+**Decisión.** Se invierte el circuito de comprobantes. **La agencia operadora le
+emite factura a Finde por su precio neto. Finde le emite boleta de venta
+electrónica al viajero por el PVP completo. Finde ya no le emite factura de
+comisión a la agencia.**
+
+**Descartado:** el circuito de **comisión mercantil** de la v1.5, donde Finde
+facturaba solo su comisión y la agencia le emitía el comprobante al viajero por
+un monto que no era su precio.
+
+**Razón, y son dos.** La primera es de hecho: ese circuito **dependía de que la
+agencia emitiera un comprobante que Finde no controla**, y hacía falta un control
+de carga en el panel para que ocurriera. La segunda es de coherencia: Finde fija
+el precio, cobra, retiene, media las disputas y responde ante INDECOPI. **Esa es
+la conducta de un vendedor**, y SUNAT evalúa la forma efectiva de actuación, no la
+denominación del contrato.
+
+**LA CONDICIÓN DE VIGENCIA ES PARTE DE LA DECISIÓN, no una nota al pie.** Este
+circuito **exige que la agencia esté afecta al IGV y emita factura**. Con boleta o
+con NRUS, Finde pierde el crédito fiscal y **el margen por reserva cae de S/15.21
+a ~S/0.56**. Los números, sobre el ejemplo canónico de PVP S/120 y neto S/96:
+
+| Comprobante de la agencia | IGV débito | Crédito fiscal | IGV neto | Margen |
+|---|---|---|---|---|
+| Factura con IGV | 18.31 | 14.64 | **3.67** | **S/15.21** |
+| Boleta, o NRUS | 18.31 | 0.00 | **18.31** | **~S/0.56** |
+
+**Es el mismo cálculo que en la v1.5 servía para DESCARTAR esta ruta.** Acá no la
+descarta: la condiciona. Por eso el régimen tributario de la agencia pasa de dato
+administrativo a **requisito duro de onboarding, con factura de muestra archivada
+en el expediente**.
+
+**Consecuencias, y son cinco:**
+
+- **El ingreso bruto de Finde pasa a ser el GMV completo**, no la comisión. Los
+  S/96 son costo de venta, no un pasivo en tránsito. Eso cambia lo que Finde puede
+  declarar como facturación y **mueve el umbral de salida del RMT**, que ahora se
+  mira contra el GMV.
+- **El payout suma una tercera condición**: la factura de la agencia recibida y
+  validada.
+- **Aparece capital de trabajo donde antes había cero**: Finde emite boleta al
+  cobro y recibe la factura después, con **hasta S/14.64 de IGV por reserva** que
+  adelanta. Con 400 reservas anticipadas al mes, unos **S/6,000** flotantes.
+- **Finde necesita emisión electrónica de boletas desde la primera venta real**, y
+  eso suma endpoints con el límite de 12 funciones de Vercel ya en 12.
+- **Una agencia en NRUS no puede vender en Finde** hasta cambiar de régimen. Sube
+  el escalón de entrada, y es deliberado.
+
+**Tres cosas quedan PENDIENTES DE CONFIRMACIÓN CON TRIBUTARISTA**, y ninguna
+bloquea el diseño pero las tres mueven números: la **detracción (SPOT)** sobre los
+servicios turísticos, la **oportunidad de emisión** de la boleta y de la factura, y
+el **umbral del RMT** sobre el GMV.
+
+---
+
+## 2026-08-21 - Finde se clasifica como agencia de viajes y turismo MINORISTA, y no opera servicios
+
+**Decisión.** **Finde es una agencia de viajes y turismo minorista**, con
+comercialización exclusivamente digital, inscrita en el Directorio Nacional de
+Prestadores de Servicios Turísticos Calificados (DS 005-2020-MINCETUR). **Las
+agencias proveedoras son operadores de turismo: ellas operan, Finde vende al
+turista. Finde no opera servicios turísticos organizados.**
+
+**Razón.** La clasificación ya estaba enunciada desde la v1.4, pero sin el reparto
+de roles ni las obligaciones que derivan. **Con el circuito de comprobantes nuevo
+deja de ser una casilla de registro y pasa a definir qué puede hacer Finde.**
+
+**Consecuencias, y las tres primeras son fiscalizables:**
+
+- **Turismo de aventura y canotaje:** Finde **verifica y archiva el certificado de
+  autorización vigente del operador ANTES de publicar** cualquier tour de esas
+  categorías. Sin certificado archivado, el tour no se publica. Es control de
+  publicación, no de onboarding: una agencia ya verificada puede cargar mañana un
+  tour de aventura que antes no tenía.
+- **Código de Conducta contra la ESNNA:** la declaración jurada es **del titular de
+  Finde**, no de las agencias proveedoras. Pedírsela a ellas no cubre la
+  obligación propia.
+- **Distintivo oficial MINCETUR:** usable en la landing **una vez inscrito**, junto
+  con la denominación "Agencia de Viajes y Turismo". Antes de la constancia,
+  ninguno de los dos.
+- **Finde no puede armar ni ejecutar un tour propio** sin cambiar de
+  clasificación. Eso incluye contratar guías por su cuenta, definir el itinerario
+  o vender un tour sin agencia operadora detrás.
+
+---
+
+## 2026-08-21 - Ante las pasarelas, Finde es un comercio de turismo: cargo único, sin split
+
+**Decisión.** Finde se presenta ante las pasarelas como **comercio de turismo,
+agencia de viajes minorista con canal digital**. **Nunca como facilitador de pagos,
+agregador, marketplace ni "solo intermediario".** El producto que se pide es
+**checkout de e-commerce con cargo único**: sin split de pagos, sin subcomercios y
+sin cuentas conectadas.
+
+**Descartado:** **el Split de Pagos como criterio de selección.** En la decisión
+del 2026-08-20 Mercado Pago era prioridad 1 justamente porque su split resolvía el
+riesgo de manejar dinero ajeno. **Con el circuito minorista ese riesgo
+desaparece**: el dinero es de Finde desde el cobro. El criterio pasa a ser costo,
+add-ons y velocidad de abono.
+
+**Razón.** Las cuatro palabras prohibidas describen negocios que los contratos de
+afiliación listan como restringidos, y fue exactamente el problema del contrato de
+Culqi. **El circuito minorista simplifica la conversación**: Finde cobra por lo que
+vende, con su propio comprobante al comprador.
+
+**Add-ons que se piden explícitamente**, porque ninguno viene por defecto:
+tarjetas internacionales, 3DS, Yape y billeteras, y webhook de confirmación.
+
+**RIESGO ABIERTO, y hay que confirmarlo por escrito con cada pasarela.** El MCC
+probable es **4722 (agencias de viajes)**, y según fuentes de mercado **la tasa de
+turismo puede llegar a 4.45% + IGV**, contra el **~3.5%** que asume el modelo
+financiero. **Si se confirma, el margen baja de S/15.21 a ~S/14 y el equilibrio del
+piloto sube de 43 a ~47 reservas al mes.** No cambia la viabilidad; cambia el
+número que se usa en el pitch y en las postulaciones.
+
+**Lo que NO cambió:** ninguna pasarela se integra sin aprobación escrita del
+modelo, y la integración sigue yendo detrás de la interfaz abstracta de proveedor.

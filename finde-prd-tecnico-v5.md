@@ -17,7 +17,7 @@ Documento técnico definitivo · Refleja el estado real del producto en julio 20
 | Reemplaza a | v4 (mayo 2026) |
 | Confidencialidad | Documento confidencial — uso interno y evaluadores |
 
-**Resumen ejecutivo.** Finde tiene un **MVP funcional en producción** (Vercel + Supabase + pgvector): autenticación real (Supabase), gestión completa de tours por parte de las agencias (crear/editar/borrar/pausar, con imágenes propias y galería multi-foto), reservas reales con datos verdaderos en el dashboard, coordinación por WhatsApp con teléfonos reales, búsqueda semántica con embeddings Voyage + razonamiento Claude, generación de descripciones con IA y traducción quechua persistida con toggle ES/QU en producción. 40 tours con embeddings reales y traducción quechua completa (40/40), y 13 agencias (9 verificadas). **Falta para MVP transaccional:** pasarela de pagos con custodia (el flujo actual de pago es solo demo tras bandera), comprobantes electrónicos y el checklist pre-lanzamiento. Modelo de negocio: neto declarado por la agencia más markup negociado (piso 15%, objetivo 25%, equivalente a take rate de 20% sobre el PVP); economía por reserva S/24 − S/3.66 de IGV − S/5 = S/15.21 de margen.
+**Resumen ejecutivo.** Finde tiene un **MVP funcional en producción** (Vercel + Supabase + pgvector): autenticación real (Supabase), gestión completa de tours por parte de las agencias (crear/editar/borrar/pausar, con imágenes propias y galería multi-foto), reservas reales con datos verdaderos en el dashboard, coordinación por WhatsApp con teléfonos reales, búsqueda semántica con embeddings Voyage + razonamiento Claude, generación de descripciones con IA y traducción quechua persistida con toggle ES/QU en producción. 40 tours con embeddings reales y traducción quechua completa (40/40), y 13 agencias (9 verificadas). **Falta para MVP transaccional:** pasarela de pagos con custodia (el flujo actual de pago es solo demo tras bandera), comprobantes electrónicos y el checklist pre-lanzamiento. Modelo de negocio: neto declarado por la agencia más markup negociado (piso 15%, objetivo 25%, equivalente a take rate de 20% sobre el PVP); economía por reserva S/24 de markup bruto, menos S/3.67 de IGV neto y S/5 de costos variables, **S/15.21 de margen**. **Desde las Reglas de Negocio v1.6, Finde opera como agencia de viajes y turismo minorista: la agencia le factura a Finde por su neto y Finde le emite boleta al viajero por el PVP completo**, con la condición de que la agencia pueda facturar con IGV.
 
 **Terminología:** en todo el producto, la documentación y los materiales, el lado oferta se denomina **"agencias"** (vocabulario MINCETUR/SUNAT). El término "operador" queda deprecado; donde persista en código (p. ej. modelo `Operator`, rutas `/api/operators`) es deuda de nomenclatura interna, nunca copy visible al usuario ni lenguaje de documentos.
 
@@ -28,6 +28,9 @@ Documento técnico definitivo · Refleja el estado real del producto en julio 20
 | PRD v2 (Tambo) | Abril 2026 | Visión, stack ideal y roadmap con el nombre Tambo | Pre-rebranding y pre-prototipo |
 | PRD v3 (Finde) | Abril 2026 | 13 vistas del prototipo con datos mockeados | El backend no existía |
 | PRD v4 | Mayo 2026 | Demo navegable + backend real; auth, pagos y dashboard como pendientes P0 | **M1-M4 completados**: auth real, gestión de tours, reservas reales, WhatsApp. Comisión y modelo financiero actualizados (15% → 20%) |
+
+| **Corrección del 2026-08-21, aplicada a este documento** Las **Reglas de Negocio v1.6** invirtieron el circuito de comprobantes: **Finde le emite boleta al viajero por el PVP completo y la agencia le factura a Finde por su neto**, con la figura de **agencia de viajes y turismo minorista** en lugar de la de agente de cobro. Este PRD quedó alineado en las secciones 4.1, 4.2 y 6.2. **El take rate del 20% sigue siendo la lectura comercial y no cambió**: lo que cambió es el circuito fiscal detrás. |
+| --- |
 
 La realidad de julio 2026: Finde ya no es un demo con fallbacks mock — es un MVP operativo donde una agencia real puede registrarse, ser verificada, publicar tours con sus propias fotos y recibir reservas coordinadas por WhatsApp. Lo único simulado (y claramente aislado tras bandera) es el pago.
 
@@ -43,7 +46,7 @@ Finde es un marketplace curado (no P2P) que conecta viajeros con **agencias loca
 
 - **Pagos locales como moat.** Yape + Plin + tarjeta, en soles. Ningún competidor global lo acepta como método nativo.
 
-- **Custodia como base de confianza.** El viajero no le paga a un desconocido; la agencia cobra garantizado aunque haya no-show; Finde retiene el poder de mediación. (Modelo de señal/adelanto parcial evaluado y descartado, ver Reglas de Negocio v1.5, sección 4.1.)
+- **Custodia como base de confianza.** El viajero no le paga a un desconocido; la agencia cobra garantizado aunque haya no-show; Finde retiene el poder de mediación. **Desde la v1.6 Finde compra el servicio al operador y lo vende al turista como agencia minorista**, y la custodia se mantiene: el neto se libera al cumplirse las tres condiciones de payout. (Modelo de señal/adelanto parcial evaluado y descartado, ver Reglas de Negocio v1.6, secciones 4.1 y 5.1.)
 
 - **IA transversal a toda la solución.** (1) Verificación: agentes que validan RUC activo en SUNAT y registro MINCETUR vigente, con verificación continua (roadmap; hoy manual). (2) Experiencia: búsqueda semántica real, conversación para planificar y recomendaciones por comportamiento (roadmap). (3) Operación: agente de IA en WhatsApp para soporte 24/7 y traducción a quechua (siguiente fase). La IA no es un chatbot decorativo: es el núcleo de la propuesta ("primera plataforma de tours AI-native del Perú").
 
@@ -101,6 +104,8 @@ El producto se compone de: landing pública (finde.pe), aplicación demo con acc
 ## **3.3 Verificación de agencias (proceso vigente)**
 
 Manual en el piloto: Finde valida el RUC contra SUNAT (activo/habido) y la inscripción en el registro MINCETUR antes de activar `verified=true` (Supabase Table Editor). El copy del producto ("Validaremos contra SUNAT") es honesto respecto a este proceso. **Roadmap:** agentes de IA que automatizan la validación (RUC por API; MINCETUR con procesamiento del directorio) y la hacen **continua** en el tiempo, no solo al alta.
+
+**Ampliado por Reglas de Negocio v1.6 (2026-08-21), todavía no implementado:** antes de `verified=true` se exigen además **régimen tributario que permita facturar con IGV** (con factura de muestra archivada), **póliza vigente con Finde como asegurado adicional** y **certificado de aventura o canotaje** cuando el tour lo requiera, más **recheck periódico**. El requisito de régimen no es administrativo: de él depende que la reserva deje S/15.21 o S/0.56 de margen.
 
 ## **3.4 Backend en producción**
 
@@ -165,6 +170,11 @@ Serverless functions TypeScript en Vercel; PostgreSQL en Supabase (región São 
 | `git push` | Commits locales pendientes de subir a origin |
 | Bug "1 días" | Plural incorrecto en la duración del voucher |
 | Coherencia de ratings | Tarjetas "Mis Tours": ratings de seed vs. 0/0 de agencias reales |
+| **Emisión electrónica de boletas** | Nubefact, Bsale o similar. Desde la v1.6 Finde emite el comprobante al viajero, así que **sin esto no hay venta real**. **Suma endpoints y hoy hay 12 de 12 funciones en Vercel**: hay que resolver el slot, no solo contratar el emisor |
+| **Inscripción MINCETUR como agencia minorista** | Canal digital exclusivo. Desbloquea el distintivo oficial y la denominación en la landing |
+| **Declaración jurada ESNNA + afiche en la web** | Del titular de Finde, no de las agencias proveedoras |
+| **Verificar régimen y factura de muestra de las 14 agencias** | Una agencia que no pueda facturar con IGV deja la reserva en ~S/0.56 de margen en vez de S/15.21 |
+| **Certificados de aventura y canotaje archivados** | Para los tours publicados de esas categorías. **Es fiscalizable**: sin certificado, el tour se pausa |
 
 ## **4.2 P0 — MVP transaccional**
 
@@ -172,7 +182,7 @@ Serverless functions TypeScript en Vercel; PostgreSQL en Supabase (región São 
 | --- | --- | --- |
 | Pasarela de pagos con custodia | Selección de pasarela **detrás de una interfaz abstracta de proveedor**. Culqi descartado como opción por defecto (su contrato prohíbe actuar como agregador); Mercado Pago Split es prioridad 1, sin confirmar. Cobro total al viajero, retención y liberación post-tour. Incluye webhook de confirmación | 2-3 semanas |
 | Restaurar UI condicionada al pago | Pestaña Ingresos, política de cancelación end-to-end, stat "Neto mes" | 1 semana (con pasarela) |
-| Comprobantes electrónicos SUNAT | Integración OSE (Nubefact u otro emisor) — factura solo por la comisión (comisión mercantil) | 1-2 semanas |
+| Comprobantes electrónicos SUNAT | Integración OSE (Nubefact, Bsale u otro emisor). **Boleta al viajero por el PVP completo** (circuito minorista, Reglas de Negocio v1.6). La factura de la agencia a Finde es **condición de payout** | 1-2 semanas |
 
 ## **4.3 P1 — Sub-proyectos que tocan schema (planificados)**
 
@@ -244,17 +254,17 @@ Serverless functions TypeScript en Vercel; PostgreSQL en Supabase (región São 
 
 - Storage: signed URLs para imágenes de agencias.
 
-## **6.2 Compliance peruano (ver Reglas de Negocio v1.5, sección 9, para el detalle)**
+## **6.2 Compliance peruano (ver Reglas de Negocio v1.6, sección 9, para el detalle)**
 
 - Marca FINDE registrada en INDECOPI (Clase 39, Cert. S00141782, vigente a 2032); cesión onerosa en trámite.
 
-- Régimen: persona natural con negocio (RMT); constitución de SAC con tracción. Comisión mercantil: solo la comisión es ingreso gravable.
+- Régimen: persona natural con negocio (RMT); constitución de SAC con tracción. **Circuito minorista: el ingreso bruto de Finde es el PVP completo y el neto de la agencia es costo de venta.** Eso mueve el umbral de salida del RMT, que pasa a mirarse contra el GMV: pendiente de confirmación con tributarista.
 
 - Ley 29733 (datos personales): registro ANPD pendiente; política de privacidad en landing.
 
 - INDECOPI: Libro de Reclamaciones virtual — pendiente, requerido antes de transacciones reales.
 
-- MINCETUR: registro de Finde pendiente según corresponda; agencias verificadas contra DNPSTC.
+- MINCETUR: **Finde se inscribe como agencia de viajes y turismo minorista** con canal digital exclusivo (registro pendiente). **Las agencias proveedoras son operadores de turismo**, verificadas contra el DNPSTC. Certificado de aventura o canotaje archivado **antes de publicar** el tour, y declaración jurada ESNNA del titular de Finde.
 
 - UIF: régimen acotado aplicable.
 
@@ -300,6 +310,6 @@ Proyección de fijos del modelo financiero: Año 1 S/26,000 (infra + 1 persona a
 
 *PRD Técnico v5 · finde · Julio 2026 · Documento confidencial*
 
-*Reemplaza: PRD v4 (mayo 2026). Documento hermano: Reglas de Negocio v1.5 (agosto 2026), en `docs/`.*
+*Reemplaza: PRD v4 (mayo 2026). Documento hermano: Reglas de Negocio v1.6 (agosto 2026), en `docs/`.*
 
 Página · finde · Julio 2026

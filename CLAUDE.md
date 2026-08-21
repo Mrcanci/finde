@@ -17,13 +17,17 @@ La verificación contra SUNAT y MINCETUR **existe y está vigente, pero la hace 
 
 **Esto es el proceso vigente, no una carencia.** Automatizarlo no es prioridad y **no es deuda técnica**: al volumen actual el paso manual alcanza y da mejor criterio que una API. No propongas automatizarlo ni lo listes como pendiente.
 
+**La v1.6 le agregó requisitos a ese proceso y todavía no se aplican:** régimen tributario que permita facturar con IGV (con factura de muestra), póliza con Finde como asegurado adicional, certificado de aventura o canotaje, y recheck periódico. Están en `docs/finde-reglas-negocio-v1_6.md` sección 6.2 y en el checklist de `docs/estado.md`. Hasta que se apliquen, el proceso vigente es el de los cuatro pasos de arriba.
+
 Lo que sí importa al escribir: cuando el copy dice "validamos el RUC en SUNAT", eso describe **el proceso**, no una integración. No lo cites como comportamiento del código.
 
 Estado actual del trabajo: leer `docs/estado.md` antes de empezar cualquier tanda.
-**Son 248 líneas al 2026-08-20 y se lee entero.** Venía de una poda de 1.767 a
+**Son 253 líneas al 2026-08-21 y se lee entero.** Venía de una poda de 1.767 a
 174; si pasa de **250**, hay que podarlo otra vez (ver `.claude/rules/metodo.md`,
 "Cómo se escribe la documentación"). **Ese número sale de `wc -l`, no a ojo**, y
-se actualiza acá cuando se actualiza el estado.
+se actualiza acá cuando se actualiza el estado. **Hoy está 3 líneas por encima
+del umbral**, desde que la v1.6 le sumó cinco puntos al checklist
+pre-lanzamiento: la poda está pendiente y es tanda propia.
 
 ## Cómo comunicarte conmigo
 
@@ -59,11 +63,12 @@ Excepción: en el código existen `Operator`, `/api/operators`, `requireOperator
 ## Reglas de negocio que no se rompen
 
 - Sin RUC una agencia no puede vender. No hay excepción.
+- **Desde la v1.6, sin poder emitir factura con IGV tampoco.** Una agencia en NRUS deja la reserva en ~S/0.56 de margen en vez de S/15.21, porque Finde pierde el crédito fiscal.
 - Todo tour necesita política de cancelación visible **antes** de pagar (exigencia INDECOPI).
 - Nada falso visible al usuario real: sin ratings inventados, sin datos mock, sin moderación simulada.
 - La búsqueda IA no puede afirmar datos geográficos, distancias ni tiempos de viaje que no estén en los datos del tour.
 
-Detalle completo en **`finde-reglas-negocio-v1_3.md`** (raíz del repo). No lo muevas.
+Detalle completo en **`docs/finde-reglas-negocio-v1_6.md`**, que es la fuente vigente. v1.5 y v1.3 están en `docs/historia/`.
 
 ## Archivos protegidos
 
@@ -180,7 +185,7 @@ Trampa conocida: `DATABASE_URL`, `DIRECT_URL`, `ANTHROPIC_API_KEY` y `VOYAGE_API
 | `docs/historia/` | **Lo que ya se hizo**, con su investigación y su medición. Un archivo por dominio, índice en su `README.md`. Se lee solo cuando hace falta reconstruir por qué algo se hizo así. |
 | `docs/pendientes-producto.md` | El razonamiento entero de los pendientes que `estado.md` lista. |
 | `docs/decisiones.md` | Por qué se decidió cada cosa. Solo se agrega, nunca se borra. |
-| `docs/finde-reglas-negocio-v1_5.md` | **La fuente vigente.** Figura jurídica, precio y markup, comisiones, custodia, cancelaciones, compliance. v1.3 quedó superada y está en `docs/historia/`. |
+| `docs/finde-reglas-negocio-v1_6.md` | **La fuente vigente.** Figura jurídica (agencia minorista), circuito de comprobantes, precio y markup, custodia, cancelaciones, compliance. v1.5 y v1.3 quedaron superadas y están en `docs/historia/`. |
 | `docs/migrations/` | Historial de cambios de schema con su razón. Índice en `docs/migrations/README.md`. |
 | `docs/audits/` | Auditorías de estado y de incidentes, y diagnósticos pendientes de ejecución. |
 | `docs/roadmap-mvp.md` | **HISTÓRICO (2026-05-22), no es el plan vigente.** Fases M1 a M6, útil para reconstruir por qué el MVP se construyó así. Su sección de pagos quedó superada por la decisión del 2026-08-13 sobre Culqi. Lleva el aviso en el encabezado. |
